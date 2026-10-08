@@ -446,7 +446,7 @@ const Onboard = {
   getImageSampler();
   if (S){
     const away = now() - (S.last || now());
-    Game.start(away > 60 * 60e3 ? 'おかえり！' : null);
+    Game.start(away > 60 * 60e3 ? 'おかえり！' : null, away);
   } else {
     Onboard.openNew(false);
   }

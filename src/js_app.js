@@ -46,6 +46,8 @@ function nextReward(lv){
   const items = [];
   (TREATS[S.pet.species] || []).forEach(t => { if (t.lv > lv) items.push({ lv:t.lv, ja:'おやつ「' + t.ja + '」' }); });
   WEAR.forEach(w => { if (w.lv > lv) items.push({ lv:w.lv, ja:'きせかえ「' + w.ja + '」' }); });
+  DECOR_CATS.forEach(([k]) => DECOR[k].forEach(d => { if (d.lv > lv) items.push({ lv:d.lv, ja:'もようがえ「' + d.ja + '」' }); }));
+  (TRICKS[S.pet.species] || []).forEach(t => { if (t.lv > lv) items.push({ lv:t.lv, ja:'芸「' + t.ja + '」' }); });
   items.sort((a, b) => a.lv - b.lv);
   return items[0] || null;
 }
@@ -249,6 +251,7 @@ function ambientLine(){
   const s = S.stats, cat = S.pet.species === 'cat', t = stage.dataset.tod;
   if (s.full < 25) return pick(['おなかすいたな…','ごはん、まだかな','ぐぅ〜']);
   if (s.mood < 30) return pick(['かまってほしいな','なでてほしいな…','あそぼ？']);
+  const h = Features.hint(); if (h) return h;
   if (t === 'morning') return pick(['おはよう！','いい朝だね', cat ? 'にゃ〜ん' : 'わん！']);
   if (t === 'night') return pick(['ねむねむ…','そろそろ寝よっか','おやすみの時間？']);
   if (t === 'evening') return pick(['ゆうやけ、きれいだね','おかえり！','おつかれさま']);
@@ -267,7 +270,7 @@ function renderStats(){
   $('#mFull').classList.toggle('low', full < 20);
   $('#mMood').classList.toggle('low', mood < 25);
   const L = levelInfo(s.love);
-  $('#lvNum').textContent = 'Lv ' + L.lv;
+  $('#lvNum').textContent = 'Lv' + L.lv;
   $('#bLove').style.width = Math.round(L.into / L.need * 100) + '%';
   $('#sLove').textContent = L.max ? 'なかよしMAX' : 'つぎのLvまで あと' + Math.ceil(L.need - L.into);
   if (!Pet.busy) Pet.setExpr(Pet.expr);
@@ -292,7 +295,13 @@ function gainLove(n){
   const before = levelInfo(S.stats.love).lv;
   S.stats.love = Math.round((S.stats.love + n) * 10) / 10;
   const after = levelInfo(S.stats.love).lv;
-  if (after > before) setTimeout(() => celebrate(after, before), 900);
+  if (after > before){
+    for (let lv = before + 1; lv <= after; lv++){
+      const t = TITLES.find(([l]) => l === lv);
+      if (lv <= 5 || lv % 5 === 0 || t) addAlbum('lv', `なかよしLv ${lv}`, t ? `あたらしい関係「${t[1]}」` : `${S.pet.name}と さらになかよくなった`, 'lv');
+    }
+    setTimeout(() => celebrate(after, before), 900);
+  }
 }
 function begin(){
   if (!S || Pet.busy) return false;
@@ -330,6 +339,7 @@ async function feed(){
   S.stats.mood = clamp(S.stats.mood + 6, 0, 100);
   S.counts.meals++;
   gainLove(3);
+  track('meal');
   Pet.setExpr('happy'); Pet.say('ごちそうさま！'); hearts(3);
   await sleep(1500);
   Pet.setExpr(null);
@@ -367,6 +377,7 @@ async function giveTreat(t){
   S.recentTreats.push(now());
   S.counts.treats++;
   gainLove(t.love);
+  track('treat', t);
   Pet.setExpr('happy'); Pet.say(t.line); hearts(4);
   await sleep(1600);
   Pet.setExpr(null);
@@ -417,6 +428,7 @@ async function play(){
   S.stats.full = clamp(S.stats.full - 4, 0, 100);
   S.counts.plays++;
   gainLove(3);
+  track('play');
   Pet.say(pick(S.pet.species === 'cat' ? ['たのしかった！','もっかい！','ふんふん♪'] : ['たのしかった！','もっとあそぼ！','わんわん♪']));
   await sleep(1400);
   Pet.setExpr(null);
@@ -441,6 +453,7 @@ function onStroke(e){
   S.stats.mood = clamp(S.stats.mood + 1.5, 0, 100);
   const g = strokeGain();
   if (g) gainLove(g * .6);
+  track('pet');
   if (!Pet.sleeping && !Pet.busy){ Pet.setExpr('happy'); Pet.wag(1600); }
   $('#hint').hidden = true;
   renderStats();
@@ -499,50 +512,22 @@ function unlocksBetween(from, to){
   const list = [];
   (TREATS[S.pet.species] || []).forEach(t => { if (t.lv > from && t.lv <= to) list.push('おやつ「' + t.ja + '」'); });
   WEAR.forEach(w => { if (w.lv > from && w.lv <= to) list.push('きせかえ「' + w.ja + '」'); });
+  DECOR_CATS.forEach(([k]) => DECOR[k].forEach(d => { if (d.lv > from && d.lv <= to && d.lv > 1) list.push('もようがえ「' + d.ja + '」'); }));
+  (TRICKS[S.pet.species] || []).forEach(t => { if (t.lv > from && t.lv <= to && t.lv > 1) list.push('芸「' + t.ja + '」'); });
   return list;
 }
 function celebrate(lv, before){
-  const old = document.querySelector('.levelup');
-  if (old){ if (old._close) old._close(true); else old.remove(); }
-  const back = document.activeElement;
-  const box = document.createElement('div');
-  box.className = 'levelup';
   const items = unlocksBetween(before == null ? lv - 1 : before, lv);
   const newTitle = TITLES.some(([l]) => l === lv || (before != null && l > before && l <= lv));
   const nx = lv < MAX_LV ? nextReward(lv) : null;
-  box.innerHTML = `<div class="card" role="dialog" aria-modal="true" aria-labelledby="lvTitle"><div style="width:120px;margin:0 auto">${renderPet(S.pet.look, { wear:petWear() })}</div>
-    <h3 id="lvTitle">${lv >= MAX_LV ? 'なかよしMAX！' : 'なかよしLv ' + lv}</h3><p>${esc(S.pet.name)}とさらになかよくなりました${newTitle ? `<br>あたらしい関係「${esc(titleFor(lv))}」` : ''}</p>
+  Modal.show({
+    label:'なかよしレベルアップ', confetti:true,
+    html:() => `<div class="mpet ex-happy wag-fast">${renderPet(S.pet.look, { wear:petWear() })}</div>
+    <h3>${lv >= MAX_LV ? 'なかよしMAX！' : 'なかよしLv ' + lv}</h3><p>${esc(S.pet.name)}とさらになかよくなりました${newTitle ? `<br>あたらしい関係「${esc(titleFor(lv))}」` : ''}</p>
     ${items.length ? `<ul>${items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>` : ''}
     ${nx ? nextupHtml(nx) : ''}
-    <button class="btn primary" type="button">やったね</button></div>`;
-  document.body.appendChild(box);
-  const g = box.querySelector('.pet-svg');
-  if (g) g.parentElement.classList.add('ex-happy', 'wag-fast');
-  const cols = ['#F0728E','#F5C562','#6FABE3','#7CC28F','#B8A6EC'];
-  const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
-  for (let i = 0; i < 30; i++){
-    const a = Math.random() * Math.PI * 2, d = 120 + Math.random() * 140;
-    const el = document.createElement('div');
-    el.className = 'fx spark';
-    el.style.left = cx + 'px'; el.style.top = cy + 'px'; el.style.background = cols[i % cols.length];
-    el.style.setProperty('--dx', (Math.cos(a) * d).toFixed(0) + 'px');
-    el.style.setProperty('--dy', (Math.sin(a) * d).toFixed(0) + 'px');
-    box.appendChild(el);
-    setTimeout(() => el.remove(), 1300);
-  }
-  const onKey = e => { if (e.key === 'Escape'){ e.stopPropagation(); close(); } };
-  const close = instant => {
-    document.removeEventListener('keydown', onKey, true);
-    if (instant){ box.remove(); return; }
-    box.classList.add('closing');
-    setTimeout(() => box.remove(), 200);
-    if (back && back.focus) back.focus();
-  };
-  box._close = close;
-  box.querySelector('button').addEventListener('click', () => close());
-  box.addEventListener('click', e => { if (e.target === box) close(); });
-  document.addEventListener('keydown', onKey, true);
-  box.querySelector('button').focus();
+    <button class="btn primary" type="button" data-close>やったね</button>`,
+  });
 }
 
 /* ----- sheets ----- */
@@ -567,14 +552,16 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet()
 function openTreats(){
   if (Pet.busy || !S) return;
   const lv = levelInfo(S.stats.love).lv;
-  const list = TREATS[S.pet.species] || TREATS.dog;
-  const open = list.filter(t => t.lv <= lv).length;
-  const html = `<p class="sheet-sub">${open} / ${list.length} しゅるい　レベルの高いおやつほど、なかよし度が大きく上がります</p>
+  const base = TREATS[S.pet.species] || TREATS.dog;
+  const ev = activeEvent();
+  const list = ev ? [eventTreat(ev)].concat(base) : base;
+  const open = base.filter(t => t.lv <= lv).length;
+  const html = `<p class="sheet-sub">${open} / ${base.length} しゅるい　レベルの高いおやつほど、なかよし度が大きく上がります</p>
     <div class="tiles">${list.map(t => {
     const locked = lv < t.lv;
     return `<button class="tile treat" type="button" data-t="${t.id}" ${locked ? 'aria-disabled="true"' : ''}>
       <svg viewBox="0 0 48 48" aria-hidden="true">${treatIcon(t)}</svg><span class="tname">${esc(t.ja)}</span>
-      ${locked ? `<span class="lockpill">Lv${t.lv}で解放</span>` : `<span class="gain"><b>♥+${t.love}</b> ごきげん+${t.mood}</span>`}</button>`;
+      ${locked ? `<span class="lockpill">Lv${t.lv}で解放</span>` : `<span class="gain"><b>♥+${t.love}</b> ごきげん+${t.mood}</span>`}${t.ev ? `<span class="evpill">${esc(t.evJa)}限定</span>` : ''}</button>`;
   }).join('')}</div><p class="note">おやつは30分に5回まで。ごはんの代わりにはなりません。</p>`;
   openSheet('どのおやつをあげる？', html, sh => {
     sh.querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => {
@@ -585,37 +572,45 @@ function openTreats(){
 }
 
 let dressSlot = 'head';
+function wearOwned(w, lv){ return w.ev ? S.events.got.includes(w.id) : lv >= w.lv; }
 function openDress(){
   if (!S) return;
   const lv = levelInfo(S.stats.love).lv;
   const W = petWear();
   const tabs = () => `<div class="seg" role="tablist">${SLOTS.map(([k, ja]) => {
-    const items = WEAR.filter(w => w.slot === k), got = items.filter(w => w.lv <= lv).length;
+    const items = WEAR.filter(w => w.slot === k && (!w.ev || wearOwned(w, lv))), got = items.filter(w => wearOwned(w, lv)).length;
     return `<button type="button" role="tab" data-slot="${k}" aria-pressed="${k === dressSlot}">${ja}<small>${got}/${items.length}</small></button>`;
-  }).join('')}</div>`;
+  }).join('')}<button type="button" role="tab" data-slot="room" aria-pressed="${dressSlot === 'room'}">おへや<small>もようがえ</small></button></div>`;
   const tiles = () => {
-    const items = [{ id:null, ja:'なし', lv:1 }].concat(WEAR.filter(w => w.slot === dressSlot));
-    return items.map(it => {
-      const locked = lv < it.lv;
+    if (dressSlot === 'room') return roomTabHtml();
+    const items = [{ id:null, ja:'なし', lv:1 }].concat(WEAR.filter(w => w.slot === dressSlot && (!w.ev || wearOwned(w, lv))));
+    return `<div class="tiles">${items.map(it => {
+      const locked = it.id && !wearOwned(it, lv);
       const trial = Object.assign({}, W, { [dressSlot]:it.id });
       return `<button class="tile" type="button" data-w="${it.id || ''}" aria-pressed="${(W[dressSlot] || null) === it.id}" ${locked ? 'aria-disabled="true"' : ''}>
-        ${renderPet(S.pet.look, { wear:trial })}<span class="tname">${esc(it.ja)}</span>${locked ? `<span class="lockpill">Lv${it.lv}で解放</span>` : ''}</button>`;
-    }).join('');
+        ${renderPet(S.pet.look, { wear:trial })}<span class="tname">${esc(it.ja)}</span>${locked ? `<span class="lockpill">Lv${it.lv}で解放</span>` : ''}${it.ev ? '<span class="evpill">季節の限定</span>' : ''}</button>`;
+    }).join('')}</div><p class="note">あたま・かお・くびを1つずつ組み合わせられます。季節のイベントでは、限定のきせかえがもらえます。</p>`;
   };
-  openSheet('きせかえ', `${tabs()}<div class="tiles" id="dressTiles">${tiles()}</div><p class="note">あたま・かお・くびを1つずつ組み合わせられます。</p>`, sh => {
-    const wire = () => sh.querySelectorAll('[data-w]').forEach(b => b.addEventListener('click', () => {
-      if (b.getAttribute('aria-disabled') === 'true') return;
-      W[dressSlot] = b.dataset.w || null;
-      S.pet.wear = W;
-      sh.querySelector('#dressTiles').innerHTML = tiles(); wire();
-      Pet.mount();
-      if (!Pet.busy && !Pet.sleeping){ Pet.flash('happy', 1400); Pet.say(b.dataset.w ? 'にあう？' : 'すっきり！'); }
-      commit();
-    }));
+  openSheet('きせかえ・もようがえ', `${tabs()}<div id="dressTiles">${tiles()}</div>`, sh => {
+    const box = sh.querySelector('#dressTiles');
+    const rerender = () => { box.innerHTML = tiles(); wire(); };
+    const wire = () => {
+      if (dressSlot === 'room') return wireRoomTab(box, rerender);
+      box.querySelectorAll('[data-w]').forEach(b => b.addEventListener('click', () => {
+        if (b.getAttribute('aria-disabled') === 'true') return;
+        W[dressSlot] = b.dataset.w || null;
+        S.pet.wear = W;
+        if (b.dataset.w) track('dress', { slot:dressSlot, id:b.dataset.w });
+        rerender();
+        Pet.mount();
+        if (!Pet.busy && !Pet.sleeping){ Pet.flash('happy', 1400); Pet.say(b.dataset.w ? 'にあう？' : 'すっきり！'); }
+        commit();
+      }));
+    };
     sh.querySelectorAll('[data-slot]').forEach(t => t.addEventListener('click', () => {
       dressSlot = t.dataset.slot;
       sh.querySelectorAll('[data-slot]').forEach(x => x.setAttribute('aria-pressed', String(x === t)));
-      sh.querySelector('#dressTiles').innerHTML = tiles(); wire();
+      rerender();
     }));
     wire();
   });
@@ -630,9 +625,11 @@ function openMenu(){
     </div>
     <div class="counts">
       <div><b>${c.meals}</b>ごはん</div><div><b>${c.treats}</b>おやつ</div><div><b>${c.pets}</b>なでなで</div><div><b>${c.plays}</b>あそび</div>
+      <div><b>${(TRICKS[p.species] || []).filter(t => S.tricks[t.id] && S.tricks[t.id].ok).length}</b>芸</div><div><b>${SOUVENIRS.filter(x => S.souv.have[x.id]).length}</b>おみやげ</div><div><b>${S.stamps.length}</b>スタンプ</div><div><b>${Math.max(1, daysBetween(S.created || now(), now()) + 1)}</b>日め</div>
     </div>
     ${(() => { const nx = nextReward(L.lv); return nx ? nextupHtml(nx) : '<p class="nextup">すべてのごほうびを集めました</p>'; })()}
     <div class="btnstack" id="menuBtns">
+      <button class="btn" type="button" id="mAlbum">おもいでアルバム</button>
       <button class="btn" type="button" id="mEdit">名前・みためを変える</button>
       <button class="btn" type="button" id="mMove">引っこし・バックアップ</button>
       <button class="btn warn" type="button" id="mNew">新しい子をむかえる</button>
@@ -641,6 +638,7 @@ function openMenu(){
   openSheet('プロフィール', html, sh => {
     sh.querySelector('#mEdit').addEventListener('click', () => { closeSheet(); Onboard.openEdit(); });
     sh.querySelector('#mMove').addEventListener('click', () => openMove());
+    sh.querySelector('#mAlbum').addEventListener('click', () => openAlbum('diary'));
     sh.querySelector('#mNew').addEventListener('click', () => {
       const box = sh.querySelector('#menuBtns');
       box.innerHTML = `<div class="confirm"><p>新しい子をむかえると、${esc(p.name)}のなかよし度や記録は新しい子のものに置きかわります。</p>
@@ -696,7 +694,7 @@ function decodeMovePayload(b64){
     for (const k of ['head','face','neck']){ const v = wear[k]; if (v && WEAR_RENAMED[v]) wear[k] = WEAR_RENAMED[v]; else if (v && !WEAR_BY_ID[v]) wear[k] = null; }
     const c = o.counts || {};
     const t0 = now();
-    return {
+    const st = {
       v:1,
       pet:{ name:String(p.name || 'うちのこ').slice(0, 10), species:look.species, breedId:look.breedId, look, photo,
             colorName:typeof p.colorName === 'string' ? p.colorName.slice(0, 14) : '', wear },
@@ -704,6 +702,7 @@ function decodeMovePayload(b64){
       counts:{ meals:num(c.meals, 0, 0, 1e9), treats:num(c.treats, 0, 0, 1e9), pets:num(c.pets, 0, 0, 1e9), plays:num(c.plays, 0, 0, 1e9) },
       recentTreats:[], last:t0, created:num(o.created, t0, 0, t0), updated:t0,
     };
+    return carryExtras(o, st);
   } catch(e){ return null; }
 }
 const MOVE_FILE = 'uchinoko-hikkoshi.txt';
@@ -790,8 +789,9 @@ function openMove(){
 /* ----- game lifecycle ----- */
 const Game = {
   started:false,
-  start(greet){
+  start(greet, away){
     Onboard.close();
+    ensureState(S);
     decay();
     renderHeader();
     setPlayIcon();
@@ -807,10 +807,14 @@ const Game = {
           const away = now() - (S.last || now());
           decay(); renderStats(); updateClock();
           if (away > 30 * 60e3 && !Pet.busy){ Pet.wake(); Pet.jump(); Pet.say('おかえり！'); }
+          Features.resume(away);
           idleTick();
+        } else if (document.hidden && S){
+          decay(); Persist.saveLocal(); Persist.flush();
         }
       });
     }
+    Features.start(away || 0);
     if (S.counts.pets === 0) $('#hint').hidden = false;
     if (greet){ setTimeout(() => { Pet.jump(); Pet.wag(2000); Pet.say(greet); }, 500); }
     idleTick(2500);
@@ -825,4 +829,7 @@ $('#actFeed').addEventListener('click', feed);
 $('#actTreat').addEventListener('click', openTreats);
 $('#actPlay').addEventListener('click', play);
 $('#actDress').addEventListener('click', openDress);
+$('#actTrick').addEventListener('click', openTricks);
+$('#reqBtn').addEventListener('click', openRequests);
+$('#albumBtn').addEventListener('click', () => openAlbum());
 $('#menuBtn').addEventListener('click', openMenu);

@@ -53,6 +53,14 @@ function wearSvg(W, x){
         `<path d="M141 191l-1 6M146 190l0 6M151 189l1 6" stroke="${p.tri ? p.tri[0] : edge}" stroke-width="2.4" stroke-linecap="round"/>` +
         `<path d="${band}" fill="none" stroke="${edge}" stroke-width="${14 + SW * 2}" stroke-linecap="round"/><path d="${band}" fill="none" stroke="${p.c}" stroke-width="14" stroke-linecap="round"/>${bandFill}` +
         `<path d="M92 151l2 6M104 155l1 6M136 155l-1 6M148 151l-2 6" stroke="#FFFFFF" stroke-opacity=".18" stroke-width="2" stroke-linecap="round"/>`;
+    } else if (n.kind === 'ukiwa'){
+      const ring = 'M80 162a40 15 0 1 0 80 0a40 15 0 1 0 -80 0Z';
+      out.defs += `<clipPath id="${x.id}uk"><path d="${ring}"/></clipPath>`;
+      out.neck = `<path d="M74 162a46 21 0 1 0 92 0a46 21 0 1 0 -92 0Z" fill="#FFFFFF" stroke="#9AA3B5" stroke-width="${SW}"/>` +
+        `<path d="M74 162a46 21 0 0 0 23 18.2L105 168a20 9 0 0 1 -9-6Z" fill="#F27B7B"/><path d="M166 162a46 21 0 0 1 -23 18.2L135 168a20 9 0 0 0 9-6Z" fill="#F27B7B"/>` +
+        `<path d="M97 144.2a46 21 0 0 1 46 0L136 155a20 9 0 0 0 -32 0Z" fill="#F27B7B"/>` +
+        `<path d="M74 162a46 21 0 1 0 92 0a46 21 0 1 0 -92 0Z" fill="none" stroke="#9AA3B5" stroke-width="${SW}"/>` +
+        `<path d="M86 156q6-6 14-8" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" fill="none" opacity=".8"/>`;
     } else if (n.kind === 'pearls'){
       out.neck = curvePts(11).map(([a, b]) => `<circle cx="${f1(a)}" cy="${f1(b - 2)}" r="4.6" fill="#FBF7F2" stroke="#BFAF9A" stroke-width="1.4"/><circle cx="${f1(a - 1.4)}" cy="${f1(b - 3.6)}" r="1.4" fill="#FFFFFF"/>`).join('') +
         `<circle cx="120" cy="167" r="5.5" fill="#F7C9D6" stroke="#BF8A9C" stroke-width="1.4"/>`;
@@ -122,6 +130,45 @@ function wearSvg(W, x){
         (p.gem === 'heart'
           ? `<path d="M120 ${y0 - 8}c-9-6-7-14-2-14 1 0 2 1 2 2 0-1 1-2 2-2 5 0 7 8-2 14z" fill="#F0728E" stroke="#A8406A" stroke-width="1.6"/><circle cx="120" cy="${y0 - 37}" r="3.6" fill="#F0728E"/>`
           : `<circle cx="120" cy="${y0 - 14}" r="5" fill="${p.gem}" stroke="#8F3533" stroke-width="1.4"/><circle cx="104" cy="${y0 - 1.5}" r="2.6" fill="#6FABE3"/><circle cx="136" cy="${y0 - 1.5}" r="2.6" fill="#6FABE3"/><circle cx="120" cy="${y0 - 37}" r="3.4" fill="#FFFFFF"/>`);
+    } else if (h.kind === 'pumpkin'){
+      const y0 = HY - 50;
+      out.head = `<path d="M120 ${y0 - 26}c-22 0-34 10-34 22 0 9 14 14 34 14s34-5 34-14c0-12-12-22-34-22z" fill="#F0A04B" stroke="#A8642A" stroke-width="${SW}"/>` +
+        `<path d="M120 ${y0 - 25}c-9 6-9 29 0 35M120 ${y0 - 25}c9 6 9 29 0 35M102 ${y0 - 21}c-6 8-6 22 0 28M138 ${y0 - 21}c6 8 6 22 0 28" fill="none" stroke="#C97A30" stroke-width="2"/>` +
+        `<path d="M108 ${y0 - 8}l5-6 5 6zM122 ${y0 - 8}l5-6 5 6z" fill="#5A3A24"/><path d="M110 ${y0 + 2}q10 6 20 0" stroke="#5A3A24" stroke-width="3" fill="none" stroke-linecap="round"/>` +
+        `<path d="M120 ${y0 - 26}c0-8 4-12 9-13" stroke="#5C8A3A" stroke-width="5" stroke-linecap="round" fill="none"/><path d="M128 ${y0 - 36}c6-4 12-2 13 2-6 3-10 2-13-2z" fill="#7CC26A"/>`;
+    } else if (h.kind === 'santa'){
+      const y0 = HY - 40;
+      out.head = `<path d="M82 ${y0}C88 ${y0 - 40} 128 ${y0 - 54} 160 ${y0 - 36}C150 ${y0 - 30} 152 ${y0 - 18} 156 ${y0}Z" fill="#E8505A" stroke="#9A2E36" stroke-width="${SW}" stroke-linejoin="round"/>` +
+        `<rect x="76" y="${y0 - 8}" width="88" height="16" rx="8" fill="#FFFFFF" stroke="#B9B4C2" stroke-width="${SW}"/>` +
+        `<circle cx="162" cy="${y0 - 34}" r="10" fill="#FFFFFF" stroke="#B9B4C2" stroke-width="${SW}"/>`;
+    } else if (h.kind === 'hachimaki'){
+      out.head = `<path d="M66 ${HY - 26}Q120 ${HY - 44} 174 ${HY - 26}" fill="none" stroke="#B9373E" stroke-width="${12 + SW * 2}" stroke-linecap="round" opacity=".55"/><path d="M66 ${HY - 26}Q120 ${HY - 44} 174 ${HY - 26}" fill="none" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round"/>` +
+        `<circle cx="120" cy="${HY - 36}" r="6" fill="#E0474C"/><path d="M172 ${HY - 28}l14-8M172 ${HY - 26}l16 2" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/>`;
+    } else if (h.kind === 'heartband' || h.kind === 'starband'){
+      const band = `M76 ${HY - 22}Q120 ${HY - 66} 164 ${HY - 22}`;
+      const shape = (cx, cy, r) => h.kind === 'heartband'
+        ? `<path d="M${cx} ${cy + r}c-${r * 1.4} -${r * .8} -${r * 1.5} -${r * 1.6} -${r * .9} -${r * 2}c${r * .5} -${r * .3} ${r * .8} -${r * .1} ${r * .9} ${r * .3}c.1 -${r * .4} .4 -${r * .6} .9 -${r * .3}c${r * .6} .4 ${r * .5} ${r * 1.2} -${r * .9} ${r * 2}z" fill="#F0728E" stroke="#A8406A" stroke-width="2"/>`
+        : `<path d="M${cx} ${cy - r}l${r * .3} ${r * .65} ${r * .7} .08-${r * .53} ${r * .47} ${r * .17} ${r * .7}-${r * .64}-${r * .36}-${r * .64} ${r * .36} ${r * .17}-${r * .7}-${r * .53}-${r * .47} ${r * .7}-.08z" fill="#FFE08A" stroke="#C9952A" stroke-width="2" stroke-linejoin="round"/>`;
+      out.head = `<path d="${band}" fill="none" stroke="#2E2A33" stroke-width="${4 + SW}" stroke-linecap="round" opacity=".5"/><path d="${band}" fill="none" stroke="${h.kind === 'heartband' ? '#F7A9C4' : '#7EC4E8'}" stroke-width="4" stroke-linecap="round"/>` +
+        shape(96, HY - 58, 13) + shape(144, HY - 58, 13);
+    } else if (h.kind === 'flowerpin'){
+      const fx = x.ear === 'big' ? 140 : 150, fy = HY - 40;
+      out.head = [0, 72, 144, 216, 288].map(a => `<ellipse cx="${fx}" cy="${fy - 8}" rx="6" ry="8.5" fill="#F9C6D3" stroke="#D98AA0" stroke-width="1.6" transform="rotate(${a} ${fx} ${fy})"/>`).join('') + `<circle cx="${fx}" cy="${fy}" r="4" fill="#E8869E"/>`;
+    } else if (h.kind === 'kabuto'){
+      const y0 = HY - 40;
+      out.head = `<path d="M80 ${y0 + 6}C80 ${y0 - 30} 160 ${y0 - 30} 160 ${y0 + 6}Z" fill="#3E5FA8" stroke="#24386A" stroke-width="${SW}" stroke-linejoin="round"/>` +
+        `<path d="M72 ${y0 + 8}L168 ${y0 + 8}L160 ${y0 - 2}L80 ${y0 - 2}Z" fill="#5B7FC9" stroke="#24386A" stroke-width="${SW}" stroke-linejoin="round"/>` +
+        `<path d="M104 ${y0 - 18}C96 ${y0 - 44} 108 ${y0 - 52} 112 ${y0 - 52}C110 ${y0 - 40} 112 ${y0 - 28} 116 ${y0 - 20}ZM136 ${y0 - 18}C144 ${y0 - 44} 132 ${y0 - 52} 128 ${y0 - 52}C130 ${y0 - 40} 128 ${y0 - 28} 124 ${y0 - 20}Z" fill="#F5C843" stroke="#A8822A" stroke-width="2" stroke-linejoin="round"/>` +
+        `<circle cx="120" cy="${y0 - 10}" r="6" fill="#F5C843" stroke="#A8822A" stroke-width="2"/>`;
+    } else if (h.kind === 'rainhat'){
+      const y0 = HY - 44;
+      out.head = `<path d="M70 ${y0 + 10}C78 ${y0 - 36} 162 ${y0 - 36} 170 ${y0 + 10}Q155 ${y0 + 2} 145 ${y0 + 10}Q132 ${y0 + 2} 120 ${y0 + 10}Q108 ${y0 + 2} 95 ${y0 + 10}Q85 ${y0 + 2} 70 ${y0 + 10}Z" fill="#7EC4E8" stroke="#3E7FA8" stroke-width="${SW}" stroke-linejoin="round"/>` +
+        `<path d="M120 ${y0 - 24}C110 ${y0 - 10} 108 ${y0} 108 ${y0 + 6}M120 ${y0 - 24}C130 ${y0 - 10} 132 ${y0} 132 ${y0 + 6}M120 ${y0 - 24}V${y0 + 8}" fill="none" stroke="#3E7FA8" stroke-width="1.8"/>` +
+        `<path d="M120 ${y0 - 24}v-8" stroke="#3E7FA8" stroke-width="3" stroke-linecap="round"/>`;
+    } else if (h.kind === 'usagi'){
+      const ear = (cx, rot) => `<g transform="rotate(${rot} ${cx} ${HY - 40})"><ellipse cx="${cx}" cy="${HY - 72}" rx="12" ry="32" fill="#FFFFFF" stroke="#B9B4C2" stroke-width="${SW}"/><ellipse cx="${cx}" cy="${HY - 70}" rx="6" ry="22" fill="#F9C6D3"/></g>`;
+      out.head = `<path d="M84 ${HY - 34}Q120 ${HY - 56} 156 ${HY - 34}" fill="none" stroke="#B9B4C2" stroke-width="${5 + SW}" stroke-linecap="round" opacity=".6"/><path d="M84 ${HY - 34}Q120 ${HY - 56} 156 ${HY - 34}" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>` +
+        ear(106, -12) + ear(134, 12);
     } else if (h.kind === 'tiara'){
       const y0 = HY - 40;
       out.head = `<path d="M86 ${y0 + 4}Q120 ${y0 - 16} 154 ${y0 + 4}" fill="none" stroke="#A9AFC2" stroke-width="${5 + SW * 2}" stroke-linecap="round"/><path d="M86 ${y0 + 4}Q120 ${y0 - 16} 154 ${y0 + 4}" fill="none" stroke="#E4E8F2" stroke-width="5" stroke-linecap="round"/>` +

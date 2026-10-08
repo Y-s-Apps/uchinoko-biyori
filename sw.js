@@ -1,5 +1,5 @@
 /* うちのこ日和: offline cache */
-const CACHE = 'uchinoko-ad5dc4763d';
+const CACHE = 'uchinoko-d232788f8b';
 const CORE = ['./', 'index.html', 'manifest.webmanifest', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'favicon-32.png', 'favicon-64.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));

@@ -127,10 +127,11 @@ function renderPet(rawLook, opts = {}){
   body += `</g><path d="${bodyD}" fill="none" stroke="${ol(c.body)}" stroke-width="${SW}"/>`;
   const haunch = x => fluffy || curly ? `<path d="${blob(x, 206, hrr, 16, 9, .07)}" ${S(haunchCol)}/>` : `<ellipse cx="${x}" cy="206" rx="${hrr}" ry="16" ${S(haunchCol)}/>`;
   const feet = `<ellipse cx="${hx1 - 6}" cy="219" rx="12" ry="6.5" ${S(c.paws)}/><ellipse cx="${hx2 + 6}" cy="219" rx="12" ry="6.5" ${S(c.paws)}/>`;
-  let legs = `<rect x="99" y="${legTop}" width="19" height="${218 - legTop}" rx="9.5" ${S(c.body)}/><rect x="122" y="${legTop}" width="19" height="${218 - legTop}" rx="9.5" ${S(c.body)}/>`;
-  if (m.stripes && L.legs !== 'short') legs += `<path d="M101 194h6M101 202h6M133 194h6M133 202h6" stroke="${m.stripes}" stroke-width="3.5" stroke-linecap="round"/>`;
-  legs += `<ellipse cx="108.5" cy="217" rx="12" ry="7.5" ${S(c.paws)}/><ellipse cx="131.5" cy="217" rx="12" ry="7.5" ${S(c.paws)}/>`;
-  legs += `<path d="M104.5 213.5v5M112.5 213.5v5M127.5 213.5v5M135.5 213.5v5" stroke="${ol(c.paws)}" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>`;
+  const legPart = (x, px, toes, sx) => `<rect x="${x}" y="${legTop}" width="19" height="${218 - legTop}" rx="9.5" ${S(c.body)}/>` +
+    (m.stripes && L.legs !== 'short' ? `<path d="M${sx} 194h6M${sx} 202h6" stroke="${m.stripes}" stroke-width="3.5" stroke-linecap="round"/>` : '') +
+    `<ellipse cx="${px}" cy="217" rx="12" ry="7.5" ${S(c.paws)}/>` +
+    `<path d="M${toes[0]} 213.5v5M${toes[1]} 213.5v5" stroke="${ol(c.paws)}" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>`;
+  const legs = `<g class="pv-legL">${legPart(99, 108.5, [104.5, 112.5], 101)}</g><g class="pv-legR">${legPart(122, 131.5, [127.5, 135.5], 133)}</g>`;
 
   /* head */
   const backEar = ['pointy','big','small'].includes(L.ear);
