@@ -1458,7 +1458,7 @@ function nextReward(lv){
   (TREATS[S.pet.species] || []).forEach(t => { if (t.lv > lv) items.push({ lv:t.lv, ja:'おやつ「' + t.ja + '」' }); });
   WEAR.forEach(w => { if (w.lv > lv) items.push({ lv:w.lv, ja:'きせかえ「' + w.ja + '」' }); });
   DECOR_CATS.forEach(([k]) => DECOR[k].forEach(d => { if (d.lv > lv) items.push({ lv:d.lv, ja:'もようがえ「' + d.ja + '」' }); }));
-  (TRICKS[S.pet.species] || []).forEach(t => { if (t.lv > lv) items.push({ lv:t.lv, ja:'芸「' + t.ja + '」' }); });
+  (TRICKS[S.pet.species] || []).forEach(t => { if (t.lv > lv) items.push({ lv:t.lv, ja:'げい「' + t.ja + '」' }); });
   items.sort((a, b) => a.lv - b.lv);
   return items[0] || null;
 }
@@ -1924,7 +1924,7 @@ function unlocksBetween(from, to){
   (TREATS[S.pet.species] || []).forEach(t => { if (t.lv > from && t.lv <= to) list.push('おやつ「' + t.ja + '」'); });
   WEAR.forEach(w => { if (w.lv > from && w.lv <= to) list.push('きせかえ「' + w.ja + '」'); });
   DECOR_CATS.forEach(([k]) => DECOR[k].forEach(d => { if (d.lv > from && d.lv <= to && d.lv > 1) list.push('もようがえ「' + d.ja + '」'); }));
-  (TRICKS[S.pet.species] || []).forEach(t => { if (t.lv > from && t.lv <= to && t.lv > 1) list.push('芸「' + t.ja + '」'); });
+  (TRICKS[S.pet.species] || []).forEach(t => { if (t.lv > from && t.lv <= to && t.lv > 1) list.push('げい「' + t.ja + '」'); });
   return list;
 }
 function celebrate(lv, before){
@@ -2036,7 +2036,7 @@ function openMenu(){
     </div>
     <div class="counts">
       <div><b>${c.meals}</b>ごはん</div><div><b>${c.treats}</b>おやつ</div><div><b>${c.pets}</b>なでなで</div><div><b>${c.plays}</b>あそび</div>
-      <div><b>${(TRICKS[p.species] || []).filter(t => S.tricks[t.id] && S.tricks[t.id].ok).length}</b>芸</div><div><b>${SOUVENIRS.filter(x => S.souv.have[x.id]).length}</b>おみやげ</div><div><b>${S.stamps.length}</b>スタンプ</div><div><b>${Math.max(1, daysBetween(S.created || now(), now()) + 1)}</b>日め</div>
+      <div><b>${(TRICKS[p.species] || []).filter(t => S.tricks[t.id] && S.tricks[t.id].ok).length}</b>げい</div><div><b>${SOUVENIRS.filter(x => S.souv.have[x.id]).length}</b>おみやげ</div><div><b>${S.stamps.length}</b>スタンプ</div><div><b>${Math.max(1, daysBetween(S.created || now(), now()) + 1)}</b>日</div>
     </div>
     ${(() => { const nx = nextReward(L.lv); return nx ? nextupHtml(nx) : '<p class="nextup">すべてのごほうびを集めました</p>'; })()}
     <div class="btnstack" id="menuBtns">
@@ -2277,6 +2277,7 @@ function ensureState(st){
   st.events.got = Array.isArray(st.events.got) ? st.events.got.filter(id => WEAR_BY_ID[id]) : [];
   st.events.seen = obj(st.events.seen) ? st.events.seen : {};
   st.album = Array.isArray(st.album) ? st.album.filter(a => a && typeof a.t === 'number' && typeof a.ti === 'string').slice(0, 300) : [];
+  st.album.forEach(a => { if (a.k === 'trick' || /^芸/.test(a.ti)) a.ti = a.ti.replace(/芸/g, 'げい'); });
   st.milestones = obj(st.milestones) ? st.milestones : {};
   st.trickDay = obj(st.trickDay) ? st.trickDay : { day:null, love:0 };
   if (!obj(st.firsts) || !st.firsts._init){
@@ -2437,7 +2438,7 @@ function reqText(r){
     case 'treatId': { const t = allTreats().find(x => x.id === r.id); return `「${t ? t.ja : 'おやつ'}」が たべたい`; }
     case 'play': return isCat() ? `毛糸玉で${r.n}回 あそびたい` : `ボールで${r.n}回 あそびたい`;
     case 'pet': return `${r.n}回 なでなでしてほしい`;
-    case 'trick': return `芸を${r.n}回 見せたい`;
+    case 'trick': return `げいを${r.n}回 見せたい`;
     case 'dress': return 'きせかえ してほしい';
     case 'room': return 'もようがえ してみたい';
   }
@@ -2744,7 +2745,7 @@ function openTricks(){
       <span class="tk-star">${mini('trick', st.ok ? '' : 'dim')}</span><span class="tname">${esc(t.ja)}</span>
       ${locked ? `<span class="lockpill">Lv${t.lv}で解放</span>` : st.ok ? '<span class="okpill">できる！</span>' : `<span class="tk-dots" aria-label="れんしゅう ${st.p}/${t.need}">${dots}</span>`}</button>`;
   }).join('');
-  openSheet('芸', `<p class="sheet-sub">おぼえた芸 ${learned} / ${list.length}　れんしゅうして、できるようになったら いつでも見せてくれます。</p><div class="tiles">${tiles}</div><p class="note">ごきげんがいいと、れんしゅうが うまくいきやすいよ。</p>`, sh => {
+  openSheet('げい', `<p class="sheet-sub">おぼえた げい ${learned} / ${list.length}　れんしゅうして、できるようになったら いつでも見せてくれます。</p><div class="tiles">${tiles}</div><p class="note">ごきげんがいいと、れんしゅうが うまくいきやすいよ。</p>`, sh => {
     sh.querySelectorAll('[data-tk]').forEach(b => b.addEventListener('click', () => {
       if (b.getAttribute('aria-disabled') === 'true') return;
       doTrick(list.find(t => t.id === b.dataset.tk));
@@ -2778,11 +2779,11 @@ async function doTrick(tk){
       st.p++;
       if (st.p >= tk.need){
         st.ok = true;
-        addAlbum('trick', `芸「${tk.ja}」をおぼえた！`, `${tk.need}回のれんしゅうで できるようになったね`, 'trick');
+        addAlbum('trick', `げい「${tk.ja}」をおぼえた！`, `${tk.need}回のれんしゅうで できるようになったね`, 'trick');
         gainLove(5);
         Pet.say('できるように なったよ！');
-        Modal.show({ label:'芸をおぼえた', confetti:true,
-          html:`${petCard()}<h3>芸「${esc(tk.ja)}」を<br>おぼえた！</h3><p>これからは いつでも見せてくれます。<br>♥+5</p><button class="btn primary" type="button" data-close>すごいね！</button>` });
+        Modal.show({ label:'げいをおぼえた', confetti:true,
+          html:`${petCard()}<h3>げい「${esc(tk.ja)}」を<br>おぼえた！</h3><p>これからは いつでも見せてくれます。<br>♥+5</p><button class="btn primary" type="button" data-close>すごいね！</button>` });
       } else Pet.say(`できた！（${st.p}/${tk.need}）`);
     } else Pet.say(pick(['どう？','じょうずでしょ！','えへへ','もっと見る？']));
   } else {

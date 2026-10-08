@@ -31,6 +31,7 @@ function ensureState(st){
   st.events.got = Array.isArray(st.events.got) ? st.events.got.filter(id => WEAR_BY_ID[id]) : [];
   st.events.seen = obj(st.events.seen) ? st.events.seen : {};
   st.album = Array.isArray(st.album) ? st.album.filter(a => a && typeof a.t === 'number' && typeof a.ti === 'string').slice(0, 300) : [];
+  st.album.forEach(a => { if (a.k === 'trick' || /^芸/.test(a.ti)) a.ti = a.ti.replace(/芸/g, 'げい'); });
   st.milestones = obj(st.milestones) ? st.milestones : {};
   st.trickDay = obj(st.trickDay) ? st.trickDay : { day:null, love:0 };
   if (!obj(st.firsts) || !st.firsts._init){
@@ -191,7 +192,7 @@ function reqText(r){
     case 'treatId': { const t = allTreats().find(x => x.id === r.id); return `「${t ? t.ja : 'おやつ'}」が たべたい`; }
     case 'play': return isCat() ? `毛糸玉で${r.n}回 あそびたい` : `ボールで${r.n}回 あそびたい`;
     case 'pet': return `${r.n}回 なでなでしてほしい`;
-    case 'trick': return `芸を${r.n}回 見せたい`;
+    case 'trick': return `げいを${r.n}回 見せたい`;
     case 'dress': return 'きせかえ してほしい';
     case 'room': return 'もようがえ してみたい';
   }
@@ -498,7 +499,7 @@ function openTricks(){
       <span class="tk-star">${mini('trick', st.ok ? '' : 'dim')}</span><span class="tname">${esc(t.ja)}</span>
       ${locked ? `<span class="lockpill">Lv${t.lv}で解放</span>` : st.ok ? '<span class="okpill">できる！</span>' : `<span class="tk-dots" aria-label="れんしゅう ${st.p}/${t.need}">${dots}</span>`}</button>`;
   }).join('');
-  openSheet('芸', `<p class="sheet-sub">おぼえた芸 ${learned} / ${list.length}　れんしゅうして、できるようになったら いつでも見せてくれます。</p><div class="tiles">${tiles}</div><p class="note">ごきげんがいいと、れんしゅうが うまくいきやすいよ。</p>`, sh => {
+  openSheet('げい', `<p class="sheet-sub">おぼえた げい ${learned} / ${list.length}　れんしゅうして、できるようになったら いつでも見せてくれます。</p><div class="tiles">${tiles}</div><p class="note">ごきげんがいいと、れんしゅうが うまくいきやすいよ。</p>`, sh => {
     sh.querySelectorAll('[data-tk]').forEach(b => b.addEventListener('click', () => {
       if (b.getAttribute('aria-disabled') === 'true') return;
       doTrick(list.find(t => t.id === b.dataset.tk));
@@ -532,11 +533,11 @@ async function doTrick(tk){
       st.p++;
       if (st.p >= tk.need){
         st.ok = true;
-        addAlbum('trick', `芸「${tk.ja}」をおぼえた！`, `${tk.need}回のれんしゅうで できるようになったね`, 'trick');
+        addAlbum('trick', `げい「${tk.ja}」をおぼえた！`, `${tk.need}回のれんしゅうで できるようになったね`, 'trick');
         gainLove(5);
         Pet.say('できるように なったよ！');
-        Modal.show({ label:'芸をおぼえた', confetti:true,
-          html:`${petCard()}<h3>芸「${esc(tk.ja)}」を<br>おぼえた！</h3><p>これからは いつでも見せてくれます。<br>♥+5</p><button class="btn primary" type="button" data-close>すごいね！</button>` });
+        Modal.show({ label:'げいをおぼえた', confetti:true,
+          html:`${petCard()}<h3>げい「${esc(tk.ja)}」を<br>おぼえた！</h3><p>これからは いつでも見せてくれます。<br>♥+5</p><button class="btn primary" type="button" data-close>すごいね！</button>` });
       } else Pet.say(`できた！（${st.p}/${tk.need}）`);
     } else Pet.say(pick(['どう？','じょうずでしょ！','えへへ','もっと見る？']));
   } else {

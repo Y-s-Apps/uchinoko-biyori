@@ -47,7 +47,7 @@ function nextReward(lv){
   (TREATS[S.pet.species] || []).forEach(t => { if (t.lv > lv) items.push({ lv:t.lv, ja:'おやつ「' + t.ja + '」' }); });
   WEAR.forEach(w => { if (w.lv > lv) items.push({ lv:w.lv, ja:'きせかえ「' + w.ja + '」' }); });
   DECOR_CATS.forEach(([k]) => DECOR[k].forEach(d => { if (d.lv > lv) items.push({ lv:d.lv, ja:'もようがえ「' + d.ja + '」' }); }));
-  (TRICKS[S.pet.species] || []).forEach(t => { if (t.lv > lv) items.push({ lv:t.lv, ja:'芸「' + t.ja + '」' }); });
+  (TRICKS[S.pet.species] || []).forEach(t => { if (t.lv > lv) items.push({ lv:t.lv, ja:'げい「' + t.ja + '」' }); });
   items.sort((a, b) => a.lv - b.lv);
   return items[0] || null;
 }
@@ -513,7 +513,7 @@ function unlocksBetween(from, to){
   (TREATS[S.pet.species] || []).forEach(t => { if (t.lv > from && t.lv <= to) list.push('おやつ「' + t.ja + '」'); });
   WEAR.forEach(w => { if (w.lv > from && w.lv <= to) list.push('きせかえ「' + w.ja + '」'); });
   DECOR_CATS.forEach(([k]) => DECOR[k].forEach(d => { if (d.lv > from && d.lv <= to && d.lv > 1) list.push('もようがえ「' + d.ja + '」'); }));
-  (TRICKS[S.pet.species] || []).forEach(t => { if (t.lv > from && t.lv <= to && t.lv > 1) list.push('芸「' + t.ja + '」'); });
+  (TRICKS[S.pet.species] || []).forEach(t => { if (t.lv > from && t.lv <= to && t.lv > 1) list.push('げい「' + t.ja + '」'); });
   return list;
 }
 function celebrate(lv, before){
@@ -625,7 +625,7 @@ function openMenu(){
     </div>
     <div class="counts">
       <div><b>${c.meals}</b>ごはん</div><div><b>${c.treats}</b>おやつ</div><div><b>${c.pets}</b>なでなで</div><div><b>${c.plays}</b>あそび</div>
-      <div><b>${(TRICKS[p.species] || []).filter(t => S.tricks[t.id] && S.tricks[t.id].ok).length}</b>芸</div><div><b>${SOUVENIRS.filter(x => S.souv.have[x.id]).length}</b>おみやげ</div><div><b>${S.stamps.length}</b>スタンプ</div><div><b>${Math.max(1, daysBetween(S.created || now(), now()) + 1)}</b>日め</div>
+      <div><b>${(TRICKS[p.species] || []).filter(t => S.tricks[t.id] && S.tricks[t.id].ok).length}</b>げい</div><div><b>${SOUVENIRS.filter(x => S.souv.have[x.id]).length}</b>おみやげ</div><div><b>${S.stamps.length}</b>スタンプ</div><div><b>${Math.max(1, daysBetween(S.created || now(), now()) + 1)}</b>日</div>
     </div>
     ${(() => { const nx = nextReward(L.lv); return nx ? nextupHtml(nx) : '<p class="nextup">すべてのごほうびを集めました</p>'; })()}
     <div class="btnstack" id="menuBtns">
