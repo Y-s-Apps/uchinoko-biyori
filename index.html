@@ -238,6 +238,11 @@ button{font:inherit;color:inherit}
 .movecard .codebox{background:var(--surface)}
 .movecard h3{margin:0}
 .movecard .note{margin:0}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.btnrow .btn{flex:1 1 140px;width:auto;white-space:nowrap;font-size:14px;padding-inline:10px}
+.filebtn{position:relative;overflow:hidden;cursor:pointer;box-sizing:border-box}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
+.filebtn:focus-within{outline:3px solid var(--mint);outline-offset:2px}
 .sheet-sub{margin:-6px 0 12px;font-size:12px;color:var(--ink-soft)}
 .tile .tname{display:block;min-height:2.6em}
 .tile.treat svg{width:44px;height:44px}
@@ -1687,20 +1692,39 @@ function openMenu(){
 }
 
 /* ----- move code: carry a pet to another place ----- */
-const MOVE_PREFIX = 'UCHINOKO1:';
+const MOVE_PREFIX = 'UCHINOKO2:';
 function encodeMoveCode(){
-  const st = JSON.parse(JSON.stringify(S));
-  const bytes = new TextEncoder().encode(JSON.stringify(st));
+  const bytes = new TextEncoder().encode(JSON.stringify(S));
   let bin = '';
   for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
-  return MOVE_PREFIX + btoa(bin);
+  const b64 = btoa(bin);
+  return MOVE_PREFIX + b64.length + ':' + b64;
 }
-function decodeMoveCode(text){
+/* returns { st } on success, or { reason:'empty'|'noprefix'|'short'|'broken', got, need } */
+function readMoveCode(text){
+  const raw = String(text || '');
+  const t = raw.replace(/[\s​-‍﻿]+/g, '');
+  if (!t) return { reason:'empty', got:0 };
+  const m = t.match(/UCHINOKO([12]):(?:(\d+):)?([A-Za-z0-9+/=]*)/);
+  if (!m) return { reason:'noprefix', got:t.length };
+  let b64 = m[3];
+  const need = m[2] ? Number(m[2]) : 0;
+  if (need && b64.length < need) return { reason:'short', got:b64.length, need };
+  if (need) b64 = b64.slice(0, need);
+  const st = decodeMovePayload(b64);
+  return st ? { st } : { reason:'broken', got:b64.length, need };
+}
+function decodeMoveCode(text){ return readMoveCode(text).st || null; }
+function moveErrorText(r){
+  const n = v => Number(v || 0).toLocaleString('ja-JP');
+  if (r.reason === 'empty') return 'コードが空っぽです。コピーしたコードを貼りつけてから押してね。';
+  if (r.reason === 'noprefix') return `「UCHINOKO」ではじまるコードが見つかりませんでした（貼りつけた文字数：${n(r.got)}）。コピーがうまくいっていないかもしれません。「ファイルで保存」の方法もためしてみてね。`;
+  if (r.reason === 'short') return `コードが途中で切れています（${n(r.need)}文字のうち${n(r.got)}文字）。もう一度まるごとコピーするか、「ファイルで保存」の方法をためしてみてね。`;
+  return `コードを読みとれませんでした（${n(r.got)}文字）。もう一度コピーし直してみてね。`;
+}
+function decodeMovePayload(b64){
   try {
-    const t = String(text || '').replace(/\s+/g, '');
-    const i = t.indexOf(MOVE_PREFIX);
-    if (i < 0) return null;
-    const bin = atob(t.slice(i + MOVE_PREFIX.length));
+    const bin = atob(b64);
     const bytes = Uint8Array.from(bin, ch => ch.charCodeAt(0));
     const o = JSON.parse(new TextDecoder().decode(bytes));
     if (!o || typeof o !== 'object' || !o.pet || !o.stats) return null;
@@ -1721,35 +1745,83 @@ function decodeMoveCode(text){
     };
   } catch(e){ return null; }
 }
+const MOVE_FILE = 'uchinoko-hikkoshi.txt';
+/* copy: async clipboard, then the older copy command, then leave the text selected */
+async function copyText(el){
+  try { if (navigator.clipboard && navigator.clipboard.writeText){ await navigator.clipboard.writeText(el.value); return 'copied'; } } catch(e){}
+  try {
+    el.removeAttribute('readonly'); el.focus(); el.setSelectionRange(0, el.value.length);
+    if (document.execCommand && document.execCommand('copy')) return 'copied';
+  } catch(e){}
+  try { el.focus(); el.setSelectionRange(0, el.value.length); } catch(e){}
+  return 'selected';
+}
+/* save the code as a small text file: Claude's download prompt, the share sheet, or a plain download */
+async function saveMoveFile(code){
+  if (!HOME){
+    const dl = await useCap('downloads');
+    if (!dl) return 'unavailable';
+    try { await dl.save({ filename:MOVE_FILE, data:code }); return 'saved'; }
+    catch(e){ return e && e.code === 'declined' ? 'declined' : 'unavailable'; }
+  }
+  try {
+    const file = new File([code], MOVE_FILE, { type:'text/plain' });
+    if (navigator.canShare && navigator.canShare({ files:[file] })){ await navigator.share({ files:[file], title:'うちのこ日和 引っこしコード' }); return 'saved'; }
+  } catch(e){ if (e && e.name === 'AbortError') return 'declined'; }
+  try {
+    const url = URL.createObjectURL(new Blob([code], { type:'text/plain' }));
+    const a = document.createElement('a'); a.href = url; a.download = MOVE_FILE; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    return 'saved';
+  } catch(e){ return 'unavailable'; }
+}
+function readTextFile(file){
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result || '')); r.onerror = rej; r.readAsText(file); });
+}
+const CODE_ATTRS = 'autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false"';
 function openMove(){
   if (!S) return;
   const code = encodeMoveCode();
+  const len = code.length.toLocaleString('ja-JP');
   const html = `<p class="sheet-sub">${esc(S.pet.name)}を、ほかの場所（ホーム画面のアプリや別の端末）へつれていけます。</p>
     <div class="card movecard"><h3>この子をつれていく</h3>
-      <textarea class="codebox" id="mvOut" rows="4" readonly aria-label="引っこしコード">${esc(code)}</textarea>
-      <button class="btn primary" type="button" id="mvCopy">引っこしコードをコピー</button>
-      <p class="note" id="mvMsg" role="status">コピーしたら、つれていく先で「引っこしコードで受け取る」に貼りつけてね。</p>
+      <textarea class="codebox" id="mvOut" rows="4" ${CODE_ATTRS} aria-label="引っこしコード">${esc(code)}</textarea>
+      <div class="btnrow"><button class="btn primary" type="button" id="mvCopy">コードをコピー</button><button class="btn" type="button" id="mvSave">ファイルで保存</button></div>
+      <p class="note" id="mvMsg" role="status">コードは${len}文字あります。つれていく先の「引っこしコードで受け取る」で、貼りつけるか、保存したファイルをえらんでね。</p>
     </div>
     <div class="card movecard"><h3>コードで受け取る</h3>
-      <textarea class="codebox" id="mvIn" rows="3" placeholder="UCHINOKO1: からはじまるコード" aria-label="受け取る引っこしコード"></textarea>
-      <div id="mvInBox"><button class="btn" type="button" id="mvTake">受け取る</button></div>
+      <textarea class="codebox" id="mvIn" rows="3" ${CODE_ATTRS} placeholder="UCHINOKO ではじまるコード" aria-label="受け取る引っこしコード"></textarea>
+      <div id="mvInBox" class="btnrow"><button class="btn" type="button" id="mvTake">受け取る</button><label class="btn filebtn">ファイルからえらぶ<input type="file" id="mvFile" accept=".txt,text/plain"></label></div>
     </div>`;
   openSheet('引っこし・バックアップ', html, sh => {
     const out = sh.querySelector('#mvOut'), msg = sh.querySelector('#mvMsg');
-    sh.querySelector('#mvCopy').addEventListener('click', () => {
-      const fallback = () => { out.focus(); out.select(); out.setSelectionRange(0, out.value.length); msg.textContent = 'コードを選びました。「コピー」を押してね。'; };
-      try {
-        navigator.clipboard.writeText(out.value).then(() => { msg.textContent = 'コピーしました。つれていく先で貼りつけてね。'; }, fallback);
-      } catch(e){ fallback(); }
+    sh.querySelector('#mvCopy').addEventListener('click', async () => {
+      const r = await copyText(out);
+      msg.textContent = r === 'copied'
+        ? `コピーしました（${len}文字）。つれていく先で貼りつけてね。`
+        : 'コードをぜんぶ選びました。表示されたメニューの「コピー」を押してね。メニューが出ないときは「ファイルで保存」がかんたんです。';
     });
-    sh.querySelector('#mvTake').addEventListener('click', () => {
-      const st = decodeMoveCode(sh.querySelector('#mvIn').value);
+    sh.querySelector('#mvSave').addEventListener('click', async () => {
+      const r = await saveMoveFile(code);
+      msg.textContent = r === 'saved' ? `「${MOVE_FILE}」を保存しました。つれていく先で「ファイルからえらぶ」でえらんでね。`
+        : r === 'declined' ? '保存をとりやめました。' : 'ここではファイルの保存ができませんでした。コードのコピーをためしてね。';
+    });
+    const take = text => {
+      const r = readMoveCode(text);
       const box = sh.querySelector('#mvInBox');
-      if (!st){ box.insertAdjacentHTML('afterbegin', '<p class="oberr" role="alert" style="margin:0 0 8px">コードを読みとれませんでした。まるごと貼りつけてね。</p>'); return; }
+      sh.querySelectorAll('.mverr').forEach(e => e.remove());
+      if (!r.st){ box.insertAdjacentHTML('beforebegin', `<p class="oberr mverr" role="alert" style="margin:0">${esc(moveErrorText(r))}</p>`); return; }
+      const st = r.st;
+      box.classList.remove('btnrow');
       box.innerHTML = `<div class="confirm"><p>いまの${esc(S.pet.name)}は、コードの${esc(st.pet.name)}（なかよしLv ${levelInfo(st.stats.love).lv}）に置きかわります。</p>
         <div class="row"><button class="btn" type="button" id="mvNo">やめる</button><button class="btn warn" type="button" id="mvYes">受け取る</button></div></div>`;
       box.querySelector('#mvNo').addEventListener('click', () => closeSheet());
       box.querySelector('#mvYes').addEventListener('click', () => { S = st; closeSheet(); Persist.schedule(); Game.start('ただいま！'); });
+    };
+    sh.querySelector('#mvTake').addEventListener('click', () => take(sh.querySelector('#mvIn').value));
+    sh.querySelector('#mvFile').addEventListener('change', async e => {
+      const f = e.target.files && e.target.files[0]; if (!f) return;
+      try { take(await readTextFile(f)); } catch(err){ take(''); }
     });
   });
 }
@@ -1978,21 +2050,26 @@ const Onboard = {
     this.show();
     this.box.innerHTML = `<div class="ob-step">
       <h2 class="brand" style="font-size:24px">引っこしコードで受け取る</h2>
-      <p class="lead">前の場所で「引っこしコードをコピー」したものを、ここに貼りつけてください。なかよし度やきせかえも、そのまま引きつぎます。</p>
+      <p class="lead">前の場所でコピーした引っこしコードを貼りつけるか、保存したファイル（${MOVE_FILE}）をえらんでください。なかよし度やきせかえも、そのまま引きつぎます。</p>
       ${err ? `<div class="oberr" role="alert">${esc(err)}</div>` : ''}
-      <textarea class="codebox" id="imCode" rows="6" placeholder="UCHINOKO1: からはじまるコード" aria-label="引っこしコード"></textarea>
-      <button class="btn primary" type="button" id="imGo">受け取る</button>
+      <textarea class="codebox" id="imCode" rows="6" ${CODE_ATTRS} placeholder="UCHINOKO ではじまるコード" aria-label="引っこしコード"></textarea>
+      <button class="btn primary" type="button" id="imGo">貼りつけたコードで受け取る</button>
+      <label class="btn filebtn">ファイルからえらぶ<input type="file" id="imFile" accept=".txt,text/plain"></label>
       <button class="linkbtn" type="button" id="imBack">もどる</button>
     </div>`;
-    $('#imGo').addEventListener('click', () => {
-      const st = decodeMoveCode($('#imCode').value);
-      if (!st) return this.importView('コードを読みとれませんでした。最初から最後まで、まるごと貼りつけてね。');
-      S = st; this.busy = false;
+    const take = text => {
+      const r = readMoveCode(text);
+      if (!r.st) return this.importView(moveErrorText(r));
+      S = r.st; this.busy = false;
       Persist.schedule();
       Game.start('ただいま！');
+    };
+    $('#imGo').addEventListener('click', () => take($('#imCode').value));
+    $('#imFile').addEventListener('change', async e => {
+      const f = e.target.files && e.target.files[0]; if (!f) return;
+      try { take(await readTextFile(f)); } catch(er){ take(''); }
     });
     $('#imBack').addEventListener('click', () => this.welcome());
-    setTimeout(() => { const t = $('#imCode'); if (t) t.focus(); }, 60);
   },
   scan(preview){
     this.box.innerHTML = `<div class="scan">
