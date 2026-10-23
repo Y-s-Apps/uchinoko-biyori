@@ -2828,7 +2828,7 @@ function albumHtml(){
     const cur = S.streak.last === dayKey() || S.streak.last === dayKey(new Date(Date.now() - 864e5)) ? S.streak.n : 0;
     body = `<div class="cal-head"><button class="closebtn" type="button" data-mon="-1" aria-label="前の月">‹</button><b>${y}年${m + 1}月</b><button class="closebtn" type="button" data-mon="1" aria-label="次の月">›</button></div>
       <div class="cal"><b>日</b><b>月</b><b>火</b><b>水</b><b>木</b><b>金</b><b>土</b>${cells}</div>
-      <div class="counts cal-stats"><div><b>${cur}</b>れんぞく</div><div><b>${S.streak.best || 0}</b>さいこう</div><div><b>${S.stamps.length}</b>ぜんぶ</div><div><b>${S.stamps.filter(k => k.startsWith(`${y}-${String(m + 1).padStart(2, '0')}`)).length}</b>この月</div></div>
+      <div class="counts cal-stats"><div><b>${cur}</b>れんぞく</div><div><b>${S.streak.best || 0}</b>さいこう</div><div><b>${S.stamps.length}</b>ぜんぶ</div><div><b>${S.stamps.filter(k => k.startsWith(`${y}-${String(m + 1).padStart(2, '0')}`)).length}</b>${m + 1}月</div></div>
       <p class="note">きょうのおねがいを ぜんぶかなえた日に、スタンプがつきます。</p>`;
   }
   return `<div class="seg" role="tablist">${tabs}</div>${body}`;
