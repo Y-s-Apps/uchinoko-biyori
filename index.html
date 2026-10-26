@@ -2491,9 +2491,18 @@ function genDaily(day){
   return { day, list, all:false };
 }
 /* ===== おたすけのおねがい: exactly one missed calendar day can be bridged ===== */
+const RESCUE_EVERY = 7;
+const keyDiff = (a, b) => { const p = k => { const [Y, M, D] = k.split('-').map(Number); return Date.UTC(Y, M - 1, D); }; return Math.round((p(b) - p(a)) / 864e5); };
+/* the day a rescue was last used (the day after the bridged gap) */
+function lastRescueDay(){ const m = S.rescued.slice().sort().pop(); return m ? keyShift(m, 1) : null; }
+function rescueReady(d = dayKey()){ const l = lastRescueDay(); return !l || keyDiff(l, d) >= RESCUE_EVERY; }
+function nextRescueDay(){ const l = lastRescueDay(); return l ? keyShift(l, RESCUE_EVERY) : null; }
+const mdOfKey = k => { const [, M, D] = k.split('-').map(Number); return `${M}/${D}`; };
+/* exactly one calendar day missed, a streak to save */
+function gapOfOne(d = dayKey()){ return S.streak.n > 0 && S.streak.last === keyShift(d, -2); }
 function rescueOpen(d = dayKey()){
   if (S.streak.saved && S.streak.saved.day === d) return true;
-  return S.streak.n > 0 && S.streak.last === keyShift(d, -2);
+  return gapOfOne(d) && rescueReady(d);
 }
 function genRescue(d){
   const r = rng(hashStr('rescue:' + d + ':' + (S.created || 0)));
@@ -2552,7 +2561,20 @@ function rescueModal(){
   }), 1200);
 }
 function maybeRescueNotice(){
-  if (!S || !S.daily || !S.daily.rescue || S.daily.rescue.done || S.daily.rescueNoticed) return;
+  if (!S || !S.daily || S.daily.rescueNoticed) return;
+  if (!S.daily.rescue && gapOfOne(S.daily.day) && !rescueReady(S.daily.day) && !S.daily.all){
+    S.daily.rescueNoticed = true;
+    Persist.schedule();
+    Modal.show({
+      label:'れんぞく記録',
+      html:() => `${petCard('', 'ex-sad')}<h3>れんぞく記録が<br>とぎれちゃった…</h3>
+        <p>きのうは おやすみだったね。<br>おたすけのおねがいは ${RESCUE_EVERY}日に1回までなので、こんかいは つなげません。<br>つぎに つかえるのは <b>${mdOfKey(nextRescueDay())}</b>から。</p>
+        <p class="quote">「また きょうから がんばろうね」</p>
+        <button class="btn primary" type="button" data-close>うん</button>`,
+    });
+    return;
+  }
+  if (!S.daily.rescue || S.daily.rescue.done) return;
   const si = streakInfo();
   if (!si.pinch) return;
   S.daily.rescueNoticed = true;
@@ -2562,7 +2584,7 @@ function maybeRescueNotice(){
     html:() => `${petCard('', 'ex-sad')}<h3>れんぞく記録が ピンチ！</h3>
       <p>きのうは おやすみだったね。<br>きょうのうちに いつもの おねがい3つと、この おたすけのおねがいを かなえると、れんぞく<b>${si.n}日</b>の記録が つづくよ。</p>
       <p class="rescueline">${mini('rescue')}<span><small>おたすけのおねがい</small>${esc(reqText(S.daily.rescue))}</span></p>
-      <p class="note" style="margin:0 0 12px">2日いじょう あいたときは つなげません。</p>
+      <p class="note" style="margin:0 0 12px">おたすけは ${RESCUE_EVERY}日に1回まで。2日いじょう あいたときは つなげません。</p>
       <div class="btnrow"><button class="btn" type="button" data-close="later">あとで</button><button class="btn primary" type="button" data-close="open">おねがいを見る</button></div>`,
   }).then(v => { if (v === 'open') openRequests(); });
 }
@@ -2587,7 +2609,7 @@ function reqComplete(r){
     let bridged = false, waiting = false;
     if (last === y) S.streak.n = prevN + 1;
     else if (last === d) S.streak.n = prevN;
-    else if (last === keyShift(d, -2) && prevN > 0){
+    else if (last === keyShift(d, -2) && prevN > 0 && rescueReady(d)){
       if (S.daily.rescue && S.daily.rescue.done){ bridgeStreak(prevN, d); bridged = true; }
       else { S.streak.saved = { n:prevN, day:d }; S.streak.n = 1; waiting = true; }
     } else S.streak.n = 1;
@@ -2616,7 +2638,7 @@ function openRequests(){
   const si = streakInfo();
   const R = D.rescue && (si.pinch || D.rescue.done) ? D.rescue : null;
   const rescueCard = R ? `<div class="rescuebox">
-      <p><b>れんぞく記録が ピンチ！</b>きのうは おやすみだったね。きょうのうちに いつもの3つと、この おたすけのおねがいを ぜんぶかなえると、れんぞく${si.n}日の記録が つづくよ。</p>
+      <p><b>れんぞく記録が ピンチ！</b>きのうは おやすみだったね。きょうのうちに いつもの3つと、この おたすけのおねがいを ぜんぶかなえると、れんぞく${si.n}日の記録が つづくよ。（おたすけは ${RESCUE_EVERY}日に1回まで）</p>
       <div class="req rescue ${R.done ? 'done' : ''}"><div class="req-ic">${mini('rescue')}</div>
         <div class="req-body"><span class="evpill">おたすけ</span><b>${esc(reqText(R))}</b><div class="bar"><i style="width:${Math.round(R.got / R.n * 100)}%"></i></div></div>
         <div class="req-st">${R.done ? '<span class="okpill">かなえた</span>' : `<span class="cnt">${R.got}/${R.n}</span><small>♥+5</small>`}</div></div>
@@ -2935,7 +2957,7 @@ function albumHtml(){
     body = `<div class="cal-head"><button class="closebtn" type="button" data-mon="-1" aria-label="前の月">‹</button><b>${y}年${m + 1}月</b><button class="closebtn" type="button" data-mon="1" aria-label="次の月">›</button></div>
       <div class="cal"><b>日</b><b>月</b><b>火</b><b>水</b><b>木</b><b>金</b><b>土</b>${cells}</div>
       <div class="counts cal-stats"><div><b>${cur}</b>れんぞく${si.pinch ? '<span class="pinchpill">ピンチ</span>' : ''}</div><div><b>${S.streak.best || 0}</b>さいこう</div><div><b>${S.stamps.length}</b>ぜんぶ</div><div><b>${S.stamps.filter(k => k.startsWith(`${y}-${String(m + 1).padStart(2, '0')}`)).length}</b>${m + 1}月</div></div>
-      <p class="note">きょうのおねがいを ぜんぶかなえた日に、スタンプがつきます。1日だけ おやすみした日は、つぎの日に おたすけのおねがいを かなえると<span class="rs-legend">${mini('rescue')}</span>おたすけスタンプで つながります（2日いじょう あくと つなげません）。</p>`;
+      <p class="note">きょうのおねがいを ぜんぶかなえた日に、スタンプがつきます。1日だけ おやすみした日は、つぎの日に おたすけのおねがいを かなえると<span class="rs-legend">${mini('rescue')}</span>おたすけスタンプで つながります（${RESCUE_EVERY}日に1回まで。2日いじょう あくと つなげません）。${!rescueReady() ? `つぎに おたすけが つかえるのは <b>${mdOfKey(nextRescueDay())}</b>から。` : ''}</p>`;
   }
   return `<div class="seg" role="tablist">${tabs}</div>${body}`;
 }
