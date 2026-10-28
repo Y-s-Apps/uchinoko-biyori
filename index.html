@@ -3251,6 +3251,7 @@ const Onboard = {
     $('#imGo').addEventListener('click', () => take($('#imCode').value));
     $('#imFile').addEventListener('change', async e => {
       const f = e.target.files && e.target.files[0]; if (!f) return;
+      if (f.size > MOVE_MAX) return this.importView(moveErrorText({ reason:'big', got:f.size }));
       try { take(await readTextFile(f)); } catch(er){ take(''); }
     });
     $('#imBack').addEventListener('click', () => this.welcome());

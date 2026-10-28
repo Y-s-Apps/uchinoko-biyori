@@ -34,6 +34,9 @@ self.addEventListener('fetch', e => {
     e.respondWith(fetch(r).then(res => {
       const html = (res.headers.get('content-type') || '').startsWith('text/html');
       if (keepable(res) && html){ const cp = res.clone(); caches.open(CACHE).then(c => c.put('index.html', cp)); }
+      /* the site is gone or broken (404 after the repository moves, 5xx): open the saved copy,
+         so the pet and its move code stay reachable from the old home-screen app */
+      if (res.status >= 400) return caches.match('index.html').then(hit => hit || res);
       return res;
     }).catch(() => caches.match('index.html').then(hit => hit || Response.error())));
     return;
