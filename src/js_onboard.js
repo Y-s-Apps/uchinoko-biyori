@@ -206,7 +206,7 @@ const Onboard = {
   },
   scan(preview){
     this.box.innerHTML = `<div class="scan">
-      <div class="scanphoto"><img src="${preview}" alt="えらんだ写真"></div>
+      <div class="scanphoto"><img src="${esc(preview)}" alt="えらんだ写真"></div>
       <p class="scanmsg" id="scanMsg" aria-live="polite">どんな子かな…</p>
       <div class="paws">${PAW}${PAW}${PAW}${PAW}</div>
       <p class="note">はじめての読みとりでは、Claudeを使ってよいかの確認が出ます。読みとりには30秒ほどかかることがあります。</p>
@@ -307,7 +307,7 @@ const Onboard = {
     const sp = this.browseSp || L.species;
     this.box.innerHTML = `<div class="ob-step">
       <div class="miniroom" id="edPrev"></div>
-      <div class="card say">${d.photo ? `<img src="${d.photo}" alt="えらんだ写真">` : ''}<p>${head}<small>${esc(sub)}</small></p></div>
+      <div class="card say">${d.photo ? `<img src="${esc(d.photo)}" alt="えらんだ写真">` : ''}<p>${head}<small>${esc(sub)}</small></p></div>
       <div class="card"><h3>種類</h3>
         ${d.cands ? `<div class="chips" id="edCands">${d.cands.map(c => `<button class="chip" type="button" data-b="${c.id}" aria-pressed="${c.id === L.breedId}">${esc(BREED_BY_ID[c.id].ja)}${c.conf ? `<small>${Math.round(c.conf * 100)}%</small>` : ''}</button>`).join('')}</div>
           <button class="linkbtn" type="button" id="edMore" style="align-self:flex-start;padding-left:0">ほかの種類からえらぶ</button>` : ''}
@@ -318,7 +318,7 @@ const Onboard = {
       </div>
       <div class="card"><h3>毛の色</h3>
         ${(d.preview || d.photo) ? `<div class="picker">
-          <div class="pickphoto" id="edPick"><img src="${d.preview || d.photo}" alt="えらんだ写真。毛のところをタップすると色をひろえます"><i id="pickDot" hidden></i></div>
+          <div class="pickphoto" id="edPick"><img src="${esc(d.preview || d.photo)}" alt="えらんだ写真。毛のところをタップすると色をひろえます"><i id="pickDot" hidden></i></div>
           <div class="picktargets"><p class="swlabel" style="margin:0">写真からひろう</p>
             <div class="chips"><button class="chip" type="button" data-pt="main" aria-pressed="true">からだ</button><button class="chip" type="button" data-pt="sub" aria-pressed="false">口もと・おなか</button></div>
             <p class="note" style="margin:0">写真の毛のところをタップすると、その色になります。</p></div>

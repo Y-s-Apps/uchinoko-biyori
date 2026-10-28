@@ -4,6 +4,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const now = () => Date.now();
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
+/* a saved photo is only ever a base64 image data URL; anything else is dropped */
+const PHOTO_RE = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
+const safePhoto = (v, max = 2e6) => typeof v === 'string' && v.length < max && PHOTO_RE.test(v) ? v : null;
 const STORE_KEY = 'uchinoko-biyori:v1';
 const BOWL = { x:24, y:93 }, BED = { x:76, y:84 };
 let S = null;
@@ -620,7 +623,7 @@ function openMenu(){
   if (!S) return;
   const p = S.pet, c = S.counts, L = levelInfo(S.stats.love);
   const html = `<div class="profile">
-      <div class="ph">${renderPet(p.look, { wear:petWear() })}${p.photo ? `<img src="${p.photo}" alt="">` : ''}</div>
+      <div class="ph">${renderPet(p.look, { wear:petWear() })}${safePhoto(p.photo) ? `<img src="${esc(p.photo)}" alt="">` : ''}</div>
       <div style="min-width:0"><h3>${esc(p.name)}</h3><p>${esc(breedLabel(p))}</p><p>なかよしLv ${L.lv}${L.max ? '（MAX）' : ''}・${esc(titleFor(L.lv))}</p></div>
     </div>
     <div class="counts">
@@ -652,6 +655,7 @@ function openMenu(){
 
 /* ----- move code: carry a pet to another place ----- */
 const MOVE_PREFIX = 'UCHINOKO2:';
+const MOVE_MAX = 2e6; /* a real code is well under 1MB (the photo is capped at 400k) */
 function encodeMoveCode(){
   const bytes = new TextEncoder().encode(JSON.stringify(S));
   let bin = '';
@@ -662,6 +666,7 @@ function encodeMoveCode(){
 /* returns { st } on success, or { reason:'empty'|'noprefix'|'short'|'broken', got, need } */
 function readMoveCode(text){
   const raw = String(text || '');
+  if (raw.length > MOVE_MAX) return { reason:'big', got:raw.length };
   const t = raw.replace(/[\s​-‍﻿]+/g, '');
   if (!t) return { reason:'empty', got:0 };
   const m = t.match(/UCHINOKO([12]):(?:(\d+):)?([A-Za-z0-9+/=]*)/);
@@ -678,6 +683,7 @@ function moveErrorText(r){
   const n = v => Number(v || 0).toLocaleString('ja-JP');
   if (r.reason === 'empty') return 'コードが空っぽです。コピーしたコードを貼りつけてから押してね。';
   if (r.reason === 'noprefix') return `「UCHINOKO」ではじまるコードが見つかりませんでした（貼りつけた文字数：${n(r.got)}）。コピーがうまくいっていないかもしれません。「ファイルで保存」の方法もためしてみてね。`;
+  if (r.reason === 'big') return `コードが大きすぎて読めませんでした（${n(r.got)}文字）。うちのこ日和の引っこしコードか、たしかめてね。`;
   if (r.reason === 'short') return `コードが途中で切れています（${n(r.need)}文字のうち${n(r.got)}文字）。もう一度まるごとコピーするか、「ファイルで保存」の方法をためしてみてね。`;
   return `コードを読みとれませんでした（${n(r.got)}文字）。もう一度コピーし直してみてね。`;
 }
@@ -689,7 +695,7 @@ function decodeMovePayload(b64){
     if (!o || typeof o !== 'object' || !o.pet || !o.stats) return null;
     const num = (v, d, lo, hi) => { v = Number(v); return Number.isFinite(v) ? clamp(v, lo, hi) : d; };
     const p = o.pet, look = normalizeLook(p.look || p);
-    const photo = typeof p.photo === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(p.photo) && p.photo.length < 400000 ? p.photo : null;
+    const photo = safePhoto(p.photo, 400000);
     const wear = wearFrom(p);
     for (const k of ['head','face','neck']){ const v = wear[k]; if (v && WEAR_RENAMED[v]) wear[k] = WEAR_RENAMED[v]; else if (v && !WEAR_BY_ID[v]) wear[k] = null; }
     const c = o.counts || {};
@@ -766,8 +772,8 @@ function openMove(){
       msg.textContent = r === 'saved' ? `「${MOVE_FILE}」を保存しました。つれていく先で「ファイルからえらぶ」でえらんでね。`
         : r === 'declined' ? '保存をとりやめました。' : 'ここではファイルの保存ができませんでした。コードのコピーをためしてね。';
     });
-    const take = text => {
-      const r = readMoveCode(text);
+    const take = (text, pre) => {
+      const r = pre || readMoveCode(text);
       const box = sh.querySelector('#mvInBox');
       sh.querySelectorAll('.mverr').forEach(e => e.remove());
       if (!r.st){ box.insertAdjacentHTML('beforebegin', `<p class="oberr mverr" role="alert" style="margin:0">${esc(moveErrorText(r))}</p>`); return; }
@@ -781,6 +787,7 @@ function openMove(){
     sh.querySelector('#mvTake').addEventListener('click', () => take(sh.querySelector('#mvIn').value));
     sh.querySelector('#mvFile').addEventListener('change', async e => {
       const f = e.target.files && e.target.files[0]; if (!f) return;
+      if (f.size > MOVE_MAX){ take('', { reason:'big', got:f.size }); return; }
       try { take(await readTextFile(f)); } catch(err){ take(''); }
     });
   });

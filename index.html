@@ -1430,6 +1430,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const now = () => Date.now();
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
+/* a saved photo is only ever a base64 image data URL; anything else is dropped */
+const PHOTO_RE = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
+const safePhoto = (v, max = 2e6) => typeof v === 'string' && v.length < max && PHOTO_RE.test(v) ? v : null;
 const STORE_KEY = 'uchinoko-biyori:v1';
 const BOWL = { x:24, y:93 }, BED = { x:76, y:84 };
 let S = null;
@@ -2046,7 +2049,7 @@ function openMenu(){
   if (!S) return;
   const p = S.pet, c = S.counts, L = levelInfo(S.stats.love);
   const html = `<div class="profile">
-      <div class="ph">${renderPet(p.look, { wear:petWear() })}${p.photo ? `<img src="${p.photo}" alt="">` : ''}</div>
+      <div class="ph">${renderPet(p.look, { wear:petWear() })}${safePhoto(p.photo) ? `<img src="${esc(p.photo)}" alt="">` : ''}</div>
       <div style="min-width:0"><h3>${esc(p.name)}</h3><p>${esc(breedLabel(p))}</p><p>なかよしLv ${L.lv}${L.max ? '（MAX）' : ''}・${esc(titleFor(L.lv))}</p></div>
     </div>
     <div class="counts">
@@ -2078,6 +2081,7 @@ function openMenu(){
 
 /* ----- move code: carry a pet to another place ----- */
 const MOVE_PREFIX = 'UCHINOKO2:';
+const MOVE_MAX = 2e6; /* a real code is well under 1MB (the photo is capped at 400k) */
 function encodeMoveCode(){
   const bytes = new TextEncoder().encode(JSON.stringify(S));
   let bin = '';
@@ -2088,6 +2092,7 @@ function encodeMoveCode(){
 /* returns { st } on success, or { reason:'empty'|'noprefix'|'short'|'broken', got, need } */
 function readMoveCode(text){
   const raw = String(text || '');
+  if (raw.length > MOVE_MAX) return { reason:'big', got:raw.length };
   const t = raw.replace(/[\s​-‍﻿]+/g, '');
   if (!t) return { reason:'empty', got:0 };
   const m = t.match(/UCHINOKO([12]):(?:(\d+):)?([A-Za-z0-9+/=]*)/);
@@ -2104,6 +2109,7 @@ function moveErrorText(r){
   const n = v => Number(v || 0).toLocaleString('ja-JP');
   if (r.reason === 'empty') return 'コードが空っぽです。コピーしたコードを貼りつけてから押してね。';
   if (r.reason === 'noprefix') return `「UCHINOKO」ではじまるコードが見つかりませんでした（貼りつけた文字数：${n(r.got)}）。コピーがうまくいっていないかもしれません。「ファイルで保存」の方法もためしてみてね。`;
+  if (r.reason === 'big') return `コードが大きすぎて読めませんでした（${n(r.got)}文字）。うちのこ日和の引っこしコードか、たしかめてね。`;
   if (r.reason === 'short') return `コードが途中で切れています（${n(r.need)}文字のうち${n(r.got)}文字）。もう一度まるごとコピーするか、「ファイルで保存」の方法をためしてみてね。`;
   return `コードを読みとれませんでした（${n(r.got)}文字）。もう一度コピーし直してみてね。`;
 }
@@ -2115,7 +2121,7 @@ function decodeMovePayload(b64){
     if (!o || typeof o !== 'object' || !o.pet || !o.stats) return null;
     const num = (v, d, lo, hi) => { v = Number(v); return Number.isFinite(v) ? clamp(v, lo, hi) : d; };
     const p = o.pet, look = normalizeLook(p.look || p);
-    const photo = typeof p.photo === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(p.photo) && p.photo.length < 400000 ? p.photo : null;
+    const photo = safePhoto(p.photo, 400000);
     const wear = wearFrom(p);
     for (const k of ['head','face','neck']){ const v = wear[k]; if (v && WEAR_RENAMED[v]) wear[k] = WEAR_RENAMED[v]; else if (v && !WEAR_BY_ID[v]) wear[k] = null; }
     const c = o.counts || {};
@@ -2192,8 +2198,8 @@ function openMove(){
       msg.textContent = r === 'saved' ? `「${MOVE_FILE}」を保存しました。つれていく先で「ファイルからえらぶ」でえらんでね。`
         : r === 'declined' ? '保存をとりやめました。' : 'ここではファイルの保存ができませんでした。コードのコピーをためしてね。';
     });
-    const take = text => {
-      const r = readMoveCode(text);
+    const take = (text, pre) => {
+      const r = pre || readMoveCode(text);
       const box = sh.querySelector('#mvInBox');
       sh.querySelectorAll('.mverr').forEach(e => e.remove());
       if (!r.st){ box.insertAdjacentHTML('beforebegin', `<p class="oberr mverr" role="alert" style="margin:0">${esc(moveErrorText(r))}</p>`); return; }
@@ -2207,6 +2213,7 @@ function openMove(){
     sh.querySelector('#mvTake').addEventListener('click', () => take(sh.querySelector('#mvIn').value));
     sh.querySelector('#mvFile').addEventListener('change', async e => {
       const f = e.target.files && e.target.files[0]; if (!f) return;
+      if (f.size > MOVE_MAX){ take('', { reason:'big', got:f.size }); return; }
       try { take(await readTextFile(f)); } catch(err){ take(''); }
     });
   });
@@ -2281,24 +2288,53 @@ const isCat = () => S && S.pet.species === 'cat';
 function ensureState(st){
   if (!st) return st;
   const obj = v => v && typeof v === 'object' && !Array.isArray(v);
+  /* numbers and text that reach the screen are coerced here, whatever the source (this browser, the cloud copy, a move code) */
+  const num = (v, d, lo, hi) => { v = Number(v); return Number.isFinite(v) ? clamp(v, lo, hi) : d; };
+  if (obj(st.pet)){
+    if (typeof st.pet.name !== 'string') st.pet.name = String(st.pet.name || 'うちのこ');
+    if (typeof st.pet.colorName !== 'string') st.pet.colorName = '';
+    st.pet.photo = safePhoto(st.pet.photo);
+  }
+  st.stats = obj(st.stats) ? st.stats : {};
+  st.stats.full = num(st.stats.full, 70, 0, 100);
+  st.stats.mood = num(st.stats.mood, 70, 0, 100);
+  st.stats.love = num(st.stats.love, 0, 0, 1e7);
+  st.counts = obj(st.counts) ? st.counts : {};
+  for (const k of ['meals','treats','pets','plays']) st.counts[k] = num(st.counts[k], 0, 0, 1e9);
+  st.recentTreats = Array.isArray(st.recentTreats) ? st.recentTreats.filter(Number.isFinite).slice(-20) : [];
+  for (const k of ['last','created','updated']) st[k] = num(st[k], now(), 0, 8.64e15);
   st.room = Object.assign({}, ROOM_DEFAULT, obj(st.room) ? st.room : {});
   for (const [cat] of DECOR_CATS) if (!DECOR[cat].some(d => d.id === st.room[cat])) st.room[cat] = ROOM_DEFAULT[cat];
   st.room.season = st.room.season !== false;
   st.tricks = obj(st.tricks) ? st.tricks : {};
+  for (const [k, v] of Object.entries(st.tricks)){
+    if (obj(v)){ v.p = num(v.p, 0, 0, 99); v.ok = !!v.ok; } else delete st.tricks[k];
+  }
   st.daily = obj(st.daily) && Array.isArray(st.daily.list) ? st.daily : null;
+  if (st.daily){
+    const req = r => { r.n = num(r.n, 1, 1, 999); r.got = num(r.got, 0, 0, 1e6); r.done = !!r.done; return r; };
+    st.daily.list = st.daily.list.filter(obj).map(req);
+    if (st.daily.rescue != null) st.daily.rescue = obj(st.daily.rescue) ? req(st.daily.rescue) : null;
+  }
   st.stamps = Array.isArray(st.stamps) ? st.stamps.filter(x => typeof x === 'string').slice(-1000) : [];
   st.streak = obj(st.streak) ? st.streak : { last:null, n:0, best:0 };
+  st.streak.n = num(st.streak.n, 0, 0, 1e5);
+  st.streak.best = num(st.streak.best, 0, 0, 1e5);
   if (st.streak.saved && !(obj(st.streak.saved) && st.streak.saved.day === dayKey())) delete st.streak.saved;
+  if (st.streak.saved) st.streak.saved.n = num(st.streak.saved.n, 0, 0, 1e5);
   st.rescued = Array.isArray(st.rescued) ? st.rescued.filter(x => typeof x === 'string').slice(-500) : [];
   st.souv = obj(st.souv) ? st.souv : {};
   st.souv.have = obj(st.souv.have) ? st.souv.have : {};
+  for (const k of Object.keys(st.souv.have)) st.souv.have[k] = num(st.souv.have[k], 0, 0, 1e6);
+  st.souv.n = num(st.souv.n, 0, 0, 99);
   st.events = obj(st.events) ? st.events : {};
   st.events.got = Array.isArray(st.events.got) ? st.events.got.filter(id => WEAR_BY_ID[id]) : [];
   st.events.seen = obj(st.events.seen) ? st.events.seen : {};
-  st.album = Array.isArray(st.album) ? st.album.filter(a => a && typeof a.t === 'number' && typeof a.ti === 'string').slice(0, 300) : [];
+  st.album = Array.isArray(st.album) ? st.album.filter(a => a && Number.isFinite(a.t) && typeof a.ti === 'string').slice(0, 300) : [];
   st.album.forEach(a => { if (a.k === 'trick' || /^芸/.test(a.ti)) a.ti = a.ti.replace(/芸/g, 'げい'); });
   st.milestones = obj(st.milestones) ? st.milestones : {};
   st.trickDay = obj(st.trickDay) ? st.trickDay : { day:null, love:0 };
+  st.trickDay.love = num(st.trickDay.love, 0, 0, 10);
   if (!obj(st.firsts) || !st.firsts._init){
     const c = st.counts || {};
     st.firsts = { _init:true, meal:c.meals > 0, treat:c.treats > 0, play:c.plays > 0, pet:c.pets > 0, room:false, wear:{} };
@@ -2314,20 +2350,23 @@ function carryExtras(o, st){
     room:o.room, tricks:o.tricks, daily:null, stamps:o.stamps, streak:o.streak, souv:o.souv, events:o.events, rescued:o.rescued,
     album:o.album, milestones:o.milestones, firsts:o.firsts, counts:st.counts, pet:st.pet,
   })));
-  const tricks = {};
-  for (const [k, v] of Object.entries(src.tricks)) if (v && typeof v === 'object') tricks[k] = { p:clamp(Number(v.p) || 0, 0, 99), ok:!!v.ok };
+  const tricks = {}, trickIds = new Set(Object.values(TRICKS).flat().map(t => t.id));
+  for (const [k, v] of Object.entries(src.tricks)) if (trickIds.has(k) && v && typeof v === 'object') tricks[k] = { p:clamp(Number(v.p) || 0, 0, 99), ok:!!v.ok };
+  const firsts = { _init:true, wear:{} };
+  for (const k of ['meal','treat','play','pet','room','daily']) firsts[k] = !!src.firsts[k];
+  for (const k of Object.keys(src.firsts.wear)) if (WEAR_BY_ID[k] || WEAR_RENAMED[k]) firsts.wear[k] = true;
   const have = {};
   for (const [k, v] of Object.entries(src.souv.have)) if (SOUV_BY_ID[k]) have[k] = clamp(Number(v) || 0, 0, 1e6);
   st.room = src.room;
   st.tricks = tricks;
   st.stamps = src.stamps.filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x));
   st.rescued = src.rescued.filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x));
-  st.streak = { last:typeof src.streak.last === 'string' ? src.streak.last : null, n:clamp(Number(src.streak.n) || 0, 0, 1e5), best:clamp(Number(src.streak.best) || 0, 0, 1e5) };
+  st.streak = { last:/^\d{4}-\d{2}-\d{2}$/.test(src.streak.last) ? src.streak.last : null, n:clamp(Number(src.streak.n) || 0, 0, 1e5), best:clamp(Number(src.streak.best) || 0, 0, 1e5) };
   st.souv = { have, day:null, n:0 };
   st.events = { got:src.events.got, seen:Object.fromEntries(Object.entries(src.events.seen).filter(([k]) => /^[a-z]+:\d{4}$/.test(k)).map(([k, v]) => [k, Number(v) || 1])) };
   st.album = src.album.map(a => ({ t:a.t, k:String(a.k || '').slice(0, 20), ti:a.ti.slice(0, 40), su:String(a.su || '').slice(0, 80), ic:String(a.ic || '').slice(0, 40) }));
   st.milestones = Object.fromEntries(Object.entries(src.milestones).filter(([k]) => /^[a-z0-9:_-]{1,30}$/.test(k)).map(([k, v]) => [k, !!v]));
-  st.firsts = src.firsts;
+  st.firsts = firsts;
   return ensureState(st);
 }
 
@@ -3218,7 +3257,7 @@ const Onboard = {
   },
   scan(preview){
     this.box.innerHTML = `<div class="scan">
-      <div class="scanphoto"><img src="${preview}" alt="えらんだ写真"></div>
+      <div class="scanphoto"><img src="${esc(preview)}" alt="えらんだ写真"></div>
       <p class="scanmsg" id="scanMsg" aria-live="polite">どんな子かな…</p>
       <div class="paws">${PAW}${PAW}${PAW}${PAW}</div>
       <p class="note">はじめての読みとりでは、Claudeを使ってよいかの確認が出ます。読みとりには30秒ほどかかることがあります。</p>
@@ -3319,7 +3358,7 @@ const Onboard = {
     const sp = this.browseSp || L.species;
     this.box.innerHTML = `<div class="ob-step">
       <div class="miniroom" id="edPrev"></div>
-      <div class="card say">${d.photo ? `<img src="${d.photo}" alt="えらんだ写真">` : ''}<p>${head}<small>${esc(sub)}</small></p></div>
+      <div class="card say">${d.photo ? `<img src="${esc(d.photo)}" alt="えらんだ写真">` : ''}<p>${head}<small>${esc(sub)}</small></p></div>
       <div class="card"><h3>種類</h3>
         ${d.cands ? `<div class="chips" id="edCands">${d.cands.map(c => `<button class="chip" type="button" data-b="${c.id}" aria-pressed="${c.id === L.breedId}">${esc(BREED_BY_ID[c.id].ja)}${c.conf ? `<small>${Math.round(c.conf * 100)}%</small>` : ''}</button>`).join('')}</div>
           <button class="linkbtn" type="button" id="edMore" style="align-self:flex-start;padding-left:0">ほかの種類からえらぶ</button>` : ''}
@@ -3330,7 +3369,7 @@ const Onboard = {
       </div>
       <div class="card"><h3>毛の色</h3>
         ${(d.preview || d.photo) ? `<div class="picker">
-          <div class="pickphoto" id="edPick"><img src="${d.preview || d.photo}" alt="えらんだ写真。毛のところをタップすると色をひろえます"><i id="pickDot" hidden></i></div>
+          <div class="pickphoto" id="edPick"><img src="${esc(d.preview || d.photo)}" alt="えらんだ写真。毛のところをタップすると色をひろえます"><i id="pickDot" hidden></i></div>
           <div class="picktargets"><p class="swlabel" style="margin:0">写真からひろう</p>
             <div class="chips"><button class="chip" type="button" data-pt="main" aria-pressed="true">からだ</button><button class="chip" type="button" data-pt="sub" aria-pressed="false">口もと・おなか</button></div>
             <p class="note" style="margin:0">写真の毛のところをタップすると、その色になります。</p></div>

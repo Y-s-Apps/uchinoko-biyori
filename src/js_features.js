@@ -20,24 +20,53 @@ const isCat = () => S && S.pet.species === 'cat';
 function ensureState(st){
   if (!st) return st;
   const obj = v => v && typeof v === 'object' && !Array.isArray(v);
+  /* numbers and text that reach the screen are coerced here, whatever the source (this browser, the cloud copy, a move code) */
+  const num = (v, d, lo, hi) => { v = Number(v); return Number.isFinite(v) ? clamp(v, lo, hi) : d; };
+  if (obj(st.pet)){
+    if (typeof st.pet.name !== 'string') st.pet.name = String(st.pet.name || 'うちのこ');
+    if (typeof st.pet.colorName !== 'string') st.pet.colorName = '';
+    st.pet.photo = safePhoto(st.pet.photo);
+  }
+  st.stats = obj(st.stats) ? st.stats : {};
+  st.stats.full = num(st.stats.full, 70, 0, 100);
+  st.stats.mood = num(st.stats.mood, 70, 0, 100);
+  st.stats.love = num(st.stats.love, 0, 0, 1e7);
+  st.counts = obj(st.counts) ? st.counts : {};
+  for (const k of ['meals','treats','pets','plays']) st.counts[k] = num(st.counts[k], 0, 0, 1e9);
+  st.recentTreats = Array.isArray(st.recentTreats) ? st.recentTreats.filter(Number.isFinite).slice(-20) : [];
+  for (const k of ['last','created','updated']) st[k] = num(st[k], now(), 0, 8.64e15);
   st.room = Object.assign({}, ROOM_DEFAULT, obj(st.room) ? st.room : {});
   for (const [cat] of DECOR_CATS) if (!DECOR[cat].some(d => d.id === st.room[cat])) st.room[cat] = ROOM_DEFAULT[cat];
   st.room.season = st.room.season !== false;
   st.tricks = obj(st.tricks) ? st.tricks : {};
+  for (const [k, v] of Object.entries(st.tricks)){
+    if (obj(v)){ v.p = num(v.p, 0, 0, 99); v.ok = !!v.ok; } else delete st.tricks[k];
+  }
   st.daily = obj(st.daily) && Array.isArray(st.daily.list) ? st.daily : null;
+  if (st.daily){
+    const req = r => { r.n = num(r.n, 1, 1, 999); r.got = num(r.got, 0, 0, 1e6); r.done = !!r.done; return r; };
+    st.daily.list = st.daily.list.filter(obj).map(req);
+    if (st.daily.rescue != null) st.daily.rescue = obj(st.daily.rescue) ? req(st.daily.rescue) : null;
+  }
   st.stamps = Array.isArray(st.stamps) ? st.stamps.filter(x => typeof x === 'string').slice(-1000) : [];
   st.streak = obj(st.streak) ? st.streak : { last:null, n:0, best:0 };
+  st.streak.n = num(st.streak.n, 0, 0, 1e5);
+  st.streak.best = num(st.streak.best, 0, 0, 1e5);
   if (st.streak.saved && !(obj(st.streak.saved) && st.streak.saved.day === dayKey())) delete st.streak.saved;
+  if (st.streak.saved) st.streak.saved.n = num(st.streak.saved.n, 0, 0, 1e5);
   st.rescued = Array.isArray(st.rescued) ? st.rescued.filter(x => typeof x === 'string').slice(-500) : [];
   st.souv = obj(st.souv) ? st.souv : {};
   st.souv.have = obj(st.souv.have) ? st.souv.have : {};
+  for (const k of Object.keys(st.souv.have)) st.souv.have[k] = num(st.souv.have[k], 0, 0, 1e6);
+  st.souv.n = num(st.souv.n, 0, 0, 99);
   st.events = obj(st.events) ? st.events : {};
   st.events.got = Array.isArray(st.events.got) ? st.events.got.filter(id => WEAR_BY_ID[id]) : [];
   st.events.seen = obj(st.events.seen) ? st.events.seen : {};
-  st.album = Array.isArray(st.album) ? st.album.filter(a => a && typeof a.t === 'number' && typeof a.ti === 'string').slice(0, 300) : [];
+  st.album = Array.isArray(st.album) ? st.album.filter(a => a && Number.isFinite(a.t) && typeof a.ti === 'string').slice(0, 300) : [];
   st.album.forEach(a => { if (a.k === 'trick' || /^芸/.test(a.ti)) a.ti = a.ti.replace(/芸/g, 'げい'); });
   st.milestones = obj(st.milestones) ? st.milestones : {};
   st.trickDay = obj(st.trickDay) ? st.trickDay : { day:null, love:0 };
+  st.trickDay.love = num(st.trickDay.love, 0, 0, 10);
   if (!obj(st.firsts) || !st.firsts._init){
     const c = st.counts || {};
     st.firsts = { _init:true, meal:c.meals > 0, treat:c.treats > 0, play:c.plays > 0, pet:c.pets > 0, room:false, wear:{} };
@@ -53,20 +82,23 @@ function carryExtras(o, st){
     room:o.room, tricks:o.tricks, daily:null, stamps:o.stamps, streak:o.streak, souv:o.souv, events:o.events, rescued:o.rescued,
     album:o.album, milestones:o.milestones, firsts:o.firsts, counts:st.counts, pet:st.pet,
   })));
-  const tricks = {};
-  for (const [k, v] of Object.entries(src.tricks)) if (v && typeof v === 'object') tricks[k] = { p:clamp(Number(v.p) || 0, 0, 99), ok:!!v.ok };
+  const tricks = {}, trickIds = new Set(Object.values(TRICKS).flat().map(t => t.id));
+  for (const [k, v] of Object.entries(src.tricks)) if (trickIds.has(k) && v && typeof v === 'object') tricks[k] = { p:clamp(Number(v.p) || 0, 0, 99), ok:!!v.ok };
+  const firsts = { _init:true, wear:{} };
+  for (const k of ['meal','treat','play','pet','room','daily']) firsts[k] = !!src.firsts[k];
+  for (const k of Object.keys(src.firsts.wear)) if (WEAR_BY_ID[k] || WEAR_RENAMED[k]) firsts.wear[k] = true;
   const have = {};
   for (const [k, v] of Object.entries(src.souv.have)) if (SOUV_BY_ID[k]) have[k] = clamp(Number(v) || 0, 0, 1e6);
   st.room = src.room;
   st.tricks = tricks;
   st.stamps = src.stamps.filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x));
   st.rescued = src.rescued.filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x));
-  st.streak = { last:typeof src.streak.last === 'string' ? src.streak.last : null, n:clamp(Number(src.streak.n) || 0, 0, 1e5), best:clamp(Number(src.streak.best) || 0, 0, 1e5) };
+  st.streak = { last:/^\d{4}-\d{2}-\d{2}$/.test(src.streak.last) ? src.streak.last : null, n:clamp(Number(src.streak.n) || 0, 0, 1e5), best:clamp(Number(src.streak.best) || 0, 0, 1e5) };
   st.souv = { have, day:null, n:0 };
   st.events = { got:src.events.got, seen:Object.fromEntries(Object.entries(src.events.seen).filter(([k]) => /^[a-z]+:\d{4}$/.test(k)).map(([k, v]) => [k, Number(v) || 1])) };
   st.album = src.album.map(a => ({ t:a.t, k:String(a.k || '').slice(0, 20), ti:a.ti.slice(0, 40), su:String(a.su || '').slice(0, 80), ic:String(a.ic || '').slice(0, 40) }));
   st.milestones = Object.fromEntries(Object.entries(src.milestones).filter(([k]) => /^[a-z0-9:_-]{1,30}$/.test(k)).map(([k, v]) => [k, !!v]));
-  st.firsts = src.firsts;
+  st.firsts = firsts;
   return ensureState(st);
 }
 
