@@ -43,6 +43,7 @@ JSは1つの `<script>` に `build.sh` の順でつなげられます。`const H
 
 - **セーブをこわさない。** 保存データ `S` にフィールドを足すときは、`ensureState()` に既定値と移行を書きます。引っこしコードで運ぶものは `carryExtras()` にも足します。保存キー `uchinoko-biyori:v1` と引っこしコードの形式 `UCHINOKO2:<長さ>:<base64>` は変えません（`UCHINOKO1` も読めるまま残します）。
 - **ドメインは共有。** `*.github.io` は、同じアカウント（組織）のほかの Pages サイトと localStorage と Service Worker のキャッシュを共有します。保存キーとキャッシュ名はアプリ名ではじめ、`localStorage.clear()` や、ほかのアプリのキャッシュを消す処理は書きません。
+- **CSP。** ホーム画面版は CSP で、`index.html` の中のスクリプト1つと Google Fonts だけを読みこめます（ハッシュは `build.sh` が入れるので、`index.html` を手で直すと動かなくなります）。`onclick="…"` や `javascript:` は使わず `addEventListener` で書きます。外から読みこむものを足すときは `src/home_head.html` の CSP と `src/sw.js` もそろえ、`tools/smoke.py` で CSP の違反が0件か確かめます。
 - **IDは消さない。** きせかえなどを入れ替えるときは、`WEAR_RENAMED` で古いIDを新しいIDへつなぎます。
 - **スマホ優先。** 390px幅で横スクロールが出ないこと。タップしやすい大きさにします。iPhoneのSafariで残像が出るので、体ごと大きく動くアニメは `#petArt` に付けます（SVG内のグループで枠の外まで動かさない）。
 - **文言。** やさしいひらがな多めにし、メインメニューの言葉にそろえます（例：「げい」「◯日」）。

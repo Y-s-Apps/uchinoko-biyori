@@ -47,8 +47,8 @@ self.addEventListener('fetch', e => {
   if (!mine && !font) return;
   e.respondWith(caches.match(r).then(hit => {
     const net = fetch(r).then(res => {
-      /* the font stylesheet is loaded without CORS, so its answer is opaque: allowed for the font hosts only */
-      if (mine ? keepable(res) : (res.ok || res.type === 'opaque')){ const cp = res.clone(); caches.open(CACHE).then(c => c.put(r, cp)); }
+      /* fonts and their stylesheet are loaded with CORS, so a failed or opaque answer is never kept */
+      if (mine ? keepable(res) : (res.ok && res.type === 'cors' && !res.redirected)){ const cp = res.clone(); caches.open(CACHE).then(c => c.put(r, cp)); }
       return res;
     }).catch(() => hit || Response.error());
     return hit || net;

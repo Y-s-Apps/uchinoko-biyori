@@ -9,7 +9,7 @@
   python3 tools/smoke.py --out DIR  # スクリーンショットの保存先（既定：smoke-out/）
 
 必要なもの：pip install playwright（Chromium はインストール済みのものを使います）
-ページエラーが1件でもあれば終了コード1で終わります。
+ページエラーか CSP の違反が1件でもあれば終了コード1で終わります。
 """
 import argparse, asyncio, functools, http.server, json, os, socketserver, threading, time
 
@@ -48,6 +48,9 @@ async def main(args):
                                         is_mobile=True, has_touch=True, timezone_id='Asia/Tokyo', locale='ja-JP')
         page = await ctx.new_page()
         page.on('pageerror', lambda e: errors.append(str(e)))
+        # CSP にとめられたもの（ホーム画面版の Content-Security-Policy）もエラーとして数える
+        page.on('console', lambda m: errors.append('CSP: ' + m.text)
+                if m.type == 'error' and 'Content Security Policy' in m.text else None)
         if not args.fresh:
             await page.add_init_script(
                 "if(!sessionStorage.getItem('smoke')){localStorage.setItem('uchinoko-biyori:v1', %s);sessionStorage.setItem('smoke','1')}"
