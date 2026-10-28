@@ -7,5 +7,8 @@ iPhoneでは、Safariでこのページを開き、共有ボタンから「ホ�
 
 ## 中身
 
-- `src/` … アプリのもとになるファイル。`src/build.sh` を実行すると、公開用の `index.html` と `sw.js` を組み立てます
+- `CLAUDE.md` … 開発の進め方と守ること（Claude向けのメモ）
+- `docs/PROJECT.md` … 仕様、数値、決めたこと、更新履歴
+- `src/` … アプリのもとになるファイル。`sh src/build.sh` を実行すると、公開用の `index.html` と `sw.js` を組み立てます
 - `src/icons/` … アイコンの元データ（1024px）と、描き直すときのスクリプト
+- `tools/smoke.py` … スマホ幅での動作確認（スクリーンショットとエラーの確認）
