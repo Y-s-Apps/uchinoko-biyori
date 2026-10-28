@@ -62,6 +62,7 @@ function nextReward(lv){
 const Persist = {
   ref:null, mode:'local', timer:null, writing:false, again:false,
   restored:null, bkDay:null, failNoticed:false,
+  base:null,   /* `updated` of the save this device opened with: opening the app bumps S.updated, this does not */
   readSave(t){
     try { const v = t ? JSON.parse(t) : null; return v && typeof v === 'object' && v.pet && typeof v.pet === 'object' ? v : null; }
     catch(e){ return null; }
@@ -71,11 +72,11 @@ const Persist = {
     let raw = null;
     try { raw = localStorage.getItem(STORE_KEY); } catch(e){ return null; }
     const v = this.readSave(raw);
-    if (v) return v;
+    if (v){ this.base = Number(v.updated) || 0; return v; }
     if (raw != null){ try { localStorage.setItem(BROKEN_KEY, raw); } catch(e){} }
     let b = null;
     try { b = this.readSave(localStorage.getItem(BACKUP_KEY)); } catch(e){}
-    if (b) this.restored = Number(b.updated) || 0;
+    if (b) this.restored = this.base = Number(b.updated) || 0;
     return b;
   },
   /* once a day, before the first save, the last good save is copied aside */
@@ -154,12 +155,19 @@ const Persist = {
       const ref = db.doc('data/users/' + uid + '/pet');
       const snap = await ref.get();
       this.ref = ref; this.mode = 'cloud';
-      const remote = snap.exists ? snap.data() : null;
-      if (remote && remote.pet && (!S || (remote.updated || 0) > (S.updated || 0))){
+      /* the cloud copy goes through the same checks as a save on this device (ensureState runs in Game.start) */
+      const raw = snap.exists ? snap.data() : null;
+      const remote = raw && typeof raw === 'object' && raw.pet && typeof raw.pet === 'object' ? raw : null;
+      /* compare with the save this device opened with, not with S.updated (already bumped by opening the app),
+         so an older copy on this device never overwrites newer play from another device */
+      const remoteT = remote ? Number(remote.updated) || 0 : 0;
+      const localT = this.base != null ? this.base : (S ? Number(S.updated) || 0 : 0);
+      if (remote && (!S || remoteT > localT)){
         S = JSON.parse(JSON.stringify(remote));
+        this.base = remoteT;
         this.saveLocal();
         Game.onStateReplaced();
-      } else if (S && (!remote || (S.updated || 0) > (remote.updated || 0))){
+      } else if (S && (!remote || (Number(S.updated) || 0) > remoteT)){
         this.flush();
       }
     } catch(e){ this.ref = null; this.mode = 'local'; }
