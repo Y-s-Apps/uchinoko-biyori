@@ -3,6 +3,7 @@
 スマホ向けのペット育成Webアプリです。写真の犬・猫をそっくりなイラストのペットにして、ごはん・おやつ・なでなでで、のんびり育てます。年齢、寿命、死はありません。
 
 - 公開URL：https://y-s-apps.github.io/uchinoko-biyori/（オーナーはiPhoneのホーム画面に追加して毎日使っています）
+- リポジトリ：GitHub の `Y-s-Apps/uchinoko-biyori`（組織 Y-s-Apps）。
 - `main` ブランチのルートが、そのまま GitHub Pages で公開されます。
 - 仕様、数値、決めたこと、更新履歴は `docs/PROJECT.md` にあります。作業の前にかならず読んでください。
 

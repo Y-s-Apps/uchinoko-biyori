@@ -17,7 +17,7 @@ self.addEventListener('install', e => {
 });
 
 self.addEventListener('activate', e => {
-  /* y-s-apps.github.io is shared by every Pages site of this account: only clear our own old caches */
+  /* y-s-apps.github.io is shared by every Pages site of this organization: only clear our own old caches */
   e.waitUntil(caches.keys()
     .then(ks => Promise.all(ks.filter(k => k.startsWith(PREFIX) && k !== CACHE).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
