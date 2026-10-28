@@ -48,13 +48,14 @@ function ensureState(st){
     st.daily.list = st.daily.list.filter(obj).map(req);
     if (st.daily.rescue != null) st.daily.rescue = obj(st.daily.rescue) ? req(st.daily.rescue) : null;
   }
-  st.stamps = Array.isArray(st.stamps) ? st.stamps.filter(x => typeof x === 'string').slice(-1000) : [];
+  /* one stamp a day: keep about 100 years, so the "ぜんぶ" count never stops growing */
+  st.stamps = Array.isArray(st.stamps) ? st.stamps.filter(x => typeof x === 'string').slice(-40000) : [];
   st.streak = obj(st.streak) ? st.streak : { last:null, n:0, best:0 };
   st.streak.n = num(st.streak.n, 0, 0, 1e5);
   st.streak.best = num(st.streak.best, 0, 0, 1e5);
   if (st.streak.saved && !(obj(st.streak.saved) && st.streak.saved.day === dayKey())) delete st.streak.saved;
   if (st.streak.saved) st.streak.saved.n = num(st.streak.saved.n, 0, 0, 1e5);
-  st.rescued = Array.isArray(st.rescued) ? st.rescued.filter(x => typeof x === 'string').slice(-500) : [];
+  st.rescued = Array.isArray(st.rescued) ? st.rescued.filter(x => typeof x === 'string').slice(-6000) : [];
   st.souv = obj(st.souv) ? st.souv : {};
   st.souv.have = obj(st.souv.have) ? st.souv.have : {};
   for (const k of Object.keys(st.souv.have)) st.souv.have[k] = num(st.souv.have[k], 0, 0, 1e6);

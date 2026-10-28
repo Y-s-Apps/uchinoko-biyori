@@ -8,6 +8,9 @@ const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;',
 const PHOTO_RE = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
 const safePhoto = (v, max = 2e6) => typeof v === 'string' && v.length < max && PHOTO_RE.test(v) ? v : null;
 const STORE_KEY = 'uchinoko-biyori:v1';
+const BACKUP_KEY = 'uchinoko-biyori:backup';          /* the last good save from an earlier day */
+const BACKUP_DAY_KEY = 'uchinoko-biyori:backup-day';  /* the day that backup was taken */
+const BROKEN_KEY = 'uchinoko-biyori:broken';          /* an unreadable save, kept as it was found */
 const BOWL = { x:24, y:93 }, BED = { x:76, y:84 };
 let S = null;
 
@@ -58,8 +61,69 @@ function nextReward(lv){
 /* ----- saving: private per-person doc in db, mirrored to this browser ----- */
 const Persist = {
   ref:null, mode:'local', timer:null, writing:false, again:false,
-  loadLocal(){ try { const t = localStorage.getItem(STORE_KEY); const v = t ? JSON.parse(t) : null; return v && v.pet ? v : null; } catch(e){ return null; } },
-  saveLocal(){ try { if (S) localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch(e){} },
+  restored:null, bkDay:null, failNoticed:false,
+  readSave(t){
+    try { const v = t ? JSON.parse(t) : null; return v && typeof v === 'object' && v.pet && typeof v.pet === 'object' ? v : null; }
+    catch(e){ return null; }
+  },
+  /* the save on this device; if it cannot be read, it is kept aside and the backup is used instead */
+  loadLocal(){
+    let raw = null;
+    try { raw = localStorage.getItem(STORE_KEY); } catch(e){ return null; }
+    const v = this.readSave(raw);
+    if (v) return v;
+    if (raw != null){ try { localStorage.setItem(BROKEN_KEY, raw); } catch(e){} }
+    let b = null;
+    try { b = this.readSave(localStorage.getItem(BACKUP_KEY)); } catch(e){}
+    if (b) this.restored = Number(b.updated) || 0;
+    return b;
+  },
+  /* once a day, before the first save, the last good save is copied aside */
+  backup(){
+    const day = dayKey();
+    if (this.bkDay === day) return;
+    try {
+      if (localStorage.getItem(BACKUP_DAY_KEY) !== day){
+        const prev = localStorage.getItem(STORE_KEY);
+        if (this.readSave(prev)){ localStorage.setItem(BACKUP_KEY, prev); localStorage.setItem(BACKUP_DAY_KEY, day); }
+      }
+      this.bkDay = day;
+    } catch(e){}
+  },
+  saveLocal(){
+    if (!S) return;
+    this.backup();
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); }
+    catch(e){ if (HOME) this.failNotice(); }
+  },
+  failNotice(){
+    if (this.failNoticed || !S) return;
+    this.failNoticed = true;
+    Modal.show({
+      label:'ほぞんできませんでした',
+      html:() => `${petCard('', 'ex-sad')}<h3>この端末に<br>ほぞんできませんでした</h3>
+        <p>端末の空きが すくないのかもしれません。${esc(S.pet.name)}を なくさないように、「引っこし・バックアップ」で コードをコピーするか、ファイルで保存しておいてね。</p>
+        <div class="btnrow"><button class="btn" type="button" data-close>とじる</button><button class="btn primary" type="button" data-close="move">バックアップ</button></div>`,
+    }).then(v => { if (v === 'move') openMove(); });
+  },
+  restoredNotice(){
+    if (this.restored == null || !S) return;
+    const when = this.restored ? fmtMD(this.restored) + 'の' : '';
+    this.restored = null;
+    Modal.show({
+      label:'ひかえから もどしました',
+      html:() => `${petCard()}<h3>ひかえから<br>もどしたよ</h3>
+        <p>この端末の セーブが 読めなかったので、${when}ひかえから ${esc(S.pet.name)}を もどしました。</p>
+        <button class="btn primary" type="button" data-close>OK</button>`,
+    });
+  },
+  /* a home-screen app asks the browser not to clear its storage when the device runs low on space */
+  keep(){
+    try {
+      const st = navigator.storage;
+      if (HOME && st && st.persist && st.persisted) st.persisted().then(p => p || st.persist()).catch(() => {});
+    } catch(e){}
+  },
   schedule(){
     if (!S) return;
     S.updated = now();
@@ -806,6 +870,7 @@ const Game = {
     Pet.x = 50; Pet.y = 80; Pet.mount();
     renderStats();
     updateClock();
+    Persist.restoredNotice();   /* before the other popups, so it is read first */
     if (!this.started){
       this.started = true;
       setInterval(() => { updateClock(); if (S){ decay(); renderStats(); } }, 30000);

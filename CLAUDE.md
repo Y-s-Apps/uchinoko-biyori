@@ -41,7 +41,7 @@ JSは1つの `<script>` に `build.sh` の順でつなげられます。`const H
 
 ## 守ること
 
-- **セーブをこわさない。** 保存データ `S` にフィールドを足すときは、`ensureState()` に既定値と移行を書きます。引っこしコードで運ぶものは `carryExtras()` にも足します。保存キー `uchinoko-biyori:v1` と引っこしコードの形式 `UCHINOKO2:<長さ>:<base64>` は変えません（`UCHINOKO1` も読めるまま残します）。
+- **セーブをこわさない。** 保存データ `S` にフィールドを足すときは、`ensureState()` に既定値と移行を書きます。引っこしコードで運ぶものは `carryExtras()` にも足します。保存キー `uchinoko-biyori:v1` と引っこしコードの形式 `UCHINOKO2:<長さ>:<base64>` は変えません（`UCHINOKO1` も読めるまま残します）。端末の中には、毎日のひかえ `uchinoko-biyori:backup`（と `:backup-day`）と、読めなかったセーブの `uchinoko-biyori:broken` もあります。これらを消す処理は書きません。配列に上限をつけるときは、毎日たまるもの（スタンプなど）が何年使っても切れない大きさにします。
 - **ドメインは共有。** `*.github.io` は、同じアカウント（組織）のほかの Pages サイトと localStorage と Service Worker のキャッシュを共有します。保存キーとキャッシュ名はアプリ名ではじめ、`localStorage.clear()` や、ほかのアプリのキャッシュを消す処理は書きません。
 - **CSP。** ホーム画面版は CSP で、`index.html` の中のスクリプト1つと Google Fonts だけを読みこめます（ハッシュは `build.sh` が入れるので、`index.html` を手で直すと動かなくなります）。`onclick="…"` や `javascript:` は使わず `addEventListener` で書きます。外から読みこむものを足すときは `src/home_head.html` の CSP と `src/sw.js` もそろえ、`tools/smoke.py` で CSP の違反が0件か確かめます。
 - **IDは消さない。** きせかえなどを入れ替えるときは、`WEAR_RENAMED` で古いIDを新しいIDへつなぎます。

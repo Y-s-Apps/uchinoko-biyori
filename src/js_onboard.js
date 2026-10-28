@@ -451,5 +451,6 @@ const Onboard = {
   } else {
     Onboard.openNew(false);
   }
+  Persist.keep();
   Persist.connect();
 })();
