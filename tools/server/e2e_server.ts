@@ -2,6 +2,7 @@
  * supabase/functions/api/index.ts をそのまま動かし、DB は PGlite（メモリの中の Postgres）、
  * LINE の IDトークンの検証（api.line.me）だけを、ここでまねる（本物のサーバーにはこのしくみは入らない）。
  *   ためしのIDトークン：<base64url({})>.<base64url({aud:"2012410263", sub:"U…"})>.test
+ * AIの読みとり（api.anthropic.com）も、ここでまねる（/__debug/ai で返事の種類を変え、届いた写真の大きさを見る）。
  * /__debug/… は確認用（このファイルの中だけ）。
  */
 import postgres from 'npm:postgres@3.4.5';
@@ -14,11 +15,36 @@ await admin.unsafe(`do $$ begin
   if not exists (select 1 from pg_roles where rolname='anon') then create role anon; end if;
   if not exists (select 1 from pg_roles where rolname='authenticated') then create role authenticated; end if;
 end $$;`);
-await admin.unsafe(await Deno.readTextFile(MIG));
+for (const f of MIG.split(',')) await admin.unsafe(await Deno.readTextFile(f));
 
+Deno.env.set('ANTHROPIC_API_KEY', 'test-key');
+const AI = { mode:'ok', calls:0, media:'', bytes:0, w:0, h:0 };
+const AI_OK = { species:'dog', candidates:[{ id:'pomeranian', confidence:0.82 }, { id:'shiba', confidence:0.1 }], colorName:'クリーム', comment:'ふわふわの クリームいろだね',
+  look:{ ear:'small', coat:'fluffy', muzzle:'short', tail:'plume', legs:'normal', face:'lower',
+    colors:{ main:'#F3DDB3', body:'#F3DDB3', face:'#FBF3E6', chest:'#FBF3E6', paws:'#FBF3E6', eye:'#2B1E1A', nose:'#2E2328', tailTip:null }, marks:{} } };
+/* JPEG の大きさ（SOF のところ）を読む */
+function jpegSize(b: Uint8Array){
+  for (let i = 2; i + 9 < b.length;){
+    if (b[i] !== 0xFF){ i++; continue; }
+    const m = b[i + 1], len = (b[i + 2] << 8) | b[i + 3];
+    if (m >= 0xC0 && m <= 0xC3) return { h:(b[i + 5] << 8) | b[i + 6], w:(b[i + 7] << 8) | b[i + 8] };
+    i += 2 + len;
+  }
+  return { w:0, h:0 };
+}
 const realFetch = globalThis.fetch;
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input instanceof Request ? input.url : input);
+  if (url === 'https://api.anthropic.com/v1/messages'){
+    AI.calls++;
+    const src = JSON.parse(String(init!.body)).messages[0].content[0].source;
+    const bytes = Uint8Array.from(atob(src.data), c => c.charCodeAt(0));
+    Object.assign(AI, { media:src.media_type, bytes:bytes.length }, jpegSize(bytes));
+    await new Promise(r => setTimeout(r, 600));
+    const text = AI.mode === 'other' ? '{"species":"other"}' : JSON.stringify(AI_OK);
+    if (AI.mode === 'down') return new Response('{"type":"error","error":{"type":"api_error"}}', { status:500 });
+    return new Response(JSON.stringify({ type:'message', role:'assistant', content:[{ type:'text', text }], stop_reason:'end_turn' }));
+  }
   if (url === 'https://api.line.me/oauth2/v2.1/verify'){
     const p = new URLSearchParams(String(init!.body));
     const [, body, sig] = String(p.get('id_token')).split('.');
@@ -47,6 +73,12 @@ serve({ port:Number(PORT), hostname:'127.0.0.1', onListen(){ console.log('e2e se
       (s.data->'stats'->>'love')::float as love, (s.data->'counts'->>'meals')::int as meals, (s.data->'counts'->>'pets')::int as pets
       from app.line_accounts a join app.members m on m.id = a.member_id left join app.saves s on s.member_id = m.id order by a.sub`;
     return j(rows);
+  }
+  if (u.pathname === '/__debug/ai'){
+    /* AIのまねの返事を変える／届いたものを見る */
+    if (req.method === 'POST') Object.assign(AI, await req.json());
+    const [{ n }] = await admin`select coalesce(sum(n), 0)::int as n from app.ai_usage`;
+    return j({ ...AI, used:n });
   }
   if (u.pathname === '/__debug/bump'){
     /* べつの端末で遊んだことにする：名前を変え、updated を1時間先に、rev を1つ進める */

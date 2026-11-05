@@ -9,13 +9,19 @@
      画面の S はサーバーのセーブの写し。この端末から送るのは、名前・みため（POST /save）と、新しい子（adopt）・取りこみだけ。
    - LINEに ほぞんしている子（この端末の line-owner がある）は、サーバーに つながっていないと何も変えられない（つながるまで まってね）。
      ほかの子（ゲスト）は端末だけで遊べるが、LINEへは 取りこみの1回でしか入らない。
-   - サーバーには写真の控え（160px）を送らない。写真はこの端末の中だけ。 */
+   - サーバーには写真の控え（160px）を送らない。写真はこの端末の中だけ。
+   - AIの読みとり（LineAI）：LINEの中で サーバーに つながっているときだけ。写真をえらんだら、送る前に「AIで読みとる？」と きく。
+     読みとるときは、この端末で はば768pxまでの JPEG に作り直して（位置情報などは入らない）POST /read へ。
+     サーバーが Claude に わたし、写真も結果も のこさない。1人1日の回数はサーバーが数える。使わないときは いままでどおり端末の中だけ。 */
 const LINE_CFG = {
   sdk:'https://static.line-scdn.net/liff/edge/2/sdk.js',  /* エッジパス：v2 の最新版が自動で入る（古い版に固定しない） */
   liffId:'2012410263-cuCI7vQS',  /* 開発用の LIFF ID（https://miniapp.line.me/2012410263-cuCI7vQS）。空なら LIFF は使わない */
   initTimeout:10000,  /* LIFF の初期化を待つ上限（ミリ秒） */
   api:'https://ftakgswltcavwixqxpzi.supabase.co/functions/v1/api',  /* 空ならサーバーを使わない（CSP の connect-src にも同じホスト） */
   apiTimeout:15000,
+  aiTimeout:50000,  /* AIの読みとりを待つ上限（サーバーは45秒で あきらめる） */
+  aiSide:768,       /* AIに送る写真の 長いほうの辺（px） */
+  aiQuality:.8,
 };
 const LINE_OWNER_KEY = 'uchinoko-biyori:line-owner';  /* この端末のセーブが、どの会員のものか（サーバーの会員ID） */
 const LINE_GUEST_KEY = 'uchinoko-biyori:line-guest';  /* LINEの子と入れかわった、この端末にいた子（消さずにとっておく） */
@@ -102,6 +108,14 @@ const LineApp = {
         p.textContent = text;
       }
     }
+    /* はじめての画面の写真のことわり：AIで読みとれるときは、えらんだあとに きくことを書く */
+    const obNote = document.querySelector('#ob #obFile') ? document.querySelector('#ob .ob-step > p.note:last-child') : null;
+    if (obNote){
+      if (!obNote.dataset.orig) obNote.dataset.orig = obNote.textContent;
+      obNote.textContent = LineAI.ready()
+        ? 'えらんだ写真は、AIで 読みとるか きいてから つかいます。AIを使わないときは、この端末の中で 毛の色を ひろうだけで、どこにも 送りません。お部屋には 小さなサムネイルを 飾ります。'
+        : obNote.dataset.orig;
+    }
     /* 引っこしのシート（#mvInBox）と、はじめての画面の「引っこしコードで受け取る」（#imGo） */
     for (const anchor of [sh && sh.querySelector('#mvIn'), document.querySelector('#ob #imCode')]){
       if (!anchor) continue;
@@ -118,26 +132,36 @@ const LineApp = {
 function lineErr(code, data, status){ const e = new Error(code); e.code = code; e.data = data || null; e.status = status || 0; return e; }
 const LineServer = {
   token:null, member:null, importable:false,
-  async call(method, path, body, again = true){
+  ai:null,            /* AIの読みとり：{ on, left, perDay }（サーバーが数える） */
+  /* opt：{ timeout, signal }（signal で とめたら 'cancelled'） */
+  async call(method, path, body, again = true, opt = {}){
     const headers = {};
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (this.token) headers['x-session'] = this.token;
     const ctl = window.AbortController ? new AbortController() : null;
-    const timer = ctl ? setTimeout(() => ctl.abort(), LINE_CFG.apiTimeout) : null;
-    let res;
+    const timer = ctl ? setTimeout(() => ctl.abort(), opt.timeout || LINE_CFG.apiTimeout) : null;
+    const stop = () => { if (ctl) ctl.abort(); };
+    const cancelled = () => !!(opt.signal && opt.signal.aborted);
+    if (cancelled()) throw lineErr('cancelled');
+    if (opt.signal) opt.signal.addEventListener('abort', stop);
+    let res, data = null;
     try {
-      res = await fetch(LINE_CFG.api + path, {
-        method, headers, body:body === undefined ? undefined : JSON.stringify(body),
-        cache:'no-store', credentials:'omit', referrerPolicy:'no-referrer', signal:ctl ? ctl.signal : undefined,
-      });
-    } catch(e){ throw lineErr('unavailable'); }
-    finally { if (timer) clearTimeout(timer); }
-    let data = null;
-    try { data = await res.json(); } catch(e){}
+      try {
+        res = await fetch(LINE_CFG.api + path, {
+          method, headers, body:body === undefined ? undefined : JSON.stringify(body),
+          cache:'no-store', credentials:'omit', referrerPolicy:'no-referrer', signal:ctl ? ctl.signal : undefined,
+        });
+      } catch(e){ throw lineErr(cancelled() ? 'cancelled' : 'unavailable'); }
+      try { data = await res.json(); } catch(e){}
+      if (cancelled()) throw lineErr('cancelled');
+    } finally {
+      if (timer) clearTimeout(timer);
+      if (opt.signal) opt.signal.removeEventListener('abort', stop);
+    }
     /* セッションが切れていたら、IDトークンで1回だけ取り直す */
     if (res.status === 401 && again && path !== '/login' && data && data.error === 'nosession'){
       await this.login();
-      return this.call(method, path, body, false);
+      return this.call(method, path, body, false, opt);
     }
     if (!res.ok) throw lineErr(res.status >= 500 || res.status === 429 ? 'unavailable' : (data && data.error) || 'http' + res.status, data, res.status);
     return data;
@@ -150,6 +174,7 @@ const LineServer = {
     const r = await this.call('POST', '/login', { idToken }, false);
     if (!r || typeof r.token !== 'string' || !r.member || typeof r.member.id !== 'string') throw lineErr('badreply');
     this.token = r.token; this.member = r.member.id; this.importable = !!r.member.importable;
+    this.ai = lineAiStatus(r.ai);
     lineServerClock(r.now);
     return r;
   },
@@ -443,6 +468,111 @@ const LineSync = {
     } catch(e){ this.fail(e); }
     if (msg) toast(msg);
   },
+};
+
+/* ----- AIの読みとり（LINEの中で、サーバーに つながっているときだけ） ----- */
+function lineAiStatus(a){
+  if (!a || typeof a !== 'object') return null;
+  const n = (v, hi) => clamp(Math.floor(Number(v) || 0), 0, hi);
+  return { on:a.on === true, left:n(a.left, 99), perDay:n(a.perDay, 99) };
+}
+const LineAI = {
+  ready(){ return LineSync.state === 'on' && !!(LineServer.ai && LineServer.ai.on); },
+  /* きょうの のこり回数を聞きなおす（日付が かわったときのため） */
+  async refresh(){
+    try { const r = await LineServer.call('GET', '/ai'); if (r && r.ai) LineServer.ai = lineAiStatus(r.ai); } catch(e){}
+    return LineServer.ai;
+  },
+  leftText(a){
+    if (!a) return '';
+    if (!a.on) return 'いまは AIの読みとりを おやすみしています';
+    return a.left > 0 ? `1日${a.perDay}回まで（きょうは あと${a.left}回）` : `きょうの分は つかいきりました（1日${a.perDay}回まで。あすの0時に もどります）`;
+  },
+  /* この端末で小さくする（長いほうの辺を768pxまで、JPEG）。キャンバスで作り直すので、位置情報などは入らない */
+  async shrink(blob){
+    const url = URL.createObjectURL(blob);
+    try {
+      const im = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+      const sc = Math.min(1, LINE_CFG.aiSide / Math.max(im.naturalWidth, im.naturalHeight));
+      const cv = document.createElement('canvas');
+      cv.width = Math.max(1, Math.round(im.naturalWidth * sc)); cv.height = Math.max(1, Math.round(im.naturalHeight * sc));
+      cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
+      return cv.toDataURL('image/jpeg', LINE_CFG.aiQuality);
+    } finally { URL.revokeObjectURL(url); }
+  },
+  /* 写真をえらんだあと、送る前に：AIで読みとるか、自分でえらぶか */
+  ask(ob, img){
+    ob.busy = true;
+    ob.show();
+    ob.box.innerHTML = `<div class="ob-step aiask">
+      <div class="aiphoto"><img src="${esc(img.preview)}" alt="えらんだ写真"></div>
+      <h2 class="brand">AIで 読みとる？</h2>
+      <p class="lead">AIが 写真から、種類・毛の色・耳や しっぽの形を 読みとって、そっくりな子に します。</p>
+      <button class="btn primary" type="button" id="aiGo">AIで 読みとる</button>
+      <p class="note" id="aiLeft" role="status">${esc(this.leftText(LineServer.ai))}</p>
+      <button class="btn" type="button" id="aiSelf">AIを使わずに、自分で えらぶ</button>
+      <p class="note">写真は この端末で 小さくしてから、うちのこ日和の サーバーを通して AI（Anthropic の Claude）に 送ります。読みとったら すぐに すてて、サーバーには のこしません。AIを使わないときは、写真は この端末の中だけで つかいます。</p>
+      <button class="linkbtn" type="button" id="aiBack">べつの写真にする</button>
+    </div>`;
+    const go = $('#aiGo'), self = $('#aiSelf'), left = $('#aiLeft');
+    const show = a => {
+      const none = !a || !a.on || a.left <= 0;
+      go.disabled = none;
+      go.classList.toggle('primary', !none);
+      self.classList.toggle('primary', none);
+      left.textContent = this.leftText(a);
+    };
+    show(LineServer.ai);
+    this.refresh().then(a => { if (ob.box.contains(go)) show(a); });
+    go.addEventListener('click', () => { if (!go.disabled) this.read(ob, img); });
+    self.addEventListener('click', () => ob.fromPhotoOnly(img, '写真から毛の色をひろいました。犬か猫と種類をえらんで、色を近づけてね。'));
+    $('#aiBack').addEventListener('click', () => ob.welcome());
+  },
+  async read(ob, img){
+    ob.scan(img.preview);
+    const note = ob.box.querySelector('.scan .note');
+    if (note) note.textContent = '写真を 小さくして、AIに 送っています。読みとりには 10〜20秒ほど かかることがあります。';
+    const ctl = ob.ctl = new AbortController();
+    let r;
+    try {
+      const image = await this.shrink(img.blob);
+      r = await LineServer.call('POST', '/read', { image }, true, { timeout:LINE_CFG.aiTimeout, signal:ctl.signal });
+    } catch(e){
+      r = { ok:false, why:ctl.signal.aborted ? 'cancelled' : e && e.code === 'badimage' ? 'badimage' : 'unavailable' };
+    }
+    if (ob.ctl === ctl) ob.ctl = null;
+    clearInterval(ob.msgT);
+    if (!r || typeof r !== 'object') r = { ok:false, why:'unavailable' };
+    if (r.ai) LineServer.ai = lineAiStatus(r.ai);
+    if (!ob.busy) return;                                  /* とちゅうで はじめての画面が とじた */
+    if (r.why === 'cancelled') return ob.welcome();
+    const photoOnly = msg => ob.fromPhotoOnly(img, msg);
+    if (r.ok){
+      const out = parseAI(r.result);
+      if (!out) return photoOnly('うまく読みとれませんでした。種類と色をえらんでね。');
+      if (out.species === 'other') return ob.welcome('犬か猫が写っている写真をえらんでね。顔がはっきり写っている写真がおすすめです。');
+      ob.draft = { look:out.look, name:'', photo:img.thumb, preview:img.preview, colorName:out.colorName, cands:out.cands, comment:out.comment, note:'', keepColors:true, photoMain:null };
+      return ob.edit();
+    }
+    if (r.why === 'refused' || r.why === 'badimage') return ob.welcome('この写真は読みとれませんでした。ちがう写真でためしてね。');
+    const per = LineServer.ai && LineServer.ai.perDay;
+    photoOnly({
+      limit:`きょうの AIの読みとりは つかいきりました${per ? `（1日${per}回まで）` : ''}。写真の色で 仮の見た目を つくったので、種類を えらんでね。`,
+      busy:'きょうは AIの読みとりが いっぱいに なりました。写真の色で 仮の見た目を つくったので、種類を えらんでね。',
+      off:'いまは AIの読みとりを おやすみしています。写真の色で 仮の見た目を つくったので、種類を えらんでね。',
+    }[r.why] || 'うまく読みとれませんでした。写真の色で 仮の見た目を つくったので、種類を えらぶか、すこし あとで ためしてね。');
+  },
+};
+/* 写真をえらんだら：AIで読みとれるときは、送る前に きく。読みとれないとき（LINEの外・つながらない・おやすみ）は いままでどおり */
+const lineAnalyze = Onboard.analyze;
+Onboard.analyze = async function(file){
+  if (!LineAI.ready()) return lineAnalyze.call(this, file);
+  this.busy = true;
+  let img;
+  try { img = await prepImage(file); }
+  catch(e){ return this.welcome('この写真は読みこめませんでした。JPEGかPNGの写真でためしてね。'); }
+  if (!this.busy) return;
+  LineAI.ask(this, img);
 };
 
 /* 画面のしくみ（js_app.js の Act）に、サーバーとつながりのことを教える */

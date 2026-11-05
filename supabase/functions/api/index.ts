@@ -7,6 +7,9 @@
  *                                    adopt { pet } は新しい子（まっさら）をむかえる
  *   POST /save    { pet }            名前・みため（種類・毛色・顔つき）だけを書く。数字や記録は受けとらない
  *   POST /import  { code }           引っこしコード（この端末の子も同じ形で送る）を取りこむ。1人1回だけ
+ *   GET  /ai                         AIの読みとりが使えるか・きょうの のこり回数
+ *   POST /read    { image }          AIの読みとり：端末で小さくした写真（JPEG）を Claude に送り、種類・毛色・耳やしっぽの形を返す。
+ *                                    1人1日 AI_PER_DAY 回・全員で1日 AI_ALL_PER_DAY 回まで（日本時間の日付）。写真も結果も保存しない
  *   GET  /health                     動いているか・サーバーの時刻
  *
  * - おなか・ごきげんの減り、おやつの回数、おみやげ、きょうのおねがい、連続記録とおたすけ、季節のイベント、
@@ -19,11 +22,12 @@
  * - セーブは画面と同じ ensureState() を通し、写真の控えは null にする。
  *   game.js は tools/build_server.py が src/ から作り、deno.json の "uchinoko-game" が
  *   GitHub に push したコミットの game.js を指す（デプロイで送るのは index.ts と deno.json だけ）。
- * - ログにトークンやセーブの中身を出さない。
+ * - ログにトークンやセーブの中身、写真、AIの返事を出さない。
+ * - AIの鍵（ANTHROPIC_API_KEY）は Supabase の Edge Function の秘密（Secrets）にだけ置く。ないときは読みとりを休む。
  * - デプロイは verify_jwt: false（自前のセッションで確かめるため）。
  */
 import postgres from 'npm:postgres@3.4.5';
-import { ensureState, readMoveCode, MOVE_MAX, dayKey, Rules, newState, normalizeLook } from 'uchinoko-game';
+import { ensureState, readMoveCode, MOVE_MAX, dayKey, Rules, newState, normalizeLook, buildPrompt, parseAI } from 'uchinoko-game';
 
 const env = (k: string, d = '') => (Deno.env.get(k) ?? d).trim();
 /* LINEミニアプリチャネルのチャネルID（LIFF ID の前半）。秘密ではない。カンマで複数 */
@@ -35,7 +39,16 @@ const LINE_VERIFY = 'https://api.line.me/oauth2/v2.1/verify';
 const SESSION_HOURS = 24;
 const SESSIONS_PER_MEMBER = 10;
 const SAVE_MAX = 1_500_000;          /* セーブの JSON の文字数の上限（写真なしで、ふつうは 100KB より小さい） */
-const BODY_MAX = { login:8_000, save:8_000, act:8_000, import:MOVE_MAX + 2_000 } as const;
+/* AIの読みとり。モデルと上限は Secrets（環境変数）で変えられる。鍵がなければ読みとりは休み（画面は色ひろい・種類からえらぶ） */
+const AI_KEY = env('ANTHROPIC_API_KEY');
+const AI_URL = env('AI_URL', 'https://api.anthropic.com/v1/messages');
+const AI_MODEL = env('AI_MODEL', 'claude-haiku-5-5');
+const intEnv = (k: string, d: number, hi: number) => { const n = Math.floor(Number(env(k, String(d)))); return Number.isFinite(n) ? Math.min(hi, Math.max(0, n)) : d; };
+const AI_PER_DAY = intEnv('AI_PER_DAY', 3, 50);           /* 1人1日（日本時間の0時で戻る） */
+const AI_ALL_PER_DAY = intEnv('AI_ALL_PER_DAY', 300, 100_000);  /* 全員あわせて1日 */
+const AI_TIMEOUT_MS = 45_000;
+const IMAGE_MAX = 400_000;           /* 写真（base64）の文字数の上限。端末で はば768pxまでに小さくするので、ふつうは 150KB くらい */
+const BODY_MAX = { login:8_000, save:8_000, act:8_000, import:MOVE_MAX + 2_000, read:IMAGE_MAX + 2_000 } as const;
 const CARE = new Set(['feed', 'treat', 'play', 'trick']);
 const CARE_GAP_MS = 2_500;
 const STROKE_MAX = 12;
@@ -166,7 +179,7 @@ async function login(req: Request) {
     const [sv] = await tx<SaveRow[]>`select data, rev::int as rev, updated_at from app.saves where member_id = ${member}`;
     return { member, expiresAt:new Date(s.expires_at).getTime(), importable:!mem.imported_at, save:saveOut(sv) };
   });
-  return { token, expiresAt:out.expiresAt, member:{ id:out.member, importable:out.importable }, save:out.save, now:Date.now() };
+  return { token, expiresAt:out.expiresAt, member:{ id:out.member, importable:out.importable }, save:out.save, ai:await aiStatus(out.member), now:Date.now() };
 }
 
 async function getSave(member: string) {
@@ -273,6 +286,111 @@ async function importCode(req: Request, member: string) {
   return { save:saveOut(out), importable:false };
 }
 
+/* ----- AIの読みとり ----- */
+type AiStatus = { on: boolean; left: number; perDay: number };
+async function aiStatus(member: string): Promise<AiStatus> {
+  if (!AI_KEY) return { on:false, left:0, perDay:AI_PER_DAY };
+  try {
+    const [r] = await sql`select n from app.ai_usage where day = ${dayKey()}::date and member_id = ${member}`;
+    return { on:true, left:Math.max(0, AI_PER_DAY - (r ? Number(r.n) : 0)), perDay:AI_PER_DAY };
+  } catch {
+    /* 回数の表が読めないときは、読みとりを休む（ログインやおせわは止めない） */
+    console.error('ai: usage table unavailable');
+    return { on:false, left:0, perDay:AI_PER_DAY };
+  }
+}
+
+/* 写真は data:image/jpeg;base64,… の形だけ（端末のキャンバスで作り直したもの。位置情報などは入っていない） */
+const JPEG_RE = /^data:image\/jpeg;base64,([A-Za-z0-9+/]+={0,2})$/;
+function jpegData(raw: unknown): string {
+  if (typeof raw !== 'string' || raw.length > IMAGE_MAX + 40) throw new HttpError(400, 'badimage');
+  const m = raw.match(JPEG_RE);
+  if (!m || m[1].length < 400 || m[1].length % 4) throw new HttpError(400, 'badimage');
+  let head: Uint8Array;
+  try { head = Uint8Array.from(atob(m[1].slice(0, 8)), c => c.charCodeAt(0)); } catch { throw new HttpError(400, 'badimage'); }
+  if (head[0] !== 0xFF || head[1] !== 0xD8 || head[2] !== 0xFF) throw new HttpError(400, 'badimage');
+  return m[1];
+}
+
+/* 1回分をとっておく（上限をこえていたら null）。1日ごとの数は、日付のロックで順番に数える */
+async function aiReserve(member: string, day: string): Promise<'limit' | 'busy' | null> {
+  return await sql.begin(async tx => {
+    await tx`select pg_advisory_xact_lock(hashtextextended(${'ai:' + day}, 0))`;
+    const [mine] = await tx`select n from app.ai_usage where day = ${day}::date and member_id = ${member}`;
+    if (mine && Number(mine.n) >= AI_PER_DAY) return 'limit';
+    const [all] = await tx`select coalesce(sum(n), 0)::int as n from app.ai_usage where day = ${day}::date`;
+    if (Number(all.n) >= AI_ALL_PER_DAY) return 'busy';
+    await tx`insert into app.ai_usage (day, member_id, n) values (${day}::date, ${member}, 1)
+      on conflict (day, member_id) do update set n = app.ai_usage.n + 1`;
+    await tx`delete from app.ai_usage where day < ${day}::date - 7`;
+    return null;
+  });
+}
+/* AIに届かなかった（料金がかからなかった）ときは、1回分を返す */
+async function aiRefund(member: string, day: string) {
+  await sql`update app.ai_usage set n = greatest(n - 1, 0) where day = ${day}::date and member_id = ${member}`;
+}
+
+/* 返事の文から JSON を1つ取り出す（前後の文やコードのかこみは無視） */
+function firstJson(text: string): unknown {
+  const a = text.indexOf('{'), b = text.lastIndexOf('}');
+  if (a < 0 || b <= a) return null;
+  try { return JSON.parse(text.slice(a, b + 1)); } catch { return null; }
+}
+
+async function aiRead(req: Request, member: string) {
+  const body = await readBody(req, BODY_MAX.read);
+  const data = jpegData(body.image);
+  if (!AI_KEY) return { ok:false, why:'off', ai:await aiStatus(member) };
+  const day = dayKey();
+  let held: 'limit' | 'busy' | null;
+  try { held = await aiReserve(member, day); }
+  catch { console.error('ai: usage table unavailable'); return { ok:false, why:'off', ai:{ on:false, left:0, perDay:AI_PER_DAY } }; }
+  if (held) return { ok:false, why:held, ai:await aiStatus(member) };
+  let res: Response;
+  try {
+    res = await fetch(AI_URL, {
+      method:'POST',
+      headers:{ 'content-type':'application/json', 'x-api-key':AI_KEY, 'anthropic-version':'2023-06-01' },
+      body:JSON.stringify({
+        model:AI_MODEL,
+        max_tokens:1500,
+        thinking:{ type:'disabled' },
+        output_config:{ effort:'low' },
+        messages:[{ role:'user', content:[
+          { type:'image', source:{ type:'base64', media_type:'image/jpeg', data } },
+          { type:'text', text:buildPrompt() },
+        ] }],
+      }),
+      signal:AbortSignal.timeout(AI_TIMEOUT_MS),
+    });
+  } catch {
+    await aiRefund(member, day);
+    console.error('ai: no reply');
+    return { ok:false, why:'unavailable', ai:await aiStatus(member) };
+  }
+  let v: Record<string, unknown> = {};
+  try { v = await res.json(); } catch { /* 下で弾く */ }
+  if (!res.ok){
+    await aiRefund(member, day);
+    const kind = v && typeof v.error === 'object' && v.error ? String((v.error as Record<string, unknown>).type || '').slice(0, 40) : '';
+    console.error('ai: http ' + res.status + (kind ? ' ' + kind : ''));
+    return { ok:false, why:'unavailable', ai:await aiStatus(member) };
+  }
+  const ai = await aiStatus(member);
+  if (v.stop_reason === 'refusal') return { ok:false, why:'refused', ai };
+  const text = Array.isArray(v.content) ? (v.content as Record<string, unknown>[]).filter(c => c && c.type === 'text').map(c => String(c.text || '')).join('') : '';
+  const out = parseAI(firstJson(text));
+  if (!out) return { ok:false, why:'unreadable', ai };
+  if (out.species === 'other') return { ok:true, result:{ species:'other' }, ai };
+  /* 画面にわたすのは、知っている種類・決まった形の色・短い文字だけ（parseAI が確かめた形） */
+  return { ok:true, ai, result:{
+    species:out.species,
+    candidates:out.cands.map((c: { id: string; conf: number }) => ({ id:c.id, confidence:c.conf })),
+    colorName:out.colorName, comment:out.comment, look:out.look,
+  } };
+}
+
 async function route(req: Request): Promise<unknown> {
   const path = new URL(req.url).pathname.replace(/^.*?\/api(?=\/|$)/, '') || '/';
   const m = req.method;
@@ -282,6 +400,8 @@ async function route(req: Request): Promise<unknown> {
   if (path === '/save' && m === 'POST') return await putSave(req, await sessionMember(req));
   if (path === '/act' && m === 'POST') return await act(req, await sessionMember(req));
   if (path === '/import' && m === 'POST') return await importCode(req, await sessionMember(req));
+  if (path === '/ai' && m === 'GET') return { ai:await aiStatus(await sessionMember(req)), now:Date.now() };
+  if (path === '/read' && m === 'POST') return await aiRead(req, await sessionMember(req));
   throw new HttpError(404, 'notfound');
 }
 

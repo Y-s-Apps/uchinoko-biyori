@@ -11,6 +11,7 @@
 画面と同じ ensureState()・carryExtras()・引っこしコードの読みとりと、おせわのルール（js_rules.js の Rules）を、
 サーバーでもそのまま使うため。データのファイル（js_data*.js と js_pet.js）と js_rules.js は丸ごと、
 js_app.js と js_features.js からは下の名前の関数・定数だけを取り出す（DOM にさわるところは入れない）。
+js_onboard.js からは、AIの読みとりの頼み方（buildPrompt）と返事の確かめ（parseAI）を取り出す（Claude版と同じもの）。
 ルールの時計（Clock）は、サーバーでは日付を日本時間（Asia/Tokyo、UTC+9・夏時間なし）にし、偶然は crypto で決める。
 """
 import os
@@ -26,9 +27,10 @@ WHOLE = ['js_data.js', 'js_data2.js', 'js_data3.js', 'js_pet.js', 'js_rules.js']
 PICK = {
     'js_app.js': ['PHOTO_RE', 'safePhoto', 'MOVE_PREFIX', 'MOVE_MAX', 'readMoveCode', 'decodeMovePayload'],
     'js_features.js': ['ensureState', 'carryExtras'],
+    'js_onboard.js': ['buildPrompt', 'parseAI'],
 }
 EXPORTS = ['ensureState', 'carryExtras', 'readMoveCode', 'safePhoto', 'levelInfo', 'normalizeLook', 'dayKey', 'MOVE_MAX',
-           'Rules', 'Clock', 'newState', 'wearFrom']
+           'Rules', 'Clock', 'newState', 'wearFrom', 'buildPrompt', 'parseAI']
 
 DAYKEY_JST = '''/* サーバーの時計：日付は日本時間（UTC+9。夏時間はない）、偶然は crypto */
 Clock.dayKey = function(t){
@@ -84,6 +86,10 @@ const r1 = g.Clock.rand(); if (!(r1 >= 0 && r1 < 1)) throw new Error('rand');
 const st2 = g.ensureState(JSON.parse(JSON.stringify(st)));
 const fed = g.Rules.act(st2, 'feed', {}, {});
 if (!fed.ok || st2.counts.meals !== 4 || !Array.isArray(fed.ev)) throw new Error('Rules.feed ' + JSON.stringify(fed));
+const ai = g.parseAI({ species:'dog', candidates:[{ id:'pomeranian', confidence:0.9 }, { id:'nope', confidence:1 }, { id:'kuro', confidence:1 }], colorName:'<b>クリーム</b>のながいなまえのいろのなまえ', comment:'x'.repeat(99), look:{ ear:'evil', colors:{ main:'javascript:alert(1)' } } });
+if (!ai || ai.cands.length !== 1 || ai.cands[0].id !== 'pomeranian' || ai.colorName.length > 14 || ai.comment.length > 60 || ai.look.ear !== 'small' || !/^#[0-9a-f]{6}$/i.test(ai.look.colors.main)) throw new Error('parseAI ' + JSON.stringify(ai).slice(0, 300));
+if (g.parseAI({ species:'other' }).species !== 'other' || g.parseAI(null) !== null || g.parseAI([]) !== null) throw new Error('parseAI other');
+if (!/pomeranian\(ポメラニアン\)/.test(g.buildPrompt())) throw new Error('buildPrompt');
 console.log('game.js ok');
 '''
     r = subprocess.run(['node', '--input-type=module', '-e', test, path], capture_output=True, text=True)

@@ -1253,6 +1253,47 @@ function carryExtras(o, st){
   return ensureState(st);
 }
 
+/* ---- src/js_onboard.js（buildPrompt, parseAI） ---- */
+function buildPrompt(){
+  const ids = sp => BREEDS.filter(b => b.sp === sp).map(b => `${b.id}(${b.ja})`).join(', ');
+  return `You read photos for a cozy pet-raising game. The attached photo was uploaded by the player so the game can draw a cute chibi cartoon of their own dog or cat.
+Look at the main animal and reply with ONLY one JSON object, no other text:
+{"species":"dog"|"cat"|"other",
+ "candidates":[{"id":"<breed id from the list>","confidence":0.0}],
+ "colorName":"<short Japanese coat colour or pattern, e.g. 白, クリーム, 黒白, 茶トラ>",
+ "comment":"<one warm Japanese sentence, at most 30 characters, about how this animal looks>",
+ "look":{"ear":"pointy|big|small|floppy|long|semi|fold","coat":"smooth|fluffy|curly|long","muzzle":"short|medium|long","tail":"curl|plume|straight|stub|long|fluffy","legs":"normal|short","face":"muzzle|lower|mask|hachiware|blaze",
+  "colors":{"main":"#hex","body":"#hex","ear":"#hex","tail":"#hex","face":"#hex","chest":"#hex","paws":"#hex","eye":"#hex","nose":"#hex","tailTip":"#hex or null"},
+  "marks":{"stripes":"#hex or null","spots":"#hex or null","patchL":"#hex or null","patchR":"#hex or null","bodyPatch":false,"brows":"#hex or null","mask":"#hex or null","saddle":"#hex or null"}}}
+Breed ids. Dogs: ${ids('dog')}. Cats: ${ids('cat')}.
+Rules:
+- candidates: 1 to 3 ids from the list, most likely first. For cats without a pedigree look, use the coat-pattern ids (kijitora, chatora, sabatora, mike, kuro, shiro, hachiware). Use mix_dog or mix_cat when nothing fits.
+- main = fur colour of the head; body = torso; face = lower face and muzzle; chest and paws likewise. Use the same hex when areas share a colour.
+- face: "muzzle" = only the snout differs; "lower" = lower half of the face is lighter; "mask" = husky-style white face with a dark cap; "hachiware" = white inverted V between the eyes; "blaze" = narrow white stripe down the forehead into a white muzzle.
+- tail: dogs use curl, plume, straight or stub; cats use long or fluffy. ear "fold" is for folded cat ears. legs "short" for dachshund, corgi, munchkin.
+- marks: stripes for tabby, spots for spotted coats, patchL/patchR for colour patches over the left/right eye and ear (calico, papillon, cavalier), bodyPatch true if the torso has such patches, brows for light eyebrow dots, mask for dark shading around the muzzle (pug, siamese), saddle for a dark back (beagle). Use null when absent.
+- Colours should match the photo, slightly clean and bright like a cute illustration. Pure white fur is about #FBF8F4, black fur about #2B2729. Dog eyes are usually dark brown #2B1E1A.
+- If no dog or cat is visible, reply {"species":"other"}.`;
+}
+function parseAI(r){
+  if (!r || typeof r !== 'object' || Array.isArray(r)) return null;
+  const species = r.species === 'cat' ? 'cat' : r.species === 'dog' ? 'dog' : 'other';
+  if (species === 'other') return { species };
+  const seen = new Set();
+  let cands = (Array.isArray(r.candidates) ? r.candidates : [])
+    .map(c => ({ id:String(c && c.id || ''), conf:clamp(Number(c && c.confidence) || 0, 0, 1) }))
+    .filter(c => BREED_BY_ID[c.id] && BREED_BY_ID[c.id].sp === species && !seen.has(c.id) && seen.add(c.id))
+    .slice(0, 3);
+  if (!cands.length) cands = [{ id:species === 'cat' ? 'mix_cat' : 'mix_dog', conf:0 }];
+  const lk = r.look && typeof r.look === 'object' ? r.look : {};
+  const look = normalizeLook(Object.assign({}, lk, { species, breedId:cands[0].id }));
+  return {
+    species, cands, look,
+    colorName:typeof r.colorName === 'string' ? r.colorName.trim().slice(0, 14) : '',
+    comment:typeof r.comment === 'string' ? r.comment.trim().slice(0, 60) : '',
+  };
+}
+
 /* サーバーの時計：日付は日本時間（UTC+9。夏時間はない）、偶然は crypto */
 Clock.dayKey = function(t){
   const ms = t == null ? this.now() : (t instanceof Date ? t.getTime() : Number(t));
@@ -1262,4 +1303,4 @@ Clock.dayKey = function(t){
 Clock.rand = () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
 
 
-export { ensureState, carryExtras, readMoveCode, safePhoto, levelInfo, normalizeLook, dayKey, MOVE_MAX, Rules, Clock, newState, wearFrom };
+export { ensureState, carryExtras, readMoveCode, safePhoto, levelInfo, normalizeLook, dayKey, MOVE_MAX, Rules, Clock, newState, wearFrom, buildPrompt, parseAI };

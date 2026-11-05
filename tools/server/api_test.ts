@@ -2,6 +2,7 @@
  * DB は PGlite（メモリの中の Postgres）、LINE の IDトークンの検証（api.line.me）だけを、ここでまねる。
  * 本人確認・おせわ（/act：サーバーの時計と乱数で判定、おせわの間隔、上限）・名前とみためだけのセーブ・
  * 新しい子（まっさら）・取りこみ（1回だけ）・セッションの上限と期限を見る。
+ * AIの読みとり（/read）は、Anthropic の Messages API をまねて、写真の確かめ・1人1日と全員の上限・返事の確かめを見る。
  * 時間がたったことは、DB のセーブの時刻（last など）を前にずらしてまねる。 */
 import postgres from 'npm:postgres@3.4.5';
 const FN = Deno.args[0];
@@ -14,7 +15,7 @@ await admin.unsafe(`do $$ begin
   if not exists (select 1 from pg_roles where rolname='anon') then create role anon; end if;
   if not exists (select 1 from pg_roles where rolname='authenticated') then create role authenticated; end if;
 end $$;`);
-await admin.unsafe(await Deno.readTextFile(MIG));
+for (const f of MIG.split(',')) await admin.unsafe(await Deno.readTextFile(f));
 await admin.end();
 
 // ---- fake LINE verify ----
@@ -27,8 +28,38 @@ function mkToken(name: string, aud = '2012410263', sub = 'U' + '0'.repeat(31) + 
   return t;
 }
 let verifyCalls = 0;
+// ---- fake Anthropic Messages API（AIの読みとり） ----
+Deno.env.set('ANTHROPIC_API_KEY', 'test-key');
+Deno.env.set('AI_ALL_PER_DAY', '5');
+const AI = { mode:'ok', calls:0, last:null as any, headers:null as any };
+const AI_OK = { species:'dog', candidates:[{ id:'pomeranian', confidence:0.82 }, { id:'nope', confidence:0.5 }, { id:'shiba', confidence:0.1 }],
+  colorName:'クリーム', comment:'ふわふわの クリームいろ',
+  look:{ ear:'small', coat:'fluffy', muzzle:'short', tail:'plume', legs:'normal', face:'lower',
+    colors:{ main:'#F3DDB3', body:'#F3DDB3', face:'#FBF3E6', chest:'#FBF3E6', paws:'#FBF3E6', eye:'#2B1E1A', nose:'#2E2328', tailTip:null },
+    marks:{ stripes:null } } };
+const AI_EVIL = { species:'dog', candidates:[{ id:'<img src=x onerror=alert(1)>', confidence:9 }, { id:'kuro', confidence:1 }],
+  colorName:'<script>alert(1)</script>ながいながいいろのなまえ', comment:'x'.repeat(300), look:{ ear:'</svg>', colors:{ main:'url(javascript:1)' } } };
+function aiReply(){
+  const msg = (text: string, stop = 'end_turn') => new Response(JSON.stringify({ id:'msg_x', type:'message', role:'assistant', model:'claude-haiku-5-5',
+    content:text ? [{ type:'text', text }] : [], stop_reason:stop, usage:{ input_tokens:2000, output_tokens:300 } }), { status:200 });
+  switch (AI.mode){
+    case 'ok': return msg('```json\n' + JSON.stringify(AI_OK) + '\n```');
+    case 'evil': return msg('はい：' + JSON.stringify(AI_EVIL));
+    case 'other': return msg('{"species":"other"}');
+    case 'garbage': return msg('ごめんなさい、わかりません');
+    case 'refusal': return msg('', 'refusal');
+    case 'http529': return new Response(JSON.stringify({ type:'error', error:{ type:'overloaded_error', message:'Overloaded' } }), { status:529 });
+  }
+  throw new Error('network');
+}
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input instanceof Request ? input.url : input);
+  if (url === 'https://api.anthropic.com/v1/messages'){
+    AI.calls++;
+    AI.last = JSON.parse(String(init!.body));
+    AI.headers = new Headers(init!.headers);
+    return aiReply();
+  }
   if (url === 'https://api.line.me/oauth2/v2.1/verify'){
     verifyCalls++;
     const p = new URLSearchParams(String(init!.body));
@@ -264,6 +295,77 @@ ok(r.data.member.importable === false && r.data.save.data.pet.name === 'だい�
 
 r = await A('open', {}, bob);
 ok(r.data.ok && r.data.save.data.daily && r.data.save.data.daily.day === jst(Date.now()), 'bob: act after import works');
+
+console.log('AIの読みとり（/read）');
+const jpeg = '/9j/4AAQSkZJRgABAQAAAQABAAD' + 'A'.repeat(1200) + '/9k=';
+const IMG = 'data:image/jpeg;base64,' + jpeg.slice(0, jpeg.length - jpeg.length % 4);
+const read = (session = alice, image: unknown = IMG) => call('POST', '/read', { image }, session);
+const aiLeft = async (session = alice) => (await call('GET', '/ai', undefined, session)).data.ai;
+r = await call('GET', '/ai');
+ok(r.status === 401, '/ai needs a session', r);
+await db`alter table app.ai_usage rename to ai_usage_away`;   /* 回数の表がまだないとき（マイグレーション前） */
+r = await call('GET', '/ai', undefined, alice);
+ok(r.status === 200 && r.data.ai.on === false, 'no usage table: AI is off (nothing breaks)', r.data);
+r = await read();
+ok(r.status === 200 && r.data.ok === false && r.data.why === 'off' && AI.calls === 0, 'no usage table: /read is off, AI not called', r.data);
+await db`alter table app.ai_usage_away rename to ai_usage`;
+r = await call('GET', '/ai', undefined, alice);
+ok(r.status === 200 && r.data.ai.on === true && r.data.ai.left === 3 && r.data.ai.perDay === 3, '/ai: on, 3 left', r.data);
+r = await read(alice, 'data:image/png;base64,iVBORw0KGgo' + 'A'.repeat(800));
+ok(r.status === 400 && r.data.error === 'badimage', 'png rejected', r);
+r = await read(alice, 'data:image/jpeg;base64,' + btoa('GIF89a') + 'A'.repeat(800));
+ok(r.status === 400 && r.data.error === 'badimage', 'not a jpeg (magic bytes)', r);
+r = await read(alice, IMG + '"><script>');
+ok(r.status === 400, 'odd characters rejected', r);
+r = await read(alice, 'data:image/jpeg;base64,/9j/' + 'A'.repeat(420_000));
+ok(r.status === 413, 'too large', r);
+ok(AI.calls === 0 && (await aiLeft()).left === 3, 'bad images do not reach the AI and are not counted');
+AI.mode = 'http529';
+r = await read();
+ok(r.status === 200 && r.data.ok === false && r.data.why === 'unavailable' && r.data.ai.left === 3 && AI.calls === 1, 'AI error: refunded', r.data);
+AI.mode = 'network';
+r = await read();
+ok(r.data.ok === false && r.data.why === 'unavailable' && r.data.ai.left === 3, 'AI unreachable: refunded', r.data);
+await db`insert into app.ai_usage (day, member_id, n) values (${jst(Date.now() - 10 * 864e5)}::date, ${aliceId}, 2)`;
+AI.mode = 'ok';
+r = await read();
+const res = r.data.result;
+ok(r.data.ok === true && res.species === 'dog' && res.candidates.map((c: any) => c.id).join() === 'pomeranian,shiba' && res.colorName === 'クリーム'
+  && res.look.colors.main.toLowerCase() === '#f3ddb3' && res.look.ear === 'small' && r.data.ai.left === 2, 'reads a pomeranian (known ids only)', r.data);
+const L = AI.last;
+ok(L.model === 'claude-haiku-5-5' && L.thinking && L.thinking.type === 'disabled' && L.max_tokens <= 2000
+  && L.messages[0].content[0].type === 'image' && L.messages[0].content[0].source.media_type === 'image/jpeg' && L.messages[0].content[0].source.data === IMG.split(',')[1]
+  && /pomeranian\(ポメラニアン\)/.test(L.messages[0].content[1].text), 'request: model, no thinking, the jpeg, the breed list', { model:L.model, thinking:L.thinking });
+ok(AI.headers.get('x-api-key') === 'test-key' && AI.headers.get('anthropic-version') === '2023-06-01', 'request headers (key only on the server)');
+const [{ old }] = await db`select count(*)::int old from app.ai_usage where day < ${jst(Date.now() - 7 * 864e5)}::date`;
+ok(old === 0, 'old days are removed', old);
+AI.mode = 'evil';
+r = await read();
+const ev = r.data.result;
+ok(r.data.ok && ev.candidates.length === 1 && ev.candidates[0].id === 'mix_dog', 'unknown and other-species ids dropped (mix_dog)', ev && ev.candidates);
+ok(r.data.ok && ev.colorName.length <= 14 && ev.comment.length <= 60 && ev.look.ear !== '</svg>' && /^#[0-9a-f]{6}$/i.test(ev.look.colors.main) && r.data.ai.left === 1, 'odd text is cut and colours are hex', ev);
+AI.mode = 'refusal';
+r = await read();
+ok(r.data.ok === false && r.data.why === 'refused' && r.data.ai.left === 0, 'refusal (counted)', r.data);
+const callsNow = AI.calls;
+AI.mode = 'ok';
+r = await read();
+ok(r.data.ok === false && r.data.why === 'limit' && AI.calls === callsNow, '4th read today: limit, AI not called', r.data);
+AI.mode = 'other';
+r = await read(bob);
+ok(r.data.ok === true && r.data.result.species === 'other', 'not a dog or cat', r.data);
+AI.mode = 'garbage';
+r = await read(bob);
+ok(r.data.ok === false && r.data.why === 'unreadable' && r.data.ai.left === 1, 'unreadable reply (counted)', r.data);
+AI.mode = 'ok';
+r = await read(bob);
+ok(r.data.ok === false && r.data.why === 'busy' && AI.calls === callsNow + 2, 'everyone together: 5 a day (busy)', r.data);
+r = await call('POST', '/login', { idToken:mkToken('bob2', '2012410263', 'Ubob') });
+ok(r.data.ai && r.data.ai.on === true && r.data.ai.left === 1 && r.data.ai.perDay === 3, 'login tells the AI status', r.data.ai);
+const aiCols = (await db`select column_name from information_schema.columns where table_schema='app' and table_name='ai_usage' order by column_name`).map((x: any) => x.column_name);
+ok(aiCols.join() === 'day,member_id,n', 'ai_usage keeps only day, member and count (no photo)', aiCols);
+const [{ ph }] = await db`select count(*)::int ph from app.saves where data::text like '%/9j/%'`;
+ok(ph === 0, 'no photo in any save', ph);
 
 console.log('sessions');
 const [{ n }] = await db`select count(*)::int n from app.sessions where member_id = ${aliceId}`;

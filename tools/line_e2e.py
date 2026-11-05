@@ -11,7 +11,8 @@
    ・はじめての子（サーバーが まっさらの子を作る） ・LINEにまだ子がいないときの この端末の子（つれてくる＝1回）
    ・ほかの端末の新しいセーブ ・この端末にいた子をつれてくる（1回だけ） ・引っこしコード（1回だけ）
    ・おせわはサーバーで（ほかの端末の変化も返事でとどく） ・端末の時計をずらしても得をしない
-   ・サーバーに届かないとき（ゲストの子は遊べる／LINEの子は まってもらう） ・外部ブラウザ を確かめる。
+   ・サーバーに届かないとき（ゲストの子は遊べる／LINEの子は まってもらう） ・外部ブラウザ
+   ・AIの読みとり（送る前に きく、小さくした JPEG、サーバーでの回数、AIを使わない えらび方、読みとれないとき）を確かめる。
    ページのエラーと CSP の違反が0件であることも見る。スクリーンショットは smoke-out/line-e2e/。
 
 サーバーの URL（LINE_CFG.api）への通信は、ブラウザの中でこのローカルのサーバーへつなぎかえる。本物の Supabase にはさわらない。
@@ -23,7 +24,9 @@ TOOLS = os.path.join(ROOT, 'tools', 'server')
 BIN = os.path.join(TOOLS, 'node_modules', '.bin')
 FN = os.path.join(ROOT, 'supabase', 'functions', 'api', 'index.ts')
 CFG = os.path.join(ROOT, 'supabase', 'functions', 'api', 'deno.local.json')
-MIG = os.path.join(ROOT, 'supabase', 'migrations', '20261106000001_app_schema.sql')
+MIGDIR = os.path.join(ROOT, 'supabase', 'migrations')
+# 表のマイグレーション（pg_net は本物の Supabase の確認用なので、PGlite には入れない）。カンマでつないで渡す
+MIG = ','.join(os.path.join(MIGDIR, f) for f in sorted(os.listdir(MIGDIR)) if f.endswith('.sql') and 'pg_net' not in f)
 API = 'https://ftakgswltcavwixqxpzi.supabase.co/functions/v1/api'
 PAGE_PORT = 8765
 OUT = os.path.join(ROOT, 'smoke-out', 'line-e2e')
@@ -84,6 +87,16 @@ def sample(name, created_days=10, photo=False, updated_ms=None):
         'counts': {'meals': 10, 'treats': 5, 'pets': 20, 'plays': 4},
         'recentTreats': [], 'last': t - 3600e3, 'created': t - created_days * 864e5 - (hash(name) % 1000), 'updated': updated_ms or t - 60e3,
     }
+
+
+def photo_jpeg(w=1600, h=1200):
+    """ためしの写真（クリームいろの まるい子）"""
+    import io
+    from PIL import Image, ImageDraw
+    im = Image.new('RGB', (w, h), (150, 190, 220))
+    ImageDraw.Draw(im).ellipse((w * .3, h * .2, w * .7, h * .85), fill=(240, 220, 180))
+    b = io.BytesIO(); im.save(b, 'JPEG', quality=90)
+    return {'name': 'pom.jpg', 'mimeType': 'image/jpeg', 'buffer': b.getvalue()}
 
 
 def code_of(st):
@@ -343,6 +356,57 @@ async def browser_tests(srv_port):
         ctx, page, errs, calls = await open_page('Ufive', local=sample('そと'), external=True, owner='someone')
         await page.click('#actFeed'); await page.wait_for_timeout(900)
         ok(await page.query_selector('.levelup .card[aria-label="つながるまで まってね"]') is not None and not calls, 'LINEの子は「LINEの中で ひらいてね」', calls)
+        all_errs += errs; await ctx.close()
+
+        print('10. AIの読みとり（LINEの中で、サーバーに つながっているとき）')
+        ctx, page, errs, calls = await open_page('Usix')
+        note = await page.evaluate("(document.querySelector('#ob .ob-step > p.note:last-child')||{}).textContent||''")
+        ok('AIで 読みとるか' in note, 'はじめての画面の ことわりが AI用になる', note)
+        await page.set_input_files('#obFile', files=[photo_jpeg()]); await page.wait_for_timeout(1500)
+        left = await page.evaluate("(document.querySelector('#aiLeft')||{}).textContent||''")
+        ok(await page.query_selector('.aiask #aiGo') is not None and 'あと3回' in left and dbg('/__debug/ai')['calls'] == 0, '送る前に「AIで 読みとる？」と きく（のこり3回）', left)
+        await snap(page, 'ai_ask')
+        await page.click('#aiGo'); await page.wait_for_timeout(3000)
+        a = dbg('/__debug/ai')
+        ok(a['calls'] == 1 and a['media'] == 'image/jpeg' and max(a['w'], a['h']) == 768 and a['bytes'] < 300000 and a['used'] == 1,
+           '写真は この端末で 768px の JPEG にして送る（サーバーが1回と数える）', a)
+        say = await page.evaluate("(document.querySelector('#ob .say p')||{}).textContent||''")
+        ok('ポメラニアン' in say and await page.query_selector('#edCands [data-b="pomeranian"]') is not None, '読みとった種類が 候補に出る', say)
+        await snap(page, 'ai_result')
+        await page.fill('#edName', 'えーあい'); await page.click('#edGo'); await page.wait_for_timeout(2600)
+        await close_popups(page)
+        s = state('Usix')
+        ok(s and s['name'] == 'えーあい' and s['photo'] is None, 'むかえた子は サーバーに（写真は送らない）', s)
+        ok(any(c == 'POST /read' for c in calls), '/read を使う', calls)
+        all_errs += errs; await ctx.close()
+
+        print('10b. AIを使わない えらび方・読みとれないとき')
+        ctx, page, errs, calls = await open_page('Useven')
+        await page.set_input_files('#obFile', files=[photo_jpeg(900, 1400)]); await page.wait_for_timeout(1500)
+        await page.click('#aiSelf'); await page.wait_for_timeout(600)
+        sub = await page.evaluate("(document.querySelector('#ob .say small')||{}).textContent||''")
+        ok('毛の色をひろいました' in sub and dbg('/__debug/ai')['calls'] == 1, 'AIを使わずに えらぶ（AIには送らない）', sub)
+        await page.click('#edBack'); await page.wait_for_timeout(400)
+        dbg('/__debug/ai', {'mode': 'down'})
+        await page.set_input_files('#obFile', files=[photo_jpeg()]); await page.wait_for_timeout(1500)
+        await page.click('#aiGo'); await page.wait_for_timeout(3000)
+        sub = await page.evaluate("(document.querySelector('#ob .say small')||{}).textContent||''")
+        a = dbg('/__debug/ai')
+        ok('うまく読みとれませんでした' in sub and a['used'] == 1, 'AIに届かないときは 色ひろいへ（回数は もどす）', {'sub': sub, 'ai': a})
+        await snap(page, 'ai_fallback')
+        dbg('/__debug/ai', {'mode': 'other'})
+        await page.click('#edBack'); await page.wait_for_timeout(400)
+        await page.set_input_files('#obFile', files=[photo_jpeg()]); await page.wait_for_timeout(1500)
+        await page.click('#aiGo'); await page.wait_for_timeout(3000)
+        err = await page.evaluate("(document.querySelector('#ob .oberr')||{}).textContent||''")
+        ok('犬か猫' in err, '犬や猫が写っていないとき', err)
+        dbg('/__debug/ai', {'mode': 'ok'})
+        all_errs += errs; await ctx.close()
+
+        print('10c. LINEの外では いままでどおり（AIには送らない）')
+        ctx, page, errs, calls = await open_page('Ueight', external=True)
+        await page.set_input_files('#obFile', files=[photo_jpeg()]); await page.wait_for_timeout(1500)
+        ok(await page.query_selector('.aiask') is None and not calls, 'きかずに 色ひろいへ', calls)
         all_errs += errs; await ctx.close()
 
         await browser.close()
