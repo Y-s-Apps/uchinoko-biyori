@@ -254,7 +254,8 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 
 ### オーナーの準備
 
-済み（2026-11-06）：Cloudflare Pages（https://uchinoko-biyori.pages.dev/ ）、LINE Developers のプロバイダーと LINEミニアプリチャネル（開発用のエンドポイントURLは上の pages.dev）。権限設定は Admin がオーナー1人（Tester はなし）。
+済み（2026-11-06）：Cloudflare Pages（https://uchinoko-biyori.pages.dev/ ）、LINE Developers のプロバイダーと LINEミニアプリチャネル（開発用のエンドポイントURLは上の pages.dev）。権限設定は、Admin が管理用のアカウント（メールのビジネスID）、Tester がオーナーのふだんのLINEアカウント。実機での確認は Tester のLINEで行う（Admin はスマホのLINEとつながっていないため）。
+- 実機での確認ずみ（2026-11-06、iPhone の LINE）：画面が出る、下の5つのボタンとシートが隠れない、上の LINE のバーとヘッダーが重ならない、プロフィールに「LINEと つながっています」。Android は未確認。
 
 1. Cloudflare Pages：Workers & Pages → Create application → Pages → Connect to Git → GitHub の `Y-s-Apps/uchinoko-biyori` をえらぶ → 上の設定で Save and Deploy。できた `*.pages.dev` のURLをソーイに知らせる。
 2. LINE Developers：プロバイダー（個人名か屋号）を作り、LINEミニアプリチャネル（サービスを提供する地域：日本）を作る。開発用のエンドポイントURLに 1. のURLを入れ、開発用の LIFF ID をソーイに知らせる。

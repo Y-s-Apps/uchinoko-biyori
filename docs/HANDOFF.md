@@ -14,11 +14,12 @@
 - LINEミニアプリ化の計画書を作り、方針を決めた（`docs/PROJECT.md` の10章）：個人で提供、課金・広告は順番に、サーバーは Supabase（無料）、画面は Cloudflare Pages（Supabase は HTML を配れないため）、ホーム画面版は残す、だいずは LINE版の公開日にコピー、AIで写真を読みとるしくみは LINE版でも残す（サーバー経由、写真は保存しない、AIの利用料だけは有料）。
 - `build.sh` が LINE版（`src/out/line/`）を作るように。`src/line_head.html`（CSP、Android版LINEの下のすき間）と `src/js_line.js`（LIFF SDK の読みこみと `liff.init()`、ゲストへの切りかえ、プロフィールの1行）。ホーム画面版の `index.html`・`sw.js` と Claude版は、ビルド前と同じ。
 - オーナーが Cloudflare Pages と LINE Developers（プロバイダー、LINEミニアプリチャネル、開発用エンドポイントURL）を設定。開発用の LIFF ID `2012410263-cuCI7vQS` をアプリに入れた。
-- 確認ずみ：`tools/smoke.py`（ホーム画面版、`--line --android-inset 48`、`--line --fresh`）でエラー0件。LIFF のまねで「LINEの中」「外部ブラウザ」「初期化の失敗」の3つの表示を確認。
+- 確認ずみ：iPhone の LINE で実機確認（下の「保留」）。`tools/smoke.py`（ホーム画面版、`--line --android-inset 48`、`--line --fresh`）でエラー0件。LIFF のまねで「LINEの中」「外部ブラウザ」「初期化の失敗」の3つの表示を確認。
 
 ## 保留・オーナーの判断待ち
 
-- **実機での確認（オーナー）**：iPhone（と、あれば Android）の LINE で開発用の LIFF URL を開き、①画面が出る、②下の5つのボタンとシートがナビゲーションバーに隠れない、③上の LINE のバーとヘッダーが重ならない、④メニュー（プロフィール）のいちばん下に「LINEと つながっています」と出る、を見てもらう。結果を次のチャットで聞く。開けないときは、権限設定（いまは Admin がオーナー1人、Tester なし）を確かめる。
+- 実機での確認：iPhone の LINE で4つともOK（2026-11-06）。画面が出る、下の5つのボタンとシートが隠れない、上の LINE のバー（未認証なので「うちのこ日和 / uchinoko-biyori.pages.dev」）とヘッダーが重ならない、プロフィールに「LINEと つながっています」。Android は未確認（Android の端末で見られる機会があれば）。
+- 権限：Admin は管理用のアカウント（メールのビジネスID。スマホのLINEとはつながっていない）、Tester はオーナーのふだんのLINEアカウント。開発用を実機で開くのは Tester のLINE。
 - おたすけの「週に1回」の数え方は、いまは「前回から7日」。月曜〜日曜の区切りにする案は、オーナーが希望したら変える。
 
 ## 次にやること
