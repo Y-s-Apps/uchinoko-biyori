@@ -1,7 +1,6 @@
 /* ===== app core ===== */
 const $ = s => document.querySelector(s);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const now = () => Date.now();
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
 /* a saved photo is only ever a base64 image data URL; anything else is dropped */
@@ -17,34 +16,9 @@ let S = null;
 const CL = window.claude && typeof window.claude.use === 'function' ? window.claude : null;
 const useCap = name => CL ? CL.use(name).catch(() => null) : Promise.resolve(null);
 
-/* ----- state ----- */
-function newState(pet){
-  const t = now();
-  return { v:1, pet, stats:{ full:72, mood:78, love:0 }, counts:{ meals:0, treats:0, pets:0, plays:0 }, recentTreats:[], last:t, created:t, updated:t };
-}
-function decay(t = now()){
-  if (!S) return;
-  const hrs = Math.max(0, (t - (S.last || t)) / 3.6e6);
-  const s = S.stats;
-  s.full = clamp(s.full - hrs * 8, 0, 100);
-  s.mood = clamp(s.mood - hrs * 5 - (s.full < 25 ? hrs * 4 : 0), 0, 100);
-  S.last = t;
-}
-function levelInfo(love){
-  let lv = 1, acc = 0, need = 20;
-  while (lv < MAX_LV && love >= acc + need){ acc += need; lv++; need = 20 + (lv - 1) * 5; }
-  const max = lv >= MAX_LV;
-  return { lv, into:max ? need : love - acc, need, max };
-}
-function petWear(){
-  if (!S.pet.wear){ S.pet.wear = wearFrom(S.pet); delete S.pet.acc; }
-  for (const k of ['head','face','neck']){
-    const v = S.pet.wear[k];
-    if (v && WEAR_RENAMED[v]) S.pet.wear[k] = WEAR_RENAMED[v];
-    else if (v && !WEAR_BY_ID[v]) S.pet.wear[k] = null;
-  }
-  return S.pet.wear;
-}
+/* ----- state (the rules themselves are in js_rules.js) ----- */
+function decay(t = now()){ if (S) Rules.decay(S, t); }
+function petWear(){ return Rules.wear(S); }
 function nextupHtml(nx){
   return `<p class="nextup"><span class="nx-head">つぎのごほうび</span><span class="nx-body"><b>Lv.${nx.lv}</b> <span class="nx-item">${esc(nx.ja)}</span></span></p>`;
 }
@@ -350,12 +324,6 @@ function renderStats(){
   $('#sLove').textContent = L.max ? 'なかよしMAX' : 'つぎのLvまで あと' + Math.ceil(L.need - L.into);
   if (!Pet.busy) Pet.setExpr(Pet.expr);
 }
-function breedLabel(p){
-  const b = BREED_BY_ID[p.breedId];
-  const bn = b ? b.ja : '';
-  if (!p.colorName) return bn;
-  return p.colorName.includes(bn) ? p.colorName : p.colorName + 'の' + bn;
-}
 function renderHeader(){
   $('#petName').textContent = S.pet.name;
   $('#petBreed').textContent = breedLabel(S.pet);
@@ -364,19 +332,82 @@ function renderHeader(){
 }
 function lockDock(on){ document.querySelectorAll('.act').forEach(b => b.setAttribute('aria-disabled', on ? 'true' : 'false')); }
 
-/* ----- care actions ----- */
+/* ----- care actions -----
+   Each action asks the rules (Act.run) as soon as it starts: here on this device, or on the LINE server.
+   The pet's movements play meanwhile; what happened (level up, requests, …) is shown when the movement ends. */
 function commit(){ Persist.schedule(); renderStats(); }
-function gainLove(n){
-  const before = levelInfo(S.stats.love).lv;
-  S.stats.love = Math.round((S.stats.love + n) * 10) / 10;
-  const after = levelInfo(S.stats.love).lv;
-  if (after > before){
-    for (let lv = before + 1; lv <= after; lv++){
-      const t = TITLES.find(([l]) => l === lv);
-      if (lv <= 5 || lv % 5 === 0 || t) addAlbum('lv', `なかよしLv ${lv}`, t ? `あたらしい関係「${t[1]}」` : `${S.pet.name}と さらになかよくなった`, 'lv');
-    }
-    setTimeout(() => celebrate(after, before), 900);
+const Act = {
+  remote:null,   /* js_line.js: (type, params) => Promise<result>, while this child lives on the LINE server */
+  gate:null,     /* js_line.js: settles once it is known whether the LINE server is used */
+  lock:null,     /* js_line.js: () => a reason, while this child can only change through the server and it is not reached */
+  onWait:null,   /* js_line.js: shows that reason */
+  budget:{ left:STROKE_MAX, t:now() },   /* なでなで on this device (the LINE server keeps its own) */
+  opening:null,
+  blocked(){ return this.lock ? this.lock() : null; },
+  /* true (and a notice) when nothing can change right now */
+  waiting(quiet){
+    const why = this.blocked();
+    if (!why) return false;
+    if (this.onWait) this.onWait(why, quiet);
+    return true;
+  },
+  run(type, p, ctx){
+    if (this.remote) return this.remote(type, p || {});
+    return Promise.resolve(Rules.act(S, type, p, Object.assign({ budget:this.budget }, ctx)));
+  },
+  /* opening or coming back: milestones, the season's event, a souvenir, the streak notices */
+  open(away){
+    if (this.opening) return this.opening;
+    const job = (async () => {
+      await null;                       /* js_line.js comes later in the same script and may set the gate */
+      if (this.gate) await this.gate;
+      if (!S || this.blocked()) return;
+      const r = await this.run('open', {}, { away });
+      if (!r || !r.ok) return;
+      playEvents(r.ev);
+      commit();
+    })();
+    this.opening = job.finally(() => { this.opening = null; });
+    return this.opening;
+  },
+};
+/* the pet says why an action could not happen */
+function careRefused(r){
+  const cat = S && S.pet.species === 'cat';
+  switch (r && r.why){
+    case 'offline': Act.waiting(); break;
+    case 'limit': toast('おやつは少し時間をあけてね'); break;
+    case 'full': Pet.wake(); Pet.tilt(); Pet.say(cat ? 'おなかいっぱいにゃ…' : 'おなかいっぱい！'); break;
+    case 'hungry': Pet.wake(); Pet.flash('sad', 2000); Pet.say('おなかがすいて できないよ…'); break;
+    case 'locked': toast('まだ えらべないよ'); break;
   }
+}
+/* what the rules said happened, as popups and words (the same order and timing as always) */
+function playEvents(ev){
+  for (const e of ev || []){
+    switch (e.k){
+      case 'lv': setTimeout(() => celebrate(e.lv, e.before), 900); break;
+      case 'req':
+        toast('おねがいをかなえた！ ♥+4');
+        setTimeout(() => { if (!Pet.sleeping){ Pet.say('ありがとう！ うれしい！'); Pet.wag(1500); } hearts(3); }, 300);
+        break;
+      case 'all': allDoneModal(e); break;
+      case 'rescue':
+        if (e.bridged) rescueModal();
+        else {
+          toast('おたすけのおねがいを かなえた！ ♥+5');
+          setTimeout(() => { if (!Pet.sleeping) Pet.say('あとは きょうのおねがいを ぜんぶ かなえよう！', 2600); }, 300);
+        }
+        break;
+      case 'days': toast(`${S.pet.name}がうちにきて ${e.n}日！`); break;
+      case 'anniv': annivModal(e); break;
+      case 'event': eventModal(e); break;
+      case 'souv': souvenirModal(e); break;
+      case 'broke': brokeModal(e); break;
+      case 'pinch': pinchModal(e); break;
+    }
+  }
+  renderReqBadge();
 }
 function begin(){
   if (!S || Pet.busy) return false;
@@ -392,7 +423,7 @@ function finish(){
 }
 
 async function feed(){
-  if (Pet.busy || !S) return;
+  if (Pet.busy || !S || Act.waiting()) return;
   decay();
   if (S.stats.full >= 92){
     Pet.wake(); Pet.tilt();
@@ -400,6 +431,7 @@ async function feed(){
     return;
   }
   begin();
+  const job = Act.run('feed');
   $('#bowl').classList.add('filled');
   await sleep(300);
   Pet.say(S.pet.species === 'cat' ? 'ごはんだ！' : 'ごはん！ごはん！', 1400);
@@ -410,11 +442,9 @@ async function feed(){
   await sleep(2700);
   clearInterval(crumbs);
   $('#bowl').classList.remove('filled');
-  S.stats.full = clamp(S.stats.full + 45, 0, 100);
-  S.stats.mood = clamp(S.stats.mood + 6, 0, 100);
-  S.counts.meals++;
-  gainLove(3);
-  track('meal');
+  const r = await job;
+  if (!r.ok){ Pet.setExpr(null); careRefused(r); finish(); return; }
+  playEvents(r.ev);
   Pet.setExpr('happy'); Pet.say('ごちそうさま！'); hearts(3);
   await sleep(1500);
   Pet.setExpr(null);
@@ -423,12 +453,11 @@ async function feed(){
 
 async function giveTreat(t){
   closeSheet();
-  if (Pet.busy || !S) return;
-  S.recentTreats = (S.recentTreats || []).filter(ts => now() - ts < 30 * 60e3);
-  if (S.recentTreats.length >= 5){ toast('おやつは少し時間をあけてね'); return; }
-  decay();
-  if (S.stats.full >= 99){ Pet.wake(); Pet.tilt(); Pet.say(S.pet.species === 'cat' ? 'おなかいっぱいにゃ…' : 'おなかいっぱい！'); return; }
+  if (Pet.busy || !S || Act.waiting()) return;
+  const why = Rules.treatCheck(S, t.id);
+  if (why){ careRefused({ why }); return; }
   begin();
+  const job = Act.run('treat', { id:t.id });
   await Pet.moveTo(50, 82, 1.2);
   const h = Pet.headPoint();
   const pop = document.createElement('div');
@@ -447,12 +476,9 @@ async function giveTreat(t){
   setTimeout(() => pop.remove(), 350);
   Pet.setExpr('eat');
   await sleep(1300);
-  S.stats.full = clamp(S.stats.full + t.full, 0, 100);
-  S.stats.mood = clamp(S.stats.mood + t.mood, 0, 100);
-  S.recentTreats.push(now());
-  S.counts.treats++;
-  gainLove(t.love);
-  track('treat', t);
+  const r = await job;
+  if (!r.ok){ Pet.setExpr(null); careRefused(r); finish(); return; }
+  playEvents(r.ev);
   Pet.setExpr('happy'); Pet.say(t.line); hearts(4);
   await sleep(1600);
   Pet.setExpr(null);
@@ -472,10 +498,11 @@ function setPlayIcon(){
   if (svg.outerHTML !== want) svg.outerHTML = want;
 }
 async function play(){
-  if (Pet.busy || !S) return;
+  if (Pet.busy || !S || Act.waiting()) return;
   decay();
   if (S.stats.full < 12){ Pet.wake(); Pet.flash('sad', 2200); Pet.say('おなかがすいて動けない…'); return; }
   begin();
+  const job = Act.run('play');
   const toy = document.createElement('div');
   toy.className = 'toy';
   toy.innerHTML = TOY[S.pet.species] || TOY.dog;
@@ -499,11 +526,9 @@ async function play(){
   }
   toy.style.transition = 'opacity .3s'; toy.style.opacity = '0';
   setTimeout(() => toy.remove(), 350);
-  S.stats.mood = clamp(S.stats.mood + 12, 0, 100);
-  S.stats.full = clamp(S.stats.full - 4, 0, 100);
-  S.counts.plays++;
-  gainLove(3);
-  track('play');
+  const r = await job;
+  if (!r.ok){ Pet.setExpr(null); careRefused(r); finish(); return; }
+  playEvents(r.ev);
   Pet.say(pick(S.pet.species === 'cat' ? ['たのしかった！','もっかい！','ふんふん♪'] : ['たのしかった！','もっとあそぼ！','わんわん♪']));
   await sleep(1400);
   Pet.setExpr(null);
@@ -511,26 +536,23 @@ async function play(){
 }
 
 /* ----- stroking & tapping ----- */
-const strokeBudget = { left:12, t:now() };
-let drag = null, strokeT = null;
-function strokeGain(){
-  const mins = (now() - strokeBudget.t) / 60000;
-  strokeBudget.left = Math.min(12, strokeBudget.left + mins / 3);
-  strokeBudget.t = now();
-  if (strokeBudget.left >= 1){ strokeBudget.left -= 1; return 1; }
-  return 0;
-}
+let drag = null, strokeT = null, strokeN = 0;
 function onStroke(e){
   if (!S) return;
-  decay();
   const p = stageXY(e.clientX, e.clientY);
   heartAt(p.x, p.y - 10);
-  S.stats.mood = clamp(S.stats.mood + 1.5, 0, 100);
-  const g = strokeGain();
-  if (g) gainLove(g * .6);
-  track('pet');
-  if (!Pet.sleeping && !Pet.busy){ Pet.setExpr('happy'); Pet.wag(1600); }
   $('#hint').hidden = true;
+  if (Act.waiting(true)) return;   /* hearts only: nothing changes until the LINE server is reached */
+  if (Act.remote){
+    /* the gauge moves now; the server counts the strokes when the hand stops */
+    decay();
+    S.stats.mood = clamp(S.stats.mood + 1.5, 0, 100);
+    strokeN++;
+  } else {
+    decay();
+    playEvents(Rules.act(S, 'pet', { n:1, end:false }, { budget:Act.budget }).ev);
+  }
+  if (!Pet.sleeping && !Pet.busy){ Pet.setExpr('happy'); Pet.wag(1600); }
   renderStats();
   clearTimeout(strokeT);
   strokeT = setTimeout(() => {
@@ -538,7 +560,10 @@ function onStroke(e){
       Pet.setExpr(null);
       Pet.say(pick(S.pet.species === 'cat' ? ['ゴロゴロ…','きもちいい〜','もっとなでて'] : ['うれしい！','きもちいい〜','もっとなでて！']));
     }
-    S.counts.pets++;
+    if (Act.remote){
+      const n = strokeN; strokeN = 0;
+      if (n) Act.run('pet', { n }).then(r => { if (r.ok) playEvents(r.ev); else careRefused(r); renderStats(); });
+    } else Rules.strokeEnd(S);
     commit();
   }, 700);
 }
@@ -647,11 +672,10 @@ function openTreats(){
 }
 
 let dressSlot = 'head';
-function wearOwned(w, lv){ return w.ev ? S.events.got.includes(w.id) : lv >= w.lv; }
+function wearOwned(w, lv){ return Rules.wearOwned(S, w, lv); }
 function openDress(){
   if (!S) return;
   const lv = levelInfo(S.stats.love).lv;
-  const W = petWear();
   const tabs = () => `<div class="seg" role="tablist">${SLOTS.map(([k, ja]) => {
     const items = WEAR.filter(w => w.slot === k && (!w.ev || wearOwned(w, lv))), got = items.filter(w => wearOwned(w, lv)).length;
     return `<button type="button" role="tab" data-slot="${k}" aria-pressed="${k === dressSlot}">${ja}<small>${got}/${items.length}</small></button>`;
@@ -659,6 +683,7 @@ function openDress(){
   const tiles = () => {
     if (dressSlot === 'room') return roomTabHtml();
     const items = [{ id:null, ja:'なし', lv:1 }].concat(WEAR.filter(w => w.slot === dressSlot && (!w.ev || wearOwned(w, lv))));
+    const W = petWear();
     return `<div class="tiles">${items.map(it => {
       const locked = it.id && !wearOwned(it, lv);
       const trial = Object.assign({}, W, { [dressSlot]:it.id });
@@ -671,11 +696,11 @@ function openDress(){
     const rerender = () => { box.innerHTML = tiles(); wire(); };
     const wire = () => {
       if (dressSlot === 'room') return wireRoomTab(box, rerender);
-      box.querySelectorAll('[data-w]').forEach(b => b.addEventListener('click', () => {
-        if (b.getAttribute('aria-disabled') === 'true') return;
-        W[dressSlot] = b.dataset.w || null;
-        S.pet.wear = W;
-        if (b.dataset.w) track('dress', { slot:dressSlot, id:b.dataset.w });
+      box.querySelectorAll('[data-w]').forEach(b => b.addEventListener('click', async () => {
+        if (b.getAttribute('aria-disabled') === 'true' || Act.waiting()) return;
+        const r = await Act.run('dress', { slot:dressSlot, id:b.dataset.w || null });
+        if (!r.ok){ careRefused(r); return; }
+        playEvents(r.ev);
         rerender();
         Pet.mount();
         if (!Pet.busy && !Pet.sleeping){ Pet.flash('happy', 1400); Pet.say(b.dataset.w ? 'にあう？' : 'すっきり！'); }
@@ -711,10 +736,11 @@ function openMenu(){
     </div>
     <p class="note">${Persist.mode === 'cloud' ? 'あなたのアカウントに保存しています。ほかの端末で開いても同じ子に会えます。' : HOME ? 'この端末に保存しています。ときどき引っこしコードをコピーしておくと、バックアップになります。' : 'このブラウザに保存しています。'}</p>`;
   openSheet('プロフィール', html, sh => {
-    sh.querySelector('#mEdit').addEventListener('click', () => { closeSheet(); Onboard.openEdit(); });
+    sh.querySelector('#mEdit').addEventListener('click', () => { if (Act.waiting()) return; closeSheet(); Onboard.openEdit(); });
     sh.querySelector('#mMove').addEventListener('click', () => openMove());
     sh.querySelector('#mAlbum').addEventListener('click', () => openAlbum('diary'));
     sh.querySelector('#mNew').addEventListener('click', () => {
+      if (Act.waiting()) return;
       const box = sh.querySelector('#menuBtns');
       box.innerHTML = `<div class="confirm"><p>新しい子をむかえると、${esc(p.name)}のなかよし度や記録は新しい子のものに置きかわります。</p>
         <div class="row"><button class="btn" type="button" id="mNo">やめる</button><button class="btn warn" type="button" id="mYes">むかえる</button></div></div>`;
@@ -845,6 +871,7 @@ function openMove(){
         : r === 'declined' ? '保存をとりやめました。' : 'ここではファイルの保存ができませんでした。コードのコピーをためしてね。';
     });
     const take = (text, pre) => {
+      if (Act.waiting()) return;
       const r = pre || readMoveCode(text);
       const box = sh.querySelector('#mvInBox');
       sh.querySelectorAll('.mverr').forEach(e => e.remove());
@@ -895,6 +922,7 @@ const Game = {
       });
     }
     Features.start(away || 0);
+    this.drawn = this.keys();
     if (S.counts.pets === 0) $('#hint').hidden = false;
     if (greet){ setTimeout(() => { Pet.jump(); Pet.wag(2000); Pet.say(greet); }, 500); }
     idleTick(2500);
@@ -902,6 +930,22 @@ const Game = {
   onStateReplaced(){
     if (Onboard.busy) return;
     this.start('ただいま！');
+  },
+  /* the same child, newer numbers (a reply from the LINE server): redraw only what changed */
+  keys(){
+    return { hk:JSON.stringify([S.pet.name, S.pet.colorName, S.pet.breedId, S.pet.species, S.pet.photo]),
+             wk:JSON.stringify([S.pet.look, petWear()]), rk:JSON.stringify(S.room) };
+  },
+  refresh(){
+    if (!S || Onboard.busy || !this.started) return;
+    ensureState(S);
+    const k = this.keys(), o = this.drawn || {};
+    if (k.hk !== o.hk){ renderHeader(); setPlayIcon(); }
+    if (k.wk !== o.wk) Pet.mount();
+    if (k.rk !== o.rk) applyRoom();
+    this.drawn = k;
+    renderStats();
+    renderReqBadge();
   },
 };
 

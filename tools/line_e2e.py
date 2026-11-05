@@ -4,11 +4,14 @@
   cd tools/server && npm install && cd ../..   # はじめの1回（Deno と PGlite）
   sh src/build.sh && python3 tools/line_e2e.py
 
+0. おせわのルール（src/js_rules.js）を、時計を動かして確かめる（tools/rules_test.mjs）。
 1. サーバーの関数（supabase/functions/api/index.ts）を Deno で動かし、tools/server/api_test.ts で
-   本人確認・セーブ・取りこみ・セッションを確かめる（DB は PGlite、LINE の検証はまね）。
+   本人確認・おせわ（/act）・名前とみためのセーブ・新しい子・取りこみ・セッションを確かめる（DB は PGlite、LINE の検証はまね）。
 2. LINE版の画面（src/out/line/）をスマホ幅のブラウザで開き、LIFF をまねて、同じサーバーにつないで
-   ・はじめての子 ・ゲストの子のはじめてのセーブ ・ほかの端末の新しいセーブ ・この端末にいた子をつれてくる（1回だけ）
-   ・引っこしコード（1回だけ） ・書きこみのぶつかり ・サーバーに届かないとき ・外部ブラウザ を確かめる。
+   ・はじめての子（サーバーが まっさらの子を作る） ・LINEにまだ子がいないときの この端末の子（つれてくる＝1回）
+   ・ほかの端末の新しいセーブ ・この端末にいた子をつれてくる（1回だけ） ・引っこしコード（1回だけ）
+   ・おせわはサーバーで（ほかの端末の変化も返事でとどく） ・端末の時計をずらしても得をしない
+   ・サーバーに届かないとき（ゲストの子は遊べる／LINEの子は まってもらう） ・外部ブラウザ を確かめる。
    ページのエラーと CSP の違反が0件であることも見る。スクリーンショットは smoke-out/line-e2e/。
 
 サーバーの URL（LINE_CFG.api）への通信は、ブラウザの中でこのローカルのサーバーへつなぎかえる。本物の Supabase にはさわらない。
@@ -113,7 +116,7 @@ async def browser_tests(srv_port):
     async with async_playwright() as p:
         browser = await p.chromium.launch()
 
-        async def open_page(sub, local=None, external=False, server_down=False, owner=None):
+        async def open_page(sub, local=None, external=False, server_down=False, owner=None, skew_ms=0):
             ctx = await browser.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True,
                                             has_touch=True, timezone_id='Asia/Tokyo', locale='ja-JP')
             page = await ctx.new_page()
@@ -132,6 +135,9 @@ async def browser_tests(srv_port):
                 await route.fulfill(response=resp)
             await page.route(API + '/**', api)
             init = []
+            if skew_ms:   # 端末の時計をずらす（サーバーの時計は そのまま）
+                init_skew = "(()=>{const N=Date.now.bind(Date),k=%d;Date.now=()=>N()+k;})();" % skew_ms
+                await page.add_init_script(init_skew)
             if local is not None:
                 init.append("localStorage.setItem('uchinoko-biyori:v1', %s);" % json.dumps(json.dumps(local, ensure_ascii=False)))
             if owner:
@@ -148,6 +154,8 @@ async def browser_tests(srv_port):
 
         async def info(page):
             return await page.evaluate('''() => ({ name: S && S.pet && S.pet.name, photo: !!(S && S.pet && S.pet.photo),
+                meals: S && S.counts && S.counts.meals, love: S && S.stats && S.stats.love, day: S && S.daily && S.daily.day,
+                souv: S && S.souv && S.souv.n,
                 server: document.documentElement.dataset.lineServer || null, mode: Persist.mode,
                 owner: localStorage.getItem('uchinoko-biyori:line-owner'), guest: !!localStorage.getItem('uchinoko-biyori:line-guest'),
                 onboard: !document.getElementById('onboard').hidden })''')
@@ -160,6 +168,18 @@ async def browser_tests(srv_port):
                     return
                 await btn.click()
 
+        async def find_modal(page, sel):
+            """ほかのお知らせが先に出ていたら、とじてから"""
+            for _ in range(10):
+                m = await page.query_selector(sel)
+                if m:
+                    return m
+                btn = await page.query_selector('.levelup .btn.primary')
+                if btn:
+                    await btn.click()
+                await page.wait_for_timeout(500)
+            return None
+
         all_errs = []
 
         print('1. はじめての子（サーバーは空）')
@@ -171,7 +191,8 @@ async def browser_tests(srv_port):
         await page.click('#edGo'); await page.wait_for_timeout(2600)
         await close_popups(page)
         s = state('Uone')
-        ok(s and s['name'] == 'いちばん' and s['rev'] >= 1 and s['photo'] is None, 'むかえた子がサーバーに入る（写真なし）', s)
+        ok(s and s['name'] == 'いちばん' and s['rev'] >= 1 and s['photo'] is None and s['love'] == 0, 'むかえた子をサーバーが作る（まっさら・写真なし）', s)
+        ok(any('/act' in c for c in calls) and not any(c == 'POST /save' for c in calls), '新しい子は adopt で（セーブ丸ごとは送らない）', calls)
         i = await info(page)
         ok(i['owner'] == s['id'] and i['mode'] == 'cloud', 'この端末のセーブの持ち主が記録される', i)
         await page.click('#menuBtn'); await page.wait_for_timeout(400)
@@ -180,14 +201,26 @@ async def browser_tests(srv_port):
         await snap(page, 'profile_on')
         all_errs += errs; await ctx.close()
 
-        print('2. ゲストの子 → はじめてのセーブ')
+        print('2. LINEにまだ子がいない：この端末で遊んだ子は「つれてくる」で（取りこみの1回）')
         ctx, page, errs, calls = await open_page('Utwo', local=sample('ゲスト', photo=True))
-        await page.wait_for_timeout(1500)
+        m = await find_modal(page, '.levelup [data-close="take"]')
+        ok(m is not None and not any('/act' in c and 'adopt' in c for c in calls), 'つれてくるかを聞く（だまって入れない）', calls)
+        if m:
+            await snap(page, 'offer_local')
+            await m.click(); await page.wait_for_timeout(1800)
         s = state('Utwo')
-        ok(s and s['name'] == 'ゲスト' and s['photo'] is None, 'この端末の子がサーバーに入る（写真は送らない）', s)
+        ok(s and s['name'] == 'ゲスト' and s['photo'] is None and s['imported'], 'この端末の子が取りこみ口から入る（写真は送らない）', s)
         i = await info(page)
         ok(i['photo'] and i['name'] == 'ゲスト', 'この端末には写真がのこる', i)
-        ok(not any('/import' in c for c in calls), '取りこみ口（1回）は使わない', calls)
+        all_errs += errs; await ctx.close()
+
+        print('2b. やめておくと、あたらしい子をむかえる（この端末の子は とっておく）')
+        ctx, page, errs, calls = await open_page('Utwob', local=sample('のこす子'))
+        m = await find_modal(page, '.levelup [data-close="no"]')
+        if m:
+            await m.click(); await page.wait_for_timeout(800)
+        i = await info(page)
+        ok(i['onboard'] and i['guest'] and state('Utwob')['rev'] is None, 'はじめての画面になり、サーバーには まだ子がいない', {'info': i, 'state': state('Utwob')})
         all_errs += errs; await ctx.close()
 
         print('3. ほかの端末の新しいセーブ（同じ子）')
@@ -196,22 +229,14 @@ async def browser_tests(srv_port):
         local = sample('ゲスト', photo=True); local['created'] = two['created']
         ctx, page, errs, calls = await open_page('Utwo', local=local, owner=two['id'])
         i = await info(page)
-        ok(i['name'] == 'ゲストあたらしい' and i['photo'], '新しいほうに会える（写真の控えはのこる）', i)
+        ok(i['name'] == 'ゲストあたらしい' and i['photo'], 'サーバーの子に会える（写真の控えはのこる）', i)
         all_errs += errs; await ctx.close()
 
         print('4. この端末にいた子（ちがう子）とLINEの子')
         ctx, page, errs, calls = await open_page('Uone', local=sample('この端末の子', created_days=3, photo=True))
         i = await info(page)
         ok(i['name'] == 'いちばん' and i['guest'], 'LINEの子に会い、この端末の子はとっておく', i)
-        modal = None
-        for _ in range(8):   # ほかのお知らせが先に出ていたら、とじてから
-            modal = await page.query_selector('.levelup [data-close="take"]')
-            if modal:
-                break
-            btn = await page.query_selector('.levelup .btn.primary')
-            if btn:
-                await btn.click()
-            await page.wait_for_timeout(500)
+        modal = await find_modal(page, '.levelup [data-close="take"]')
         ok(modal is not None, 'つれてくるかを聞く')
         if modal:
             await snap(page, 'offer_guest')
@@ -236,41 +261,88 @@ async def browser_tests(srv_port):
 
         print('6. 引っこしコードで受け取る（はじめて）')
         ctx, page, errs, calls = await open_page('Uthree', local=sample('さんばん'))
-        await page.wait_for_timeout(1200)
-        await page.click('#menuBtn'); await page.wait_for_timeout(400)
-        await page.click('#mMove'); await page.wait_for_timeout(400)
-        note = await page.evaluate("(document.querySelector('#sheet .line-move')||{}).textContent||''")
+        m = await find_modal(page, '.levelup [data-close="no"]')
+        if m:
+            await m.click(); await page.wait_for_timeout(600)
+        await page.click('#obImport'); await page.wait_for_timeout(400)
+        note = await page.evaluate("(document.querySelector('#ob .line-move')||{}).textContent||''")
         ok('1回だけ' in note, '1回だけの1行', note)
-        await page.fill('#mvIn', code_of(sample('コードの子', created_days=50)))
-        await page.click('#mvTake'); await page.wait_for_timeout(300)
-        await page.click('#mvYes'); await page.wait_for_timeout(2600)
+        await page.fill('#imCode', code_of(sample('コードの子', created_days=50)))
+        await page.click('#imGo'); await page.wait_for_timeout(2600)
         s = state('Uthree')
         ok(s['name'] == 'コードの子' and s['imported'], 'コードの子が取りこみ口から入る', s)
         ok(any('/import' in c for c in calls), '/import を使う', calls)
 
-        print('7. 書きこみのぶつかり（ほかの端末が先に書いた）')
+        print('7. おせわはサーバーで（ほかの端末の変化も返事でとどく）')
         await close_popups(page)
         dbg('/__debug/bump', {'sub': 'Uthree', 'name': 'ほかの端末'})
-        await page.click('#actFeed'); await page.wait_for_timeout(8000)   # 食べるアニメのあとに保存（1.2秒後）
+        dbg('/__debug/patch', {'sub': 'Uthree', 'full': 40})
+        before = state('Uthree')
+        await page.click('#actFeed'); await page.wait_for_timeout(7000)
         await close_popups(page)
+        s = state('Uthree')
         i = await info(page)
-        ok(i['name'] == 'ほかの端末', '新しいほう（ほかの端末）になる', {'info': i, 'calls': calls[-6:]})
-        ok(any(c == 'POST /save' for c in calls[-3:]), 'ぶつかったあとも保存がつづく', calls[-6:])
+        ok(s['meals'] == before['meals'] + 1 and i['meals'] == s['meals'], 'ごはんはサーバーが数える（画面も同じ数）', {'before': before, 'after': s, 'info': i})
+        ok(i['name'] == 'ほかの端末', 'ほかの端末の名前も返事でとどく', i)
+        ok(any(c == 'POST /act' for c in calls[-4:]) and not any(c == 'POST /save' for c in calls[-4:]), '/act だけ（数字は送らない）', calls[-6:])
+        await page.focus('#pet')
+        for _ in range(6):
+            await page.keyboard.press('Enter'); await page.wait_for_timeout(80)
+        await page.wait_for_timeout(2500)
+        s2 = state('Uthree')
+        ok(s2['pets'] == s['pets'] + 1, 'なでなでも手がとまったら サーバーで数える', {'before': s['pets'], 'after': s2['pets']})
         all_errs += errs; await ctx.close()
 
-        print('8. サーバーに届かないとき')
+        print('7b. 端末の時計をずらしても得をしない')
+        three = state('Uthree')
+        ctx, page, errs, calls = await open_page('Uthree', owner=three['id'], skew_ms=int(3 * 864e5))
+        await close_popups(page)
+        i = await info(page)
+        today = time.strftime('%Y-%m-%d', time.gmtime(time.time() + 9 * 3600))
+        ok(i['day'] == today, 'きょうのおねがいは サーバーの日付（日本時間）', {'day': i['day'], 'today': today})
+        ok(i['souv'] == 0, 'おみやげは出ない（あけた時間はサーバーの時計で）', i)
+        all_errs += errs; await ctx.close()
+
+        print('8. サーバーに届かないとき（ゲストの子）')
         ctx, page, errs, calls = await open_page('Ufour', local=sample('とどかない'), server_down=True)
         i = await info(page)
         ok(i['server'] == 'failed' and i['mode'] == 'local' and i['name'] == 'とどかない', 'この端末に保存して遊べる', i)
+        await page.click('#actFeed'); await page.wait_for_timeout(7000)
+        i2 = await info(page)
+        ok(i2['meals'] == i['meals'] + 1, 'ゲストの子は おせわできる', i2)
+        await close_popups(page)
         await page.click('#menuBtn'); await page.wait_for_timeout(400)
         st = await page.evaluate("(document.querySelector('#sheet .line-status')||{}).textContent||''")
         ok('この端末に ほぞん' in st, 'プロフィールの1行', st)
         await snap(page, 'server_down')
         all_errs += errs; await ctx.close()
 
+        print('8b. サーバーに届かないとき（LINEの子は まってもらう）')
+        three = state('Uthree')
+        mirror = sample('ほかの端末'); mirror['created'] = three['created']
+        ctx, page, errs, calls = await open_page('Uthree', local=mirror, owner=three['id'], server_down=True)
+        i = await info(page)
+        await page.click('#actFeed'); await page.wait_for_timeout(900)
+        wait = await page.query_selector('.levelup [data-close="retry"]')
+        ok(wait is not None, '「つながっていません」と もういちど つなぐ', i)
+        await snap(page, 'wait_offline')
+        if wait:
+            await page.click('.levelup [data-close]'); await page.wait_for_timeout(400)
+        await page.wait_for_timeout(5000)
+        i2 = await info(page)
+        ok(i2['meals'] == i['meals'], 'ごはんは あげられない（数字はかわらない）', i2)
+        await page.focus('#pet'); await page.keyboard.press('Enter'); await page.wait_for_timeout(1500)
+        i3 = await info(page)
+        ok(i3['love'] == i['love'], 'なでても なかよしはかわらない', i3)
+        all_errs += errs; await ctx.close()
+
         print('9. 外部ブラウザ')
         ctx, page, errs, calls = await open_page('Ufive', local=sample('そと'), external=True)
         ok(not calls, 'サーバーには何も送らない', calls)
+        all_errs += errs; await ctx.close()
+        ctx, page, errs, calls = await open_page('Ufive', local=sample('そと'), external=True, owner='someone')
+        await page.click('#actFeed'); await page.wait_for_timeout(900)
+        ok(await page.query_selector('.levelup .card[aria-label="つながるまで まってね"]') is not None and not calls, 'LINEの子は「LINEの中で ひらいてね」', calls)
         all_errs += errs; await ctx.close()
 
         await browser.close()
@@ -289,8 +361,14 @@ def main():
     with open(CFG, 'w') as fh:   # ためしでは game.js を手元のファイルから読む
         json.dump({'imports': {'uchinoko-game': './game.js'}}, fh)
     try:
+        print('ルールの確認（rules_test.mjs）')
+        r = subprocess.run(['node', os.path.join(ROOT, 'tools', 'rules_test.mjs')], capture_output=True, text=True, timeout=120)
+        rules_ok = r.returncode == 0
+        print(r.stdout.strip().splitlines()[-1] if r.stdout.strip() else r.stderr[-2000:])
+        if not rules_ok:
+            print(r.stdout[-4000:], r.stderr[-2000:])
         print('サーバーの確認（api_test.ts）')
-        api_ok = run_api_test()
+        api_ok = run_api_test() and rules_ok
         print('LINE版の画面とサーバーの通し確認')
         db, db_port = start_db()
         srv_port = free_port()

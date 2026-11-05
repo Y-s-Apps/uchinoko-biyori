@@ -1,11 +1,18 @@
-/* うちのこ日和（LINE版）のサーバー：本人確認とセーブ
+/* うちのこ日和（LINE版）のサーバー：本人確認、セーブ、おせわの判定
  *
  *   POST /login   { idToken }        LINE の IDトークンを検証 → 会員ID → 自前のセッション（とセーブ）を返す
  *   GET  /save                       セーブを読む
- *   POST /save    { data, baseRev }  セーブを書く（baseRev が今の rev とちがえば 409 と今のセーブ）
+ *   POST /act     { type, … }        おせわ（open・feed・treat・play・pet・trick・dress・room・season）を、
+ *                                    サーバーの時刻（日付は日本時間）と乱数で判定して、できごととセーブを返す。
+ *                                    adopt { pet } は新しい子（まっさら）をむかえる
+ *   POST /save    { pet }            名前・みため（種類・毛色・顔つき）だけを書く。数字や記録は受けとらない
  *   POST /import  { code }           引っこしコード（この端末の子も同じ形で送る）を取りこむ。1人1回だけ
  *   GET  /health                     動いているか・サーバーの時刻
  *
+ * - おなか・ごきげんの減り、おやつの回数、おみやげ、きょうのおねがい、連続記録とおたすけ、季節のイベント、
+ *   記念日、げいの上限、なでなでのなかよしは、ぜんぶここ（画面と同じ js_rules.js の Rules）で決める。
+ *   画面の時計や数字は使わないので、端末の時計を動かしても得をしない。
+ * - おせわ（ごはん・おやつ・あそぶ・げい）は、前のおせわから 2.5 秒あける（画面の動きより短い）。
  * - IDトークンは https://api.line.me/oauth2/v2.1/verify で検証し、sub だけを使う（プロフィールの値は使わない）。
  *   LINE のトークンは保存しない。セッションのトークンは端末のメモリだけに置き、DB にはハッシュだけを持つ。
  * - セッションは x-session ヘッダーで受けとる（Authorization は Supabase の入口が JWT として読むので使わない）。
@@ -16,7 +23,7 @@
  * - デプロイは verify_jwt: false（自前のセッションで確かめるため）。
  */
 import postgres from 'npm:postgres@3.4.5';
-import { ensureState, readMoveCode, MOVE_MAX, dayKey } from 'uchinoko-game';
+import { ensureState, readMoveCode, MOVE_MAX, dayKey, Rules, newState, normalizeLook } from 'uchinoko-game';
 
 const env = (k: string, d = '') => (Deno.env.get(k) ?? d).trim();
 /* LINEミニアプリチャネルのチャネルID（LIFF ID の前半）。秘密ではない。カンマで複数 */
@@ -28,7 +35,10 @@ const LINE_VERIFY = 'https://api.line.me/oauth2/v2.1/verify';
 const SESSION_HOURS = 24;
 const SESSIONS_PER_MEMBER = 10;
 const SAVE_MAX = 1_500_000;          /* セーブの JSON の文字数の上限（写真なしで、ふつうは 100KB より小さい） */
-const BODY_MAX = { login:8_000, save:SAVE_MAX + 2_000, import:MOVE_MAX + 2_000 } as const;
+const BODY_MAX = { login:8_000, save:8_000, act:8_000, import:MOVE_MAX + 2_000 } as const;
+const CARE = new Set(['feed', 'treat', 'play', 'trick']);
+const CARE_GAP_MS = 2_500;
+const STROKE_MAX = 12;
 
 const sql = postgres(env('SUPABASE_DB_URL'), { prepare:false, max:3, idle_timeout:20, connect_timeout:10 });
 
@@ -164,21 +174,83 @@ async function getSave(member: string) {
   return { save:await currentSave(member), importable:!!mem && !mem.imported_at, now:Date.now() };
 }
 
+/* 名前・みためだけ（引っこしコードの読みとりと同じ形にそろえる）。写真ときせかえは入れない */
+type Pet = { name: string; species: string; breedId: string; look: Record<string, unknown>; colorName: string };
+function cleanPet(raw: unknown): Pet {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new HttpError(400, 'badpet');
+  const p = raw as Record<string, unknown>;
+  const look = normalizeLook((p.look && typeof p.look === 'object' ? p.look : p) as Record<string, unknown>);
+  const name = String(p.name ?? '').trim().slice(0, 10) || 'うちのこ';
+  return { name, species:look.species, breedId:look.breedId, look, colorName:typeof p.colorName === 'string' ? p.colorName.slice(0, 14) : '' };
+}
+
+/* サーバーだけが使う控え（画面には関係ない）：なでなでのなかよしの残り、前のおせわの時刻 */
+type Srv = { pb: { left: number; t: number }; cd: number };
+function srvOf(st: Record<string, unknown>, t: number): Srv {
+  const o = (st.srv && typeof st.srv === 'object' ? st.srv : {}) as Record<string, unknown>;
+  const pb = (o.pb && typeof o.pb === 'object' ? o.pb : {}) as Record<string, unknown>;
+  const n = (v: unknown, d: number, lo: number, hi: number) => { const x = Number(v); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d; };
+  const srv = { pb:{ left:n(pb.left, STROKE_MAX, 0, STROKE_MAX), t:n(pb.t, t, 0, t) }, cd:n(o.cd, 0, 0, t) };
+  st.srv = srv;
+  return srv;
+}
+
+async function writeSave(tx: postgres.TransactionSql, member: string, st: Record<string, unknown>) {
+  (st.pet as Record<string, unknown>).photo = null;
+  st.updated = Date.now();
+  if (JSON.stringify(st).length > SAVE_MAX) throw new HttpError(413, 'toolarge');
+  const [w] = await tx<SaveRow[]>`update app.saves set data = ${sql.json(st as Json)}, rev = rev + 1, updated_at = now()
+    where member_id = ${member} returning data, rev::int as rev, updated_at`;
+  return saveOut(w);
+}
+
+/* おせわ：ルールをサーバーの時計で動かす。セーブの行をロックして、1人ずつ順に */
+async function act(req: Request, member: string) {
+  const body = await readBody(req, BODY_MAX.act);
+  const type = String(body.type || '');
+  if (type === 'adopt') return await adopt(member, cleanPet(body.pet));
+  return await sql.begin(async tx => {
+    const [sv] = await tx<SaveRow[]>`select data, rev::int as rev, updated_at from app.saves where member_id = ${member} for update`;
+    if (!sv) throw new HttpError(409, 'nosave');
+    const st = sv.data as Record<string, unknown>;
+    ensureState(st);
+    const t = Date.now();
+    const srv = srvOf(st, t);
+    if (CARE.has(type) && t - srv.cd < CARE_GAP_MS) return { ok:false, why:'busy', ev:[], save:saveOut(sv), now:t };
+    const away = Math.max(0, t - Number(st.last || t));
+    const p: Record<string, unknown> = {};
+    for (const k of ['id', 'n', 'slot', 'cat', 'on']) if (k in body) p[k] = body[k];
+    const r = Rules.act(st, type, p, { away, budget:srv.pb }) as Record<string, unknown>;
+    if (r.why === 'unknown') throw new HttpError(400, 'badtype');
+    if (!r.ok && type !== 'open') return { ...r, save:saveOut(sv), now:t };
+    if (r.ok && CARE.has(type)) srv.cd = t;
+    return { ...r, save:await writeSave(tx, member, st), now:t };
+  });
+}
+
+/* 新しい子をむかえる：名前・みためから、まっさらのセーブを作る（数字や記録は画面から受けとらない） */
+async function adopt(member: string, pet: Pet) {
+  const t = Date.now();
+  const st = newState({ ...pet, photo:null, wear:{ head:null, face:null, neck:null } }, t) as Record<string, unknown>;
+  ensureState(st);
+  const out = await sql<SaveRow[]>`insert into app.saves (member_id, data) values (${member}, ${sql.json(st as Json)})
+    on conflict (member_id) do update set data = excluded.data, rev = app.saves.rev + 1, updated_at = now()
+    returning data, rev::int as rev, updated_at`;
+  return { ok:true, ev:[], save:saveOut(out[0]), now:t };
+}
+
+/* 名前・みためを変える */
 async function putSave(req: Request, member: string) {
   const body = await readBody(req, BODY_MAX.save);
-  const data = cleanSave(body.data);
-  const base = body.baseRev;
-  let rows: { rev: number; updated_at: Date }[];
-  if (base == null){
-    rows = await sql`insert into app.saves (member_id, data) values (${member}, ${sql.json(data)})
-      on conflict (member_id) do nothing returning rev::int as rev, updated_at`;
-  } else {
-    if (!Number.isSafeInteger(base) || (base as number) < 1) throw new HttpError(400, 'badrev');
-    rows = await sql`update app.saves set data = ${sql.json(data)}, rev = rev + 1, updated_at = now()
-      where member_id = ${member} and rev = ${base as number} returning rev::int as rev, updated_at`;
-  }
-  if (!rows.length) throw new HttpError(409, 'conflict', { save:await currentSave(member) });
-  return { rev:rows[0].rev, updatedAt:new Date(rows[0].updated_at).getTime() };
+  const pet = cleanPet(body.pet);
+  return await sql.begin(async tx => {
+    const [sv] = await tx<SaveRow[]>`select data, rev::int as rev, updated_at from app.saves where member_id = ${member} for update`;
+    if (!sv) throw new HttpError(409, 'nosave');
+    const st = sv.data as Record<string, unknown>;
+    ensureState(st);
+    Object.assign(st.pet as Record<string, unknown>, pet);
+    return { save:await writeSave(tx, member, st), now:Date.now() };
+  });
 }
 
 async function importCode(req: Request, member: string) {
@@ -186,12 +258,13 @@ async function importCode(req: Request, member: string) {
   if (typeof body.code !== 'string') throw new HttpError(400, 'badcode', { reason:'empty' });
   const r = readMoveCode(body.code);
   if (!r.st) throw new HttpError(400, 'badcode', { reason:r.reason });
-  const data = cleanSave(r.st);
+  const data = cleanSave(r.st) as Record<string, unknown>;
+  delete data.srv;
   const out = await sql.begin(async tx => {
     const [mem] = await tx`select imported_at from app.members where id = ${member} for update`;
     if (!mem) throw new HttpError(401, 'nosession');
     if (mem.imported_at) throw new HttpError(409, 'already');
-    const [sv] = await tx<SaveRow[]>`insert into app.saves (member_id, data) values (${member}, ${sql.json(data)})
+    const [sv] = await tx<SaveRow[]>`insert into app.saves (member_id, data) values (${member}, ${sql.json(data as Json)})
       on conflict (member_id) do update set data = excluded.data, rev = app.saves.rev + 1, updated_at = now()
       returning data, rev::int as rev, updated_at`;
     await tx`update app.members set imported_at = now() where id = ${member}`;
@@ -207,6 +280,7 @@ async function route(req: Request): Promise<unknown> {
   if (path === '/login' && m === 'POST') return await login(req);
   if (path === '/save' && m === 'GET') return await getSave(await sessionMember(req));
   if (path === '/save' && m === 'POST') return await putSave(req, await sessionMember(req));
+  if (path === '/act' && m === 'POST') return await act(req, await sessionMember(req));
   if (path === '/import' && m === 'POST') return await importCode(req, await sessionMember(req));
   throw new HttpError(404, 'notfound');
 }

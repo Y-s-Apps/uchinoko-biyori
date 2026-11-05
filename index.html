@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-+1/v/eiJs4u++0l37BZW01Pv91VxKJJoSTLAKMFxYbo='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-XP50XkPJys9NUI1IeQzrBPF3os+5Hub9fP8K3atryuA='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="写真の犬や猫をそっくりなペットにして、ごはん・おやつ・なでなででのんびり育てるアプリ">
@@ -836,9 +836,9 @@ const TRICKS = {
   ],
 };
 
-/* ===== seasons & events (month-day, local time) ===== */
+/* ===== seasons & events (month-day of the rules' clock: this device's date, or Japan time on the LINE server) ===== */
 function mdOf(d){ return (d.getMonth() + 1) * 100 + d.getDate(); }
-function seasonOf(d = new Date()){
+function seasonOf(d = clockDate()){
   const m = d.getMonth() + 1;
   return m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 9 && m <= 11 ? 'autumn' : 'winter';
 }
@@ -855,11 +855,11 @@ const EVENTS = [
   EV('halloween','ハロウィン',1001,1031,'ev_pumpkin',{ id:'ev_pumpkincookie', ja:'かぼちゃクッキー', icon:['pumpkincookie'] },'halloween','トリック・オア・トリート！'),
   EV('christmas','クリスマス',1201,1225,'ev_santa',{ id:'ev_xmascake', ja:'クリスマスケーキ', icon:['cake',true] },'christmas','メリークリスマス！'),
 ];
-function activeEvent(d = new Date()){
+function activeEvent(d = clockDate()){
   const md = mdOf(d);
   return EVENTS.find(e => md >= e.from && md <= e.to) || null;
 }
-function weatherOf(d = new Date()){
+function weatherOf(d = clockDate()){
   const ev = activeEvent(d), m = d.getMonth() + 1;
   if (ev && ev.id === 'christmas') return 'snow';
   if (ev && ev.id === 'sakura') return 'petals';
@@ -1426,10 +1426,461 @@ function wearSvg(W, x){
   }
   return out;
 }
+/* ===== rules: what happens to the save, without the screen =====
+   The same file runs on the LINE server (tools/build_server.py puts it into game.js), so nothing here may touch the page.
+   - Every function takes the save (`st`) it changes, and returns what happened as a list of events (`ev`)
+     that the screen turns into popups, toasts and words (js_app.js / js_features.js: playEvents).
+   - Time, the calendar day and chance all come from Clock. The home-screen and Claude versions use this device's clock;
+     the LINE server uses its own clock (Japan time) and random numbers, and the LINE screen follows the server's clock. */
+const Clock = {
+  now(){ return Date.now(); },
+  /* the calendar day of a time, YYYY-MM-DD (here: this device's local date) */
+  dayKey(t){
+    const d = t == null ? new Date(this.now()) : (t instanceof Date ? t : new Date(t));
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  },
+  rand(){ return Math.random(); },
+};
+const now = () => Clock.now();
+function dayKey(t){ return Clock.dayKey(t); }
+/* a Date at local midnight of a YYYY-MM-DD day: its getMonth()/getDate() are that day's, in any time zone */
+function dateOfDay(key){ const [Y, M, D] = String(key).split('-').map(Number); return new Date(Y, M - 1, D); }
+/* "today" on the rules' clock, as a Date for month/day checks (seasons, events) */
+const clockDate = () => dateOfDay(dayKey());
+/* shift a YYYY-MM-DD key by whole calendar days (pure date arithmetic, no time zone) */
+function keyShift(key, k){
+  const [Y, M, D] = key.split('-').map(Number), d = new Date(Date.UTC(Y, M - 1, D + k));
+  return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+}
+const keyDiff = (a, b) => { const p = k => { const [Y, M, D] = k.split('-').map(Number); return Date.UTC(Y, M - 1, D); }; return Math.round((p(b) - p(a)) / 864e5); };
+const daysBetween = (a, b) => Math.floor((new Date(dayKey(b)) - new Date(dayKey(a))) / 864e5);
+const mdOfKey = k => { const [, M, D] = k.split('-').map(Number); return `${M}/${D}`; };
+function hashStr(s){ let h = 2166136261; for (let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function rng(seed){
+  let a = seed >>> 0;
+  return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+
+function levelInfo(love){
+  let lv = 1, acc = 0, need = 20;
+  while (lv < MAX_LV && love >= acc + need){ acc += need; lv++; need = 20 + (lv - 1) * 5; }
+  const max = lv >= MAX_LV;
+  return { lv, into:max ? need : love - acc, need, max };
+}
+function newState(pet, t = now()){
+  return { v:1, pet, stats:{ full:72, mood:78, love:0 }, counts:{ meals:0, treats:0, pets:0, plays:0 }, recentTreats:[], last:t, created:t, updated:t };
+}
+function breedLabel(p){
+  const b = BREED_BY_ID[p.breedId];
+  const bn = b ? b.ja : '';
+  if (!p.colorName) return bn;
+  return p.colorName.includes(bn) ? p.colorName : p.colorName + 'の' + bn;
+}
+function eventTreat(e){ return Object.assign({ line:e.hello, ev:e.id, evJa:e.ja }, EVENT_TREAT_STATS, e.treat); }
+
+const RESCUE_EVERY = 7;
+const TRICK_LOVE_A_DAY = 10;
+const STROKE_MAX = 12;       /* なでなでのなかよし：たまる上限（回分）と、1回分がたまる分数 */
+const STROKE_MINUTES = 3;
+
+const Rules = {
+  /* おなか・ごきげんは、前に計算した時刻（last）からの時間で減る */
+  decay(st, t = now()){
+    if (!st) return;
+    const hrs = Math.max(0, (t - (st.last || t)) / 3.6e6);
+    const s = st.stats;
+    s.full = clamp(s.full - hrs * 8, 0, 100);
+    s.mood = clamp(s.mood - hrs * 5 - (s.full < 25 ? hrs * 4 : 0), 0, 100);
+    st.last = t;
+  },
+  lv(st){ return levelInfo(st.stats.love).lv; },
+  isCat(st){ return !!st && st.pet.species === 'cat'; },
+  wear(st){
+    if (!st.pet.wear){ st.pet.wear = wearFrom(st.pet); delete st.pet.acc; }
+    for (const k of ['head','face','neck']){
+      const v = st.pet.wear[k];
+      if (v && WEAR_RENAMED[v]) st.pet.wear[k] = WEAR_RENAMED[v];
+      else if (v && !WEAR_BY_ID[v]) st.pet.wear[k] = null;
+    }
+    return st.pet.wear;
+  },
+  wearOwned(st, w, lv = this.lv(st)){ return w.ev ? st.events.got.includes(w.id) : lv >= w.lv; },
+  /* the treats that can be given today: this pet's, plus the season's own treat during an event */
+  treatList(st){
+    const base = TREATS[st.pet.species] || TREATS.dog;
+    const ev = activeEvent();
+    return ev ? [eventTreat(ev)].concat(base) : base;
+  },
+
+  /* ----- album ----- */
+  addAlbum(st, k, ti, su, ic, t){
+    st.album.unshift({ t:t || now(), k, ti, su:su || '', ic:ic || k });
+    st.album.sort((a, b) => b.t - a.t);
+    if (st.album.length > 300) st.album.length = 300;
+  },
+  first(st, key, ti, su, ic){
+    if (st.firsts[key]) return false;
+    st.firsts[key] = true;
+    this.addAlbum(st, 'first', ti, su, ic);
+    return true;
+  },
+  gainLove(st, n, ev){
+    const before = levelInfo(st.stats.love).lv;
+    st.stats.love = Math.round((st.stats.love + n) * 10) / 10;
+    const after = levelInfo(st.stats.love).lv;
+    if (after > before){
+      for (let lv = before + 1; lv <= after; lv++){
+        const t = TITLES.find(([l]) => l === lv);
+        if (lv <= 5 || lv % 5 === 0 || t) this.addAlbum(st, 'lv', `なかよしLv ${lv}`, t ? `あたらしい関係「${t[1]}」` : `${st.pet.name}と さらになかよくなった`, 'lv');
+      }
+      ev.push({ k:'lv', lv:after, before });
+    }
+  },
+
+  /* ----- きょうのおねがい ----- */
+  genDaily(st, day){
+    const r = rng(hashStr(day + ':' + (st.created || 0)));
+    const lv = this.lv(st);
+    const unlocked = (TREATS[st.pet.species] || []).filter(t => t.lv <= lv);
+    const pool = [
+      () => ({ type:'meal', n:2 }),
+      () => r() < .5 ? { type:'treat', n:1 + (r() < .4 ? 1 : 0) } : { type:'treatId', n:1, id:unlocked[Math.floor(r() * unlocked.length)].id },
+      () => ({ type:'play', n:2 + (r() < .4 ? 1 : 0) }),
+      () => ({ type:'pet', n:[10, 12, 15, 20][Math.floor(r() * 4)] }),
+      () => ({ type:'trick', n:2 + (r() < .3 ? 1 : 0) }),
+    ];
+    if (lv >= 2) pool.push(() => ({ type:'dress', n:1 }));
+    if (lv >= 4) pool.push(() => ({ type:'room', n:1 }));
+    const list = [], used = new Set();
+    let guard = 0;
+    while (list.length < 3 && guard++ < 50){
+      const i = Math.floor(r() * pool.length);
+      if (used.has(i)) continue;
+      used.add(i);
+      list.push(Object.assign({ got:0, done:false }, pool[i]()));
+    }
+    return { day, list, all:false };
+  },
+  /* おたすけのおねがい: exactly one missed calendar day can be bridged, once every RESCUE_EVERY days */
+  lastRescueDay(st){ const m = st.rescued.slice().sort().pop(); return m ? keyShift(m, 1) : null; },
+  rescueReady(st, d = dayKey()){ const l = this.lastRescueDay(st); return !l || keyDiff(l, d) >= RESCUE_EVERY; },
+  nextRescueDay(st){ const l = this.lastRescueDay(st); return l ? keyShift(l, RESCUE_EVERY) : null; },
+  gapOfOne(st, d = dayKey()){ return st.streak.n > 0 && st.streak.last === keyShift(d, -2); },
+  rescueOpen(st, d = dayKey()){
+    if (st.streak.saved && st.streak.saved.day === d) return true;
+    return this.gapOfOne(st, d) && this.rescueReady(st, d);
+  },
+  genRescue(st, d){
+    const r = rng(hashStr('rescue:' + d + ':' + (st.created || 0)));
+    const used = new Set(st.daily.list.map(x => x.type === 'treatId' ? 'treat' : x.type));
+    const pool = [{ type:'pet', n:25 }, { type:'play', n:3 }, { type:'trick', n:3 }, { type:'meal', n:2 }, { type:'treat', n:2 }].filter(x => !used.has(x.type));
+    const c = pool.length ? pool[Math.floor(r() * pool.length)] : { type:'pet', n:30 };
+    return Object.assign({ got:0, done:false, rescue:true }, c);
+  },
+  streakInfo(st){
+    const t = dayKey(), L = st.streak.last;
+    if (st.streak.saved && st.streak.saved.day === t && !(st.daily && st.daily.rescue && st.daily.rescue.done)) return { n:st.streak.saved.n, pinch:true };
+    if (L === t || L === keyShift(t, -1)) return { n:st.streak.n, pinch:false };
+    if (this.rescueOpen(st, t)) return { n:st.streak.n, pinch:true };
+    return { n:0, pinch:false };
+  },
+  ensureDaily(st){
+    const d = dayKey();
+    if (!st.daily || st.daily.day !== d) st.daily = this.genDaily(st, d);
+    if (!st.daily.rescue && this.rescueOpen(st, d)) st.daily.rescue = this.genRescue(st, d);
+    return st.daily;
+  },
+  reqLeft(st){
+    this.ensureDaily(st);
+    const open = st.daily.list.filter(r => !r.done).length;
+    return open + (st.daily.rescue && !st.daily.rescue.done && this.streakInfo(st).pinch ? 1 : 0);
+  },
+  bridgeStreak(st, prevN, d){
+    const y = keyShift(d, -1);
+    st.streak.n = prevN + 1;
+    st.streak.last = d;
+    st.streak.best = Math.max(st.streak.best || 0, st.streak.n);
+    delete st.streak.saved;
+    if (!st.rescued.includes(y)) st.rescued.push(y);
+    this.addAlbum(st, 'stamp', `れんぞく記録を つないだ！（${st.streak.n}日）`, 'おたすけのおねがいで、おやすみの日を つないだよ', 'rescue');
+  },
+  rescueComplete(st, r, ev){
+    st.stats.mood = clamp(st.stats.mood + 5, 0, 100);
+    this.gainLove(st, 5, ev);
+    const d = st.daily.day;
+    if (st.daily.all && st.streak.saved && st.streak.saved.day === d){
+      this.bridgeStreak(st, st.streak.saved.n, d);
+      ev.push({ k:'rescue', bridged:true });
+    } else ev.push({ k:'rescue', bridged:false });
+  },
+  reqComplete(st, r, ev){
+    st.stats.mood = clamp(st.stats.mood + 5, 0, 100);
+    this.gainLove(st, 4, ev);
+    ev.push({ k:'req' });
+    if (st.daily.list.every(x => x.done) && !st.daily.all){
+      st.daily.all = true;
+      const d = st.daily.day;
+      if (!st.stamps.includes(d)) st.stamps.push(d);
+      const y = keyShift(d, -1), prevN = st.streak.n, last = st.streak.last;
+      let bridged = false, waiting = false;
+      if (last === y) st.streak.n = prevN + 1;
+      else if (last === d) st.streak.n = prevN;
+      else if (last === keyShift(d, -2) && prevN > 0 && this.rescueReady(st, d)){
+        if (st.daily.rescue && st.daily.rescue.done){ this.bridgeStreak(st, prevN, d); bridged = true; }
+        else { st.streak.saved = { n:prevN, day:d }; st.streak.n = 1; waiting = true; }
+      } else st.streak.n = 1;
+      st.streak.last = d;
+      st.streak.best = Math.max(st.streak.best || 0, st.streak.n);
+      this.gainLove(st, 10, ev);
+      if (!this.first(st, 'daily', 'はじめて おねがいを ぜんぶかなえた', 'スタンプカードに 1こめのスタンプ', 'stamp')){
+        const total = st.stamps.length;
+        if ([3, 7, 14, 30, 50, 100, 200, 365].includes(st.streak.n)) this.addAlbum(st, 'stamp', `おねがい${st.streak.n}日れんぞく！`, 'まいにち ありがとう', 'stamp');
+        else if (total % 10 === 0) this.addAlbum(st, 'stamp', `スタンプが${total}こに！`, 'たくさん かなえてくれたね', 'stamp');
+      }
+      ev.push({ k:'all', bridged, waiting });
+    }
+  },
+  /* a care action counts toward today's requests and the album's firsts */
+  track(st, type, data, ev){
+    data = data || {};
+    this.ensureDaily(st);
+    const reqs = st.daily.list.concat(st.daily.rescue ? [st.daily.rescue] : []);
+    for (const r of reqs){
+      if (r.done) continue;
+      const hit = r.type === 'treatId' ? (type === 'treat' && data.id === r.id) : r.type === type;
+      if (!hit) continue;
+      r.got = Math.min(r.n, r.got + 1);
+      if (r.got >= r.n){ r.done = true; if (r.rescue) this.rescueComplete(st, r, ev); else this.reqComplete(st, r, ev); }
+    }
+    if (type === 'meal') this.first(st, 'meal', 'はじめてのごはん', 'おいしそうに たべたね', 'meal');
+    if (type === 'treat') this.first(st, 'treat', 'はじめてのおやつ', `「${data.ja}」をあげた`, 'treat:' + data.id);
+    if (type === 'play') this.first(st, 'play', 'はじめてのあそび', this.isCat(st) ? '毛糸玉で じゃれたね' : 'ボールを おいかけたね', 'play');
+    if (type === 'pet') this.first(st, 'pet', 'はじめてのなでなで', 'うれしそうだったね', 'pet');
+    if (type === 'dress' && data.id && !st.firsts.wear[data.id]){
+      st.firsts.wear[data.id] = true;
+      const w = WEAR_BY_ID[data.id];
+      if (w) this.addAlbum(st, 'wear', `はじめての${w.ja.replace(/（.*?）/, '')}`, `${w.ja}、にあってるね`, 'dress');
+    }
+    if (type === 'room') this.first(st, 'room', 'はじめてのもようがえ', data.ja ? `${data.ja}にしたよ` : '', 'room');
+  },
+
+  /* ----- opening the app: milestones, the season's event, a souvenir, the streak notices ----- */
+  checkMilestones(st, ev){
+    if (!st.created) return;
+    const days = daysBetween(st.created, now());
+    for (const n of [7, 30, 100, 200, 300, 500, 1000]){
+      const k = 'days' + n;
+      if (days >= n && !st.milestones[k]){
+        st.milestones[k] = true;
+        this.addAlbum(st, 'days', `うちにきて${n}日`, n >= 100 ? 'これからも ずっといっしょだよ' : 'まいにち ありがとう', 'days', st.created + n * 864e5);
+        if (days - n < 3) ev.push({ k:'days', n });
+      }
+    }
+    const c = dateOfDay(dayKey(st.created)), d = clockDate();
+    const years = d.getFullYear() - c.getFullYear();
+    if (years >= 1 && d.getMonth() === c.getMonth() && d.getDate() === c.getDate() && !st.milestones['anniv' + years]){
+      st.milestones['anniv' + years] = true;
+      this.addAlbum(st, 'days', `うちのこ記念日（${years}年）`, `${st.pet.name}がうちにきて ${years}年！`, 'days');
+      ev.push({ k:'anniv', years });
+    }
+  },
+  checkEvent(st, ev){
+    const e = activeEvent();
+    if (!e) return;
+    const key = e.id + ':' + clockDate().getFullYear();
+    if (st.events.seen[key]) return;
+    st.events.seen[key] = now();
+    const had = st.events.got.includes(e.gift);
+    if (!had) st.events.got.push(e.gift);
+    const w = WEAR_BY_ID[e.gift];
+    this.addAlbum(st, 'event', `${e.ja}`, had ? 'ことしも いっしょに すごせたね' : `プレゼント「${w.ja}」をもらった`, 'gift');
+    ev.push({ k:'event', id:e.id, had });
+  },
+  /* おるすばんのおみやげ: 3 hours away, up to 3 a day; the love is given now and shown when the popup closes */
+  souvenir(st, away, ev){
+    if (!(away >= 3 * 3600e3)) return;
+    const day = dayKey();
+    if (st.souv.day !== day){ st.souv.day = day; st.souv.n = 0; }
+    if (st.souv.n >= 3) return;
+    st.souv.n++;
+    const season = seasonOf();
+    const pool = SOUVENIRS.filter(s => s.seasons === 'all' || s.seasons.split(' ').includes(season));
+    const wt = s => ({ 1:10, 2:5, 3:2.2, 4:1, 5:.45 }[s.rare] || 1) * (st.souv.have[s.id] ? 1 : 1.6);
+    let x = Clock.rand() * pool.reduce((a, s) => a + wt(s), 0), pickS = pool[0];
+    for (const s of pool){ x -= wt(s); if (x <= 0){ pickS = s; break; } }
+    const isNew = !st.souv.have[pickS.id];
+    st.souv.have[pickS.id] = (st.souv.have[pickS.id] || 0) + 1;
+    const bonus = away >= 12 * 3600e3 ? 4 : 2;
+    if (isNew) this.addAlbum(st, 'souv', `おみやげ「${pickS.ja}」`, pickS.line, 'souv:' + pickS.id);
+    const after = [];
+    this.gainLove(st, bonus, after);
+    ev.push({ k:'souv', id:pickS.id, isNew, bonus, after });
+  },
+  rescueNotice(st, ev){
+    if (!st.daily || st.daily.rescueNoticed) return;
+    if (!st.daily.rescue && this.gapOfOne(st, st.daily.day) && !this.rescueReady(st, st.daily.day) && !st.daily.all){
+      st.daily.rescueNoticed = true;
+      ev.push({ k:'broke', next:this.nextRescueDay(st) });
+      return;
+    }
+    if (!st.daily.rescue || st.daily.rescue.done) return;
+    const si = this.streakInfo(st);
+    if (!si.pinch) return;
+    st.daily.rescueNoticed = true;
+    ev.push({ k:'pinch', n:si.n });
+  },
+  /* opening (or coming back to) the app. `away` is how long nobody looked, measured before the stats decay */
+  open(st, away, ev){
+    this.decay(st);
+    if (!st.album.length) this.addAlbum(st, 'home', `${st.pet.name}が うちのこになった日`, breedLabel(st.pet), 'home', st.created || now());
+    this.ensureDaily(st);
+    this.checkMilestones(st, ev);
+    this.checkEvent(st, ev);
+    this.souvenir(st, away, ev);
+    this.rescueNotice(st, ev);
+    return { ok:true };
+  },
+
+  /* ----- care ----- */
+  feed(st, p, ev){
+    this.decay(st);
+    if (st.stats.full >= 92) return { ok:false, why:'full' };
+    st.stats.full = clamp(st.stats.full + 45, 0, 100);
+    st.stats.mood = clamp(st.stats.mood + 6, 0, 100);
+    st.counts.meals++;
+    this.gainLove(st, 3, ev);
+    this.track(st, 'meal', {}, ev);
+    return { ok:true };
+  },
+  treatCheck(st, id){
+    st.recentTreats = (st.recentTreats || []).filter(ts => now() - ts < 30 * 60e3);
+    if (st.recentTreats.length >= 5) return 'limit';
+    this.decay(st);
+    if (st.stats.full >= 99) return 'full';
+    const t = this.treatList(st).find(x => x.id === id);
+    if (!t || this.lv(st) < t.lv) return 'locked';
+    return null;
+  },
+  treat(st, p, ev){
+    const why = this.treatCheck(st, p.id);
+    if (why) return { ok:false, why };
+    const t = this.treatList(st).find(x => x.id === p.id);
+    st.stats.full = clamp(st.stats.full + t.full, 0, 100);
+    st.stats.mood = clamp(st.stats.mood + t.mood, 0, 100);
+    st.recentTreats.push(now());
+    st.counts.treats++;
+    this.gainLove(st, t.love, ev);
+    this.track(st, 'treat', t, ev);
+    return { ok:true, id:t.id };
+  },
+  play(st, p, ev){
+    this.decay(st);
+    if (st.stats.full < 12) return { ok:false, why:'hungry' };
+    st.stats.mood = clamp(st.stats.mood + 12, 0, 100);
+    st.stats.full = clamp(st.stats.full - 4, 0, 100);
+    st.counts.plays++;
+    this.gainLove(st, 3, ev);
+    this.track(st, 'play', {}, ev);
+    return { ok:true };
+  },
+  /* なでなで: one stroke. `budget` ({left, t}) refills one stroke's love every 3 minutes, up to 12 */
+  stroke(st, budget, ev){
+    this.decay(st);
+    st.stats.mood = clamp(st.stats.mood + 1.5, 0, 100);
+    const mins = (now() - budget.t) / 60000;
+    budget.left = Math.min(STROKE_MAX, budget.left + mins / STROKE_MINUTES);
+    budget.t = now();
+    if (budget.left >= 1){ budget.left -= 1; this.gainLove(st, .6, ev); }
+    this.track(st, 'pet', {}, ev);
+  },
+  /* the end of a stroking session counts once */
+  strokeEnd(st){ st.counts.pets++; },
+  trickCheck(st, id){
+    const tk = (TRICKS[st.pet.species] || TRICKS.dog).find(t => t.id === id);
+    if (!tk || this.lv(st) < tk.lv) return 'locked';
+    this.decay(st);
+    if (st.stats.full < 10) return 'hungry';
+    return null;
+  },
+  trick(st, p, ev){
+    const why = this.trickCheck(st, p.id);
+    if (why) return { ok:false, why };
+    const tk = (TRICKS[st.pet.species] || TRICKS.dog).find(t => t.id === p.id);
+    const ts = st.tricks[tk.id] || (st.tricks[tk.id] = { p:0, ok:false });
+    const pOk = Math.min(.93, .55 + ts.p * .07 + (st.stats.mood >= 60 ? .1 : 0));
+    const known = ts.ok;
+    const success = known || Clock.rand() < pOk;
+    const day = dayKey();
+    if (st.trickDay.day !== day){ st.trickDay.day = day; st.trickDay.love = 0; }
+    let learned = false;
+    if (success){
+      st.stats.mood = clamp(st.stats.mood + 3, 0, 100);
+      if (st.trickDay.love < TRICK_LOVE_A_DAY){ st.trickDay.love += 1; this.gainLove(st, 1, ev); }
+      if (!ts.ok){
+        ts.p++;
+        if (ts.p >= tk.need){
+          ts.ok = true;
+          learned = true;
+          this.addAlbum(st, 'trick', `げい「${tk.ja}」をおぼえた！`, `${tk.need}回のれんしゅうで できるようになったね`, 'trick');
+          this.gainLove(st, 5, ev);
+        }
+      }
+    }
+    const tev = [];
+    this.track(st, 'trick', { id:tk.id }, tev);
+    return { ok:true, id:tk.id, success, known, learned, p:ts.p, need:tk.need, after:tev };
+  },
+  dress(st, p, ev){
+    const slot = SLOTS.some(([k]) => k === p.slot) ? p.slot : null;
+    const w = p.id == null ? null : WEAR_BY_ID[p.id];
+    if (!slot || (p.id != null && (!w || w.slot !== slot || !this.wearOwned(st, w)))) return { ok:false, why:'locked' };
+    const W = Object.assign({}, this.wear(st));
+    W[slot] = w ? w.id : null;
+    st.pet.wear = W;
+    if (w) this.track(st, 'dress', { slot, id:w.id }, ev);
+    return { ok:true };
+  },
+  room(st, p, ev){
+    const cat = DECOR_CATS.some(([k]) => k === p.cat) ? p.cat : null;
+    const d = cat && DECOR[cat].find(x => x.id === p.id);
+    if (!d || this.lv(st) < d.lv) return { ok:false, why:'locked' };
+    if (st.room[cat] === d.id) return { ok:false, why:'same' };
+    st.room[cat] = d.id;
+    this.track(st, 'room', { ja:d.ja }, ev);
+    return { ok:true };
+  },
+  season(st, p){ st.room.season = !!p.on; return { ok:true }; },
+
+  /* one entry for every action, here and on the server. `ctx.budget` is the stroke budget, `ctx.away` the time away */
+  act(st, type, p, ctx){
+    p = p || {}; ctx = ctx || {};
+    const ev = [];
+    let r;
+    switch (type){
+      case 'open': r = this.open(st, ctx.away || 0, ev); break;
+      case 'feed': r = this.feed(st, p, ev); break;
+      case 'treat': r = this.treat(st, p, ev); break;
+      case 'play': r = this.play(st, p, ev); break;
+      case 'pet': {
+        const n = Math.max(0, Math.min(60, Math.floor(Number(p.n) || 0)));
+        for (let i = 0; i < n; i++) this.stroke(st, ctx.budget, ev);
+        if (p.end !== false && n) this.strokeEnd(st);
+        r = { ok:true, n };
+        break;
+      }
+      case 'trick': r = this.trick(st, p, ev); break;
+      case 'dress': r = this.dress(st, p, ev); break;
+      case 'room': r = this.room(st, p, ev); break;
+      case 'season': r = this.season(st, p, ev); break;
+      default: r = { ok:false, why:'unknown' };
+    }
+    r.ev = ev;
+    return r;
+  },
+};
 /* ===== app core ===== */
 const $ = s => document.querySelector(s);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const now = () => Date.now();
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
 /* a saved photo is only ever a base64 image data URL; anything else is dropped */
@@ -1445,34 +1896,9 @@ let S = null;
 const CL = window.claude && typeof window.claude.use === 'function' ? window.claude : null;
 const useCap = name => CL ? CL.use(name).catch(() => null) : Promise.resolve(null);
 
-/* ----- state ----- */
-function newState(pet){
-  const t = now();
-  return { v:1, pet, stats:{ full:72, mood:78, love:0 }, counts:{ meals:0, treats:0, pets:0, plays:0 }, recentTreats:[], last:t, created:t, updated:t };
-}
-function decay(t = now()){
-  if (!S) return;
-  const hrs = Math.max(0, (t - (S.last || t)) / 3.6e6);
-  const s = S.stats;
-  s.full = clamp(s.full - hrs * 8, 0, 100);
-  s.mood = clamp(s.mood - hrs * 5 - (s.full < 25 ? hrs * 4 : 0), 0, 100);
-  S.last = t;
-}
-function levelInfo(love){
-  let lv = 1, acc = 0, need = 20;
-  while (lv < MAX_LV && love >= acc + need){ acc += need; lv++; need = 20 + (lv - 1) * 5; }
-  const max = lv >= MAX_LV;
-  return { lv, into:max ? need : love - acc, need, max };
-}
-function petWear(){
-  if (!S.pet.wear){ S.pet.wear = wearFrom(S.pet); delete S.pet.acc; }
-  for (const k of ['head','face','neck']){
-    const v = S.pet.wear[k];
-    if (v && WEAR_RENAMED[v]) S.pet.wear[k] = WEAR_RENAMED[v];
-    else if (v && !WEAR_BY_ID[v]) S.pet.wear[k] = null;
-  }
-  return S.pet.wear;
-}
+/* ----- state (the rules themselves are in js_rules.js) ----- */
+function decay(t = now()){ if (S) Rules.decay(S, t); }
+function petWear(){ return Rules.wear(S); }
 function nextupHtml(nx){
   return `<p class="nextup"><span class="nx-head">つぎのごほうび</span><span class="nx-body"><b>Lv.${nx.lv}</b> <span class="nx-item">${esc(nx.ja)}</span></span></p>`;
 }
@@ -1778,12 +2204,6 @@ function renderStats(){
   $('#sLove').textContent = L.max ? 'なかよしMAX' : 'つぎのLvまで あと' + Math.ceil(L.need - L.into);
   if (!Pet.busy) Pet.setExpr(Pet.expr);
 }
-function breedLabel(p){
-  const b = BREED_BY_ID[p.breedId];
-  const bn = b ? b.ja : '';
-  if (!p.colorName) return bn;
-  return p.colorName.includes(bn) ? p.colorName : p.colorName + 'の' + bn;
-}
 function renderHeader(){
   $('#petName').textContent = S.pet.name;
   $('#petBreed').textContent = breedLabel(S.pet);
@@ -1792,19 +2212,82 @@ function renderHeader(){
 }
 function lockDock(on){ document.querySelectorAll('.act').forEach(b => b.setAttribute('aria-disabled', on ? 'true' : 'false')); }
 
-/* ----- care actions ----- */
+/* ----- care actions -----
+   Each action asks the rules (Act.run) as soon as it starts: here on this device, or on the LINE server.
+   The pet's movements play meanwhile; what happened (level up, requests, …) is shown when the movement ends. */
 function commit(){ Persist.schedule(); renderStats(); }
-function gainLove(n){
-  const before = levelInfo(S.stats.love).lv;
-  S.stats.love = Math.round((S.stats.love + n) * 10) / 10;
-  const after = levelInfo(S.stats.love).lv;
-  if (after > before){
-    for (let lv = before + 1; lv <= after; lv++){
-      const t = TITLES.find(([l]) => l === lv);
-      if (lv <= 5 || lv % 5 === 0 || t) addAlbum('lv', `なかよしLv ${lv}`, t ? `あたらしい関係「${t[1]}」` : `${S.pet.name}と さらになかよくなった`, 'lv');
-    }
-    setTimeout(() => celebrate(after, before), 900);
+const Act = {
+  remote:null,   /* js_line.js: (type, params) => Promise<result>, while this child lives on the LINE server */
+  gate:null,     /* js_line.js: settles once it is known whether the LINE server is used */
+  lock:null,     /* js_line.js: () => a reason, while this child can only change through the server and it is not reached */
+  onWait:null,   /* js_line.js: shows that reason */
+  budget:{ left:STROKE_MAX, t:now() },   /* なでなで on this device (the LINE server keeps its own) */
+  opening:null,
+  blocked(){ return this.lock ? this.lock() : null; },
+  /* true (and a notice) when nothing can change right now */
+  waiting(quiet){
+    const why = this.blocked();
+    if (!why) return false;
+    if (this.onWait) this.onWait(why, quiet);
+    return true;
+  },
+  run(type, p, ctx){
+    if (this.remote) return this.remote(type, p || {});
+    return Promise.resolve(Rules.act(S, type, p, Object.assign({ budget:this.budget }, ctx)));
+  },
+  /* opening or coming back: milestones, the season's event, a souvenir, the streak notices */
+  open(away){
+    if (this.opening) return this.opening;
+    const job = (async () => {
+      await null;                       /* js_line.js comes later in the same script and may set the gate */
+      if (this.gate) await this.gate;
+      if (!S || this.blocked()) return;
+      const r = await this.run('open', {}, { away });
+      if (!r || !r.ok) return;
+      playEvents(r.ev);
+      commit();
+    })();
+    this.opening = job.finally(() => { this.opening = null; });
+    return this.opening;
+  },
+};
+/* the pet says why an action could not happen */
+function careRefused(r){
+  const cat = S && S.pet.species === 'cat';
+  switch (r && r.why){
+    case 'offline': Act.waiting(); break;
+    case 'limit': toast('おやつは少し時間をあけてね'); break;
+    case 'full': Pet.wake(); Pet.tilt(); Pet.say(cat ? 'おなかいっぱいにゃ…' : 'おなかいっぱい！'); break;
+    case 'hungry': Pet.wake(); Pet.flash('sad', 2000); Pet.say('おなかがすいて できないよ…'); break;
+    case 'locked': toast('まだ えらべないよ'); break;
   }
+}
+/* what the rules said happened, as popups and words (the same order and timing as always) */
+function playEvents(ev){
+  for (const e of ev || []){
+    switch (e.k){
+      case 'lv': setTimeout(() => celebrate(e.lv, e.before), 900); break;
+      case 'req':
+        toast('おねがいをかなえた！ ♥+4');
+        setTimeout(() => { if (!Pet.sleeping){ Pet.say('ありがとう！ うれしい！'); Pet.wag(1500); } hearts(3); }, 300);
+        break;
+      case 'all': allDoneModal(e); break;
+      case 'rescue':
+        if (e.bridged) rescueModal();
+        else {
+          toast('おたすけのおねがいを かなえた！ ♥+5');
+          setTimeout(() => { if (!Pet.sleeping) Pet.say('あとは きょうのおねがいを ぜんぶ かなえよう！', 2600); }, 300);
+        }
+        break;
+      case 'days': toast(`${S.pet.name}がうちにきて ${e.n}日！`); break;
+      case 'anniv': annivModal(e); break;
+      case 'event': eventModal(e); break;
+      case 'souv': souvenirModal(e); break;
+      case 'broke': brokeModal(e); break;
+      case 'pinch': pinchModal(e); break;
+    }
+  }
+  renderReqBadge();
 }
 function begin(){
   if (!S || Pet.busy) return false;
@@ -1820,7 +2303,7 @@ function finish(){
 }
 
 async function feed(){
-  if (Pet.busy || !S) return;
+  if (Pet.busy || !S || Act.waiting()) return;
   decay();
   if (S.stats.full >= 92){
     Pet.wake(); Pet.tilt();
@@ -1828,6 +2311,7 @@ async function feed(){
     return;
   }
   begin();
+  const job = Act.run('feed');
   $('#bowl').classList.add('filled');
   await sleep(300);
   Pet.say(S.pet.species === 'cat' ? 'ごはんだ！' : 'ごはん！ごはん！', 1400);
@@ -1838,11 +2322,9 @@ async function feed(){
   await sleep(2700);
   clearInterval(crumbs);
   $('#bowl').classList.remove('filled');
-  S.stats.full = clamp(S.stats.full + 45, 0, 100);
-  S.stats.mood = clamp(S.stats.mood + 6, 0, 100);
-  S.counts.meals++;
-  gainLove(3);
-  track('meal');
+  const r = await job;
+  if (!r.ok){ Pet.setExpr(null); careRefused(r); finish(); return; }
+  playEvents(r.ev);
   Pet.setExpr('happy'); Pet.say('ごちそうさま！'); hearts(3);
   await sleep(1500);
   Pet.setExpr(null);
@@ -1851,12 +2333,11 @@ async function feed(){
 
 async function giveTreat(t){
   closeSheet();
-  if (Pet.busy || !S) return;
-  S.recentTreats = (S.recentTreats || []).filter(ts => now() - ts < 30 * 60e3);
-  if (S.recentTreats.length >= 5){ toast('おやつは少し時間をあけてね'); return; }
-  decay();
-  if (S.stats.full >= 99){ Pet.wake(); Pet.tilt(); Pet.say(S.pet.species === 'cat' ? 'おなかいっぱいにゃ…' : 'おなかいっぱい！'); return; }
+  if (Pet.busy || !S || Act.waiting()) return;
+  const why = Rules.treatCheck(S, t.id);
+  if (why){ careRefused({ why }); return; }
   begin();
+  const job = Act.run('treat', { id:t.id });
   await Pet.moveTo(50, 82, 1.2);
   const h = Pet.headPoint();
   const pop = document.createElement('div');
@@ -1875,12 +2356,9 @@ async function giveTreat(t){
   setTimeout(() => pop.remove(), 350);
   Pet.setExpr('eat');
   await sleep(1300);
-  S.stats.full = clamp(S.stats.full + t.full, 0, 100);
-  S.stats.mood = clamp(S.stats.mood + t.mood, 0, 100);
-  S.recentTreats.push(now());
-  S.counts.treats++;
-  gainLove(t.love);
-  track('treat', t);
+  const r = await job;
+  if (!r.ok){ Pet.setExpr(null); careRefused(r); finish(); return; }
+  playEvents(r.ev);
   Pet.setExpr('happy'); Pet.say(t.line); hearts(4);
   await sleep(1600);
   Pet.setExpr(null);
@@ -1900,10 +2378,11 @@ function setPlayIcon(){
   if (svg.outerHTML !== want) svg.outerHTML = want;
 }
 async function play(){
-  if (Pet.busy || !S) return;
+  if (Pet.busy || !S || Act.waiting()) return;
   decay();
   if (S.stats.full < 12){ Pet.wake(); Pet.flash('sad', 2200); Pet.say('おなかがすいて動けない…'); return; }
   begin();
+  const job = Act.run('play');
   const toy = document.createElement('div');
   toy.className = 'toy';
   toy.innerHTML = TOY[S.pet.species] || TOY.dog;
@@ -1927,11 +2406,9 @@ async function play(){
   }
   toy.style.transition = 'opacity .3s'; toy.style.opacity = '0';
   setTimeout(() => toy.remove(), 350);
-  S.stats.mood = clamp(S.stats.mood + 12, 0, 100);
-  S.stats.full = clamp(S.stats.full - 4, 0, 100);
-  S.counts.plays++;
-  gainLove(3);
-  track('play');
+  const r = await job;
+  if (!r.ok){ Pet.setExpr(null); careRefused(r); finish(); return; }
+  playEvents(r.ev);
   Pet.say(pick(S.pet.species === 'cat' ? ['たのしかった！','もっかい！','ふんふん♪'] : ['たのしかった！','もっとあそぼ！','わんわん♪']));
   await sleep(1400);
   Pet.setExpr(null);
@@ -1939,26 +2416,23 @@ async function play(){
 }
 
 /* ----- stroking & tapping ----- */
-const strokeBudget = { left:12, t:now() };
-let drag = null, strokeT = null;
-function strokeGain(){
-  const mins = (now() - strokeBudget.t) / 60000;
-  strokeBudget.left = Math.min(12, strokeBudget.left + mins / 3);
-  strokeBudget.t = now();
-  if (strokeBudget.left >= 1){ strokeBudget.left -= 1; return 1; }
-  return 0;
-}
+let drag = null, strokeT = null, strokeN = 0;
 function onStroke(e){
   if (!S) return;
-  decay();
   const p = stageXY(e.clientX, e.clientY);
   heartAt(p.x, p.y - 10);
-  S.stats.mood = clamp(S.stats.mood + 1.5, 0, 100);
-  const g = strokeGain();
-  if (g) gainLove(g * .6);
-  track('pet');
-  if (!Pet.sleeping && !Pet.busy){ Pet.setExpr('happy'); Pet.wag(1600); }
   $('#hint').hidden = true;
+  if (Act.waiting(true)) return;   /* hearts only: nothing changes until the LINE server is reached */
+  if (Act.remote){
+    /* the gauge moves now; the server counts the strokes when the hand stops */
+    decay();
+    S.stats.mood = clamp(S.stats.mood + 1.5, 0, 100);
+    strokeN++;
+  } else {
+    decay();
+    playEvents(Rules.act(S, 'pet', { n:1, end:false }, { budget:Act.budget }).ev);
+  }
+  if (!Pet.sleeping && !Pet.busy){ Pet.setExpr('happy'); Pet.wag(1600); }
   renderStats();
   clearTimeout(strokeT);
   strokeT = setTimeout(() => {
@@ -1966,7 +2440,10 @@ function onStroke(e){
       Pet.setExpr(null);
       Pet.say(pick(S.pet.species === 'cat' ? ['ゴロゴロ…','きもちいい〜','もっとなでて'] : ['うれしい！','きもちいい〜','もっとなでて！']));
     }
-    S.counts.pets++;
+    if (Act.remote){
+      const n = strokeN; strokeN = 0;
+      if (n) Act.run('pet', { n }).then(r => { if (r.ok) playEvents(r.ev); else careRefused(r); renderStats(); });
+    } else Rules.strokeEnd(S);
     commit();
   }, 700);
 }
@@ -2075,11 +2552,10 @@ function openTreats(){
 }
 
 let dressSlot = 'head';
-function wearOwned(w, lv){ return w.ev ? S.events.got.includes(w.id) : lv >= w.lv; }
+function wearOwned(w, lv){ return Rules.wearOwned(S, w, lv); }
 function openDress(){
   if (!S) return;
   const lv = levelInfo(S.stats.love).lv;
-  const W = petWear();
   const tabs = () => `<div class="seg" role="tablist">${SLOTS.map(([k, ja]) => {
     const items = WEAR.filter(w => w.slot === k && (!w.ev || wearOwned(w, lv))), got = items.filter(w => wearOwned(w, lv)).length;
     return `<button type="button" role="tab" data-slot="${k}" aria-pressed="${k === dressSlot}">${ja}<small>${got}/${items.length}</small></button>`;
@@ -2087,6 +2563,7 @@ function openDress(){
   const tiles = () => {
     if (dressSlot === 'room') return roomTabHtml();
     const items = [{ id:null, ja:'なし', lv:1 }].concat(WEAR.filter(w => w.slot === dressSlot && (!w.ev || wearOwned(w, lv))));
+    const W = petWear();
     return `<div class="tiles">${items.map(it => {
       const locked = it.id && !wearOwned(it, lv);
       const trial = Object.assign({}, W, { [dressSlot]:it.id });
@@ -2099,11 +2576,11 @@ function openDress(){
     const rerender = () => { box.innerHTML = tiles(); wire(); };
     const wire = () => {
       if (dressSlot === 'room') return wireRoomTab(box, rerender);
-      box.querySelectorAll('[data-w]').forEach(b => b.addEventListener('click', () => {
-        if (b.getAttribute('aria-disabled') === 'true') return;
-        W[dressSlot] = b.dataset.w || null;
-        S.pet.wear = W;
-        if (b.dataset.w) track('dress', { slot:dressSlot, id:b.dataset.w });
+      box.querySelectorAll('[data-w]').forEach(b => b.addEventListener('click', async () => {
+        if (b.getAttribute('aria-disabled') === 'true' || Act.waiting()) return;
+        const r = await Act.run('dress', { slot:dressSlot, id:b.dataset.w || null });
+        if (!r.ok){ careRefused(r); return; }
+        playEvents(r.ev);
         rerender();
         Pet.mount();
         if (!Pet.busy && !Pet.sleeping){ Pet.flash('happy', 1400); Pet.say(b.dataset.w ? 'にあう？' : 'すっきり！'); }
@@ -2139,10 +2616,11 @@ function openMenu(){
     </div>
     <p class="note">${Persist.mode === 'cloud' ? 'あなたのアカウントに保存しています。ほかの端末で開いても同じ子に会えます。' : HOME ? 'この端末に保存しています。ときどき引っこしコードをコピーしておくと、バックアップになります。' : 'このブラウザに保存しています。'}</p>`;
   openSheet('プロフィール', html, sh => {
-    sh.querySelector('#mEdit').addEventListener('click', () => { closeSheet(); Onboard.openEdit(); });
+    sh.querySelector('#mEdit').addEventListener('click', () => { if (Act.waiting()) return; closeSheet(); Onboard.openEdit(); });
     sh.querySelector('#mMove').addEventListener('click', () => openMove());
     sh.querySelector('#mAlbum').addEventListener('click', () => openAlbum('diary'));
     sh.querySelector('#mNew').addEventListener('click', () => {
+      if (Act.waiting()) return;
       const box = sh.querySelector('#menuBtns');
       box.innerHTML = `<div class="confirm"><p>新しい子をむかえると、${esc(p.name)}のなかよし度や記録は新しい子のものに置きかわります。</p>
         <div class="row"><button class="btn" type="button" id="mNo">やめる</button><button class="btn warn" type="button" id="mYes">むかえる</button></div></div>`;
@@ -2273,6 +2751,7 @@ function openMove(){
         : r === 'declined' ? '保存をとりやめました。' : 'ここではファイルの保存ができませんでした。コードのコピーをためしてね。';
     });
     const take = (text, pre) => {
+      if (Act.waiting()) return;
       const r = pre || readMoveCode(text);
       const box = sh.querySelector('#mvInBox');
       sh.querySelectorAll('.mverr').forEach(e => e.remove());
@@ -2323,6 +2802,7 @@ const Game = {
       });
     }
     Features.start(away || 0);
+    this.drawn = this.keys();
     if (S.counts.pets === 0) $('#hint').hidden = false;
     if (greet){ setTimeout(() => { Pet.jump(); Pet.wag(2000); Pet.say(greet); }, 500); }
     idleTick(2500);
@@ -2330,6 +2810,22 @@ const Game = {
   onStateReplaced(){
     if (Onboard.busy) return;
     this.start('ただいま！');
+  },
+  /* the same child, newer numbers (a reply from the LINE server): redraw only what changed */
+  keys(){
+    return { hk:JSON.stringify([S.pet.name, S.pet.colorName, S.pet.breedId, S.pet.species, S.pet.photo]),
+             wk:JSON.stringify([S.pet.look, petWear()]), rk:JSON.stringify(S.room) };
+  },
+  refresh(){
+    if (!S || Onboard.busy || !this.started) return;
+    ensureState(S);
+    const k = this.keys(), o = this.drawn || {};
+    if (k.hk !== o.hk){ renderHeader(); setPlayIcon(); }
+    if (k.wk !== o.wk) Pet.mount();
+    if (k.rk !== o.rk) applyRoom();
+    this.drawn = k;
+    renderStats();
+    renderReqBadge();
   },
 };
 
@@ -2341,20 +2837,8 @@ $('#actTrick').addEventListener('click', openTricks);
 $('#reqBtn').addEventListener('click', openRequests);
 $('#albumBtn').addEventListener('click', () => openAlbum());
 $('#menuBtn').addEventListener('click', openMenu);
-/* ===== shared helpers ===== */
-function dayKey(t){
-  const d = t == null ? new Date() : (t instanceof Date ? t : new Date(t));
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-}
-function hashStr(s){ let h = 2166136261; for (let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
-function rng(seed){
-  let a = seed >>> 0;
-  return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-}
+/* ===== shared helpers (dates, chance and the rules are in js_rules.js) ===== */
 const fmtMD = t => { const d = new Date(t); return (d.getMonth() + 1) + '/' + d.getDate(); };
-/* shift a YYYY-MM-DD key by whole calendar days */
-function keyShift(key, k){ const [Y, M, D] = key.split('-').map(Number); return dayKey(new Date(Y, M - 1, D + k)); }
-const daysBetween = (a, b) => Math.floor((new Date(dayKey(b)) - new Date(dayKey(a))) / 864e5);
 const findDecor = (cat, id) => DECOR[cat].find(d => d.id === id) || DECOR[cat][0];
 const lvNow = () => levelInfo(S.stats.love).lv;
 const isCat = () => S && S.pet.species === 'cat';
@@ -2528,45 +3012,6 @@ function allTreats(){
   return list;
 }
 
-/* ===== album ===== */
-function addAlbum(k, ti, su, ic, t){
-  if (!S) return;
-  S.album.unshift({ t:t || now(), k, ti, su:su || '', ic:ic || k });
-  S.album.sort((a, b) => b.t - a.t);
-  if (S.album.length > 300) S.album.length = 300;
-}
-function first(key, ti, su, ic){
-  if (!S || S.firsts[key]) return false;
-  S.firsts[key] = true;
-  addAlbum('first', ti, su, ic);
-  return true;
-}
-
-/* ===== tracking: care actions feed requests and memories ===== */
-function track(type, data = {}){
-  if (!S) return;
-  ensureDaily();
-  const reqs = S.daily.list.concat(S.daily.rescue ? [S.daily.rescue] : []);
-  for (const r of reqs){
-    if (r.done) continue;
-    const hit = r.type === 'treatId' ? (type === 'treat' && data.id === r.id) : r.type === type;
-    if (!hit) continue;
-    r.got = Math.min(r.n, r.got + 1);
-    if (r.got >= r.n){ r.done = true; if (r.rescue) rescueComplete(r); else reqComplete(r); }
-  }
-  if (type === 'meal') first('meal', 'はじめてのごはん', 'おいしそうに たべたね', 'meal');
-  if (type === 'treat') first('treat', 'はじめてのおやつ', `「${data.ja}」をあげた`, 'treat:' + data.id);
-  if (type === 'play') first('play', 'はじめてのあそび', isCat() ? '毛糸玉で じゃれたね' : 'ボールを おいかけたね', 'play');
-  if (type === 'pet') first('pet', 'はじめてのなでなで', 'うれしそうだったね', 'pet');
-  if (type === 'dress' && data.id && !S.firsts.wear[data.id]){
-    S.firsts.wear[data.id] = true;
-    const w = WEAR_BY_ID[data.id];
-    if (w) addAlbum('wear', `はじめての${w.ja.replace(/（.*?）/, '')}`, `${w.ja}、にあってるね`, 'dress');
-  }
-  if (type === 'room') first('room', 'はじめてのもようがえ', data.ja ? `${data.ja}にしたよ` : '', 'room');
-  renderReqBadge();
-}
-
 /* ===== きょうのおねがい ===== */
 function reqText(r){
   switch (r.type){
@@ -2582,90 +3027,12 @@ function reqText(r){
   return '';
 }
 const REQ_ICON = { meal:'meal', treat:'treat', treatId:'treat', play:'play', pet:'pet', trick:'trick', dress:'dress', room:'room' };
-function genDaily(day){
-  const r = rng(hashStr(day + ':' + (S.created || 0)));
-  const lv = lvNow();
-  const unlocked = (TREATS[S.pet.species] || []).filter(t => t.lv <= lv);
-  const pool = [
-    () => ({ type:'meal', n:2 }),
-    () => r() < .5 ? { type:'treat', n:1 + (r() < .4 ? 1 : 0) } : { type:'treatId', n:1, id:unlocked[Math.floor(r() * unlocked.length)].id },
-    () => ({ type:'play', n:2 + (r() < .4 ? 1 : 0) }),
-    () => ({ type:'pet', n:[10, 12, 15, 20][Math.floor(r() * 4)] }),
-    () => ({ type:'trick', n:2 + (r() < .3 ? 1 : 0) }),
-  ];
-  if (lv >= 2) pool.push(() => ({ type:'dress', n:1 }));
-  if (lv >= 4) pool.push(() => ({ type:'room', n:1 }));
-  const list = [], used = new Set();
-  let guard = 0;
-  while (list.length < 3 && guard++ < 50){
-    const i = Math.floor(r() * pool.length);
-    if (used.has(i)) continue;
-    used.add(i);
-    list.push(Object.assign({ got:0, done:false }, pool[i]()));
-  }
-  return { day, list, all:false };
-}
-/* ===== おたすけのおねがい: exactly one missed calendar day can be bridged ===== */
-const RESCUE_EVERY = 7;
-const keyDiff = (a, b) => { const p = k => { const [Y, M, D] = k.split('-').map(Number); return Date.UTC(Y, M - 1, D); }; return Math.round((p(b) - p(a)) / 864e5); };
-/* the day a rescue was last used (the day after the bridged gap) */
-function lastRescueDay(){ const m = S.rescued.slice().sort().pop(); return m ? keyShift(m, 1) : null; }
-function rescueReady(d = dayKey()){ const l = lastRescueDay(); return !l || keyDiff(l, d) >= RESCUE_EVERY; }
-function nextRescueDay(){ const l = lastRescueDay(); return l ? keyShift(l, RESCUE_EVERY) : null; }
-const mdOfKey = k => { const [, M, D] = k.split('-').map(Number); return `${M}/${D}`; };
-/* exactly one calendar day missed, a streak to save */
-function gapOfOne(d = dayKey()){ return S.streak.n > 0 && S.streak.last === keyShift(d, -2); }
-function rescueOpen(d = dayKey()){
-  if (S.streak.saved && S.streak.saved.day === d) return true;
-  return gapOfOne(d) && rescueReady(d);
-}
-function genRescue(d){
-  const r = rng(hashStr('rescue:' + d + ':' + (S.created || 0)));
-  const used = new Set(S.daily.list.map(x => x.type === 'treatId' ? 'treat' : x.type));
-  const pool = [{ type:'pet', n:25 }, { type:'play', n:3 }, { type:'trick', n:3 }, { type:'meal', n:2 }, { type:'treat', n:2 }].filter(x => !used.has(x.type));
-  const c = pool.length ? pool[Math.floor(r() * pool.length)] : { type:'pet', n:30 };
-  return Object.assign({ got:0, done:false, rescue:true }, c);
-}
-function streakInfo(){
-  const t = dayKey(), L = S.streak.last;
-  if (S.streak.saved && S.streak.saved.day === t && !(S.daily && S.daily.rescue && S.daily.rescue.done)) return { n:S.streak.saved.n, pinch:true };
-  if (L === t || L === keyShift(t, -1)) return { n:S.streak.n, pinch:false };
-  if (rescueOpen(t)) return { n:S.streak.n, pinch:true };
-  return { n:0, pinch:false };
-}
-function ensureDaily(){
-  const d = dayKey();
-  if (!S.daily || S.daily.day !== d) S.daily = genDaily(d);
-  if (!S.daily.rescue && rescueOpen(d)) S.daily.rescue = genRescue(d);
-  return S.daily;
-}
-function reqLeft(){
-  ensureDaily();
-  const open = S.daily.list.filter(r => !r.done).length;
-  return open + (S.daily.rescue && !S.daily.rescue.done && streakInfo().pinch ? 1 : 0);
-}
-function bridgeStreak(prevN, d){
-  const y = keyShift(d, -1);
-  S.streak.n = prevN + 1;
-  S.streak.last = d;
-  S.streak.best = Math.max(S.streak.best || 0, S.streak.n);
-  delete S.streak.saved;
-  if (!S.rescued.includes(y)) S.rescued.push(y);
-  addAlbum('stamp', `れんぞく記録を つないだ！（${S.streak.n}日）`, 'おたすけのおねがいで、おやすみの日を つないだよ', 'rescue');
-}
-function rescueComplete(r){
-  S.stats.mood = clamp(S.stats.mood + 5, 0, 100);
-  gainLove(5);
-  const d = S.daily.day;
-  if (S.daily.all && S.streak.saved && S.streak.saved.day === d){
-    bridgeStreak(S.streak.saved.n, d);
-    rescueModal();
-  } else {
-    toast('おたすけのおねがいを かなえた！ ♥+5');
-    setTimeout(() => { if (!Pet.sleeping) Pet.say('あとは きょうのおねがいを ぜんぶ かなえよう！', 2600); }, 300);
-  }
-  Persist.schedule();
-}
+/* the screen's view of today's requests (the rules decide; on the LINE screen this is a copy of the server's) */
+const ensureDaily = () => Rules.ensureDaily(S);
+const reqLeft = () => Rules.reqLeft(S);
+const streakInfo = () => Rules.streakInfo(S);
+const rescueReady = () => Rules.rescueReady(S);
+const nextRescueDay = () => Rules.nextRescueDay(S);
 function rescueModal(){
   setTimeout(() => Modal.show({
     label:'れんぞく記録をつないだ', confetti:true,
@@ -2675,29 +3042,20 @@ function rescueModal(){
       <button class="btn primary" type="button" data-close>やったね</button>`,
   }), 1200);
 }
-function maybeRescueNotice(){
-  if (!S || !S.daily || S.daily.rescueNoticed) return;
-  if (!S.daily.rescue && gapOfOne(S.daily.day) && !rescueReady(S.daily.day) && !S.daily.all){
-    S.daily.rescueNoticed = true;
-    Persist.schedule();
-    Modal.show({
-      label:'れんぞく記録',
-      html:() => `${petCard('', 'ex-sad')}<h3>れんぞく記録が<br>とぎれちゃった…</h3>
-        <p>きのうは おやすみだったね。<br>おたすけのおねがいは ${RESCUE_EVERY}日に1回までなので、こんかいは つなげません。<br>つぎに つかえるのは <b>${mdOfKey(nextRescueDay())}</b>から。</p>
-        <p class="quote">「また きょうから がんばろうね」</p>
-        <button class="btn primary" type="button" data-close>うん</button>`,
-    });
-    return;
-  }
-  if (!S.daily.rescue || S.daily.rescue.done) return;
-  const si = streakInfo();
-  if (!si.pinch) return;
-  S.daily.rescueNoticed = true;
-  Persist.schedule();
+function brokeModal(e){
+  Modal.show({
+    label:'れんぞく記録',
+    html:() => `${petCard('', 'ex-sad')}<h3>れんぞく記録が<br>とぎれちゃった…</h3>
+      <p>きのうは おやすみだったね。<br>おたすけのおねがいは ${RESCUE_EVERY}日に1回までなので、こんかいは つなげません。<br>つぎに つかえるのは <b>${mdOfKey(e.next)}</b>から。</p>
+      <p class="quote">「また きょうから がんばろうね」</p>
+      <button class="btn primary" type="button" data-close>うん</button>`,
+  });
+}
+function pinchModal(e){
   Modal.show({
     label:'れんぞく記録のピンチ',
     html:() => `${petCard('', 'ex-sad')}<h3>れんぞく記録が ピンチ！</h3>
-      <p>きのうは おやすみだったね。<br>きょうのうちに いつもの おねがい3つと、この おたすけのおねがいを かなえると、れんぞく<b>${si.n}日</b>の記録が つづくよ。</p>
+      <p>きのうは おやすみだったね。<br>きょうのうちに いつもの おねがい3つと、この おたすけのおねがいを かなえると、れんぞく<b>${e.n}日</b>の記録が つづくよ。</p>
       <p class="rescueline">${mini('rescue')}<span><small>おたすけのおねがい</small>${esc(reqText(S.daily.rescue))}</span></p>
       <p class="note" style="margin:0 0 12px">おたすけは ${RESCUE_EVERY}日に1回まで。2日いじょう あいたときは つなげません。</p>
       <div class="btnrow"><button class="btn" type="button" data-close="later">あとで</button><button class="btn primary" type="button" data-close="open">おねがいを見る</button></div>`,
@@ -2711,40 +3069,14 @@ function renderReqBadge(){
   b.classList.toggle('done', !n);
   btn.setAttribute('aria-label', n ? `きょうのおねがい（のこり${n}こ）` : 'きょうのおねがい（ぜんぶかなえた）');
 }
-function reqComplete(r){
-  S.stats.mood = clamp(S.stats.mood + 5, 0, 100);
-  gainLove(4);
-  toast(`おねがいをかなえた！ ♥+4`);
-  setTimeout(() => { if (!Pet.sleeping){ Pet.say('ありがとう！ うれしい！'); Pet.wag(1500); } hearts(3); }, 300);
-  if (S.daily.list.every(x => x.done) && !S.daily.all){
-    S.daily.all = true;
-    const d = S.daily.day;
-    if (!S.stamps.includes(d)) S.stamps.push(d);
-    const y = keyShift(d, -1), prevN = S.streak.n, last = S.streak.last;
-    let bridged = false, waiting = false;
-    if (last === y) S.streak.n = prevN + 1;
-    else if (last === d) S.streak.n = prevN;
-    else if (last === keyShift(d, -2) && prevN > 0 && rescueReady(d)){
-      if (S.daily.rescue && S.daily.rescue.done){ bridgeStreak(prevN, d); bridged = true; }
-      else { S.streak.saved = { n:prevN, day:d }; S.streak.n = 1; waiting = true; }
-    } else S.streak.n = 1;
-    S.streak.last = d;
-    S.streak.best = Math.max(S.streak.best || 0, S.streak.n);
-    gainLove(10);
-    if (!first('daily', 'はじめて おねがいを ぜんぶかなえた', 'スタンプカードに 1こめのスタンプ', 'stamp')){
-      const total = S.stamps.length;
-      if ([3, 7, 14, 30, 50, 100, 200, 365].includes(S.streak.n)) addAlbum('stamp', `おねがい${S.streak.n}日れんぞく！`, 'まいにち ありがとう', 'stamp');
-      else if (total % 10 === 0) addAlbum('stamp', `スタンプが${total}こに！`, 'たくさん かなえてくれたね', 'stamp');
-    }
-    setTimeout(() => Modal.show({
-      label:'きょうのおねがい コンプリート', confetti:true,
-      html:() => `${petCard()}<h3>きょうのおねがい<br>ぜんぶかなえた！</h3>
-        <div class="stampbig">${mini('stamp')}</div>
-        <p>ごほうび ♥+10<br>${bridged ? `おたすけスタンプで つながって<br>れんぞく <b>${S.streak.n}日</b>！` : waiting ? `あとは おたすけのおねがい<br>「${esc(reqText(S.daily.rescue))}」で<br>れんぞく <b>${(S.streak.saved ? S.streak.saved.n : 0) + 1}日</b>に つながるよ！` : S.streak.n > 1 ? `れんぞく <b>${S.streak.n}日</b>！` : 'スタンプカードに スタンプをおしたよ'}</p>
-        <button class="btn primary" type="button" data-close>やったね</button>`,
-    }), 1200);
-  }
-  Persist.schedule();
+function allDoneModal(e){
+  setTimeout(() => Modal.show({
+    label:'きょうのおねがい コンプリート', confetti:true,
+    html:() => `${petCard()}<h3>きょうのおねがい<br>ぜんぶかなえた！</h3>
+      <div class="stampbig">${mini('stamp')}</div>
+      <p>ごほうび ♥+10<br>${e.bridged ? `おたすけスタンプで つながって<br>れんぞく <b>${S.streak.n}日</b>！` : e.waiting ? `あとは おたすけのおねがい<br>「${esc(reqText(S.daily.rescue))}」で<br>れんぞく <b>${(S.streak.saved ? S.streak.saved.n : 0) + 1}日</b>に つながるよ！` : S.streak.n > 1 ? `れんぞく <b>${S.streak.n}日</b>！` : 'スタンプカードに スタンプをおしたよ'}</p>
+      <button class="btn primary" type="button" data-close>やったね</button>`,
+  }), 1200);
 }
 function openRequests(){
   if (!S) return;
@@ -2773,78 +3105,45 @@ function openRequests(){
   });
 }
 
-/* ===== おるすばんのおみやげ ===== */
-function maybeSouvenir(away){
-  if (!S || !(away >= 3 * 3600e3)) return;
-  const day = dayKey();
-  if (S.souv.day !== day){ S.souv.day = day; S.souv.n = 0; }
-  if (S.souv.n >= 3) return;
-  S.souv.n++;
-  const season = seasonOf();
-  const pool = SOUVENIRS.filter(s => s.seasons === 'all' || s.seasons.split(' ').includes(season));
-  const wt = s => ({ 1:10, 2:5, 3:2.2, 4:1, 5:.45 }[s.rare] || 1) * (S.souv.have[s.id] ? 1 : 1.6);
-  let x = Math.random() * pool.reduce((a, s) => a + wt(s), 0), pickS = pool[0];
-  for (const s of pool){ x -= wt(s); if (x <= 0){ pickS = s; break; } }
-  const isNew = !S.souv.have[pickS.id];
-  S.souv.have[pickS.id] = (S.souv.have[pickS.id] || 0) + 1;
-  const bonus = away >= 12 * 3600e3 ? 4 : 2;
-  if (isNew) addAlbum('souv', `おみやげ「${pickS.ja}」`, pickS.line, 'souv:' + pickS.id);
-  Persist.schedule();
+/* ===== おるすばんのおみやげ（the rules pick it; the love is shown when the popup closes） ===== */
+function souvenirModal(e){
+  const pickS = SOUV_BY_ID[e.id];
+  if (!pickS) return;
   Modal.show({
     label:'おるすばんのおみやげ',
-    html:() => `<div class="souvwrap">${petCard()}<div class="souvitem"><svg viewBox="0 0 48 48" aria-hidden="true">${souvenirIcon(pickS.icon)}</svg>${isNew ? '<span class="newpill">NEW</span>' : ''}</div></div>
+    html:() => `<div class="souvwrap">${petCard()}<div class="souvitem"><svg viewBox="0 0 48 48" aria-hidden="true">${souvenirIcon(pickS.icon)}</svg>${e.isNew ? '<span class="newpill">NEW</span>' : ''}</div></div>
       <h3>おるすばん ありがとう！</h3>
       <p>${esc(S.pet.name)}が ${isCat() ? 'ねこのパトロール' : 'おさんぽ'}で<br><b>「${esc(pickS.ja)}」</b>を見つけてきたよ</p>
       <p class="quote">「${esc(pickS.line)}」</p>
-      <p class="gainline">♥+${bonus}</p>
+      <p class="gainline">♥+${e.bonus}</p>
       <button class="btn primary" type="button" data-close>ありがとう</button>`,
-  }).then(() => { gainLove(bonus); commit(); });
+  }).then(() => { playEvents(e.after); commit(); });
 }
 
 /* ===== seasonal events ===== */
-function eventTreat(e){ return Object.assign({ line:e.hello, ev:e.id, evJa:e.ja }, EVENT_TREAT_STATS, e.treat); }
-function checkEvent(){
-  const ev = activeEvent();
-  if (!ev || !S) return;
-  const key = ev.id + ':' + new Date().getFullYear();
-  if (S.events.seen[key]) return;
-  S.events.seen[key] = now();
-  const had = S.events.got.includes(ev.gift);
-  if (!had) S.events.got.push(ev.gift);
+function eventModal(e){
+  const ev = EVENTS.find(x => x.id === e.id);
+  if (!ev) return;
   const w = WEAR_BY_ID[ev.gift];
-  addAlbum('event', `${ev.ja}`, had ? 'ことしも いっしょに すごせたね' : `プレゼント「${w.ja}」をもらった`, 'gift');
-  Persist.schedule();
   const trial = Object.assign({}, petWear(), { [w.slot]:w.id });
   Modal.show({
     label:ev.ja, confetti:true,
     html:`${petCard(trial)}<h3>${esc(ev.ja)}が はじまったよ！</h3>
       <p class="quote">「${esc(ev.hello)}」</p>
       <p>期間中は おへやが かざりつけされて、限定のおやつ<b>「${esc(ev.treat.ja)}」</b>が あげられます。</p>
-      ${had ? '' : `<p class="giftline">${mini('gift')} プレゼント<b>「${esc(w.ja)}」</b></p>`}
+      ${e.had ? '' : `<p class="giftline">${mini('gift')} プレゼント<b>「${esc(w.ja)}」</b></p>`}
       <div class="btnrow"><button class="btn" type="button" data-close="later">あとで</button><button class="btn primary" type="button" data-close="wear">つけてみる</button></div>`,
-  }).then(v => {
-    if (v === 'wear'){ const W = petWear(); W[w.slot] = w.id; S.pet.wear = W; track('dress', { slot:w.slot, id:w.id }); Pet.mount(); Pet.flash('happy', 1400); Pet.say('にあう？'); commit(); }
+  }).then(async v => {
+    if (v !== 'wear' || Act.waiting()) return;
+    const r = await Act.run('dress', { slot:w.slot, id:w.id });
+    if (!r.ok) return;
+    playEvents(r.ev);
+    Pet.mount(); Pet.flash('happy', 1400); Pet.say('にあう？'); commit();
   });
 }
-function checkMilestones(){
-  if (!S || !S.created) return;
-  const days = daysBetween(S.created, now());
-  for (const n of [7, 30, 100, 200, 300, 500, 1000]){
-    const k = 'days' + n;
-    if (days >= n && !S.milestones[k]){
-      S.milestones[k] = true;
-      addAlbum('days', `うちにきて${n}日`, n >= 100 ? 'これからも ずっといっしょだよ' : 'まいにち ありがとう', 'days', S.created + n * 864e5);
-      if (days - n < 3) toast(`${S.pet.name}がうちにきて ${n}日！`);
-    }
-  }
-  const c = new Date(S.created), d = new Date();
-  const years = d.getFullYear() - c.getFullYear();
-  if (years >= 1 && d.getMonth() === c.getMonth() && d.getDate() === c.getDate() && !S.milestones['anniv' + years]){
-    S.milestones['anniv' + years] = true;
-    addAlbum('days', `うちのこ記念日（${years}年）`, `${S.pet.name}がうちにきて ${years}年！`, 'days');
-    Modal.show({ label:'うちのこ記念日', confetti:true,
-      html:`${petCard()}<h3>うちのこ記念日！</h3><p>${esc(S.pet.name)}がうちにきて、きょうで<b>${years}年</b>。<br>いつも ありがとう。</p><button class="btn primary" type="button" data-close>おめでとう</button>` });
-  }
+function annivModal(e){
+  Modal.show({ label:'うちのこ記念日', confetti:true,
+    html:`${petCard()}<h3>うちのこ記念日！</h3><p>${esc(S.pet.name)}がうちにきて、きょうで<b>${e.years}年</b>。<br>いつも ありがとう。</p><button class="btn primary" type="button" data-close>おめでとう</button>` });
 }
 
 /* ===== room: decoration, window view, seasonal decor ===== */
@@ -2960,18 +3259,24 @@ function roomTabHtml(){
 }
 function wireRoomTab(root, rerender){
   root.querySelectorAll('[data-rc]').forEach(b => b.addEventListener('click', () => { roomCat = b.dataset.rc; rerender(); }));
-  root.querySelectorAll('[data-rd]').forEach(b => b.addEventListener('click', () => {
+  root.querySelectorAll('[data-rd]').forEach(b => b.addEventListener('click', async () => {
     if (b.getAttribute('aria-disabled') === 'true') return;
     const d = findDecor(roomCat, b.dataset.rd);
-    if (S.room[roomCat] === d.id) return;
-    S.room[roomCat] = d.id;
+    if (S.room[roomCat] === d.id || Act.waiting()) return;
+    const r = await Act.run('room', { cat:roomCat, id:d.id });
+    if (!r.ok){ careRefused(r); return; }
     applyRoom();
-    track('room', { ja:d.ja });
+    playEvents(r.ev);
     if (!Pet.busy && !Pet.sleeping){ Pet.flash('happy', 1400); Pet.say(pick(['すてき！','いいかんじ！','わくわくする！'])); }
     commit();
     rerender();
   }));
-  root.querySelectorAll('[data-season]').forEach(b => b.addEventListener('click', () => { S.room.season = b.dataset.season === '1'; applyRoom(); commit(); rerender(); }));
+  root.querySelectorAll('[data-season]').forEach(b => b.addEventListener('click', async () => {
+    if (Act.waiting()) return;
+    const r = await Act.run('season', { on:b.dataset.season === '1' });
+    if (!r.ok) return;
+    applyRoom(); commit(); rerender();
+  }));
 }
 
 /* ===== tricks ===== */
@@ -2997,44 +3302,36 @@ function openTricks(){
 }
 async function doTrick(tk){
   closeSheet();
-  if (Pet.busy || !S) return;
-  decay();
-  if (S.stats.full < 10){ Pet.wake(); Pet.flash('sad', 2000); Pet.say('おなかがすいて できないよ…'); return; }
+  if (Pet.busy || !S || Act.waiting()) return;
+  const why = Rules.trickCheck(S, tk.id);
+  if (why){ careRefused({ why }); return; }
   begin();
+  const job = Act.run('trick', { id:tk.id });   /* the rules decide whether it works (on the LINE server: the server) */
   await Pet.moveTo(50, 80, 1.2);
   Pet.say(tk.cue, 1100);
   await sleep(800);
-  const st = trickState(tk.id);
-  const pOk = Math.min(.93, .55 + st.p * .07 + (S.stats.mood >= 60 ? .1 : 0));
-  const success = st.ok || Math.random() < pOk;
-  const day = dayKey();
-  if (S.trickDay.day !== day){ S.trickDay.day = day; S.trickDay.love = 0; }
-  if (success){
+  const r = await job;
+  if (!r.ok){ careRefused(r); await sleep(600); Pet.setExpr(null); finish(); return; }
+  if (r.success){
     const cls = 'tr-' + tk.anim;
     if (tk.anim === 'bang') Pet.setExpr('sleep'); else Pet.setExpr('happy');
     Pet.el.classList.add(cls);
     await sleep(TRICK_MS[tk.anim] || 1200);
     Pet.el.classList.remove(cls);
     Pet.setExpr('happy'); Pet.wag(1500); hearts(3);
-    S.stats.mood = clamp(S.stats.mood + 3, 0, 100);
-    if (S.trickDay.love < 10){ S.trickDay.love += 1; gainLove(1); }
-    if (!st.ok){
-      st.p++;
-      if (st.p >= tk.need){
-        st.ok = true;
-        addAlbum('trick', `げい「${tk.ja}」をおぼえた！`, `${tk.need}回のれんしゅうで できるようになったね`, 'trick');
-        gainLove(5);
-        Pet.say('できるように なったよ！');
-        Modal.show({ label:'げいをおぼえた', confetti:true,
-          html:`${petCard()}<h3>げい「${esc(tk.ja)}」を<br>おぼえた！</h3><p>これからは いつでも見せてくれます。<br>♥+5</p><button class="btn primary" type="button" data-close>すごいね！</button>` });
-      } else Pet.say(`できた！（${st.p}/${tk.need}）`);
-    } else Pet.say(pick(['どう？','じょうずでしょ！','えへへ','もっと見る？']));
+    playEvents(r.ev);
+    if (r.learned){
+      Pet.say('できるように なったよ！');
+      Modal.show({ label:'げいをおぼえた', confetti:true,
+        html:`${petCard()}<h3>げい「${esc(tk.ja)}」を<br>おぼえた！</h3><p>これからは いつでも見せてくれます。<br>♥+5</p><button class="btn primary" type="button" data-close>すごいね！</button>` });
+    } else if (!r.known) Pet.say(`できた！（${r.p}/${r.need}）`);
+    else Pet.say(pick(['どう？','じょうずでしょ！','えへへ','もっと見る？']));
   } else {
     Pet.tilt(); Pet.say(pick(['？？？','えっと…','むずかしいな…']), 1400);
     await sleep(1200);
     Pet.say('もういっかい やってみる！', 1600);
   }
-  track('trick', { id:tk.id });
+  playEvents(r.after);
   await sleep(1000);
   Pet.setExpr(null);
   finish();
@@ -3057,7 +3354,7 @@ function albumHtml(){
         : `<div class="tile sv unknown"><svg viewBox="0 0 48 48" aria-hidden="true">${souvenirIcon(s.icon)}</svg><span class="tname">？？？</span><small>${s.seasons.split(' ').map(x => SEASON_JA[x]).join('・')}</small></div>`;
     }).join('')}</div>`;
   } else {
-    const base = stampMonth || new Date();
+    const base = stampMonth || clockDate();
     const y = base.getFullYear(), m = base.getMonth();
     const firstDow = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate(), today = dayKey();
     const set = new Set(S.stamps), saved = new Set(S.rescued);
@@ -3085,7 +3382,7 @@ function openAlbum(tab){
     const wire = () => {
       box.querySelectorAll('[data-at]').forEach(b => b.addEventListener('click', () => { albumTab = b.dataset.at; box.innerHTML = albumHtml(); wire(); }));
       box.querySelectorAll('[data-mon]').forEach(b => b.addEventListener('click', () => {
-        const base = stampMonth || new Date();
+        const base = stampMonth || clockDate();
         stampMonth = new Date(base.getFullYear(), base.getMonth() + Number(b.dataset.mon), 1);
         box.innerHTML = albumHtml(); wire();
       }));
@@ -3096,26 +3393,20 @@ function openAlbum(tab){
 
 /* ===== lifecycle hooks ===== */
 const Features = {
+  /* the album's first page, milestones, the season's event, a souvenir and the streak notices come from the rules (Act.open) */
   start(away){
     ensureState(S);
-    if (!S.album.length) addAlbum('home', `${S.pet.name}が うちのこになった日`, breedLabel(S.pet), 'home', S.created || now());
     ensureDaily();
     applyRoom();
     renderReqBadge();
-    checkMilestones();
-    checkEvent();
-    maybeSouvenir(away);
-    maybeRescueNotice();
     Persist.schedule();
+    Act.open(away);
   },
   resume(away){
     ensureDaily();
     renderReqBadge();
     renderSeason();
-    checkMilestones();
-    checkEvent();
-    maybeSouvenir(away);
-    maybeRescueNotice();
+    Act.open(away);
   },
   hint(){
     if (!S || !S.daily || Math.random() > .35) return null;

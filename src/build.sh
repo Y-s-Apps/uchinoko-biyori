@@ -5,7 +5,7 @@
 #   out/line/                      … LINE版（LINEミニアプリ。Cloudflare Pages がこのフォルダを公開する）
 set -e
 cd "$(dirname "$0")"
-JS="js_data.js js_data2.js js_data3.js js_pet.js js_wear.js js_app.js js_features.js js_onboard.js"
+JS="js_data.js js_data2.js js_data3.js js_pet.js js_wear.js js_rules.js js_app.js js_features.js js_onboard.js"
 VER=$(cat $JS head.html body.html home_head.html sw.js manifest.webmanifest | sha1sum | cut -c1-10)
 # スクリプトの SHA-256（base64）。openssl がない環境（Cloudflare のビルドなど）では python3 で同じ値を出す
 sha256b64(){

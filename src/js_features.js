@@ -1,17 +1,5 @@
-/* ===== shared helpers ===== */
-function dayKey(t){
-  const d = t == null ? new Date() : (t instanceof Date ? t : new Date(t));
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-}
-function hashStr(s){ let h = 2166136261; for (let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
-function rng(seed){
-  let a = seed >>> 0;
-  return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-}
+/* ===== shared helpers (dates, chance and the rules are in js_rules.js) ===== */
 const fmtMD = t => { const d = new Date(t); return (d.getMonth() + 1) + '/' + d.getDate(); };
-/* shift a YYYY-MM-DD key by whole calendar days */
-function keyShift(key, k){ const [Y, M, D] = key.split('-').map(Number); return dayKey(new Date(Y, M - 1, D + k)); }
-const daysBetween = (a, b) => Math.floor((new Date(dayKey(b)) - new Date(dayKey(a))) / 864e5);
 const findDecor = (cat, id) => DECOR[cat].find(d => d.id === id) || DECOR[cat][0];
 const lvNow = () => levelInfo(S.stats.love).lv;
 const isCat = () => S && S.pet.species === 'cat';
@@ -185,45 +173,6 @@ function allTreats(){
   return list;
 }
 
-/* ===== album ===== */
-function addAlbum(k, ti, su, ic, t){
-  if (!S) return;
-  S.album.unshift({ t:t || now(), k, ti, su:su || '', ic:ic || k });
-  S.album.sort((a, b) => b.t - a.t);
-  if (S.album.length > 300) S.album.length = 300;
-}
-function first(key, ti, su, ic){
-  if (!S || S.firsts[key]) return false;
-  S.firsts[key] = true;
-  addAlbum('first', ti, su, ic);
-  return true;
-}
-
-/* ===== tracking: care actions feed requests and memories ===== */
-function track(type, data = {}){
-  if (!S) return;
-  ensureDaily();
-  const reqs = S.daily.list.concat(S.daily.rescue ? [S.daily.rescue] : []);
-  for (const r of reqs){
-    if (r.done) continue;
-    const hit = r.type === 'treatId' ? (type === 'treat' && data.id === r.id) : r.type === type;
-    if (!hit) continue;
-    r.got = Math.min(r.n, r.got + 1);
-    if (r.got >= r.n){ r.done = true; if (r.rescue) rescueComplete(r); else reqComplete(r); }
-  }
-  if (type === 'meal') first('meal', 'はじめてのごはん', 'おいしそうに たべたね', 'meal');
-  if (type === 'treat') first('treat', 'はじめてのおやつ', `「${data.ja}」をあげた`, 'treat:' + data.id);
-  if (type === 'play') first('play', 'はじめてのあそび', isCat() ? '毛糸玉で じゃれたね' : 'ボールを おいかけたね', 'play');
-  if (type === 'pet') first('pet', 'はじめてのなでなで', 'うれしそうだったね', 'pet');
-  if (type === 'dress' && data.id && !S.firsts.wear[data.id]){
-    S.firsts.wear[data.id] = true;
-    const w = WEAR_BY_ID[data.id];
-    if (w) addAlbum('wear', `はじめての${w.ja.replace(/（.*?）/, '')}`, `${w.ja}、にあってるね`, 'dress');
-  }
-  if (type === 'room') first('room', 'はじめてのもようがえ', data.ja ? `${data.ja}にしたよ` : '', 'room');
-  renderReqBadge();
-}
-
 /* ===== きょうのおねがい ===== */
 function reqText(r){
   switch (r.type){
@@ -239,90 +188,12 @@ function reqText(r){
   return '';
 }
 const REQ_ICON = { meal:'meal', treat:'treat', treatId:'treat', play:'play', pet:'pet', trick:'trick', dress:'dress', room:'room' };
-function genDaily(day){
-  const r = rng(hashStr(day + ':' + (S.created || 0)));
-  const lv = lvNow();
-  const unlocked = (TREATS[S.pet.species] || []).filter(t => t.lv <= lv);
-  const pool = [
-    () => ({ type:'meal', n:2 }),
-    () => r() < .5 ? { type:'treat', n:1 + (r() < .4 ? 1 : 0) } : { type:'treatId', n:1, id:unlocked[Math.floor(r() * unlocked.length)].id },
-    () => ({ type:'play', n:2 + (r() < .4 ? 1 : 0) }),
-    () => ({ type:'pet', n:[10, 12, 15, 20][Math.floor(r() * 4)] }),
-    () => ({ type:'trick', n:2 + (r() < .3 ? 1 : 0) }),
-  ];
-  if (lv >= 2) pool.push(() => ({ type:'dress', n:1 }));
-  if (lv >= 4) pool.push(() => ({ type:'room', n:1 }));
-  const list = [], used = new Set();
-  let guard = 0;
-  while (list.length < 3 && guard++ < 50){
-    const i = Math.floor(r() * pool.length);
-    if (used.has(i)) continue;
-    used.add(i);
-    list.push(Object.assign({ got:0, done:false }, pool[i]()));
-  }
-  return { day, list, all:false };
-}
-/* ===== おたすけのおねがい: exactly one missed calendar day can be bridged ===== */
-const RESCUE_EVERY = 7;
-const keyDiff = (a, b) => { const p = k => { const [Y, M, D] = k.split('-').map(Number); return Date.UTC(Y, M - 1, D); }; return Math.round((p(b) - p(a)) / 864e5); };
-/* the day a rescue was last used (the day after the bridged gap) */
-function lastRescueDay(){ const m = S.rescued.slice().sort().pop(); return m ? keyShift(m, 1) : null; }
-function rescueReady(d = dayKey()){ const l = lastRescueDay(); return !l || keyDiff(l, d) >= RESCUE_EVERY; }
-function nextRescueDay(){ const l = lastRescueDay(); return l ? keyShift(l, RESCUE_EVERY) : null; }
-const mdOfKey = k => { const [, M, D] = k.split('-').map(Number); return `${M}/${D}`; };
-/* exactly one calendar day missed, a streak to save */
-function gapOfOne(d = dayKey()){ return S.streak.n > 0 && S.streak.last === keyShift(d, -2); }
-function rescueOpen(d = dayKey()){
-  if (S.streak.saved && S.streak.saved.day === d) return true;
-  return gapOfOne(d) && rescueReady(d);
-}
-function genRescue(d){
-  const r = rng(hashStr('rescue:' + d + ':' + (S.created || 0)));
-  const used = new Set(S.daily.list.map(x => x.type === 'treatId' ? 'treat' : x.type));
-  const pool = [{ type:'pet', n:25 }, { type:'play', n:3 }, { type:'trick', n:3 }, { type:'meal', n:2 }, { type:'treat', n:2 }].filter(x => !used.has(x.type));
-  const c = pool.length ? pool[Math.floor(r() * pool.length)] : { type:'pet', n:30 };
-  return Object.assign({ got:0, done:false, rescue:true }, c);
-}
-function streakInfo(){
-  const t = dayKey(), L = S.streak.last;
-  if (S.streak.saved && S.streak.saved.day === t && !(S.daily && S.daily.rescue && S.daily.rescue.done)) return { n:S.streak.saved.n, pinch:true };
-  if (L === t || L === keyShift(t, -1)) return { n:S.streak.n, pinch:false };
-  if (rescueOpen(t)) return { n:S.streak.n, pinch:true };
-  return { n:0, pinch:false };
-}
-function ensureDaily(){
-  const d = dayKey();
-  if (!S.daily || S.daily.day !== d) S.daily = genDaily(d);
-  if (!S.daily.rescue && rescueOpen(d)) S.daily.rescue = genRescue(d);
-  return S.daily;
-}
-function reqLeft(){
-  ensureDaily();
-  const open = S.daily.list.filter(r => !r.done).length;
-  return open + (S.daily.rescue && !S.daily.rescue.done && streakInfo().pinch ? 1 : 0);
-}
-function bridgeStreak(prevN, d){
-  const y = keyShift(d, -1);
-  S.streak.n = prevN + 1;
-  S.streak.last = d;
-  S.streak.best = Math.max(S.streak.best || 0, S.streak.n);
-  delete S.streak.saved;
-  if (!S.rescued.includes(y)) S.rescued.push(y);
-  addAlbum('stamp', `れんぞく記録を つないだ！（${S.streak.n}日）`, 'おたすけのおねがいで、おやすみの日を つないだよ', 'rescue');
-}
-function rescueComplete(r){
-  S.stats.mood = clamp(S.stats.mood + 5, 0, 100);
-  gainLove(5);
-  const d = S.daily.day;
-  if (S.daily.all && S.streak.saved && S.streak.saved.day === d){
-    bridgeStreak(S.streak.saved.n, d);
-    rescueModal();
-  } else {
-    toast('おたすけのおねがいを かなえた！ ♥+5');
-    setTimeout(() => { if (!Pet.sleeping) Pet.say('あとは きょうのおねがいを ぜんぶ かなえよう！', 2600); }, 300);
-  }
-  Persist.schedule();
-}
+/* the screen's view of today's requests (the rules decide; on the LINE screen this is a copy of the server's) */
+const ensureDaily = () => Rules.ensureDaily(S);
+const reqLeft = () => Rules.reqLeft(S);
+const streakInfo = () => Rules.streakInfo(S);
+const rescueReady = () => Rules.rescueReady(S);
+const nextRescueDay = () => Rules.nextRescueDay(S);
 function rescueModal(){
   setTimeout(() => Modal.show({
     label:'れんぞく記録をつないだ', confetti:true,
@@ -332,29 +203,20 @@ function rescueModal(){
       <button class="btn primary" type="button" data-close>やったね</button>`,
   }), 1200);
 }
-function maybeRescueNotice(){
-  if (!S || !S.daily || S.daily.rescueNoticed) return;
-  if (!S.daily.rescue && gapOfOne(S.daily.day) && !rescueReady(S.daily.day) && !S.daily.all){
-    S.daily.rescueNoticed = true;
-    Persist.schedule();
-    Modal.show({
-      label:'れんぞく記録',
-      html:() => `${petCard('', 'ex-sad')}<h3>れんぞく記録が<br>とぎれちゃった…</h3>
-        <p>きのうは おやすみだったね。<br>おたすけのおねがいは ${RESCUE_EVERY}日に1回までなので、こんかいは つなげません。<br>つぎに つかえるのは <b>${mdOfKey(nextRescueDay())}</b>から。</p>
-        <p class="quote">「また きょうから がんばろうね」</p>
-        <button class="btn primary" type="button" data-close>うん</button>`,
-    });
-    return;
-  }
-  if (!S.daily.rescue || S.daily.rescue.done) return;
-  const si = streakInfo();
-  if (!si.pinch) return;
-  S.daily.rescueNoticed = true;
-  Persist.schedule();
+function brokeModal(e){
+  Modal.show({
+    label:'れんぞく記録',
+    html:() => `${petCard('', 'ex-sad')}<h3>れんぞく記録が<br>とぎれちゃった…</h3>
+      <p>きのうは おやすみだったね。<br>おたすけのおねがいは ${RESCUE_EVERY}日に1回までなので、こんかいは つなげません。<br>つぎに つかえるのは <b>${mdOfKey(e.next)}</b>から。</p>
+      <p class="quote">「また きょうから がんばろうね」</p>
+      <button class="btn primary" type="button" data-close>うん</button>`,
+  });
+}
+function pinchModal(e){
   Modal.show({
     label:'れんぞく記録のピンチ',
     html:() => `${petCard('', 'ex-sad')}<h3>れんぞく記録が ピンチ！</h3>
-      <p>きのうは おやすみだったね。<br>きょうのうちに いつもの おねがい3つと、この おたすけのおねがいを かなえると、れんぞく<b>${si.n}日</b>の記録が つづくよ。</p>
+      <p>きのうは おやすみだったね。<br>きょうのうちに いつもの おねがい3つと、この おたすけのおねがいを かなえると、れんぞく<b>${e.n}日</b>の記録が つづくよ。</p>
       <p class="rescueline">${mini('rescue')}<span><small>おたすけのおねがい</small>${esc(reqText(S.daily.rescue))}</span></p>
       <p class="note" style="margin:0 0 12px">おたすけは ${RESCUE_EVERY}日に1回まで。2日いじょう あいたときは つなげません。</p>
       <div class="btnrow"><button class="btn" type="button" data-close="later">あとで</button><button class="btn primary" type="button" data-close="open">おねがいを見る</button></div>`,
@@ -368,40 +230,14 @@ function renderReqBadge(){
   b.classList.toggle('done', !n);
   btn.setAttribute('aria-label', n ? `きょうのおねがい（のこり${n}こ）` : 'きょうのおねがい（ぜんぶかなえた）');
 }
-function reqComplete(r){
-  S.stats.mood = clamp(S.stats.mood + 5, 0, 100);
-  gainLove(4);
-  toast(`おねがいをかなえた！ ♥+4`);
-  setTimeout(() => { if (!Pet.sleeping){ Pet.say('ありがとう！ うれしい！'); Pet.wag(1500); } hearts(3); }, 300);
-  if (S.daily.list.every(x => x.done) && !S.daily.all){
-    S.daily.all = true;
-    const d = S.daily.day;
-    if (!S.stamps.includes(d)) S.stamps.push(d);
-    const y = keyShift(d, -1), prevN = S.streak.n, last = S.streak.last;
-    let bridged = false, waiting = false;
-    if (last === y) S.streak.n = prevN + 1;
-    else if (last === d) S.streak.n = prevN;
-    else if (last === keyShift(d, -2) && prevN > 0 && rescueReady(d)){
-      if (S.daily.rescue && S.daily.rescue.done){ bridgeStreak(prevN, d); bridged = true; }
-      else { S.streak.saved = { n:prevN, day:d }; S.streak.n = 1; waiting = true; }
-    } else S.streak.n = 1;
-    S.streak.last = d;
-    S.streak.best = Math.max(S.streak.best || 0, S.streak.n);
-    gainLove(10);
-    if (!first('daily', 'はじめて おねがいを ぜんぶかなえた', 'スタンプカードに 1こめのスタンプ', 'stamp')){
-      const total = S.stamps.length;
-      if ([3, 7, 14, 30, 50, 100, 200, 365].includes(S.streak.n)) addAlbum('stamp', `おねがい${S.streak.n}日れんぞく！`, 'まいにち ありがとう', 'stamp');
-      else if (total % 10 === 0) addAlbum('stamp', `スタンプが${total}こに！`, 'たくさん かなえてくれたね', 'stamp');
-    }
-    setTimeout(() => Modal.show({
-      label:'きょうのおねがい コンプリート', confetti:true,
-      html:() => `${petCard()}<h3>きょうのおねがい<br>ぜんぶかなえた！</h3>
-        <div class="stampbig">${mini('stamp')}</div>
-        <p>ごほうび ♥+10<br>${bridged ? `おたすけスタンプで つながって<br>れんぞく <b>${S.streak.n}日</b>！` : waiting ? `あとは おたすけのおねがい<br>「${esc(reqText(S.daily.rescue))}」で<br>れんぞく <b>${(S.streak.saved ? S.streak.saved.n : 0) + 1}日</b>に つながるよ！` : S.streak.n > 1 ? `れんぞく <b>${S.streak.n}日</b>！` : 'スタンプカードに スタンプをおしたよ'}</p>
-        <button class="btn primary" type="button" data-close>やったね</button>`,
-    }), 1200);
-  }
-  Persist.schedule();
+function allDoneModal(e){
+  setTimeout(() => Modal.show({
+    label:'きょうのおねがい コンプリート', confetti:true,
+    html:() => `${petCard()}<h3>きょうのおねがい<br>ぜんぶかなえた！</h3>
+      <div class="stampbig">${mini('stamp')}</div>
+      <p>ごほうび ♥+10<br>${e.bridged ? `おたすけスタンプで つながって<br>れんぞく <b>${S.streak.n}日</b>！` : e.waiting ? `あとは おたすけのおねがい<br>「${esc(reqText(S.daily.rescue))}」で<br>れんぞく <b>${(S.streak.saved ? S.streak.saved.n : 0) + 1}日</b>に つながるよ！` : S.streak.n > 1 ? `れんぞく <b>${S.streak.n}日</b>！` : 'スタンプカードに スタンプをおしたよ'}</p>
+      <button class="btn primary" type="button" data-close>やったね</button>`,
+  }), 1200);
 }
 function openRequests(){
   if (!S) return;
@@ -430,78 +266,45 @@ function openRequests(){
   });
 }
 
-/* ===== おるすばんのおみやげ ===== */
-function maybeSouvenir(away){
-  if (!S || !(away >= 3 * 3600e3)) return;
-  const day = dayKey();
-  if (S.souv.day !== day){ S.souv.day = day; S.souv.n = 0; }
-  if (S.souv.n >= 3) return;
-  S.souv.n++;
-  const season = seasonOf();
-  const pool = SOUVENIRS.filter(s => s.seasons === 'all' || s.seasons.split(' ').includes(season));
-  const wt = s => ({ 1:10, 2:5, 3:2.2, 4:1, 5:.45 }[s.rare] || 1) * (S.souv.have[s.id] ? 1 : 1.6);
-  let x = Math.random() * pool.reduce((a, s) => a + wt(s), 0), pickS = pool[0];
-  for (const s of pool){ x -= wt(s); if (x <= 0){ pickS = s; break; } }
-  const isNew = !S.souv.have[pickS.id];
-  S.souv.have[pickS.id] = (S.souv.have[pickS.id] || 0) + 1;
-  const bonus = away >= 12 * 3600e3 ? 4 : 2;
-  if (isNew) addAlbum('souv', `おみやげ「${pickS.ja}」`, pickS.line, 'souv:' + pickS.id);
-  Persist.schedule();
+/* ===== おるすばんのおみやげ（the rules pick it; the love is shown when the popup closes） ===== */
+function souvenirModal(e){
+  const pickS = SOUV_BY_ID[e.id];
+  if (!pickS) return;
   Modal.show({
     label:'おるすばんのおみやげ',
-    html:() => `<div class="souvwrap">${petCard()}<div class="souvitem"><svg viewBox="0 0 48 48" aria-hidden="true">${souvenirIcon(pickS.icon)}</svg>${isNew ? '<span class="newpill">NEW</span>' : ''}</div></div>
+    html:() => `<div class="souvwrap">${petCard()}<div class="souvitem"><svg viewBox="0 0 48 48" aria-hidden="true">${souvenirIcon(pickS.icon)}</svg>${e.isNew ? '<span class="newpill">NEW</span>' : ''}</div></div>
       <h3>おるすばん ありがとう！</h3>
       <p>${esc(S.pet.name)}が ${isCat() ? 'ねこのパトロール' : 'おさんぽ'}で<br><b>「${esc(pickS.ja)}」</b>を見つけてきたよ</p>
       <p class="quote">「${esc(pickS.line)}」</p>
-      <p class="gainline">♥+${bonus}</p>
+      <p class="gainline">♥+${e.bonus}</p>
       <button class="btn primary" type="button" data-close>ありがとう</button>`,
-  }).then(() => { gainLove(bonus); commit(); });
+  }).then(() => { playEvents(e.after); commit(); });
 }
 
 /* ===== seasonal events ===== */
-function eventTreat(e){ return Object.assign({ line:e.hello, ev:e.id, evJa:e.ja }, EVENT_TREAT_STATS, e.treat); }
-function checkEvent(){
-  const ev = activeEvent();
-  if (!ev || !S) return;
-  const key = ev.id + ':' + new Date().getFullYear();
-  if (S.events.seen[key]) return;
-  S.events.seen[key] = now();
-  const had = S.events.got.includes(ev.gift);
-  if (!had) S.events.got.push(ev.gift);
+function eventModal(e){
+  const ev = EVENTS.find(x => x.id === e.id);
+  if (!ev) return;
   const w = WEAR_BY_ID[ev.gift];
-  addAlbum('event', `${ev.ja}`, had ? 'ことしも いっしょに すごせたね' : `プレゼント「${w.ja}」をもらった`, 'gift');
-  Persist.schedule();
   const trial = Object.assign({}, petWear(), { [w.slot]:w.id });
   Modal.show({
     label:ev.ja, confetti:true,
     html:`${petCard(trial)}<h3>${esc(ev.ja)}が はじまったよ！</h3>
       <p class="quote">「${esc(ev.hello)}」</p>
       <p>期間中は おへやが かざりつけされて、限定のおやつ<b>「${esc(ev.treat.ja)}」</b>が あげられます。</p>
-      ${had ? '' : `<p class="giftline">${mini('gift')} プレゼント<b>「${esc(w.ja)}」</b></p>`}
+      ${e.had ? '' : `<p class="giftline">${mini('gift')} プレゼント<b>「${esc(w.ja)}」</b></p>`}
       <div class="btnrow"><button class="btn" type="button" data-close="later">あとで</button><button class="btn primary" type="button" data-close="wear">つけてみる</button></div>`,
-  }).then(v => {
-    if (v === 'wear'){ const W = petWear(); W[w.slot] = w.id; S.pet.wear = W; track('dress', { slot:w.slot, id:w.id }); Pet.mount(); Pet.flash('happy', 1400); Pet.say('にあう？'); commit(); }
+  }).then(async v => {
+    if (v !== 'wear' || Act.waiting()) return;
+    const r = await Act.run('dress', { slot:w.slot, id:w.id });
+    if (!r.ok) return;
+    playEvents(r.ev);
+    Pet.mount(); Pet.flash('happy', 1400); Pet.say('にあう？'); commit();
   });
 }
-function checkMilestones(){
-  if (!S || !S.created) return;
-  const days = daysBetween(S.created, now());
-  for (const n of [7, 30, 100, 200, 300, 500, 1000]){
-    const k = 'days' + n;
-    if (days >= n && !S.milestones[k]){
-      S.milestones[k] = true;
-      addAlbum('days', `うちにきて${n}日`, n >= 100 ? 'これからも ずっといっしょだよ' : 'まいにち ありがとう', 'days', S.created + n * 864e5);
-      if (days - n < 3) toast(`${S.pet.name}がうちにきて ${n}日！`);
-    }
-  }
-  const c = new Date(S.created), d = new Date();
-  const years = d.getFullYear() - c.getFullYear();
-  if (years >= 1 && d.getMonth() === c.getMonth() && d.getDate() === c.getDate() && !S.milestones['anniv' + years]){
-    S.milestones['anniv' + years] = true;
-    addAlbum('days', `うちのこ記念日（${years}年）`, `${S.pet.name}がうちにきて ${years}年！`, 'days');
-    Modal.show({ label:'うちのこ記念日', confetti:true,
-      html:`${petCard()}<h3>うちのこ記念日！</h3><p>${esc(S.pet.name)}がうちにきて、きょうで<b>${years}年</b>。<br>いつも ありがとう。</p><button class="btn primary" type="button" data-close>おめでとう</button>` });
-  }
+function annivModal(e){
+  Modal.show({ label:'うちのこ記念日', confetti:true,
+    html:`${petCard()}<h3>うちのこ記念日！</h3><p>${esc(S.pet.name)}がうちにきて、きょうで<b>${e.years}年</b>。<br>いつも ありがとう。</p><button class="btn primary" type="button" data-close>おめでとう</button>` });
 }
 
 /* ===== room: decoration, window view, seasonal decor ===== */
@@ -617,18 +420,24 @@ function roomTabHtml(){
 }
 function wireRoomTab(root, rerender){
   root.querySelectorAll('[data-rc]').forEach(b => b.addEventListener('click', () => { roomCat = b.dataset.rc; rerender(); }));
-  root.querySelectorAll('[data-rd]').forEach(b => b.addEventListener('click', () => {
+  root.querySelectorAll('[data-rd]').forEach(b => b.addEventListener('click', async () => {
     if (b.getAttribute('aria-disabled') === 'true') return;
     const d = findDecor(roomCat, b.dataset.rd);
-    if (S.room[roomCat] === d.id) return;
-    S.room[roomCat] = d.id;
+    if (S.room[roomCat] === d.id || Act.waiting()) return;
+    const r = await Act.run('room', { cat:roomCat, id:d.id });
+    if (!r.ok){ careRefused(r); return; }
     applyRoom();
-    track('room', { ja:d.ja });
+    playEvents(r.ev);
     if (!Pet.busy && !Pet.sleeping){ Pet.flash('happy', 1400); Pet.say(pick(['すてき！','いいかんじ！','わくわくする！'])); }
     commit();
     rerender();
   }));
-  root.querySelectorAll('[data-season]').forEach(b => b.addEventListener('click', () => { S.room.season = b.dataset.season === '1'; applyRoom(); commit(); rerender(); }));
+  root.querySelectorAll('[data-season]').forEach(b => b.addEventListener('click', async () => {
+    if (Act.waiting()) return;
+    const r = await Act.run('season', { on:b.dataset.season === '1' });
+    if (!r.ok) return;
+    applyRoom(); commit(); rerender();
+  }));
 }
 
 /* ===== tricks ===== */
@@ -654,44 +463,36 @@ function openTricks(){
 }
 async function doTrick(tk){
   closeSheet();
-  if (Pet.busy || !S) return;
-  decay();
-  if (S.stats.full < 10){ Pet.wake(); Pet.flash('sad', 2000); Pet.say('おなかがすいて できないよ…'); return; }
+  if (Pet.busy || !S || Act.waiting()) return;
+  const why = Rules.trickCheck(S, tk.id);
+  if (why){ careRefused({ why }); return; }
   begin();
+  const job = Act.run('trick', { id:tk.id });   /* the rules decide whether it works (on the LINE server: the server) */
   await Pet.moveTo(50, 80, 1.2);
   Pet.say(tk.cue, 1100);
   await sleep(800);
-  const st = trickState(tk.id);
-  const pOk = Math.min(.93, .55 + st.p * .07 + (S.stats.mood >= 60 ? .1 : 0));
-  const success = st.ok || Math.random() < pOk;
-  const day = dayKey();
-  if (S.trickDay.day !== day){ S.trickDay.day = day; S.trickDay.love = 0; }
-  if (success){
+  const r = await job;
+  if (!r.ok){ careRefused(r); await sleep(600); Pet.setExpr(null); finish(); return; }
+  if (r.success){
     const cls = 'tr-' + tk.anim;
     if (tk.anim === 'bang') Pet.setExpr('sleep'); else Pet.setExpr('happy');
     Pet.el.classList.add(cls);
     await sleep(TRICK_MS[tk.anim] || 1200);
     Pet.el.classList.remove(cls);
     Pet.setExpr('happy'); Pet.wag(1500); hearts(3);
-    S.stats.mood = clamp(S.stats.mood + 3, 0, 100);
-    if (S.trickDay.love < 10){ S.trickDay.love += 1; gainLove(1); }
-    if (!st.ok){
-      st.p++;
-      if (st.p >= tk.need){
-        st.ok = true;
-        addAlbum('trick', `げい「${tk.ja}」をおぼえた！`, `${tk.need}回のれんしゅうで できるようになったね`, 'trick');
-        gainLove(5);
-        Pet.say('できるように なったよ！');
-        Modal.show({ label:'げいをおぼえた', confetti:true,
-          html:`${petCard()}<h3>げい「${esc(tk.ja)}」を<br>おぼえた！</h3><p>これからは いつでも見せてくれます。<br>♥+5</p><button class="btn primary" type="button" data-close>すごいね！</button>` });
-      } else Pet.say(`できた！（${st.p}/${tk.need}）`);
-    } else Pet.say(pick(['どう？','じょうずでしょ！','えへへ','もっと見る？']));
+    playEvents(r.ev);
+    if (r.learned){
+      Pet.say('できるように なったよ！');
+      Modal.show({ label:'げいをおぼえた', confetti:true,
+        html:`${petCard()}<h3>げい「${esc(tk.ja)}」を<br>おぼえた！</h3><p>これからは いつでも見せてくれます。<br>♥+5</p><button class="btn primary" type="button" data-close>すごいね！</button>` });
+    } else if (!r.known) Pet.say(`できた！（${r.p}/${r.need}）`);
+    else Pet.say(pick(['どう？','じょうずでしょ！','えへへ','もっと見る？']));
   } else {
     Pet.tilt(); Pet.say(pick(['？？？','えっと…','むずかしいな…']), 1400);
     await sleep(1200);
     Pet.say('もういっかい やってみる！', 1600);
   }
-  track('trick', { id:tk.id });
+  playEvents(r.after);
   await sleep(1000);
   Pet.setExpr(null);
   finish();
@@ -714,7 +515,7 @@ function albumHtml(){
         : `<div class="tile sv unknown"><svg viewBox="0 0 48 48" aria-hidden="true">${souvenirIcon(s.icon)}</svg><span class="tname">？？？</span><small>${s.seasons.split(' ').map(x => SEASON_JA[x]).join('・')}</small></div>`;
     }).join('')}</div>`;
   } else {
-    const base = stampMonth || new Date();
+    const base = stampMonth || clockDate();
     const y = base.getFullYear(), m = base.getMonth();
     const firstDow = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate(), today = dayKey();
     const set = new Set(S.stamps), saved = new Set(S.rescued);
@@ -742,7 +543,7 @@ function openAlbum(tab){
     const wire = () => {
       box.querySelectorAll('[data-at]').forEach(b => b.addEventListener('click', () => { albumTab = b.dataset.at; box.innerHTML = albumHtml(); wire(); }));
       box.querySelectorAll('[data-mon]').forEach(b => b.addEventListener('click', () => {
-        const base = stampMonth || new Date();
+        const base = stampMonth || clockDate();
         stampMonth = new Date(base.getFullYear(), base.getMonth() + Number(b.dataset.mon), 1);
         box.innerHTML = albumHtml(); wire();
       }));
@@ -753,26 +554,20 @@ function openAlbum(tab){
 
 /* ===== lifecycle hooks ===== */
 const Features = {
+  /* the album's first page, milestones, the season's event, a souvenir and the streak notices come from the rules (Act.open) */
   start(away){
     ensureState(S);
-    if (!S.album.length) addAlbum('home', `${S.pet.name}が うちのこになった日`, breedLabel(S.pet), 'home', S.created || now());
     ensureDaily();
     applyRoom();
     renderReqBadge();
-    checkMilestones();
-    checkEvent();
-    maybeSouvenir(away);
-    maybeRescueNotice();
     Persist.schedule();
+    Act.open(away);
   },
   resume(away){
     ensureDaily();
     renderReqBadge();
     renderSeason();
-    checkMilestones();
-    checkEvent();
-    maybeSouvenir(away);
-    maybeRescueNotice();
+    Act.open(away);
   },
   hint(){
     if (!S || !S.daily || Math.random() > .35) return null;

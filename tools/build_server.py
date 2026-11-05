@@ -8,10 +8,10 @@
 デプロイの流れ：game.js を作り直す → main に push → --pin <そのコミット> → index.ts と deno.json をデプロイ
 （Edge Function は deno.json の URL から game.js を読みこむので、デプロイで game.js を送らなくてよい）。
 
-画面と同じ ensureState()・carryExtras()・引っこしコードの読みとりを、サーバーでもそのまま使うため。
-データのファイル（js_data*.js と js_pet.js）は丸ごと、js_app.js と js_features.js からは
-下の名前の関数・定数だけを取り出す（DOM にさわるところは入れない）。
-日付の区切り dayKey() だけは、サーバーでは日本時間（Asia/Tokyo、UTC+9・夏時間なし）にする。
+画面と同じ ensureState()・carryExtras()・引っこしコードの読みとりと、おせわのルール（js_rules.js の Rules）を、
+サーバーでもそのまま使うため。データのファイル（js_data*.js と js_pet.js）と js_rules.js は丸ごと、
+js_app.js と js_features.js からは下の名前の関数・定数だけを取り出す（DOM にさわるところは入れない）。
+ルールの時計（Clock）は、サーバーでは日付を日本時間（Asia/Tokyo、UTC+9・夏時間なし）にし、偶然は crypto で決める。
 """
 import os
 import re
@@ -22,19 +22,21 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, 'src')
 OUT = os.path.join(ROOT, 'supabase', 'functions', 'api', 'game.js')
 
-WHOLE = ['js_data.js', 'js_data2.js', 'js_data3.js', 'js_pet.js']
+WHOLE = ['js_data.js', 'js_data2.js', 'js_data3.js', 'js_pet.js', 'js_rules.js']
 PICK = {
-    'js_app.js': ['now', 'PHOTO_RE', 'safePhoto', 'levelInfo', 'MOVE_PREFIX', 'MOVE_MAX', 'readMoveCode', 'decodeMovePayload'],
+    'js_app.js': ['PHOTO_RE', 'safePhoto', 'MOVE_PREFIX', 'MOVE_MAX', 'readMoveCode', 'decodeMovePayload'],
     'js_features.js': ['ensureState', 'carryExtras'],
 }
-EXPORTS = ['ensureState', 'carryExtras', 'readMoveCode', 'safePhoto', 'levelInfo', 'normalizeLook', 'dayKey', 'MOVE_MAX']
+EXPORTS = ['ensureState', 'carryExtras', 'readMoveCode', 'safePhoto', 'levelInfo', 'normalizeLook', 'dayKey', 'MOVE_MAX',
+           'Rules', 'Clock', 'newState', 'wearFrom']
 
-DAYKEY_JST = '''/* サーバーの日付は日本時間（UTC+9。夏時間はない） */
-function dayKey(t){
-  const ms = t == null ? Date.now() : (t instanceof Date ? t.getTime() : Number(t));
+DAYKEY_JST = '''/* サーバーの時計：日付は日本時間（UTC+9。夏時間はない）、偶然は crypto */
+Clock.dayKey = function(t){
+  const ms = t == null ? this.now() : (t instanceof Date ? t.getTime() : Number(t));
   const d = new Date(ms + 9 * 3600e3);
   return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
-}
+};
+Clock.rand = () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
 '''
 
 
@@ -78,6 +80,10 @@ if (!r.st || r.st.pet.name !== 'ためし' || r.st.daily !== null && r.st.daily 
 if (g.readMoveCode('xyz').reason !== 'noprefix') throw new Error('noprefix');
 if (!/^\d{4}-\d{2}-\d{2}$/.test(g.dayKey())) throw new Error('dayKey');
 if (g.dayKey(Date.UTC(2026, 0, 1, 15, 0)) !== '2026-01-02') throw new Error('dayKey JST');
+const r1 = g.Clock.rand(); if (!(r1 >= 0 && r1 < 1)) throw new Error('rand');
+const st2 = g.ensureState(JSON.parse(JSON.stringify(st)));
+const fed = g.Rules.act(st2, 'feed', {}, {});
+if (!fed.ok || st2.counts.meals !== 4 || !Array.isArray(fed.ev)) throw new Error('Rules.feed ' + JSON.stringify(fed));
 console.log('game.js ok');
 '''
     r = subprocess.run(['node', '--input-type=module', '-e', test, path], capture_output=True, text=True)

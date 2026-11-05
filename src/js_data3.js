@@ -27,9 +27,9 @@ const TRICKS = {
   ],
 };
 
-/* ===== seasons & events (month-day, local time) ===== */
+/* ===== seasons & events (month-day of the rules' clock: this device's date, or Japan time on the LINE server) ===== */
 function mdOf(d){ return (d.getMonth() + 1) * 100 + d.getDate(); }
-function seasonOf(d = new Date()){
+function seasonOf(d = clockDate()){
   const m = d.getMonth() + 1;
   return m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 9 && m <= 11 ? 'autumn' : 'winter';
 }
@@ -46,11 +46,11 @@ const EVENTS = [
   EV('halloween','ハロウィン',1001,1031,'ev_pumpkin',{ id:'ev_pumpkincookie', ja:'かぼちゃクッキー', icon:['pumpkincookie'] },'halloween','トリック・オア・トリート！'),
   EV('christmas','クリスマス',1201,1225,'ev_santa',{ id:'ev_xmascake', ja:'クリスマスケーキ', icon:['cake',true] },'christmas','メリークリスマス！'),
 ];
-function activeEvent(d = new Date()){
+function activeEvent(d = clockDate()){
   const md = mdOf(d);
   return EVENTS.find(e => md >= e.from && md <= e.to) || null;
 }
-function weatherOf(d = new Date()){
+function weatherOf(d = clockDate()){
   const ev = activeEvent(d), m = d.getMonth() + 1;
   if (ev && ev.id === 'christmas') return 'snow';
   if (ev && ev.id === 'sakura') return 'petals';

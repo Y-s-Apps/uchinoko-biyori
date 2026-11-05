@@ -1,6 +1,8 @@
 /* サーバーの関数（supabase/functions/api/index.ts）の確認。tools/line_e2e.py から動かす。
  * DB は PGlite（メモリの中の Postgres）、LINE の IDトークンの検証（api.line.me）だけを、ここでまねる。
- * 本人確認・セーブ（rev のぶつかり、ensureState、写真を置かない）・取りこみ（1回だけ）・セッションの上限と期限を見る。 */
+ * 本人確認・おせわ（/act：サーバーの時計と乱数で判定、おせわの間隔、上限）・名前とみためだけのセーブ・
+ * 新しい子（まっさら）・取りこみ（1回だけ）・セッションの上限と期限を見る。
+ * 時間がたったことは、DB のセーブの時刻（last など）を前にずらしてまねる。 */
 import postgres from 'npm:postgres@3.4.5';
 const FN = Deno.args[0];
 const MIG = Deno.args[1];
@@ -62,7 +64,7 @@ function ok(cond: unknown, label: string, info?: unknown){
 }
 
 const t0 = Date.now();
-const pet = { name:'ためし', species:'dog', breedId:'pom', look:{ species:'dog', breedId:'pom' }, photo:'data:image/jpeg;base64,AAAA', colorName:'クリーム', wear:{ head:null, face:null, neck:'scarf_tri' } };
+const pet = { name:'ためし', species:'dog', breedId:'pomeranian', look:{ species:'dog', breedId:'pomeranian' }, photo:'data:image/jpeg;base64,AAAA', colorName:'クリーム', wear:{ head:null, face:null, neck:'scarf_tri' } };
 const save1 = { v:1, pet, stats:{ full:60, mood:70, love:120 }, counts:{ meals:5, treats:2, pets:9, plays:1 }, recentTreats:[t0], last:t0, created:t0 - 864e5, updated:t0 };
 
 console.log('health / cors');
@@ -98,35 +100,152 @@ r = await call('POST', '/login', { idToken:mkToken('bob', '2012410263', 'Ubob') 
 const bob = r.data.token;
 ok(r.status === 200 && r.data.member.id !== aliceId, 'bob is another member');
 
-console.log('save');
+const db = postgres(DB, { prepare:false, max:1 });
+const jst = (ms: number) => new Date(ms + 9 * 3600e3).toISOString().slice(0, 10);
+/* DB のセーブを直接かえる（時間がたったこと・数字のまね） */
+async function patch(member: string, f: (d: any) => void){
+  const [row] = await db`select data from app.saves where member_id = ${member}`;
+  const d = row.data; f(d);
+  await db`update app.saves set data = ${db.json(d)} where member_id = ${member}`;
+}
+/* つぎのおせわまで 2.5 秒まつかわりに、前のおせわの時刻を前にずらす */
+const rest = (member: string) => patch(member, d => { if (d.srv) d.srv.cd = 0; });
+const A = (type: string, p: Record<string, unknown> = {}, session = alice) => call('POST', '/act', { type, ...p }, session);
+
+console.log('save (名前・みためだけ)');
 r = await call('GET', '/save');
 ok(r.status === 401 && r.data.error === 'nosession', 'no session', r);
 r = await call('GET', '/save', undefined, 'A'.repeat(43));
 ok(r.status === 401, 'unknown session', r);
 r = await call('GET', '/save', undefined, alice);
 ok(r.status === 200 && r.data.save === null && r.data.importable === true, 'empty save', r);
+r = await A('feed');
+ok(r.status === 409 && r.data.error === 'nosave', 'act before a child → nosave', r);
+r = await call('POST', '/save', { pet }, alice);
+ok(r.status === 409 && r.data.error === 'nosave', 'save before a child → nosave', r);
 r = await call('POST', '/save', { data:save1, baseRev:null }, alice);
-ok(r.status === 200 && r.data.rev === 1, 'first save', r);
+ok(r.status === 400 && r.data.error === 'badpet', 'the old whole-save form is refused', r);
+
+console.log('adopt (新しい子はまっさら)');
+r = await A('adopt', { pet:{ ...pet, name:'  ながいながいなまえのこです  ', photo:'data:image/jpeg;base64,AAAA', stats:{ love:9999 }, created:1 } });
+const sv0 = r.data.save && r.data.save.data;
+ok(r.status === 200 && r.data.ok && sv0.pet.name === 'ながいながいなまえの' && sv0.pet.photo === null && sv0.stats.love === 0
+  && sv0.counts.meals === 0 && Math.abs(sv0.created - Date.now()) < 60e3 && sv0.pet.wear.neck === null, 'adopt: fresh state from the name/look only', sv0);
+const aliceRev0 = r.data.save.rev;
 r = await call('GET', '/save', undefined, alice2);
-ok(r.status === 200 && r.data.save.rev === 1 && r.data.save.data.pet.photo === null && r.data.save.data.pet.name === 'ためし'
-  && r.data.save.data.room && Array.isArray(r.data.save.data.stamps) && r.data.save.data.stats.love === 120, 'read back (photo stripped, ensureState applied)', r.data);
-r = await call('POST', '/save', { data:save1, baseRev:null }, alice);
-ok(r.status === 409 && r.data.error === 'conflict' && r.data.save.rev === 1, 'create again → conflict', r);
-r = await call('POST', '/save', { data:{ ...save1, stats:{ full:'x', mood:999, love:-5 } }, baseRev:1 }, alice);
-ok(r.status === 200 && r.data.rev === 2, 'update with baseRev', r);
-r = await call('GET', '/save', undefined, alice);
-ok(r.data.save.data.stats.full === 70 && r.data.save.data.stats.mood === 100 && r.data.save.data.stats.love === 0, 'numbers coerced like ensureState', r.data.save.data.stats);
-r = await call('POST', '/save', { data:save1, baseRev:1 }, alice);
-ok(r.status === 409 && r.data.save.rev === 2, 'stale baseRev → conflict with current', r);
-r = await call('POST', '/save', { data:{ v:1 }, baseRev:2 }, alice);
-ok(r.status === 400 && r.data.error === 'badsave', 'no pet → badsave', r);
-r = await call('POST', '/save', { data:save1, baseRev:'2' }, alice);
-ok(r.status === 400 && r.data.error === 'badrev', 'string rev → badrev', r);
+ok(r.status === 200 && r.data.save.rev === aliceRev0, 'another session sees it');
+
+console.log('act: open');
+r = await A('open');
+ok(r.status === 200 && r.data.ok && r.data.save.data.daily.day === jst(Date.now()) && r.data.save.data.album.some((a: any) => a.k === 'home'),
+  'open: today\'s requests in Japan time, the first album page', r.data.save && r.data.save.data.daily);
+ok(!r.data.ev.some((e: any) => e.k === 'souv'), 'open right after: no souvenir', r.data.ev);
+await patch(aliceId, d => { d.last -= 4 * 3600e3; });
+r = await A('open');
+const sv1 = r.data.ev.find((e: any) => e.k === 'souv');
+ok(sv1 && sv1.bonus === 2 && r.data.save.data.souv.n === 1 && r.data.save.data.stats.love === 2, '4 hours away → a souvenir (♥+2)', r.data.ev);
+await patch(aliceId, d => { d.last -= 13 * 3600e3; });
+r = await A('open');
+ok(r.data.ev.some((e: any) => e.k === 'souv' && e.bonus === 4), '13 hours away → ♥+4', r.data.ev);
+await patch(aliceId, d => { d.last -= 4 * 3600e3; });
+r = await A('open');
+await patch(aliceId, d => { d.last -= 4 * 3600e3; });
+r = await A('open');
+ok(r.data.save.data.souv.n === 3 && !r.data.ev.some((e: any) => e.k === 'souv'), 'no more than 3 souvenirs a day', r.data.save.data.souv);
+await patch(aliceId, d => { d.last -= 10 * 3600e3; d.stats.full = 100; d.stats.mood = 100; });
+r = await A('open');
+const s10 = r.data.save.data.stats;
+ok(Math.abs(s10.full - 20) < .2 && Math.abs(s10.mood - 10) < .2, 'decay by the server clock (10h: おなか −80, ごきげん −50 と おなか25未満の −40)', s10);
+
+console.log('act: care');
+await patch(aliceId, d => { d.stats.full = 40; d.stats.mood = 50; });
+let love = (await call('GET', '/save', undefined, alice)).data.save.data.stats.love;
+r = await A('feed');
+ok(r.data.ok && r.data.save.data.counts.meals === 1 && Math.abs(r.data.save.data.stats.full - 85) < .2 && r.data.save.data.stats.love === love + 3, 'feed', r.data);
+r = await A('feed');
+ok(r.data.ok === false && r.data.why === 'busy', 'too soon after the last care → busy', r.data);
+await rest(aliceId);
+await patch(aliceId, d => { d.stats.full = 95; });
+const revFull = (await call('GET', '/save', undefined, alice)).data.save.rev;
+r = await A('feed');
+ok(r.data.ok === false && r.data.why === 'full' && r.data.save.rev === revFull, 'full → refused, nothing written', r.data);
+let lim = null as any;
+for (let i = 0; i < 6; i++){
+  await rest(aliceId);
+  await patch(aliceId, d => { d.stats.full = 30; });
+  lim = await A('treat', { id:'bolo' });
+  if (!lim.data.ok) break;
+}
+ok(lim.data.ok === false && lim.data.why === 'limit' && lim.data.save.data.recentTreats.length === 5, 'treats: 5 in 30 minutes, then wait', lim.data);
+await patch(aliceId, d => { d.recentTreats = d.recentTreats.map((t: number) => t - 31 * 60e3); d.srv.cd = 0; });
+r = await A('treat', { id:'bolo' });
+ok(r.data.ok, 'treats again after 30 minutes', r.data);
+await rest(aliceId);
+r = await A('treat', { id:'no_such_treat' });
+ok(r.data.ok === false && r.data.why === 'locked', 'unknown or locked treat refused', r.data);
+await rest(aliceId);
+await patch(aliceId, d => { d.stats.full = 8; });
+r = await A('play');
+ok(r.data.ok === false && r.data.why === 'hungry', 'too hungry to play', r.data);
+await patch(aliceId, d => { d.stats.full = 50; });
+r = await A('play');
+ok(r.data.ok && r.data.save.data.counts.plays === 1, 'play', r.data.save && r.data.save.data.counts);
+
+console.log('act: pet (なでなで)');
+let before = (await call('GET', '/save', undefined, alice)).data.save.data;
+r = await A('pet', { n:999 });
+let after = r.data.save.data;
+ok(r.data.ok && r.data.n === 60 && after.counts.pets === before.counts.pets + 1, 'strokes capped at 60 a call, one session counted', { n:r.data.n, pets:after.counts.pets });
+ok(Math.abs(after.stats.love - before.stats.love - 7.2) < .05 || after.stats.love - before.stats.love > 7.2, 'love from strokes: 12 strokes\' worth at most (+ requests)', { before:before.stats.love, after:after.stats.love });
+before = after;
+r = await A('pet', { n:10 });
+ok(r.data.save.data.stats.love - before.stats.love < .6 + 4 + 10 + 5, 'no stroke love left right after', { before:before.stats.love, after:r.data.save.data.stats.love });
+
+console.log('act: trick, dress, room');
+await rest(aliceId);
+r = await A('trick', { id:'dance' });
+ok(r.data.ok === false && r.data.why === 'locked', 'trick above the level → locked', r.data);
+await rest(aliceId);
+await patch(aliceId, d => { d.stats.full = 60; d.stats.mood = 80; });
+r = await A('trick', { id:'sit' });
+ok(r.data.ok && typeof r.data.success === 'boolean' && r.data.need === 3 && Array.isArray(r.data.after), 'trick decided by the server', r.data);
+for (let i = 0; i < 14; i++){ await rest(aliceId); await patch(aliceId, d => { d.tricks = { sit:{ p:3, ok:true } }; }); r = await A('trick', { id:'sit' }); }
+ok(r.data.save.data.trickDay.love === 10 && r.data.save.data.trickDay.day === jst(Date.now()), 'trick love: 10 a day', r.data.save.data.trickDay);
+r = await A('dress', { slot:'head', id:'crown_heart' });
+ok(r.data.ok === false && r.data.why === 'locked', 'outfit above the level → locked', r.data);
+r = await A('dress', { slot:'head', id:'ev_santa' });
+ok(r.data.ok === false && r.data.why === 'locked', 'an event outfit not received → locked', r.data);
+r = await A('dress', { slot:'neck', id:'bandana_red' });
+ok(r.data.ok && r.data.save.data.pet.wear.neck === 'bandana_red', 'dress', r.data.save && r.data.save.data.pet.wear);
+r = await A('dress', { slot:'face', id:'bandana_red' });
+ok(r.data.ok === false, 'an outfit in the wrong slot → refused', r.data);
+r = await A('room', { cat:'wall', id:'starry' });
+ok(r.data.ok === false && r.data.why === 'locked', 'decor above the level → locked', r.data);
+r = await A('room', { cat:'rug', id:'none' });
+ok(r.data.ok && r.data.save.data.room.rug === 'none', 'room', r.data.save && r.data.save.data.room);
+r = await A('season', { on:false });
+ok(r.data.ok && r.data.save.data.room.season === false, 'season decorations off');
+r = await A('fly');
+ok(r.status === 400 && r.data.error === 'badtype', 'unknown action', r);
+
+console.log('act: streak (おたすけ)');
+await patch(aliceId, d => {
+  const t = Date.now();
+  d.daily = null; d.rescued = []; d.stamps = [jst(t - 2 * 864e5), jst(t - 3 * 864e5)];
+  d.streak = { last:jst(t - 2 * 864e5), n:2, best:2 };
+});
+r = await A('open');
+ok(r.data.save.data.daily.rescue && r.data.ev.some((e: any) => e.k === 'pinch' && e.n === 2), 'one day missed → the rescue request and the notice', r.data.ev);
+r = await A('open');
+ok(!r.data.ev.some((e: any) => e.k === 'pinch'), 'the notice only once', r.data.ev);
+
+console.log('save: name and look only');
+const lovePrev = r.data.save.data.stats.love;
+r = await call('POST', '/save', { pet:{ name:'あたらしい', species:'cat', breedId:'mike', look:{ species:'cat', breedId:'mike' }, colorName:'みけ' }, stats:{ love:99999 }, data:{ stats:{ love:99999 } } }, alice);
+ok(r.status === 200 && r.data.save.data.pet.name === 'あたらしい' && r.data.save.data.pet.species === 'cat' && r.data.save.data.stats.love === lovePrev
+  && r.data.save.data.pet.wear.neck === 'bandana_red', 'name/look change; numbers and outfits untouched', r.data.save && r.data.save.data.pet);
 r = await call('GET', '/save', undefined, bob);
 ok(r.data.save === null, 'bob cannot see alice', r);
-const big = { ...save1, album:Array.from({ length:300 }, (_, i) => ({ t:i, k:'x', ti:'あ'.repeat(40), su:'い'.repeat(5000), ic:'' })) };
-r = await call('POST', '/save', { data:big, baseRev:2 }, alice);
-ok(r.status === 413 || r.status === 200, 'big save handled (413 or trimmed)', { status:r.status });
 
 console.log('import');
 const enc = (o: unknown) => { const b = btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(o)))); return 'UCHINOKO2:' + b.length + ':' + b; };
@@ -143,8 +262,10 @@ ok(r.status === 200 && r.data.save.rev >= 3, 'alice import replaces existing sav
 r = await call('POST', '/login', { idToken:mkToken('alice3', '2012410263', 'Ualice') });
 ok(r.data.member.importable === false && r.data.save.data.pet.name === 'だいず2', 'login shows importable=false and the save');
 
+r = await A('open', {}, bob);
+ok(r.data.ok && r.data.save.data.daily && r.data.save.data.daily.day === jst(Date.now()), 'bob: act after import works');
+
 console.log('sessions');
-const db = postgres(DB, { prepare:false, max:1 });
 const [{ n }] = await db`select count(*)::int n from app.sessions where member_id = ${aliceId}`;
 ok(n === 3, 'alice has 3 sessions', n);
 for (let i = 0; i < 12; i++) await call('POST', '/login', { idToken:mkToken('al' + i, '2012410263', 'Ualice') });
