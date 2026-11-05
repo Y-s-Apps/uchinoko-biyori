@@ -105,8 +105,9 @@ async def main(args):
             print('line:', info)
             if info['manifest'] or info['sw']:
                 errors.append('LINE版に manifest か Service Worker が入っています')
-            if info['line'] != 'off':
-                errors.append('LINE版の LIFF の状態が off ではありません: %s' % info['line'])
+            # LIFF SDK はとめてあるので、LIFF ID があれば failed（ゲスト）、なければ off になるはず（SDK の読みこみは js_line.js から）
+            if info['line'] not in ('off', 'failed'):
+                errors.append('LINE版の LIFF の状態が想定外です: %s' % info['line'])
             if args.android_inset and info['dockGap'] < args.android_inset:
                 errors.append('下の5つのボタンがナビゲーションバーと重なります（すき間 %dpx）' % info['dockGap'])
         steps = [
@@ -125,6 +126,9 @@ async def main(args):
             for c in clicks:
                 await page.click(c); await page.wait_for_timeout(300)
             await snap(name)
+            if args.line and name == 'profile':
+                st = await page.evaluate("(document.querySelector('#sheet .line-status') || {}).textContent || ''")
+                print('line status:', st or '(なし)')
             if args.android_inset and name == 'treats':
                 # シートの中身の下に、ナビゲーションバーの分のすき間があるか
                 pad = await page.evaluate("parseFloat(getComputedStyle(document.querySelector('#sheet')).paddingBottom)")

@@ -1,34 +1,35 @@
 # 引き継ぎメモ（いまの状況）
 
-このファイルは、チャットのいちばん最後に毎回まるごと書き直します。次のチャットは、ここを読めば続きから始められます。オーナーは、更新のたびにプロジェクトナレッジのGitHubを「同期」します。
+このファイルは、チャットのいちばん最後に毎回まるごと書き直します。次のチャットは、ここを読めば続きから始められます。オーナーは、更新のたびにプロジェクトナレッジのGitHubを「同期」し、作業ごとに新しいチャットへ移ります（`CLAUDE.md` の作業の流れ 7）。
 
 - 最終更新：2026-11-06
-- リポジトリ：`Y-s-Apps/uchinoko-biyori`（組織 Y-s-Apps）。公開URL：https://y-s-apps.github.io/uchinoko-biyori/
-- 公開中の版：`sw.js` のキャッシュ名 `uchinoko-3b339fd590`（アプリの中身は `ba98c72` から変わっていない）
+- リポジトリ：`Y-s-Apps/uchinoko-biyori`（組織 Y-s-Apps）。ホーム画面版：https://y-s-apps.github.io/uchinoko-biyori/
+- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 `uchinoko-3b339fd590`（アプリの中身は `ba98c72` から変わっていない）
 - Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs はバージョン20（`ba98c72` と同じ中身）。今回は変更なし
+- LINE版：画面は https://uchinoko-biyori.pages.dev/ （Cloudflare Pages、main の push で自動ビルド）。開発用の LIFF URL は https://miniapp.line.me/2012410263-cuCI7vQS
 - LINE版の計画書：https://claude.ai/artifact/AgKkCkHCsWAywKGV6VFxwK
 
-## 直近のチャットでやったこと
+## 直近のチャットでやったこと（LINE版のタスク1：完了）
 
-- LINEミニアプリ化の計画書を作った（現状の構成、端末の時計に頼る9つの処理、変更点の必須・推奨・後回し、収益化、法律の注意、審査のチェックリスト、最初のタスク3つ）。
-- オーナーと方針を決めた（`docs/PROJECT.md` の10章）：個人で提供、課金・広告は順番に、サーバーは Supabase（無料）、画面は Cloudflare Pages（Supabase は HTML を配れないため）、ホーム画面版は残す、だいずは LINE版の公開日にコピー、AIで写真を読みとるしくみは LINE版でも残す（サーバー経由、写真は保存しない、AIの利用料だけは有料）。
-- Cloudflare Pages はオーナーが設定ずみ：https://uchinoko-biyori.pages.dev/（main の push で自動ビルド。初回 `30d1bb1` は成功）。
-- タスク1「LINE版の入れもの」：`build.sh` が `src/out/line/` を作るように。`src/line_head.html`（LIFF SDK のエッジパス、CSP、Android版LINEの下のすき間）と `src/js_line.js`（LIFF の準備、`LINE_CFG.liffId` は空）。ホーム画面版の `index.html`・`sw.js` と Claude版はビルド前と同じ。`tools/smoke.py --line --android-inset 48` で、エラー0件、下のボタン・シートのすき間を確認ずみ。
+- LINEミニアプリ化の計画書を作り、方針を決めた（`docs/PROJECT.md` の10章）：個人で提供、課金・広告は順番に、サーバーは Supabase（無料）、画面は Cloudflare Pages（Supabase は HTML を配れないため）、ホーム画面版は残す、だいずは LINE版の公開日にコピー、AIで写真を読みとるしくみは LINE版でも残す（サーバー経由、写真は保存しない、AIの利用料だけは有料）。
+- `build.sh` が LINE版（`src/out/line/`）を作るように。`src/line_head.html`（CSP、Android版LINEの下のすき間）と `src/js_line.js`（LIFF SDK の読みこみと `liff.init()`、ゲストへの切りかえ、プロフィールの1行）。ホーム画面版の `index.html`・`sw.js` と Claude版は、ビルド前と同じ。
+- オーナーが Cloudflare Pages と LINE Developers（プロバイダー、LINEミニアプリチャネル、開発用エンドポイントURL）を設定。開発用の LIFF ID `2012410263-cuCI7vQS` をアプリに入れた。
+- 確認ずみ：`tools/smoke.py`（ホーム画面版、`--line --android-inset 48`、`--line --fresh`）でエラー0件。LIFF のまねで「LINEの中」「外部ブラウザ」「初期化の失敗」の3つの表示を確認。
 
 ## 保留・オーナーの判断待ち
 
-- オーナーの準備（`docs/PROJECT.md` 10章の「オーナーの準備」）：
-  1. ~~Cloudflare Pages を `Y-s-Apps/uchinoko-biyori` につなぐ~~ 済み（https://uchinoko-biyori.pages.dev/）
-  2. LINE Developers でプロバイダーと LINEミニアプリチャネルを作り、開発用のエンドポイントURLを設定 → 開発用の LIFF ID をもらう
-- LIFF ID がとどいたら `js_line.js` の `LINE_CFG.liffId` に入れて push し、iPhone と Android の LINE で見え方（下のボタン、上のヘッダー）を確かめてもらう。
+- **実機での確認（オーナー）**：iPhone（と、あれば Android）の LINE で開発用の LIFF URL を開き、①画面が出る、②下の5つのボタンとシートがナビゲーションバーに隠れない、③上の LINE のバーとヘッダーが重ならない、④メニュー（プロフィール）のいちばん下に「LINEと つながっています」と出る、を見てもらう。結果を次のチャットで聞く。開けないときは、権限設定（いまは Admin がオーナー1人、Tester なし）を確かめる。
 - おたすけの「週に1回」の数え方は、いまは「前回から7日」。月曜〜日曜の区切りにする案は、オーナーが希望したら変える。
 
 ## 次にやること
 
-- タスク2：Supabase で本人確認とセーブ。Supabase の組織 `Yuthy's`（無料プラン）には、いま「Yuthy's Project」（東京）が1つある。中身を確かめ、うちのこ日和用のプロジェクトを分けるか決める。IDトークンの検証 → 自前の会員ID → セッション、`sub` は別の表、サーバーでも `ensureState()` と同じ確かめ、引っこしコードの取りこみ口（写真の控えは受け取らない）。LINE版の CSP の `connect-src` に Supabase の URL を足す。
-- AIの読みとり：Edge Function からAI（Claude）を呼ぶ。APIの鍵と1日の上限、確認の画面、AIを使わない選び方を残す。AIの利用料について、オーナーと予算を決める。
-- タスク3：時計に頼る処理をサーバーへ（第1弾：おなか・ごきげん、おやつ30分5回、おみやげ、きょうのおねがい、連続記録とおたすけ）。
-- そのあと：認証審査の準備（プライバシーポリシー、利用規約、アイコン130×130）、うちのこカード、公式アカウント。
+- **タスク2：Supabase で本人確認とセーブ。**
+  - Supabase の組織 `Yuthy's`（無料プラン）には、いま「Yuthy's Project」（東京、`wfihqgtadnnweyediufv`）が1つある。中身を確かめ、うちのこ日和用のプロジェクトを分けるかオーナーと決める（無料プランは2つまで、1週間ほど使われないと止まる）。
+  - Edge Function で `liff.getIDToken()` のトークンを `https://api.line.me/oauth2/v2.1/verify`（client_id は LINEミニアプリチャネルのチャネルID）で検証 → 自前の会員ID → 自前のセッション。LINE の `sub` は別の表。チャネルシークレットなどはチャットに貼ってもらわず、Supabase の画面で直接入れてもらう。
+  - セーブの保存・読みこみ（はじめは今と同じ JSON を丸ごと。サーバーでも `ensureState()` と同じ確かめ。写真の控えは保存しない）。引っこしコードとゲストのデータの取りこみ口（1回だけ）。
+  - LINE版の CSP の `connect-src` に Supabase の URL を足す。
+- タスク3：時計に頼る処理をサーバーへ（第1弾：おなか・ごきげん、おやつ30分5回、おみやげ、きょうのおねがい、連続記録とおたすけ）。日付の区切りは日本時間。
+- そのあと：AIの読みとり（Edge Function から Claude、1日の上限、予算をオーナーと決める）、認証審査の準備（プライバシーポリシー、利用規約、アイコン130×130）、うちのこカード、公式アカウント。
 
 ## 気をつけること
 
@@ -36,4 +37,5 @@
 - `index.html` は CSP のハッシュつきなので、手で直さず `sh src/build.sh` で作る。
 - 組織 Y-s-Apps のほかの Pages サイトとは、セーブとキャッシュを共有する。LINE版は `y-s-apps.github.io` に置かない。
 - iPhoneのSafariでは、SVGが枠の外へ動くと残像が出る。体ごと大きく動くアニメは `#petArt` に付ける。
-- LIFF SDK は v2.20.0〜v2.31.0 に脆弱性があり、2026-11-24ごろ利用制限の予定。エッジパスのまま使う。
+- LIFF SDK は v2.20.0〜v2.31.0 に脆弱性があり、2026-11-24ごろ利用制限の予定。エッジパスのまま使う（いまの最新は v2.31.2）。
+- このセッションの外への通信は、パッケージの置き場と GitHub だけ。`*.pages.dev` や LINE の画面は直接見られないので、実機の確認はオーナーにお願いする。Cloudflare のビルド結果は、GitHub のコミットのチェック（「Cloudflare Pages」）で確かめられる。

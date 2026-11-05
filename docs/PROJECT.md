@@ -194,6 +194,7 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 
 ## 8. 更新履歴
 
+- **2026-11-06** LINE版に開発用の LIFF ID を設定（LINEミニアプリチャネル作成ずみ、Cloudflare Pages 公開ずみ）。LIFF SDK は `js_line.js` から読みこむように。プロフィールに「LINEと つながっています」などの1行（LINE版だけ）。
 - **2026-11-06** LINE版でも、AIで写真から種類・毛色・耳やしっぽの形を読みとるしくみを残すことに決定（10章）。
 - **2026-11-06** LINE版（LINEミニアプリ）の準備を始めた。計画書を作り、方針を決めた（10章）。`build.sh` が LINE版（`src/out/line/`）も作るように（LIFF SDK、Android版LINEの下のすき間、Service Worker・manifest なし）。ホーム画面版とClaude版の中身は変わらない。`tools/smoke.py` に `--line` と `--android-inset` を追加。
 - **2026-10-08** 初版（Claude版）：写真から種類を読みとり、ごはん・おやつ・あそび・なでなで・きせかえ・Lv。あそびのボールを犬はサッカーボール、猫は毛糸玉に。すずの首輪が見えない不具合を修正。
@@ -235,8 +236,9 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 ### しくみ（いまの段階：入れもの）
 
 - `build.sh` が `src/out/line/`（`index.html` と favicon）を作る。JS はホーム画面版と同じものに `js_line.js` を足したもの（`HOME = true`：端末に保存、写真は端末の中だけ）。ホーム画面版の `index.html`・`sw.js` と Claude版は変わらない。
-- LIFF SDK は、エッジパス `https://static.line-scdn.net/liff/edge/2/sdk.js`（v2 の最新版）を `async` で読みこむ。v2.20.0〜v2.31.0 には脆弱性があり、2026年11月24日ごろに利用制限の予定。版を固定しない。
-- LIFF ID は `js_line.js` の `LINE_CFG.liffId`。空のあいだは LIFF を使わない。SDK が読みこめない・初期化できない・外部ブラウザで開いた、のどれでもゲストとして遊べる。状態は `<html data-line="off|loading|ready|failed">`。
+- LIFF SDK は、`js_line.js` がエッジパス `https://static.line-scdn.net/liff/edge/2/sdk.js`（v2 の最新版）を読みこむ（待ち受けを先につけるので、失敗を取りこぼさない）。v2.20.0〜v2.31.0 には脆弱性があり、2026年11月24日ごろに利用制限の予定。版を固定しない。
+- LIFF ID は `js_line.js` の `LINE_CFG.liffId`。いまは開発用の `2012410263-cuCI7vQS`（LIFF URL：https://miniapp.line.me/2012410263-cuCI7vQS）。空にすると LIFF を使わない。SDK が読みこめない・初期化できない（10秒まで待つ）・外部ブラウザで開いた、のどれでもゲストとして遊べる。状態は `<html data-line="off|loading|ready|failed">`。
+- プロフィールのシートのいちばん下に、LINEとのつながりを1行出す（「LINEと つながっています」「LINEの外で ひらいています。ゲストとして あそべます」「LINEに つながれませんでした。ゲストとして あそべます（理由）」）。
 - CSP：スクリプトは `index.html` の中の1つと `static.line-scdn.net`。通信と iframe は `*.line.me`・`*.line-scdn.net`。サーバーを足すときは、その URL を `connect-src` に足す。
 - Android版LINE（26.3.0以降）の edge-to-edge：下のすき間を `max(env(safe-area-inset-bottom), var(--android-safe-area-inset-bottom))` で、`:root`・シート・ポップアップ・オンボーディングにあける。
 - 確認：`python3 tools/smoke.py --line --android-inset 48`（manifest と Service Worker がないこと、下のボタンとシートのすき間）。
@@ -251,6 +253,8 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 - ほうびや上限に関わる時刻と乱数はサーバーで決める。日付の区切りは日本時間。
 
 ### オーナーの準備
+
+済み（2026-11-06）：Cloudflare Pages（https://uchinoko-biyori.pages.dev/ ）、LINE Developers のプロバイダーと LINEミニアプリチャネル（開発用のエンドポイントURLは上の pages.dev）。権限設定は Admin がオーナー1人（Tester はなし）。
 
 1. Cloudflare Pages：Workers & Pages → Create application → Pages → Connect to Git → GitHub の `Y-s-Apps/uchinoko-biyori` をえらぶ → 上の設定で Save and Deploy。できた `*.pages.dev` のURLをソーイに知らせる。
 2. LINE Developers：プロバイダー（個人名か屋号）を作り、LINEミニアプリチャネル（サービスを提供する地域：日本）を作る。開発用のエンドポイントURLに 1. のURLを入れ、開発用の LIFF ID をソーイに知らせる。

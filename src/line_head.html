@@ -10,8 +10,7 @@
 <meta name="theme-color" content="#1B1922" media="(prefers-color-scheme: dark)">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
-<!-- LIFF SDK：エッジパス（v2 の最新版が自動で入る）。読みこめなくても、ゲストとして遊べる -->
-<script async charset="utf-8" id="liffSdk" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<!-- LIFF SDK は js_line.js が読みこむ（読みこめたか・失敗したかを取りこぼさないため）。CSP で static.line-scdn.net を許可 -->
 <style>
 /* Android版LINEは edge-to-edge 表示：下のナビゲーションバーの分を、LINEの変数と safe-area の大きいほうであける
    （変数がどの要素に置かれても届くよう、使う場所ごとに書く） */
