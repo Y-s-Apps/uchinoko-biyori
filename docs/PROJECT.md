@@ -276,7 +276,7 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
   - `POST /import {code}`：引っこしコード（`UCHINOKO2`）を、画面と同じ `readMoveCode()`（`decodeMovePayload()`＋`carryExtras()`）で読み、1人1回だけ入れる（おみやげの回数・きょうのおねがい・おやつの記録などはコードと同じく初期化）。2回目は 409。
   - `GET /health`：サーバーの時刻と、日本時間の日付。
   - セッションは `x-session` ヘッダー（`Authorization` は Supabase の入口が JWT として読むので使わない）。CORS は `https://uchinoko-biyori.pages.dev` とそのプレビュー（`<hash>.uchinoko-biyori.pages.dev`）だけ。ログにトークンやセーブの中身を出さない。
-  - `game.js` は `tools/build_server.py` が src/ から作る（データのファイルと `ensureState`・`carryExtras`・`readMoveCode` など。`dayKey()` だけはサーバーでは日本時間）。`deno.json` の `uchinoko-game` が、push したコミットの `game.js`（raw.githubusercontent.com、コミットのSHAで固定）を指すので、デプロイで送るのは `index.ts` と `deno.json` だけ。
+  - `game.js` は `tools/build_server.py` が src/ から作る（データのファイル、`js_rules.js`、`ensureState`・`carryExtras`・`readMoveCode` など。ルールの時計 `Clock` は、サーバーでは日付を日本時間・偶然を crypto にする）。`deno.json` の `uchinoko-game` が、push したコミットの `game.js`（raw.githubusercontent.com、コミットのSHAで固定）を指すので、デプロイで送るのは `index.ts` と `deno.json` だけ。
 - **画面（`js_line.js`）：** LINE の中で開き、LIFF の準備ができたらログインする。外部ブラウザ・SDK が読めない・初期化できない・サーバーに届かない、のどれでもゲスト（端末だけ）で遊べる。
   - セッションのトークンはページのメモリだけに置く（端末に保存しない。開くたびに `liff.getIDToken()` で取り直す。切れたら1回だけ取り直す）。HttpOnly の Cookie にしないのは、画面（pages.dev）とサーバー（supabase.co）のドメインがちがい、iPhone ではサイトをまたぐ Cookie がとめられるため。
   - 保存は `Persist.ref` をサーバー用に差しかえる（ホーム画面版・Claude版のコードはそのまま）。端末にもいままでどおり保存する。写真の控えはサーバーに送らない（ほかの端末では写真立てが出ない）。
