@@ -1,3 +1,5 @@
 smoke-out/
 src/out/
 __pycache__/
+tools/server/node_modules/
+supabase/functions/api/deno.local.json

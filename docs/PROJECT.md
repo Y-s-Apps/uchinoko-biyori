@@ -14,9 +14,9 @@
 
 | | ホーム画面版（メイン） | Claude版（予備） | LINE版（準備中） |
 | --- | --- | --- | --- |
-| 置き場所 | GitHub Pages（このリポジトリ） | Claudeのアーティファクト | Cloudflare Pages（このリポジトリの main から `src/out/line/` を自動で公開。オーナーの設定待ち） |
+| 置き場所 | GitHub Pages（このリポジトリ） | Claudeのアーティファクト | 画面は Cloudflare Pages（https://uchinoko-biyori.pages.dev/ 。main から `src/out/line/` を自動で公開）、サーバーは Supabase |
 | 写真から迎える | 写真の毛色を自動でひろう（タップでも色をひろえる）。種類は自分でえらぶ | Claudeが種類、毛色、耳やしっぽの形を読みとる | ホーム画面版と同じ（端末の中だけ） |
-| 保存 | 端末の localStorage | アカウントのDB（`data/users/<id>/pet`）＋ localStorage | いまは端末の localStorage（ゲスト）。サーバー（Supabase）はつぎの段階 |
+| 保存 | 端末の localStorage | アカウントのDB（`data/users/<id>/pet`）＋ localStorage | LINEの中で開くと、本人確認してサーバー（Supabase）にも保存＋ localStorage。外部ブラウザ・つながらないときは端末だけ（ゲスト） |
 | その他 | 全画面表示、オフライン可、アイコン | ― | LIFF SDK、Android版LINEの下のすき間。Service Worker・manifest なし |
 
 どれも同じ `src/` から `build.sh` で作ります（`HOME` で切り替え。LINE版は `line_head.html` と `js_line.js` を足します）。版のあいだは、引っこしコードかファイルで子どもを移せます。LINE版のくわしいことは「10. LINE版」にあります。
@@ -138,6 +138,8 @@ album[{t, k, ti, su, ic}], milestones{}, firsts{_init, meal, treat, play, pet, r
   - ホーム画面版は、空きが少ないときにも消されないように、ブラウザに保存の継続をお願いします（`navigator.storage.persist()`）。
 - スタンプは約100年分（40000日）、おたすけスタンプは6000日分までとっておきます（「ぜんぶ」の数がずっと増えるように）。
 - 引っこしコードは `UCHINOKO2:<base64の長さ>:<base64(JSON)>` です。`decodeMovePayload()` で中身を確かめ、`carryExtras()` で新しい項目を運びます。
+- LINE版だけのキー（`pages.dev` の中だけ）：`uchinoko-biyori:line-owner`（この端末のセーブが、どの会員のものか）と `uchinoko-biyori:line-guest`（LINEの子と入れかわった、この端末にいた子のひかえ）。どちらも消す処理は書きません（10章）。
+- LINE版のサーバーも、セーブを受けとるたびに同じ `ensureState()` を通します（`tools/build_server.py` が src/ から `game.js` を作る）。`ensureState()` や `carryExtras()`・引っこしコードの読みとりを変えたら、サーバーも作り直してデプロイします（10章）。
 
 ### 安全のための決まり
 
@@ -166,6 +168,7 @@ album[{t, k, ti, su, ic}], milestones{}, firsts{_init, meal, treat, play, pet, r
   - 組織 Y-s-Apps のほかの Pages サイトは、このアプリのセーブ（名前、写真の小さな控え、育てた記録）を読んだり書きかえたりできます。組織には信頼できる自分のアプリだけを置きます。人に作ってもらったものや試しのページを出すときは、別のアカウントか独自ドメインにします。
   - 書きかえられたセーブを読んでも、`ensureState()` と `esc()` で、画面がこわれたりスクリプトが動いたりしないようにしています。
   - 端末に保存しているのは、ペットの名前・みため・写真の小さな控え（160px）・育てた記録だけです。アカウント、パスワード、場所などは保存しません。
+- **LINE版のサーバー（Supabase）：** 表は Data API に出さない `app` スキーマにあり、Edge Function `api` からしか読み書きできません。IDトークンは LINE で検証してから `sub` だけを使い、LINE のトークンは保存しません。セッションのトークンは画面のメモリだけに置き、サーバーにはハッシュだけを持ちます。写真の控えはサーバーに送らず、置きません。ログにトークンやセーブの中身を出しません（くわしくは10章）。
 
 ### URLの引っこし（組織 Y-s-Apps への移動）：済み（2026-10-29）
 
@@ -194,6 +197,7 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 
 ## 8. 更新履歴
 
+- **2026-11-06** LINE版の本人確認とセーブ（タスク2）。Supabase に「uchinoko-biyori」を作り、`app` スキーマに会員・LINEのひもづけ・セッション・セーブの表。Edge Function `api`：IDトークンを LINE で検証 → 会員ID → 自前のセッション、セーブの読み書き（画面と同じ `ensureState()`、写真は置かない、`rev` でぶつかりを見つける）、引っこしコードの取りこみ（1人1回）。LINE版の画面は、LINEの中で開くとサーバーにも保存し、この端末にいたちがう子は「つれてくる／やめておく」を聞く。`tools/build_server.py`（サーバー用の game.js）と `tools/line_e2e.py`（サーバーと画面の通し確認）を追加。ホーム画面版とClaude版の中身は変わらない（10章）。
 - **2026-11-06** LINE版に開発用の LIFF ID を設定（LINEミニアプリチャネル作成ずみ、Cloudflare Pages 公開ずみ）。LIFF SDK は `js_line.js` から読みこむように。プロフィールに「LINEと つながっています」などの1行（LINE版だけ）。
 - **2026-11-06** LINE版でも、AIで写真から種類・毛色・耳やしっぽの形を読みとるしくみを残すことに決定（10章）。
 - **2026-11-06** LINE版（LINEミニアプリ）の準備を始めた。計画書を作り、方針を決めた（10章）。`build.sh` が LINE版（`src/out/line/`）も作るように（LIFF SDK、Android版LINEの下のすき間、Service Worker・manifest なし）。ホーム画面版とClaude版の中身は変わらない。`tools/smoke.py` に `--line` と `--android-inset` を追加。
@@ -232,22 +236,53 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 - ホーム画面版（GitHub Pages）は残す。
 - だいず：LINE版を公開するまでは、ホーム画面版が正本。公開の日に引っこしコードで LINE版へコピーして移る。それまでの試しは別の子で行う。
 - AIの読みとり：いまのClaude版のように、写真からAI（Claude）で種類・毛色・耳やしっぽの形を読みとるしくみを、LINE版でも残す。サーバーができてから足す。AIの利用料は1回ごとにかかるので、ここだけは無料にならない。1人1日の回数に上限をつけ、AIを使わない選び方（端末の中で色をひろう、種類からえらぶ）も残す。
+- Supabase のプロジェクトは、うちのこ日和用に新しく作る（「uchinoko-biyori」、東京）。記事・曲のアプリの「Yuthy's Project」とは同居させない。
+- セッションは、画面のメモリに置くトークン（`x-session` ヘッダー）にする。計画書の HttpOnly の Cookie は、画面とサーバーのドメインがちがい iPhone でとめられるので使わない（端末にも保存しない）。
+- 引っこしコードとこの端末にいた子の取りこみは、合わせて1人1回。サーバーにまだ子がいないときに、この端末の子をはじめてのセーブにするのは、取りこみに数えない。
 
-### しくみ（いまの段階：入れもの）
+### しくみ（画面：入れもの）
 
 - `build.sh` が `src/out/line/`（`index.html` と favicon）を作る。JS はホーム画面版と同じものに `js_line.js` を足したもの（`HOME = true`：端末に保存、写真は端末の中だけ）。ホーム画面版の `index.html`・`sw.js` と Claude版は変わらない。
 - LIFF SDK は、`js_line.js` がエッジパス `https://static.line-scdn.net/liff/edge/2/sdk.js`（v2 の最新版）を読みこむ（待ち受けを先につけるので、失敗を取りこぼさない）。v2.20.0〜v2.31.0 には脆弱性があり、2026年11月24日ごろに利用制限の予定。版を固定しない。
 - LIFF ID は `js_line.js` の `LINE_CFG.liffId`。いまは開発用の `2012410263-cuCI7vQS`（LIFF URL：https://miniapp.line.me/2012410263-cuCI7vQS）。空にすると LIFF を使わない。SDK が読みこめない・初期化できない（10秒まで待つ）・外部ブラウザで開いた、のどれでもゲストとして遊べる。状態は `<html data-line="off|loading|ready|failed">`。
 - プロフィールのシートのいちばん下に、LINEとのつながりを1行出す（「LINEと つながっています」「LINEの外で ひらいています。ゲストとして あそべます」「LINEに つながれませんでした。ゲストとして あそべます（理由）」）。
-- CSP：スクリプトは `index.html` の中の1つと `static.line-scdn.net`。通信と iframe は `*.line.me`・`*.line-scdn.net`。サーバーを足すときは、その URL を `connect-src` に足す。
+- CSP：スクリプトは `index.html` の中の1つと `static.line-scdn.net`。通信と iframe は `*.line.me`・`*.line-scdn.net`。通信はほかに、サーバーの `https://ftakgswltcavwixqxpzi.supabase.co`（`js_line.js` の `LINE_CFG.api` とそろえる）。
 - Android版LINE（26.3.0以降）の edge-to-edge：下のすき間を `max(env(safe-area-inset-bottom), var(--android-safe-area-inset-bottom))` で、`:root`・シート・ポップアップ・オンボーディングにあける。
 - 確認：`python3 tools/smoke.py --line --android-inset 48`（manifest と Service Worker がないこと、下のボタンとシートのすき間）。
 - Cloudflare Pages の設定：本番ブランチ `main`、フレームワーク なし、ビルドコマンド `sh src/build.sh`、出力 `src/out/line`。`openssl` がない環境でも `build.sh` は python3 で同じハッシュを出す。
 
-### つぎの段階のきまり（本人確認とサーバー）
+### しくみ（本人確認とセーブ：2026-11-06）
 
-- `liff.getIDToken()` の生のトークンだけをサーバーへ送り、`https://api.line.me/oauth2/v2.1/verify` で検証して `sub` を使う。`liff.getProfile()` や `getDecodedIDToken()` の値は本人確認に使わない。
-- 検証のあとは自前のセッションにする。LINE のトークンは保存しない。自前の会員IDをゲームデータの主キーにし、`sub` は別の表に持つ。
+**サーバー：** Supabase のプロジェクト「uchinoko-biyori」（`ftakgswltcavwixqxpzi`、東京、組織 `Yuthy's` の無料プラン。記事・曲のアプリの「Yuthy's Project」とは分けた）。
+
+- **表**（`supabase/migrations/`）：すべて `app` スキーマ。`app` は Data API に出さないので、公開されている鍵からは読めも書けもしない。読み書きするのは Edge Function `api` だけ（`SUPABASE_DB_URL` で直接つなぐ）。RLS も有効（ポリシーなし＝ほかからは何もできない）。
+  - `members`：自前の会員ID（ゲームデータの主キー）、`imported_at`（取りこみを使った日時。1人1回）
+  - `line_accounts`：LINE の `sub` → 会員ID（`sub` はプロバイダーごとの LINE ユーザーID）
+  - `sessions`：自前のセッション。トークンの SHA-256 だけを持つ。有効は24時間、1人10個まで（古いものから消す）
+  - `saves`：セーブ（いまの `S` を丸ごと JSON。`pet.photo` はつねに null）、`rev`（書くたびに +1）
+- **Edge Function `api`**（`supabase/functions/api/index.ts`、`verify_jwt: false`。自前のセッションで確かめる）：
+  - `POST /login {idToken}`：IDトークンの `aud` が LINEミニアプリチャネルのチャネルID（`2012410263`。秘密ではない）か見てから、`https://api.line.me/oauth2/v2.1/verify` で検証し、`iss`・`aud`・`exp`・`sub` を確かめる。はじめての `sub` なら会員IDを作る。新しいセッションのトークン、会員ID、取りこみが使えるか、セーブを返す。
+  - `GET /save`、`POST /save {data, baseRev}`：書くときは画面と同じ `ensureState()` を通し、写真を null にし、JSON は150万文字まで。`baseRev` が今の `rev` とちがえば 409 と今のセーブを返す（ほかの端末が先に書いた）。
+  - `POST /import {code}`：引っこしコード（`UCHINOKO2`）を、画面と同じ `readMoveCode()`（`decodeMovePayload()`＋`carryExtras()`）で読み、1人1回だけ入れる（おみやげの回数・きょうのおねがい・おやつの記録などはコードと同じく初期化）。2回目は 409。
+  - `GET /health`：サーバーの時刻と、日本時間の日付。
+  - セッションは `x-session` ヘッダー（`Authorization` は Supabase の入口が JWT として読むので使わない）。CORS は `https://uchinoko-biyori.pages.dev` とそのプレビュー（`<hash>.uchinoko-biyori.pages.dev`）だけ。ログにトークンやセーブの中身を出さない。
+  - `game.js` は `tools/build_server.py` が src/ から作る（データのファイルと `ensureState`・`carryExtras`・`readMoveCode` など。`dayKey()` だけはサーバーでは日本時間）。`deno.json` の `uchinoko-game` が、push したコミットの `game.js`（raw.githubusercontent.com、コミットのSHAで固定）を指すので、デプロイで送るのは `index.ts` と `deno.json` だけ。
+- **画面（`js_line.js`）：** LINE の中で開き、LIFF の準備ができたらログインする。外部ブラウザ・SDK が読めない・初期化できない・サーバーに届かない、のどれでもゲスト（端末だけ）で遊べる。
+  - セッションのトークンはページのメモリだけに置く（端末に保存しない。開くたびに `liff.getIDToken()` で取り直す。切れたら1回だけ取り直す）。HttpOnly の Cookie にしないのは、画面（pages.dev）とサーバー（supabase.co）のドメインがちがい、iPhone ではサイトをまたぐ Cookie がとめられるため。
+  - 保存は `Persist.ref` をサーバー用に差しかえる（ホーム画面版・Claude版のコードはそのまま）。端末にもいままでどおり保存する。写真の控えはサーバーに送らない（ほかの端末では写真立てが出ない）。
+  - ログインしたら、サーバーと端末のセーブを合わせる：サーバーに子がいなければ、この端末の子をはじめてのセーブにする（取りこみの1回は使わない）。同じ子なら「開いたときのセーブの時刻」で新しいほう。サーバーの子とこの端末の子がちがい、この端末のセーブがこのLINEのものでないとき（`line-owner` がちがう）は、サーバーの子に会い、この端末の子は `uchinoko-biyori:line-guest` にとっておいて、「つれてくる／やめておく」を聞く（つれてくるのは取りこみの1回を使う）。同じ子なら、この端末の写真の控えはのこす。
+  - 引っこしコードで受け取ると、サーバーには `/import` から入れる。もう使ったあとは、コードを読んだところで「1回だけです」と出して、いまの子のまま。引っこしのシートとはじめての画面の受け取り口に、1回だけの決まりを1行出す。
+  - 書きこみがぶつかったら（409）、新しいほうを使う（サーバーが新しければその子に、こちらが新しければ書き直す）。サーバーに4回続けて届かないときは、その回は端末だけに保存し、つぎに開いたときにまたつなぐ。
+  - プロフィールの1行：「LINEと つながっています」「LINEと つながっています（サーバーに つないでいます…）」「LINEと つながっています。サーバーに つながれないので、この端末に ほぞんしています（理由）」。状態は `<html data-line-server="connecting|on|failed">`。
+- **確認：** `python3 tools/line_e2e.py`（はじめに `cd tools/server && npm install`）。サーバーの関数を Deno と PGlite（メモリの中の Postgres）で動かし（LINE の検証だけまねる）、サーバー単体の36項目と、LINE版の画面をスマホ幅で開いて9つの場面（はじめての子、ゲストの子のはじめてのセーブ、ほかの端末の新しいセーブ、この端末にいた子をつれてくる、引っこしコードは1回だけ、はじめての引っこしコード、書きこみのぶつかり、サーバーに届かない、外部ブラウザ）を確かめる。本物の Supabase は、`execute_sql` から `net.http_get` / `net.http_post`（pg_net）で呼んで確かめる（Claude の作業環境からは supabase.co に直接届かないため）。
+- **デプロイ：** `python3 tools/build_server.py`（game.js）→ main に push → `python3 tools/build_server.py --pin <そのコミットのSHA>` → Supabase の MCP で `api` に `index.ts` と `deno.json` をデプロイ（`verify_jwt: false`）→ `python3 tools/build_server.py --check` → pg_net で `/health` など。表を変えるときは `supabase/migrations/` に足して `apply_migration`。
+- **いまの限り（タスク3で直す）：** `POST /save` はセーブを丸ごと受けとるので、おやつの回数やおみやげなど、時計と乱数で決まるものは、まだ画面が決めている。
+- **公開の前に：** 試しの会員とセーブ（Tester のアカウントのものも）を消してから、だいずを引っこしコードで取りこむ（取りこみは1人1回なので）。
+
+### サーバーのきまり
+
+- `liff.getIDToken()` の生のトークンだけをサーバーへ送り、`https://api.line.me/oauth2/v2.1/verify` で検証して `sub` を使う。`liff.getProfile()` や `getDecodedIDToken()` の値は本人確認に使わない。（済み）
+- 検証のあとは自前のセッションにする。LINE のトークンは保存しない。自前の会員IDをゲームデータの主キーにし、`sub` は別の表に持つ。（済み）
 - プロフィール（名前・アイコン）の許可は、友だち機能を使うときだけ求める。
 - 写真の控え（160px）はサーバーに送らない。AIの読みとりを使うときだけ、端末で小さくした写真（位置情報などは消える）を、確認のあとサーバー（Edge Functions）経由でAIへ送る。読みとったらすぐ捨て、サーバーにもログにも残さない。APIの鍵はサーバーだけに置く。返事はClaude版と同じく、知っている種類・決まった形の色・短い文字だけを使い、`esc()` を通して出す。
 - ほうびや上限に関わる時刻と乱数はサーバーで決める。日付の区切りは日本時間。
@@ -256,6 +291,7 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 
 済み（2026-11-06）：Cloudflare Pages（https://uchinoko-biyori.pages.dev/ ）、LINE Developers のプロバイダーと LINEミニアプリチャネル（開発用のエンドポイントURLは上の pages.dev）。権限設定は、Admin が管理用のアカウント（メールのビジネスID）、Tester がオーナーのふだんのLINEアカウント。実機での確認は Tester のLINEで行う（Admin はスマホのLINEとつながっていないため）。
 - 実機での確認ずみ（2026-11-06、iPhone の LINE）：画面が出る、下の5つのボタンとシートが隠れない、上の LINE のバーとヘッダーが重ならない、プロフィールに「LINEと つながっています」。Android は未確認。
+- Supabase：うちのこ日和用のプロジェクト「uchinoko-biyori」を新しく作った（2026-11-06、オーナーが決定。無料プランの2つ目なので、組織の枠はいっぱい）。チャネルシークレットなどの秘密は使っていない（IDトークンの検証に要るのはチャネルIDだけ）。
 
 1. Cloudflare Pages：Workers & Pages → Create application → Pages → Connect to Git → GitHub の `Y-s-Apps/uchinoko-biyori` をえらぶ → 上の設定で Save and Deploy。できた `*.pages.dev` のURLをソーイに知らせる。
 2. LINE Developers：プロバイダー（個人名か屋号）を作り、LINEミニアプリチャネル（サービスを提供する地域：日本）を作る。開発用のエンドポイントURLに 1. のURLを入れ、開発用の LIFF ID をソーイに知らせる。

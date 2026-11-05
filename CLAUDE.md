@@ -23,11 +23,17 @@
 | `src/js_app.js` | 状態 `S`、保存、ペットの動き、おせわ、シート、引っこしコード、`Game.start` |
 | `src/js_features.js` | `ensureState`（セーブの移行）、おねがい、おたすけ、おみやげ、イベント、もようがえ、げい、アルバム |
 | `src/js_onboard.js` | 写真から迎える流れ、種類・色・名前の編集、起動処理（boot） |
-| `src/js_line.js` | LINE版だけのJS（LIFF の準備。LIFF ID は `LINE_CFG.liffId`） |
+| `src/js_line.js` | LINE版だけのJS（LIFF の準備、サーバーでの本人確認とセーブ。`LINE_CFG.liffId`・`LINE_CFG.api`） |
 | `src/sw.js` | オフライン用のService Worker（`__VER__` はビルド時に置きかわる） |
 | `src/build.sh` | 組み立て。`../index.html` と `../sw.js`（ホーム画面版）、`out/uchinoko-claude.html`（Claude版）、`out/line/`（LINE版）を出力 |
 | `src/icons/` | アイコンの元データ（1024px）と描画スクリプト |
 | `tools/smoke.py` | スマホ幅での動作確認とスクリーンショット |
+| `supabase/migrations/` | LINE版のサーバー（Supabase「uchinoko-biyori」）の表。`app` スキーマ（Data API に出さない） |
+| `supabase/functions/api/index.ts` | LINE版のサーバーの関数（本人確認・セーブ・引っこしコードの取りこみ） |
+| `supabase/functions/api/game.js` | サーバーで使う `ensureState` など（`tools/build_server.py` が src/ から作る。手で直さない） |
+| `supabase/functions/api/deno.json` | `uchinoko-game` が、push したコミットの `game.js` を指す（`--pin` で書きかえる） |
+| `tools/build_server.py` | `game.js` を作る・確かめる（`--check`）・コミットに固定する（`--pin <SHA>`） |
+| `tools/line_e2e.py` | LINE版のサーバーと画面の通し確認（`tools/server/` の Deno と PGlite を使う。はじめに `cd tools/server && npm install`） |
 | ルートの `index.html` `sw.js` `manifest.webmanifest` `*.png` | 公開ファイル（ビルド結果なので手で直さない） |
 
 JSは1つの `<script>` に `build.sh` の順でつなげられます。`const HOME = true/false` で、ホーム画面版とClaude版の差を切り替えます。LINE版は `HOME = true` に `js_line.js` を足したものです（`docs/PROJECT.md` の10章）。
@@ -36,10 +42,11 @@ JSは1つの `<script>` に `build.sh` の順でつなげられます。`const H
 
 1. `src/` だけを編集します。ルートの `index.html` は手で直しません。
 2. `sh src/build.sh` を実行します。`node --check` 相当の構文チェックは、ビルド結果を `node --check` に通して確認します。
-3. `python3 tools/smoke.py` で、スマホ幅（390×844）の主要画面を確認します。スクリーンショットを見て、ページエラーが0件であることを確かめます。LINE版にかかわる変更では `python3 tools/smoke.py --line --android-inset 48` も通します。
+3. `python3 tools/smoke.py` で、スマホ幅（390×844）の主要画面を確認します。スクリーンショットを見て、ページエラーが0件であることを確かめます。LINE版にかかわる変更では `python3 tools/smoke.py --line --android-inset 48` と `python3 tools/line_e2e.py`（サーバーと画面の通し確認）も通します。
+   - **サーバー（`supabase/`）や、サーバーでも使う関数（`ensureState`・`carryExtras`・引っこしコードの読みとり、データのファイル）を変えたとき：** `python3 tools/build_server.py` → `python3 tools/line_e2e.py` → main に push → `python3 tools/build_server.py --pin <そのコミットのSHA>` → Supabase の MCP で `api` に `index.ts` と `deno.json` をデプロイ（`verify_jwt: false`、`import_map_path: deno.json`）→ `--check` → `execute_sql` から pg_net（`net.http_get` / `net.http_post`）で `/health` などを確かめる → deno.json を含めてもう一度 push。表を変えるときは `supabase/migrations/` に足して `apply_migration` し、`get_advisors` で確かめます（`docs/PROJECT.md` の10章）。
 4. 日本語のコミットメッセージで `main` に push します。1〜2分で GitHub Pages に反映されます（Actions の「pages build and deployment」で確認できます）。
 5. 仕様や決めたことが変わったら、`docs/PROJECT.md` の該当箇所と「更新履歴」も同じコミットで更新します。`docs/PROJECT.md` の先頭の「最終更新」の日付も、push のたびに更新します。
-6. 最後に、オーナーへ「プロジェクトのナレッジで『Sync now』（同期）を押してください」と一言添えます。ナレッジは自動では更新されず、同期した時点の GitHub の中身に置きかわります。新しいフォルダをルートに足したときは、ナレッジのファイル選択にも追加してもらいます。
+6. 最後に、オーナーへ「プロジェクトのナレッジで『Sync now』（同期）を押してください」と一言添えます。ナレッジは自動では更新されず、同期した時点の GitHub の中身に置きかわります。新しいフォルダをルートに足したときは、ナレッジのファイル選択にも追加してもらいます（`supabase/` は 2026-11-06 に追加をお願いずみ）。
 7. ひとまとまりの作業が終わったら、オーナーに「完了」と伝え、`docs/HANDOFF.md` を書き直したうえで、新しいチャットで続きから始めるためのプロンプト（コピーして貼れる形）を作ります。オーナーは作業ごとに新しいチャットへ移ります。
 
 ## 守ること
@@ -54,4 +61,5 @@ JSは1つの `<script>` に `build.sh` の順でつなげられます。`const H
 - **デザイン。** 実在のチームやブランドのデザイン（ユニフォームなど）は再現しません。トリコロールの色づかいはOKです。
 - **Claude版。** https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs に `src/out/uchinoko-claude.html` を同じURLのまま公開し直します。`capabilities` ははぶいて、いまの宣言（db のルール、user・sample・downloads）を引きつぎます。権限を足すときは、`docs/PROJECT.md` の「安全のための決まり」にある宣言を全部書いたうえで足します。
 - **LINE版。** LINE版だけの変更は `src/line_head.html` と `src/js_line.js` に書き、ホーム画面版の `index.html`・`sw.js` を変えないようにします（変わると、だいずのアプリが更新されます。ビルドの前後で比べる）。LIFF SDK はエッジパスのまま使い、古い版に固定しません。LINE のユーザーIDやプロフィールの値を本人確認に使わず、IDトークンをサーバーで検証します。写真の控え（160px）はサーバーに送りません。AIの読みとりで写真を送るときは、端末で小さくしてからサーバー経由で送り、保存もログもしません（`docs/PROJECT.md` の10章）。
+- **LINE版のサーバー。** 表は `app` スキーマに置き、Data API に出しません（`public` に置かない。anon・authenticated に権限をあたえない）。読み書きは Edge Function `api` からだけ。セッションのトークンは画面のメモリだけに置き（localStorage に保存しない）、DB にはハッシュだけ。ログにトークン・IDトークン・セーブの中身を出しません。チャネルシークレットや APIの鍵が要るときは、チャットに貼ってもらわず、Supabase の画面で入れてもらいます（`create_edge_function_secret`）。LINE版の端末のキー `uchinoko-biyori:line-owner` と `uchinoko-biyori:line-guest` も消す処理は書きません。サーバーの URL を変えるときは `LINE_CFG.api` と `line_head.html` の CSP（`connect-src`）をそろえます。
 - **ポップアップ。** 画面全体を暗くして中央に出します（`Modal.show`）。同時に複数あるときは順番に出ます。

@@ -2,7 +2,7 @@
  *
  *   POST /login   { idToken }        LINE の IDトークンを検証 → 会員ID → 自前のセッション（とセーブ）を返す
  *   GET  /save                       セーブを読む
- *   PUT  /save    { data, baseRev }  セーブを書く（baseRev が今の rev とちがえば 409 と今のセーブ）
+ *   POST /save    { data, baseRev }  セーブを書く（baseRev が今の rev とちがえば 409 と今のセーブ）
  *   POST /import  { code }           引っこしコード（この端末の子も同じ形で送る）を取りこむ。1人1回だけ
  *   GET  /health                     動いているか・サーバーの時刻
  *
@@ -40,7 +40,7 @@ function corsHeaders(origin: string | null): Record<string, string> {
   const h: Record<string, string> = { 'Vary':'Origin' };
   if (origin && (ORIGINS.includes(origin) || PREVIEW.test(origin))){
     h['Access-Control-Allow-Origin'] = origin;
-    h['Access-Control-Allow-Methods'] = 'GET, POST, PUT, OPTIONS';
+    h['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS';
     h['Access-Control-Allow-Headers'] = 'content-type, x-session';
     h['Access-Control-Max-Age'] = '600';
   }
@@ -206,7 +206,7 @@ async function route(req: Request): Promise<unknown> {
   if (path === '/health' && m === 'GET') return { ok:true, now:Date.now(), day:dayKey() };
   if (path === '/login' && m === 'POST') return await login(req);
   if (path === '/save' && m === 'GET') return await getSave(await sessionMember(req));
-  if (path === '/save' && m === 'PUT') return await putSave(req, await sessionMember(req));
+  if (path === '/save' && m === 'POST') return await putSave(req, await sessionMember(req));
   if (path === '/import' && m === 'POST') return await importCode(req, await sessionMember(req));
   throw new HttpError(404, 'notfound');
 }

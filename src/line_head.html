@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src '__SCRIPT_HASH__' https://static.line-scdn.net; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.line-scdn.net; connect-src 'self' https://*.line.me https://*.line-scdn.net; frame-src https://*.line.me; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src '__SCRIPT_HASH__' https://static.line-scdn.net; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.line-scdn.net; connect-src 'self' https://*.line.me https://*.line-scdn.net https://ftakgswltcavwixqxpzi.supabase.co; frame-src https://*.line.me; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="写真の犬や猫をそっくりなペットにして、ごはん・おやつ・なでなででのんびり育てるアプリ">
@@ -10,7 +10,8 @@
 <meta name="theme-color" content="#1B1922" media="(prefers-color-scheme: dark)">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
-<!-- LIFF SDK は js_line.js が読みこむ（読みこめたか・失敗したかを取りこぼさないため）。CSP で static.line-scdn.net を許可 -->
+<!-- LIFF SDK は js_line.js が読みこむ（読みこめたか・失敗したかを取りこぼさないため）。CSP で static.line-scdn.net を許可。
+     サーバー（本人確認とセーブ）は Supabase の Edge Function：connect-src の ftakgswltcavwixqxpzi.supabase.co は js_line.js の LINE_CFG.api とそろえる -->
 <style>
 /* Android版LINEは edge-to-edge 表示：下のナビゲーションバーの分を、LINEの変数と safe-area の大きいほうであける
    （変数がどの要素に置かれても届くよう、使う場所ごとに書く） */

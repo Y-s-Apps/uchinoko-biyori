@@ -1,0 +1,10 @@
+{
+  "name": "uchinoko-server-tests",
+  "private": true,
+  "description": "サーバー（supabase/functions/api）の確認用：Deno と PGlite（メモリの中の Postgres）。cd tools/server && npm install",
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.15",
+    "@electric-sql/pglite-socket": "0.2.18",
+    "deno": "2.9.6"
+  }
+}
