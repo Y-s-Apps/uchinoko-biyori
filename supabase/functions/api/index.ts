@@ -312,7 +312,7 @@ function jpegData(raw: unknown): string {
   return m[1];
 }
 
-/* 1回分をとっておく（上限をこえていたら null）。1日ごとの数は、日付のロックで順番に数える */
+/* 1回分をとっておく（とれたら null、上限なら 'limit'（1人）・'busy'（全員））。1日ごとの数は、日付のロックで順番に数える */
 async function aiReserve(member: string, day: string): Promise<'limit' | 'busy' | null> {
   return await sql.begin(async tx => {
     await tx`select pg_advisory_xact_lock(hashtextextended(${'ai:' + day}, 0))`;
