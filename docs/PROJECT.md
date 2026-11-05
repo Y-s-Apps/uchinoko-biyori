@@ -1,6 +1,6 @@
 # うちのこ日和：仕様と決めたこと
 
-最終更新：2026-10-29（ナレッジの中身がこの日付より古いときは、プロジェクトのナレッジで「Sync now」を押すと最新になります）
+最終更新：2026-11-06（ナレッジの中身がこの日付より古いときは、プロジェクトのナレッジで「Sync now」を押すと最新になります）
 
 ## 1. どんなアプリか
 
@@ -10,16 +10,16 @@
 - 操作はシンプルなまま、遊べることを増やしていく方針です。
 - 使っている人：オーナー1人（iPhone、ホーム画面に追加）。いま育てている子は「だいず」（クリームのポメラニアン）です。
 
-## 2. 2つの版
+## 2. 3つの版
 
-| | ホーム画面版（メイン） | Claude版（予備） |
-| --- | --- | --- |
-| 置き場所 | GitHub Pages（このリポジトリ） | Claudeのアーティファクト |
-| 写真から迎える | 写真の毛色を自動でひろう（タップでも色をひろえる）。種類は自分でえらぶ | Claudeが種類、毛色、耳やしっぽの形を読みとる |
-| 保存 | 端末の localStorage | アカウントのDB（`data/users/<id>/pet`）＋ localStorage |
-| その他 | 全画面表示、オフライン可、アイコン | ― |
+| | ホーム画面版（メイン） | Claude版（予備） | LINE版（準備中） |
+| --- | --- | --- | --- |
+| 置き場所 | GitHub Pages（このリポジトリ） | Claudeのアーティファクト | Cloudflare Pages（このリポジトリの main から `src/out/line/` を自動で公開。オーナーの設定待ち） |
+| 写真から迎える | 写真の毛色を自動でひろう（タップでも色をひろえる）。種類は自分でえらぶ | Claudeが種類、毛色、耳やしっぽの形を読みとる | ホーム画面版と同じ（端末の中だけ） |
+| 保存 | 端末の localStorage | アカウントのDB（`data/users/<id>/pet`）＋ localStorage | いまは端末の localStorage（ゲスト）。サーバー（Supabase）はつぎの段階 |
+| その他 | 全画面表示、オフライン可、アイコン | ― | LIFF SDK、Android版LINEの下のすき間。Service Worker・manifest なし |
 
-どちらも同じ `src/` から `build.sh` で作ります（`HOME` で切り替え）。2つの版のあいだは、引っこしコードかファイルで子どもを移せます。
+どれも同じ `src/` から `build.sh` で作ります（`HOME` で切り替え。LINE版は `line_head.html` と `js_line.js` を足します）。版のあいだは、引っこしコードかファイルで子どもを移せます。LINE版のくわしいことは「10. LINE版」にあります。
 
 ## 3. 画面
 
@@ -194,6 +194,7 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 
 ## 8. 更新履歴
 
+- **2026-11-06** LINE版（LINEミニアプリ）の準備を始めた。計画書を作り、方針を決めた（10章）。`build.sh` が LINE版（`src/out/line/`）も作るように（LIFF SDK、Android版LINEの下のすき間、Service Worker・manifest なし）。ホーム画面版とClaude版の中身は変わらない。`tools/smoke.py` に `--line` と `--android-inset` を追加。
 - **2026-10-08** 初版（Claude版）：写真から種類を読みとり、ごはん・おやつ・あそび・なでなで・きせかえ・Lv。あそびのボールを犬はサッカーボール、猫は毛糸玉に。すずの首輪が見えない不具合を修正。
 - **2026-10-08** なかよしLvを最大100に、おやつを各18種、きせかえを38種（3スロット）に。トリコロールのマフラーを追加。
 - **2026-10-09** レベルアップを全画面のポップアップに。「つぎのごほうび」を2行表記に。
@@ -215,3 +216,40 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 - 複数の子をいっしょに飼う
 - おしゃべり（Claude版なら写真読み取りと同じしくみで可能）
 - 季節イベントの追加（ひなまつり、おつきみ以外の秋など）
+
+## 10. LINE版（LINEミニアプリ）
+
+計画書（現状の構成、端末の時計に頼る処理、変更点、収益化、法律の注意、審査のチェックリスト）：https://claude.ai/artifact/AgKkCkHCsWAywKGV6VFxwK
+
+### 決めたこと（2026-11-06）
+
+- 提供者は個人。認証審査を個人で受けられるかは、チャネルを作るときに確かめる（未認証のままなら審査なしで出せる）。
+- 課金と広告は、次の順で足す：①無料・広告なしで出す → ②認証審査、LINE公式アカウント、うちのこカード → ③パズル（「あそぶ」の中）とリワード広告 → ④季節の「おへやセット」（アプリ内課金）。有料ガチャとゲーム内通貨は作らない。課金や広告の入口は、おなか・ごきげんが下がったときに出さない。なかよしはお金で買えない。
+- サーバーは Supabase（無料プランから）。無料プランは、使われない日が1週間ほど続くとプロジェクトが止まる。
+- 画面の置き場所は Cloudflare Pages（無料）。Supabase は HTML を文字として返す（ファイル置き場も Edge Functions も。独自ドメインは有料）ため。`y-s-apps.github.io` には置かない（組織のほかの Pages と localStorage を共有するため）。
+- ホーム画面版（GitHub Pages）は残す。
+- だいず：LINE版を公開するまでは、ホーム画面版が正本。公開の日に引っこしコードで LINE版へコピーして移る。それまでの試しは別の子で行う。
+
+### しくみ（いまの段階：入れもの）
+
+- `build.sh` が `src/out/line/`（`index.html` と favicon）を作る。JS はホーム画面版と同じものに `js_line.js` を足したもの（`HOME = true`：端末に保存、写真は端末の中だけ）。ホーム画面版の `index.html`・`sw.js` と Claude版は変わらない。
+- LIFF SDK は、エッジパス `https://static.line-scdn.net/liff/edge/2/sdk.js`（v2 の最新版）を `async` で読みこむ。v2.20.0〜v2.31.0 には脆弱性があり、2026年11月24日ごろに利用制限の予定。版を固定しない。
+- LIFF ID は `js_line.js` の `LINE_CFG.liffId`。空のあいだは LIFF を使わない。SDK が読みこめない・初期化できない・外部ブラウザで開いた、のどれでもゲストとして遊べる。状態は `<html data-line="off|loading|ready|failed">`。
+- CSP：スクリプトは `index.html` の中の1つと `static.line-scdn.net`。通信と iframe は `*.line.me`・`*.line-scdn.net`。サーバーを足すときは、その URL を `connect-src` に足す。
+- Android版LINE（26.3.0以降）の edge-to-edge：下のすき間を `max(env(safe-area-inset-bottom), var(--android-safe-area-inset-bottom))` で、`:root`・シート・ポップアップ・オンボーディングにあける。
+- 確認：`python3 tools/smoke.py --line --android-inset 48`（manifest と Service Worker がないこと、下のボタンとシートのすき間）。
+- Cloudflare Pages の設定：本番ブランチ `main`、フレームワーク なし、ビルドコマンド `sh src/build.sh`、出力 `src/out/line`。`openssl` がない環境でも `build.sh` は python3 で同じハッシュを出す。
+
+### つぎの段階のきまり（本人確認とサーバー）
+
+- `liff.getIDToken()` の生のトークンだけをサーバーへ送り、`https://api.line.me/oauth2/v2.1/verify` で検証して `sub` を使う。`liff.getProfile()` や `getDecodedIDToken()` の値は本人確認に使わない。
+- 検証のあとは自前のセッションにする。LINE のトークンは保存しない。自前の会員IDをゲームデータの主キーにし、`sub` は別の表に持つ。
+- プロフィール（名前・アイコン）の許可は、友だち機能を使うときだけ求める。
+- 写真の控えはサーバーに送らない・保存しない。
+- ほうびや上限に関わる時刻と乱数はサーバーで決める。日付の区切りは日本時間。
+
+### オーナーの準備
+
+1. Cloudflare Pages：Workers & Pages → Create application → Pages → Connect to Git → GitHub の `Y-s-Apps/uchinoko-biyori` をえらぶ → 上の設定で Save and Deploy。できた `*.pages.dev` のURLをソーイに知らせる。
+2. LINE Developers：プロバイダー（個人名か屋号）を作り、LINEミニアプリチャネル（サービスを提供する地域：日本）を作る。開発用のエンドポイントURLに 1. のURLを入れ、開発用の LIFF ID をソーイに知らせる。
+

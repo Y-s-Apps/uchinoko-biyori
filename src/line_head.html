@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src '__SCRIPT_HASH__' https://static.line-scdn.net; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.line-scdn.net; connect-src 'self' https://*.line.me https://*.line-scdn.net; frame-src https://*.line.me; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="写真の犬や猫をそっくりなペットにして、ごはん・おやつ・なでなででのんびり育てるアプリ">
+<meta name="theme-color" content="#EDF3F0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1B1922" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
+<!-- LIFF SDK：エッジパス（v2 の最新版が自動で入る）。読みこめなくても、ゲストとして遊べる -->
+<script async charset="utf-8" id="liffSdk" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+/* Android版LINEは edge-to-edge 表示：下のナビゲーションバーの分を、LINEの変数と safe-area の大きいほうであける
+   （変数がどの要素に置かれても届くよう、使う場所ごとに書く） */
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:max(env(safe-area-inset-bottom,0px),var(--android-safe-area-inset-bottom,0px))}
+html{box-sizing:border-box;-webkit-text-size-adjust:100%}
+body{margin:0;font:14px/1.5 system-ui,-apple-system,sans-serif;overscroll-behavior-y:none}
+img{max-width:100%}
+[hidden]{display:none!important}
+.stage,.pet,.frame img,.profile img{-webkit-touch-callout:none}
+button,.act,.tile,.chip,.sw,label{touch-action:manipulation}
+html .sheet{padding-bottom:calc(22px + max(env(safe-area-inset-bottom,0px),var(--android-safe-area-inset-bottom,0px)))}
+html .levelup{padding-bottom:calc(16px + max(env(safe-area-inset-bottom,0px),var(--android-safe-area-inset-bottom,0px)))}
+html .onboard{padding-bottom:calc(24px + max(env(safe-area-inset-bottom,0px),var(--android-safe-area-inset-bottom,0px)))}
+</style>

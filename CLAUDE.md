@@ -14,6 +14,7 @@
 | `src/head.html` | `<title>`、フォント、すべてのCSS（色はトークン＋ダークモード） |
 | `src/body.html` | 画面のHTML（ヘッダー、おへや、メーター、下の5ボタン、シート、オンボーディング） |
 | `src/home_head.html` | ホーム画面版だけの `<head>`（manifest、apple-touch-icon、safe-area） |
+| `src/line_head.html` | LINE版だけの `<head>`（LIFF SDK、CSP、Android版LINEの下のすき間） |
 | `src/js_data.js` | 犬種・猫種（41種）、毛色スウォッチ、名前候補 |
 | `src/js_data2.js` | Lv上限・関係の呼び名、おやつ（犬猫各18）とアイコン、きせかえ（38＋イベント10） |
 | `src/js_data3.js` | げい、季節イベント、おみやげ（22）、もようがえ（5カテゴリ） |
@@ -22,19 +23,20 @@
 | `src/js_app.js` | 状態 `S`、保存、ペットの動き、おせわ、シート、引っこしコード、`Game.start` |
 | `src/js_features.js` | `ensureState`（セーブの移行）、おねがい、おたすけ、おみやげ、イベント、もようがえ、げい、アルバム |
 | `src/js_onboard.js` | 写真から迎える流れ、種類・色・名前の編集、起動処理（boot） |
+| `src/js_line.js` | LINE版だけのJS（LIFF の準備。LIFF ID は `LINE_CFG.liffId`） |
 | `src/sw.js` | オフライン用のService Worker（`__VER__` はビルド時に置きかわる） |
-| `src/build.sh` | 組み立て。`../index.html` と `../sw.js`（ホーム画面版）、`out/uchinoko-claude.html`（Claude版）を出力 |
+| `src/build.sh` | 組み立て。`../index.html` と `../sw.js`（ホーム画面版）、`out/uchinoko-claude.html`（Claude版）、`out/line/`（LINE版）を出力 |
 | `src/icons/` | アイコンの元データ（1024px）と描画スクリプト |
 | `tools/smoke.py` | スマホ幅での動作確認とスクリーンショット |
 | ルートの `index.html` `sw.js` `manifest.webmanifest` `*.png` | 公開ファイル（ビルド結果なので手で直さない） |
 
-JSは1つの `<script>` に `build.sh` の順でつなげられます。`const HOME = true/false` で、ホーム画面版とClaude版の差を切り替えます。
+JSは1つの `<script>` に `build.sh` の順でつなげられます。`const HOME = true/false` で、ホーム画面版とClaude版の差を切り替えます。LINE版は `HOME = true` に `js_line.js` を足したものです（`docs/PROJECT.md` の10章）。
 
 ## 作業の流れ
 
 1. `src/` だけを編集します。ルートの `index.html` は手で直しません。
 2. `sh src/build.sh` を実行します。`node --check` 相当の構文チェックは、ビルド結果を `node --check` に通して確認します。
-3. `python3 tools/smoke.py` で、スマホ幅（390×844）の主要画面を確認します。スクリーンショットを見て、ページエラーが0件であることを確かめます。
+3. `python3 tools/smoke.py` で、スマホ幅（390×844）の主要画面を確認します。スクリーンショットを見て、ページエラーが0件であることを確かめます。LINE版にかかわる変更では `python3 tools/smoke.py --line --android-inset 48` も通します。
 4. 日本語のコミットメッセージで `main` に push します。1〜2分で GitHub Pages に反映されます（Actions の「pages build and deployment」で確認できます）。
 5. 仕様や決めたことが変わったら、`docs/PROJECT.md` の該当箇所と「更新履歴」も同じコミットで更新します。`docs/PROJECT.md` の先頭の「最終更新」の日付も、push のたびに更新します。
 6. 最後に、オーナーへ「プロジェクトのナレッジで『Sync now』（同期）を押してください」と一言添えます。ナレッジは自動では更新されず、同期した時点の GitHub の中身に置きかわります。新しいフォルダをルートに足したときは、ナレッジのファイル選択にも追加してもらいます。
@@ -50,4 +52,5 @@ JSは1つの `<script>` に `build.sh` の順でつなげられます。`const H
 - **色。** `head.html` の `:root` トークンを使い、ライトとダークの両方で読めるようにします。
 - **デザイン。** 実在のチームやブランドのデザイン（ユニフォームなど）は再現しません。トリコロールの色づかいはOKです。
 - **Claude版。** https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs に `src/out/uchinoko-claude.html` を同じURLのまま公開し直します。`capabilities` ははぶいて、いまの宣言（db のルール、user・sample・downloads）を引きつぎます。権限を足すときは、`docs/PROJECT.md` の「安全のための決まり」にある宣言を全部書いたうえで足します。
+- **LINE版。** LINE版だけの変更は `src/line_head.html` と `src/js_line.js` に書き、ホーム画面版の `index.html`・`sw.js` を変えないようにします（変わると、だいずのアプリが更新されます。ビルドの前後で比べる）。LIFF SDK はエッジパスのまま使い、古い版に固定しません。LINE のユーザーIDやプロフィールの値を本人確認に使わず、IDトークンをサーバーで検証します。写真の控えはサーバーに送りません。
 - **ポップアップ。** 画面全体を暗くして中央に出します（`Modal.show`）。同時に複数あるときは順番に出ます。

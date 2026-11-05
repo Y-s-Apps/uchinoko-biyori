@@ -2,21 +2,37 @@
 # うちのこ日和: src/ から公開用ファイルを組み立てる
 #   ../index.html, ../sw.js        … ホーム画面版（GitHub Pages）
 #   out/uchinoko-claude.html       … Claude アーティファクト版
+#   out/line/                      … LINE版（LINEミニアプリ。Cloudflare Pages がこのフォルダを公開する）
 set -e
 cd "$(dirname "$0")"
 JS="js_data.js js_data2.js js_data3.js js_pet.js js_wear.js js_app.js js_features.js js_onboard.js"
 VER=$(cat $JS head.html body.html home_head.html sw.js manifest.webmanifest | sha1sum | cut -c1-10)
+# スクリプトの SHA-256（base64）。openssl がない環境（Cloudflare のビルドなど）では python3 で同じ値を出す
+sha256b64(){
+  if command -v openssl >/dev/null 2>&1; then openssl dgst -sha256 -binary "$1" | base64 | tr -d '\n'
+  else python3 -c 'import base64,hashlib,sys;print(base64.b64encode(hashlib.sha256(open(sys.argv[1],"rb").read()).digest()).decode(),end="")' "$1"; fi
+}
 mkdir -p out
 { cat head.html; cat body.html; echo '<script>'; echo 'const HOME = false;'; cat $JS; echo '</script>'; } > out/uchinoko-claude.html
 
 # ホーム画面版の <script> の中身。CSP はこの中身のハッシュだけを実行してよいものにする
 { echo; echo 'const HOME = true;'; cat $JS;
   echo "if ('serviceWorker' in navigator && location.protocol === 'https:') addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));"; } > out/home-script.js
-HASH="sha256-$(openssl dgst -sha256 -binary out/home-script.js | base64 | tr -d '\n')"
+HASH="sha256-$(sha256b64 out/home-script.js)"
 { sed "s|__SCRIPT_HASH__|$HASH|" home_head.html; cat head.html; echo '</head>'; echo '<body>'; cat body.html;
   printf '<script>'; cat out/home-script.js; echo '</script>'; echo '</body>'; echo '</html>'; } > ../index.html
 grep -q "'$HASH'" ../index.html
 
 sed "s/__VER__/$VER/" sw.js > ../sw.js
 cp manifest.webmanifest ../
+
+# LINE版：ホーム画面版と同じJS（端末保存・写真は端末の中だけ）に js_line.js を足す。
+# Service Worker・manifest・apple-touch-icon は使わない。CSP は LIFF SDK（static.line-scdn.net）も読みこめる
+rm -rf out/line; mkdir -p out/line
+{ echo; echo 'const HOME = true;'; cat $JS js_line.js; } > out/line-script.js
+LHASH="sha256-$(sha256b64 out/line-script.js)"
+{ sed "s|__SCRIPT_HASH__|$LHASH|" line_head.html; cat head.html; echo '</head>'; echo '<body>'; cat body.html;
+  printf '<script>'; cat out/line-script.js; echo '</script>'; echo '</body>'; echo '</html>'; } > out/line/index.html
+grep -q "'$LHASH'" out/line/index.html
+cp ../favicon-32.png ../favicon-64.png out/line/
 echo "built ($VER)"
