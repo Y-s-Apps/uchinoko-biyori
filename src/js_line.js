@@ -12,7 +12,9 @@
    - サーバーには写真の控え（160px）を送らない。写真はこの端末の中だけ。
    - AIの読みとり（LineAI）：LINEの中で サーバーに つながっているときだけ。写真をえらんだら、送る前に「AIで読みとる？」と きく。
      読みとるときは、この端末で はば768pxまでの JPEG に作り直して（位置情報などは入らない）POST /read へ。
-     サーバーが Claude に わたし、写真も結果も のこさない。1人1日の回数はサーバーが数える。使わないときは いままでどおり端末の中だけ。 */
+     サーバーが Claude に わたし、写真も結果も のこさない。1人1日の回数はサーバーが数える。使わないときは いままでどおり端末の中だけ。
+   - やめる（LineLeave）：プロフィールの「LINEの データを けす」。2回 たしかめてから POST /leave（サーバーの データを すぐに ぜんぶ消し、
+     LINE の許可も取り消す）。この端末の子は のこして ゲストにする（line-owner は消さず、line-left に やめた会員IDを書く）。 */
 const LINE_CFG = {
   sdk:'https://static.line-scdn.net/liff/edge/2/sdk.js',  /* エッジパス：v2 の最新版が自動で入る（古い版に固定しない） */
   liffId:'2012410263-cuCI7vQS',  /* 開発用の LIFF ID（https://miniapp.line.me/2012410263-cuCI7vQS）。空なら LIFF は使わない */
@@ -25,6 +27,7 @@ const LINE_CFG = {
 };
 const LINE_OWNER_KEY = 'uchinoko-biyori:line-owner';  /* この端末のセーブが、どの会員のものか（サーバーの会員ID） */
 const LINE_GUEST_KEY = 'uchinoko-biyori:line-guest';  /* LINEの子と入れかわった、この端末にいた子（消さずにとっておく） */
+const LINE_LEFT_KEY = 'uchinoko-biyori:line-left';    /* やめた（LINEの データを けした）会員ID。line-owner が これと同じなら、この端末の子は ゲスト */
 
 const LineApp = {
   state:'off',        /* off（LIFF IDなし）→ loading → ready ／ failed */
@@ -80,6 +83,7 @@ const LineApp = {
       case 'ready':
         if (!this.inClient) return LineSync.owner() ? 'LINEの外で ひらいています。LINEに ほぞんしている子は、LINEの中で おせわできます'
           : 'LINEの外で ひらいています。ゲストとして あそべます';
+        if (LineSync.state === 'left') return 'LINEの データを けしました。この端末で ゲストとして あそべます';
         if (LineSync.state === 'connecting') return 'LINEと つながっています（サーバーに つないでいます…）';
         if (LineSync.state === 'failed') return LineSync.owner()
           ? `LINEと つながっています。サーバーに つながれないので、おせわは つながるまで まってね（${LineSync.error}）`
@@ -106,6 +110,15 @@ const LineApp = {
       else {
         if (!p){ p = document.createElement('p'); p.className = 'note line-status'; sh.appendChild(p); }
         p.textContent = text;
+      }
+      /* やめる：サーバーに つながっているときだけ、いちばん下に */
+      let lb = sh.querySelector('.line-leave');
+      if (!(p && LineSync.state === 'on' && LineServer.member)){ if (lb) lb.remove(); }
+      else if (!lb){
+        lb = document.createElement('button');
+        lb.type = 'button'; lb.className = 'linkbtn line-leave'; lb.textContent = 'LINEの データを けす';
+        lb.addEventListener('click', () => LineLeave.start());
+        p.insertAdjacentElement('afterend', lb);
       }
     }
     /* はじめての画面の写真のことわり：AIで読みとれるときは、えらんだあとに きくことを書く */
@@ -135,6 +148,7 @@ const LineServer = {
   ai:null,            /* AIの読みとり：{ on, left, perDay }（サーバーが数える） */
   /* opt：{ timeout, signal }（signal で とめたら 'cancelled'） */
   async call(method, path, body, again = true, opt = {}){
+    if (LineSync.state === 'left') throw lineErr('left');   /* やめたあとは、だまって つなぎなおさない（新しい会員を作らない） */
     const headers = {};
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (this.token) headers['x-session'] = this.token;
@@ -282,7 +296,24 @@ const LineSync = {
     this.setState('failed');
     this.settle();
   },
-  owner(){ try { return localStorage.getItem(LINE_OWNER_KEY); } catch(e){ return null; } },
+  /* この端末のセーブが LINEの子なら、その会員ID（やめた会員のものなら null＝ゲスト） */
+  owner(){
+    try {
+      const o = localStorage.getItem(LINE_OWNER_KEY);
+      return o && o !== localStorage.getItem(LINE_LEFT_KEY) ? o : null;
+    } catch(e){ return null; }
+  },
+  /* やめた（サーバーの データを けした）：この端末の子は ゲストとして のこす */
+  left(){
+    try { if (LineServer.member) localStorage.setItem(LINE_LEFT_KEY, LineServer.member); } catch(e){}
+    LineServer.token = null; LineServer.member = null; LineServer.ai = null; LineServer.importable = false;
+    if (Persist.ref === ServerRef){ Persist.ref = null; Persist.mode = 'local'; }
+    Act.remote = null;
+    this.created = this.idSent = this.rev = null;
+    this.pendingCode = null; this.fresh = null;
+    this.setState('left');
+    if (S) Persist.saveLocal();
+  },
   markOwner(){ try { if (LineServer.member && this.created != null) localStorage.setItem(LINE_OWNER_KEY, LineServer.member); } catch(e){} },
   samePet(a, b){ return !!(a && b && Number(a.created) && Number(a.created) === Number(b.created)); },
   valid(d){ return d && typeof d === 'object' && d.pet && typeof d.pet === 'object' ? d : null; },
@@ -563,6 +594,71 @@ const LineAI = {
     }[r.why] || 'うまく読みとれませんでした。写真の色で 仮の見た目を つくったので、種類を えらぶか、すこし あとで ためしてね。');
   },
 };
+/* ----- やめる（LINEの データを けす） -----
+   2回 たしかめてから、サーバーの データを すぐに ぜんぶ消す（会員・LINEのひもづけ・セーブ・AIの回数）。
+   LINE の許可の取り消し（deauthorize）は サーバーがする（アクセストークンは このときだけ送る）。
+   この端末の子は のこして ゲストに。また LINEで ひらくと、ふつうの はじめての人と同じに「つれてくる？」を きく。 */
+const LineLeave = {
+  busy:false,
+  async start(){
+    if (this.busy || LineSync.state !== 'on' || !S) return;
+    closeSheet();
+    const name = esc(S.pet.name);
+    const v = await Modal.show({
+      label:'LINEの データを けす',
+      html:() => `${petCard('', 'ex-sad')}<h3>LINEの データを<br>けしますか？</h3>
+        <p>サーバーに ほぞんしている ${name}の データ（なかよし・おせわの記録・きせかえ・おみやげ など）を ぜんぶ けして、LINEとの 連携も 解除します。けしたら もとに もどせません。</p>
+        <p>この端末の ${name}は のこるので、ゲストとして あそべます。</p>
+        <button class="btn" type="button" id="lvCopy">さきに 引っこしコードを コピー</button>
+        <p class="note" id="lvMsg" role="status">引っこしコードを ひかえておくと、あとで ホーム画面のアプリなどへ つれていけます。</p>
+        <textarea id="lvCode" readonly tabindex="-1" aria-hidden="true" ${CODE_ATTRS} style="position:absolute;left:-9999px;top:0;width:1px;height:1px;opacity:0"></textarea>
+        <div class="btnrow"><button class="btn" type="button" data-close>やめておく</button><button class="btn warn" type="button" data-close="next">けす</button></div>`,
+      ready:box => {
+        const ta = box.querySelector('#lvCode'), msg = box.querySelector('#lvMsg');
+        box.querySelector('#lvCopy').addEventListener('click', async () => {
+          if (!S) return;
+          ta.value = encodeMoveCode();
+          const r = await copyText(ta);
+          msg.textContent = r === 'copied' ? 'コピーしました。メモなどに 貼りつけて とっておいてね。'
+            : 'コピーできませんでした。プロフィールの「引っこし・バックアップ」から ひかえてね。';
+        });
+      },
+    });
+    if (v !== 'next') return;
+    const v2 = await Modal.show({
+      label:'ほんとうに けしますか',
+      html:() => `<h3>ほんとうに<br>けしますか？</h3>
+        <p>${name}の LINEの データを けします。もとに もどせません。</p>
+        <div class="btnrow"><button class="btn" type="button" data-close>やめておく</button><button class="btn warn" type="button" data-close="yes">けす</button></div>`,
+    });
+    if (v2 === 'yes') await this.run(name);
+  },
+  async run(name){
+    if (this.busy || LineSync.state !== 'on') return;
+    this.busy = true;
+    toast('けしています…');
+    let accessToken = null;
+    try { accessToken = window.liff && liff.getAccessToken ? liff.getAccessToken() : null; } catch(e){}
+    let r;
+    try { r = await LineSync.queue(() => LineServer.call('POST', '/leave', { confirm:'leave', accessToken:accessToken || null })); }
+    catch(e){
+      this.busy = false;
+      toast('いまは けせませんでした。すこし あとで もう一度 ためしてね');
+      return;
+    }
+    this.busy = false;
+    LineSync.left();
+    const unlinked = r && (r.deauth === 'done' || r.deauth === 'already');
+    await Modal.show({
+      label:'けしました',
+      html:() => `${S ? petCard() : ''}<h3>LINEの データを<br>けしました</h3>
+        <p>${S ? `この端末の ${name}とは、これからも ゲストとして あそべます。` : ''}${S && LineSync.progressed(S) ? `また LINEで ひらくと、${name}を LINEに つれてくるか ききます。` : 'また LINEで ひらくと、はじめから はじめられます。'}</p>
+        ${unlinked ? '' : '<p class="note">LINEとの 連携は、LINEの「設定」の「アカウント」から はずせます。</p>'}
+        <button class="btn primary" type="button" data-close>わかった</button>`,
+    });
+  },
+};
+
 /* 写真をえらんだら：AIで読みとれるときは、送る前に きく。読みとれないとき（LINEの外・つながらない・おやすみ）は いままでどおり */
 const lineAnalyze = Onboard.analyze;
 Onboard.analyze = async function(file){
@@ -573,6 +669,18 @@ Onboard.analyze = async function(file){
   catch(e){ return this.welcome('この写真は読みこめませんでした。JPEGかPNGの写真でためしてね。'); }
   if (!this.busy) return;
   LineAI.ask(this, img);
+};
+
+/* おせわの動きの あいだに サーバーの返事が とどいても、メーターと おねがいのバッジは 動きが おわってから（ホーム画面版と同じ）。
+   返事は すぐ とどくので、そのまま出すと「ごはん」を押した とたんに メーターが 動いてしまう。
+   動きの おわりに finish()（メーター）と playEvents()（バッジ）が 出しなおす */
+let lineHold = false;
+const lineRenderStats = renderStats, lineRenderBadge = renderReqBadge, lineRefresh = Game.refresh;
+renderStats = function(){ if (!lineHold) lineRenderStats(); };
+renderReqBadge = function(){ if (!lineHold) lineRenderBadge(); };
+Game.refresh = function(){
+  lineHold = !!Pet.busy;
+  try { lineRefresh.call(this); } finally { lineHold = false; }
 };
 
 /* 画面のしくみ（js_app.js の Act）に、サーバーとつながりのことを教える */

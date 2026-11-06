@@ -24,13 +24,13 @@
 | `src/js_app.js` | 状態 `S`、保存、ペットの動き、おせわの画面（`Act.run` で判定をたのみ、`playEvents` で出す）、シート、引っこしコード、`Game.start` |
 | `src/js_features.js` | `ensureState`（セーブの移行）、おねがい・おたすけ・おみやげ・イベント・記念日のポップアップ、もようがえ、げい、アルバム |
 | `src/js_onboard.js` | 写真から迎える流れ、種類・色・名前の編集、起動処理（boot） |
-| `src/js_line.js` | LINE版だけのJS（LIFF の準備、サーバーでの本人確認とセーブ、AIの読みとり `LineAI`。`LINE_CFG.liffId`・`LINE_CFG.api`） |
+| `src/js_line.js` | LINE版だけのJS（LIFF の準備、サーバーでの本人確認とセーブ、AIの読みとり `LineAI`、やめる `LineLeave`。`LINE_CFG.liffId`・`LINE_CFG.api`） |
 | `src/sw.js` | オフライン用のService Worker（`__VER__` はビルド時に置きかわる） |
 | `src/build.sh` | 組み立て。`../index.html` と `../sw.js`（ホーム画面版）、`out/uchinoko-claude.html`（Claude版）、`out/line/`（LINE版）を出力 |
 | `src/icons/` | アイコンの元データ（1024px）と描画スクリプト |
 | `tools/smoke.py` | スマホ幅での動作確認とスクリーンショット |
 | `supabase/migrations/` | LINE版のサーバー（Supabase「uchinoko-biyori」）の表。`app` スキーマ（Data API に出さない） |
-| `supabase/functions/api/index.ts` | LINE版のサーバーの関数（本人確認・おせわの判定 `/act`・名前とみための `/save`・引っこしコードの取りこみ・AIの読みとり `/read`） |
+| `supabase/functions/api/index.ts` | LINE版のサーバーの関数（本人確認・おせわの判定 `/act`・名前とみための `/save`・引っこしコードの取りこみ・AIの読みとり `/read`・やめる `/leave`） |
 | `supabase/functions/api/game.js` | サーバーで使う `ensureState`・`Rules`・AIの `buildPrompt`/`parseAI` など（`tools/build_server.py` が src/ から作る。手で直さない） |
 | `supabase/functions/api/deno.json` | `uchinoko-game` が、push したコミットの `game.js` を指す（`--pin` で書きかえる） |
 | `tools/build_server.py` | `game.js` を作る・確かめる（`--check`）・コミットに固定する（`--pin <SHA>`） |
@@ -66,5 +66,5 @@ JSは1つの `<script>` に `build.sh` の順でつなげられます。`const H
 - **Claude版。** https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs に `src/out/uchinoko-claude.html` を同じURLのまま公開し直します。`capabilities` ははぶいて、いまの宣言（db のルール、user・sample・downloads）を引きつぎます。権限を足すときは、`docs/PROJECT.md` の「安全のための決まり」にある宣言を全部書いたうえで足します。
 - **LINE版。** LINE版だけの変更は `src/line_head.html` と `src/js_line.js` に書き、ホーム画面版の `index.html`・`sw.js` を変えないようにします（変わると、だいずのアプリが更新されます。ビルドの前後で比べる）。LIFF SDK はエッジパスのまま使い、古い版に固定しません。LINE のユーザーIDやプロフィールの値を本人確認に使わず、IDトークンをサーバーで検証します。写真の控え（160px）はサーバーに送りません。AIの読みとりで写真を送るときは、端末で小さくしてからサーバー経由で送り、保存もログもしません。AIの鍵は Supabase の Secrets の `ANTHROPIC_API_KEY` だけに置き、回数の上限はサーバーで数えます（`docs/PROJECT.md` の10章）。
 - **ルールは1か所。** おせわの数字・上限・日付・偶然は `src/js_rules.js` に書き、時刻は `now()`/`dayKey()`（`Clock`）、偶然は `Clock.rand()` を使います（`Date.now()`・`new Date()`・`Math.random()` を ルールの中で直接使わない。見た目だけの処理は そのままでよい）。画面の処理（`$`・`Pet`・`Modal` など）はルールに入れません（サーバーで動かないため）。
-- **LINE版のサーバー。** おせわの数字や記録は画面から受けとりません（判定は `/act`、`/save` は名前・みためだけ、はじめての子は `adopt` か取りこみ）。表は `app` スキーマに置き、Data API に出しません（`public` に置かない。anon・authenticated に権限をあたえない）。読み書きは Edge Function `api` からだけ。セッションのトークンは画面のメモリだけに置き（localStorage に保存しない）、DB にはハッシュだけ。ログにトークン・IDトークン・セーブの中身を出しません。チャネルシークレットや APIの鍵が要るときは、チャットに貼ってもらわず、Supabase の画面で入れてもらいます（`create_edge_function_secret`）。LINE版の端末のキー `uchinoko-biyori:line-owner` と `uchinoko-biyori:line-guest` も消す処理は書きません。サーバーの URL を変えるときは `LINE_CFG.api` と `line_head.html` の CSP（`connect-src`）をそろえます。
+- **LINE版のサーバー。** おせわの数字や記録は画面から受けとりません（判定は `/act`、`/save` は名前・みためだけ、はじめての子は `adopt` か取りこみ）。表は `app` スキーマに置き、Data API に出しません（`public` に置かない。anon・authenticated に権限をあたえない）。読み書きは Edge Function `api` からだけ。セッションのトークンは画面のメモリだけに置き（localStorage に保存しない）、DB にはハッシュだけ。ログにトークン・IDトークン・セーブの中身を出しません。チャネルシークレットや APIの鍵が要るときは、チャットに貼ってもらわず、Supabase の画面で入れてもらいます（`create_edge_function_secret`）。LINE版の端末のキー `uchinoko-biyori:line-owner`・`uchinoko-biyori:line-guest`・`uchinoko-biyori:line-left` も消す処理は書きません（やめた人の端末の子は、`line-left` で ゲストにする）。やめる人のデータはサーバーから すぐに消し、LINE の deauthorize で許可も取り消します（チャネルシークレットは Secrets の `LINE_CHANNEL_SECRET`）。サーバーの URL を変えるときは `LINE_CFG.api` と `line_head.html` の CSP（`connect-src`）をそろえます。
 - **ポップアップ。** 画面全体を暗くして中央に出します（`Modal.show`）。同時に複数あるときは順番に出ます。

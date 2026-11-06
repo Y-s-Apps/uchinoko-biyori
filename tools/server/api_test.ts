@@ -28,6 +28,9 @@ function mkToken(name: string, aud = '2012410263', sub = 'U' + '0'.repeat(31) + 
   return t;
 }
 let verifyCalls = 0;
+// ---- fake LINE token / deauthorize（やめる人） ----
+Deno.env.set('LINE_CHANNEL_SECRET', 'test-secret');
+const LINE = { tokenCalls:0, deauthCalls:0, auth:'', last:null as any, mode:'ok' };
 // ---- fake Anthropic Messages API（AIの読みとり） ----
 Deno.env.set('ANTHROPIC_API_KEY', 'test-key');
 Deno.env.set('AI_ALL_PER_DAY', '5');
@@ -59,6 +62,23 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     AI.last = JSON.parse(String(init!.body));
     AI.headers = new Headers(init!.headers);
     return aiReply();
+  }
+  if (url === 'https://api.line.me/oauth2/v3/token'){
+    /* ステートレスチャネルアクセストークン（やめる人の許可の取り消しに使う） */
+    LINE.tokenCalls++;
+    const p = new URLSearchParams(String(init!.body));
+    if (p.get('grant_type') !== 'client_credentials' || p.get('client_id') !== '2012410263' || p.get('client_secret') !== 'test-secret'){
+      return new Response(JSON.stringify({ error:'invalid_client' }), { status:400 });
+    }
+    return new Response(JSON.stringify({ token_type:'Bearer', access_token:'chan-token', expires_in:900 }), { status:200 });
+  }
+  if (url === 'https://api.line.me/user/v1/deauthorize'){
+    LINE.deauthCalls++;
+    LINE.auth = new Headers(init!.headers).get('authorization') || '';
+    LINE.last = JSON.parse(String(init!.body));
+    if (LINE.mode === 'down') throw new Error('network');
+    if (LINE.last.userAccessToken === 'already-gone-token') return new Response(JSON.stringify({ message:'invalid token' }), { status:400 });
+    return new Response(null, { status:204 });
   }
   if (url === 'https://api.line.me/oauth2/v2.1/verify'){
     verifyCalls++;
@@ -380,6 +400,58 @@ const [{ c }] = await db`select count(*)::int c from app.line_accounts`;
 ok(c === 2, 'two LINE accounts (no token stored)', c);
 const cols = await db`select column_name from information_schema.columns where table_schema='app'`;
 ok(!cols.some((x: any) => /token$|id_token/.test(x.column_name)), 'no raw token columns');
+
+console.log('leave (やめる：すぐに ぜんぶ消す・LINE の許可も取り消す)');
+const rows = async (id: string) => (await db`select
+  (select count(*) from app.members where id = ${id})::int as m, (select count(*) from app.line_accounts where member_id = ${id})::int as a,
+  (select count(*) from app.sessions where member_id = ${id})::int as s, (select count(*) from app.saves where member_id = ${id})::int as v,
+  (select count(*) from app.ai_usage where member_id = ${id})::int as u`)[0];
+async function joiner(name: string){
+  const lr = await call('POST', '/login', { idToken:mkToken(name, '2012410263', 'U' + name) });
+  await call('POST', '/act', { type:'adopt', pet }, lr.data.token);
+  await db`insert into app.ai_usage (day, member_id, n) values (${jst(Date.now())}::date, ${lr.data.member.id}, 1)`;
+  return { token:lr.data.token as string, id:lr.data.member.id as string };
+}
+const carol = await joiner('carol');
+const bobLogin = await call('POST', '/login', { idToken:mkToken('bob3', '2012410263', 'Ubob') });
+const bobRev = (await call('GET', '/save', undefined, bobLogin.data.token)).data.save.rev;
+let rc = await rows(carol.id);
+ok(rc.m === 1 && rc.a === 1 && rc.s === 1 && rc.v === 1 && rc.u === 1, 'carol has a member, LINE link, session, save and AI count', rc);
+r = await call('POST', '/leave', { confirm:'leave' });
+ok(r.status === 401, 'leave needs a session', r);
+r = await call('POST', '/leave', {}, carol.token);
+ok(r.status === 400 && r.data.error === 'noconfirm' && (await rows(carol.id)).m === 1, 'leave needs confirm:"leave" (nothing deleted)', r);
+r = await call('POST', '/leave', { confirm:'leave', accessToken:'carol-access-token' }, carol.token);
+rc = await rows(carol.id);
+ok(r.status === 200 && r.data.ok === true && r.data.deauth === 'done', 'leave: ok, deauthorized', r.data);
+ok(rc.m === 0 && rc.a === 0 && rc.s === 0 && rc.v === 0 && rc.u === 0, 'every row of carol is gone at once', rc);
+ok(LINE.tokenCalls === 1 && LINE.auth === 'Bearer chan-token' && LINE.last.userAccessToken === 'carol-access-token', 'deauthorize: stateless channel token + the user\'s access token', LINE);
+r = await call('GET', '/save', undefined, carol.token);
+ok(r.status === 401 && r.data.error === 'nosession', 'the old session no longer works', r);
+r = await call('GET', '/save', undefined, bobLogin.data.token);
+ok(r.status === 200 && r.data.save.rev === bobRev, 'other members are untouched', r.data && r.data.save && r.data.save.rev);
+r = await call('POST', '/login', { idToken:mkToken('carol2', '2012410263', 'Ucarol') });
+ok(r.status === 200 && r.data.member.id !== carol.id && r.data.member.importable === true && r.data.save === null, 'logging in again starts fresh (new member, import allowed)', r.data);
+const dave = await joiner('dave');
+r = await call('POST', '/leave', { confirm:'leave', accessToken:'already-gone-token' }, dave.token);
+ok(r.data.ok && r.data.deauth === 'already' && (await rows(dave.id)).m === 0, 'already deauthorized: still deleted', r.data);
+const erin = await joiner('erin');
+r = await call('POST', '/leave', { confirm:'leave', accessToken:null }, erin.token);
+ok(r.data.ok && r.data.deauth === 'notoken' && (await rows(erin.id)).m === 0, 'no access token: deleted, nothing sent to LINE', r.data);
+const frank = await joiner('frank');
+LINE.mode = 'down';
+r = await call('POST', '/leave', { confirm:'leave', accessToken:'frank-access-token' }, frank.token);
+ok(r.data.ok && r.data.deauth === 'failed' && (await rows(frank.id)).m === 0, 'LINE unreachable: still deleted', r.data);
+LINE.mode = 'ok';
+const gina = await joiner('gina');
+Deno.env.delete('LINE_CHANNEL_SECRET');
+const tc = LINE.tokenCalls;
+r = await call('POST', '/leave', { confirm:'leave', accessToken:'gina-access-token' }, gina.token);
+ok(r.data.ok && r.data.deauth === 'nosecret' && LINE.tokenCalls === tc && (await rows(gina.id)).m === 0, 'no channel secret: deleted, LINE not called', r.data);
+Deno.env.set('LINE_CHANNEL_SECRET', 'test-secret');
+const hank = await joiner('hank');
+r = await call('POST', '/leave', { confirm:'leave', accessToken:'bad token with spaces' }, hank.token);
+ok(r.data.ok && r.data.deauth === 'notoken' && (await rows(hank.id)).m === 0, 'odd access token is not sent', r.data);
 await db.end();
 
 console.log(fails ? `\n${fails} FAILED` : '\nall passed');

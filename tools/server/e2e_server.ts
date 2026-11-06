@@ -2,7 +2,7 @@
  * supabase/functions/api/index.ts をそのまま動かし、DB は PGlite（メモリの中の Postgres）、
  * LINE の IDトークンの検証（api.line.me）だけを、ここでまねる（本物のサーバーにはこのしくみは入らない）。
  *   ためしのIDトークン：<base64url({})>.<base64url({aud:"2012410263", sub:"U…"})>.test
- * AIの読みとり（api.anthropic.com）も、ここでまねる（/__debug/ai で返事の種類を変え、届いた写真の大きさを見る）。
+ * やめる人の LINE の許可の取り消し（oauth2/v3/token・user/v1/deauthorize）と、AIの読みとり（api.anthropic.com）も、ここでまねる（/__debug/ai で返事の種類を変え、届いた写真の大きさを見る）。
  * /__debug/… は確認用（このファイルの中だけ）。
  */
 import postgres from 'npm:postgres@3.4.5';
@@ -18,6 +18,8 @@ end $$;`);
 for (const f of MIG.split(',')) await admin.unsafe(await Deno.readTextFile(f));
 
 Deno.env.set('ANTHROPIC_API_KEY', 'test-key');
+Deno.env.set('LINE_CHANNEL_SECRET', 'test-secret');
+const LINE = { deauth:0, token:'' };   /* やめる人の許可の取り消し（deauthorize）のまね */
 const AI = { mode:'ok', calls:0, media:'', bytes:0, w:0, h:0 };
 const AI_OK = { species:'dog', candidates:[{ id:'pomeranian', confidence:0.82 }, { id:'shiba', confidence:0.1 }], colorName:'クリーム', comment:'ふわふわの クリームいろだね',
   look:{ ear:'small', coat:'fluffy', muzzle:'short', tail:'plume', legs:'normal', face:'lower',
@@ -44,6 +46,14 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const text = AI.mode === 'other' ? '{"species":"other"}' : JSON.stringify(AI_OK);
     if (AI.mode === 'down') return new Response('{"type":"error","error":{"type":"api_error"}}', { status:500 });
     return new Response(JSON.stringify({ type:'message', role:'assistant', content:[{ type:'text', text }], stop_reason:'end_turn' }));
+  }
+  if (url === 'https://api.line.me/oauth2/v3/token'){
+    return new Response(JSON.stringify({ token_type:'Bearer', access_token:'chan-token', expires_in:900 }));
+  }
+  if (url === 'https://api.line.me/user/v1/deauthorize'){
+    LINE.deauth++;
+    LINE.token = JSON.parse(String(init!.body)).userAccessToken;
+    return new Response(null, { status:204 });
   }
   if (url === 'https://api.line.me/oauth2/v2.1/verify'){
     const p = new URLSearchParams(String(init!.body));
@@ -79,6 +89,10 @@ serve({ port:Number(PORT), hostname:'127.0.0.1', onListen(){ console.log('e2e se
     if (req.method === 'POST') Object.assign(AI, await req.json());
     const [{ n }] = await admin`select coalesce(sum(n), 0)::int as n from app.ai_usage`;
     return j({ ...AI, used:n });
+  }
+  if (u.pathname === '/__debug/line'){
+    const [{ n }] = await admin`select count(*)::int as n from app.members`;
+    return j({ ...LINE, members:n });
   }
   if (u.pathname === '/__debug/bump'){
     /* べつの端末で遊んだことにする：名前を変え、updated を1時間先に、rev を1つ進める */

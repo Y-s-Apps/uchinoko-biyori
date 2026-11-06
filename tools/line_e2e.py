@@ -12,7 +12,8 @@
    ・ほかの端末の新しいセーブ ・この端末にいた子をつれてくる（1回だけ） ・引っこしコード（1回だけ）
    ・おせわはサーバーで（ほかの端末の変化も返事でとどく） ・端末の時計をずらしても得をしない
    ・サーバーに届かないとき（ゲストの子は遊べる／LINEの子は まってもらう） ・外部ブラウザ
-   ・AIの読みとり（送る前に きく、小さくした JPEG、サーバーでの回数、AIを使わない えらび方、読みとれないとき）を確かめる。
+   ・AIの読みとり（送る前に きく、小さくした JPEG、サーバーでの回数、AIを使わない えらび方、読みとれないとき）
+   ・やめる（2回 たしかめる、サーバーの データを すぐに消す、LINE の許可の取り消し、この端末の子は ゲストに、また ひらくと つれてくる）を確かめる。
    ページのエラーと CSP の違反が0件であることも見る。スクリーンショットは smoke-out/line-e2e/。
 
 サーバーの URL（LINE_CFG.api）への通信は、ブラウザの中でこのローカルのサーバーへつなぎかえる。本物の Supabase にはさわらない。
@@ -129,14 +130,14 @@ async def browser_tests(srv_port):
     async with async_playwright() as p:
         browser = await p.chromium.launch()
 
-        async def open_page(sub, local=None, external=False, server_down=False, owner=None, skew_ms=0):
+        async def open_page(sub, local=None, external=False, server_down=False, owner=None, skew_ms=0, keys=None):
             ctx = await browser.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True,
                                             has_touch=True, timezone_id='Asia/Tokyo', locale='ja-JP')
             page = await ctx.new_page()
             errs, calls = [], []
             page.on('pageerror', lambda e: errs.append(str(e)))
             page.on('console', lambda m: errs.append('CSP: ' + m.text) if m.type == 'error' and 'Content Security Policy' in m.text else None)
-            liff = ("window.liff={init:()=>Promise.resolve(),isInClient:()=>%s,getOS:()=>'ios',getIDToken:()=>%s};"
+            liff = ("window.liff={init:()=>Promise.resolve(),isInClient:()=>%s,getOS:()=>'ios',getIDToken:()=>%s,getAccessToken:()=>'e2e-access-token'};"
                     % ('false' if external else 'true', json.dumps(token(sub))))
             await page.route('https://static.line-scdn.net/**', lambda r: r.fulfill(status=200, content_type='application/javascript', body=liff))
 
@@ -155,6 +156,9 @@ async def browser_tests(srv_port):
                 init.append("localStorage.setItem('uchinoko-biyori:v1', %s);" % json.dumps(json.dumps(local, ensure_ascii=False)))
             if owner:
                 init.append("localStorage.setItem('uchinoko-biyori:line-owner', %s);" % json.dumps(owner))
+            for k, v in (keys or {}).items():
+                if v is not None:
+                    init.append("localStorage.setItem(%s, %s);" % (json.dumps(k), json.dumps(v)))
             if init:
                 await page.add_init_script("if(!sessionStorage.getItem('e2e')){%s sessionStorage.setItem('e2e','1')}" % ''.join(init))
             await page.goto(f'http://127.0.0.1:{PAGE_PORT}/')
@@ -171,6 +175,7 @@ async def browser_tests(srv_port):
                 souv: S && S.souv && S.souv.n,
                 server: document.documentElement.dataset.lineServer || null, mode: Persist.mode,
                 owner: localStorage.getItem('uchinoko-biyori:line-owner'), guest: !!localStorage.getItem('uchinoko-biyori:line-guest'),
+                left: localStorage.getItem('uchinoko-biyori:line-left'),
                 onboard: !document.getElementById('onboard').hidden })''')
 
         async def close_popups(page):
@@ -291,7 +296,14 @@ async def browser_tests(srv_port):
         dbg('/__debug/bump', {'sub': 'Uthree', 'name': 'ほかの端末'})
         dbg('/__debug/patch', {'sub': 'Uthree', 'full': 40})
         before = state('Uthree')
-        await page.click('#actFeed'); await page.wait_for_timeout(7000)
+        bar = "document.getElementById('bFull').style.width"
+        w0 = await page.evaluate(bar)
+        await page.click('#actFeed'); await page.wait_for_timeout(1500)
+        w1, mid = await page.evaluate(bar), await info(page)
+        await page.wait_for_timeout(5500)
+        w2 = await page.evaluate(bar)
+        ok(mid['meals'] == before['meals'] + 1 and w1 == w0 and w2 != w0,
+           'メーターは ごはんの動きが おわってから動く（返事は先に とどいても）', {'w0': w0, 'w1': w1, 'w2': w2, 'meals': mid['meals']})
         await close_popups(page)
         s = state('Uthree')
         i = await info(page)
@@ -407,6 +419,71 @@ async def browser_tests(srv_port):
         ctx, page, errs, calls = await open_page('Ueight', external=True)
         await page.set_input_files('#obFile', files=[photo_jpeg()]); await page.wait_for_timeout(1500)
         ok(await page.query_selector('.aiask') is None and not calls, 'きかずに 色ひろいへ', calls)
+        all_errs += errs; await ctx.close()
+
+        print('11. やめる（LINEの データを けす）')
+        ctx, page, errs, calls = await open_page('Unine')
+        await page.click('#obManual'); await page.wait_for_timeout(300)
+        await page.click('[data-g="shiba"]'); await page.fill('#edName', 'やめるこ')
+        await page.click('#edGo'); await page.wait_for_timeout(2600)
+        await close_popups(page)
+        await page.click('#actFeed'); await page.wait_for_timeout(7000)
+        await close_popups(page)
+        nine = state('Unine')
+        await page.click('#menuBtn'); await page.wait_for_timeout(400)
+        lb = await page.query_selector('#sheet .line-leave')
+        ok(lb is not None, 'プロフィールの いちばん下に「LINEの データを けす」')
+        await snap(page, 'leave_link')
+        if lb:
+            await lb.click(); await page.wait_for_timeout(600)
+        first = await page.query_selector('.levelup [data-close="next"]')
+        ok(first is not None and state('Unine') is not None, '1回目の たしかめ（まだ消さない）')
+        await page.click('#lvCopy'); await page.wait_for_timeout(400)
+        msg = await page.evaluate("(document.querySelector('#lvMsg')||{}).textContent||''")
+        code = await page.evaluate("(document.querySelector('#lvCode')||{}).value||''")
+        ok('コピー' in msg and code.startswith('UCHINOKO2:'), 'さきに 引っこしコードを コピーできる', msg)
+        await snap(page, 'leave_confirm')
+        if first:
+            await first.click(); await page.wait_for_timeout(600)
+        second = await page.query_selector('.levelup [data-close="yes"]')
+        ok(second is not None and state('Unine') is not None, '2回目の たしかめ（まだ消さない）')
+        await snap(page, 'leave_confirm2')
+        if second:
+            await second.click(); await page.wait_for_timeout(2500)
+        L = dbg('/__debug/line')
+        ok(state('Unine') is None and L['deauth'] == 1 and L['token'] == 'e2e-access-token', 'サーバーの データが すぐに消え、LINE の許可も取り消す', L)
+        i = await info(page)
+        ok(i['server'] == 'left' and i['mode'] == 'local' and i['name'] == 'やめるこ' and i['owner'] == nine['id'] and i['left'] == nine['id'],
+           'この端末の子は のこり、ゲストに（line-owner は消さない）', i)
+        done = await page.query_selector('.levelup .card[aria-label="けしました"]')
+        ok(done is not None, '「けしました」のお知らせ')
+        await snap(page, 'leave_done')
+        if done:
+            await page.click('.levelup [data-close]'); await page.wait_for_timeout(500)
+        n_calls = len(calls)
+        await page.evaluate("S.stats.full = 40")   # さっき ごはんを あげたので、おなかを すかせておく
+        await page.click('#actFeed'); await page.wait_for_timeout(7000)
+        await close_popups(page)
+        i2 = await info(page)
+        ok(i2['meals'] == i['meals'] + 1 and len(calls) == n_calls, 'やめたあとは ゲストとして おせわできる（サーバーには送らない）', {'calls': calls[n_calls:], 'meals': [i['meals'], i2['meals']]})
+        await page.click('#menuBtn'); await page.wait_for_timeout(400)
+        st = await page.evaluate("(document.querySelector('#sheet .line-status')||{}).textContent||''")
+        ok('けしました' in st and await page.query_selector('#sheet .line-leave') is None, 'プロフィールの1行（けすボタンは もう出ない）', st)
+        await snap(page, 'leave_profile')
+        keep = await page.evaluate("() => { const o = {}; for (const k of ['uchinoko-biyori:v1','uchinoko-biyori:line-owner','uchinoko-biyori:line-left']) o[k] = localStorage.getItem(k); return o; }")
+        all_errs += errs; await ctx.close()
+
+        print('11b. また LINEで ひらくと、この端末の子を つれてくるか きく')
+        ctx, page, errs, calls = await open_page('Unine', keys=keep)
+        m = await find_modal(page, '.levelup [data-close="take"]')
+        again = state('Unine')
+        ok(m is not None and again is not None and again['id'] != nine['id'] and again['rev'] is None, 'あたらしい会員になり「つれてくる？」をきく', again)
+        if m:
+            await m.click(); await page.wait_for_timeout(1800)
+        s = state('Unine')
+        ok(s and s['name'] == 'やめるこ' and s['imported'], 'つれてくると、またLINEの子になる', s)
+        i = await info(page)
+        ok(i['owner'] == s['id'] and i['server'] == 'on', 'この端末のセーブは あたらしい会員のものに', i)
         all_errs += errs; await ctx.close()
 
         await browser.close()

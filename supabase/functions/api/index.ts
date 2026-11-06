@@ -10,6 +10,9 @@
  *   GET  /ai                         AIの読みとりが使えるか・きょうの のこり回数
  *   POST /read    { image }          AIの読みとり：端末で小さくした写真（JPEG）を Claude に送り、種類・毛色・耳やしっぽの形を返す。
  *                                    1人1日 AI_PER_DAY 回・全員で1日 AI_ALL_PER_DAY 回まで（日本時間の日付）。写真も結果も保存しない
+ *   POST /leave   { confirm:'leave', accessToken }
+ *                                    やめる（退会）：この会員のデータ（会員・LINEのひもづけ・セッション・セーブ・AIの回数）を すぐに ぜんぶ消し、
+ *                                    LINE の deauthorize で、うちのこ日和に あたえた許可も取り消す（チャネルシークレットがあるとき）
  *   GET  /health                     動いているか・サーバーの時刻
  *
  * - おなか・ごきげんの減り、おやつの回数、おみやげ、きょうのおねがい、連続記録とおたすけ、季節のイベント、
@@ -24,6 +27,8 @@
  *   GitHub に push したコミットの game.js を指す（デプロイで送るのは index.ts と deno.json だけ）。
  * - ログにトークンやセーブの中身、写真、AIの返事を出さない。
  * - AIの鍵（ANTHROPIC_API_KEY）は Supabase の Edge Function の秘密（Secrets）にだけ置く。ないときは読みとりを休む。
+ * - LINEミニアプリチャネルのチャネルシークレット（LINE_CHANNEL_SECRET）も Secrets にだけ置く。やめる人の許可の取り消し（deauthorize）だけに使う。
+ *   ないときも データは消す（許可は、LINEの設定から本人が外せる）。
  * - デプロイは verify_jwt: false（自前のセッションで確かめるため）。
  */
 import postgres from 'npm:postgres@3.4.5';
@@ -36,6 +41,8 @@ const CHANNELS = env('LINE_CHANNEL_IDS', '2012410263').split(',').map(s => s.tri
 const ORIGINS = env('ALLOWED_ORIGINS', 'https://uchinoko-biyori.pages.dev').split(',').map(s => s.trim()).filter(Boolean);
 const PREVIEW = /^https:\/\/[a-z0-9-]+\.uchinoko-biyori\.pages\.dev$/;
 const LINE_VERIFY = 'https://api.line.me/oauth2/v2.1/verify';
+const LINE_TOKEN = 'https://api.line.me/oauth2/v3/token';          /* ステートレスチャネルアクセストークン（15分） */
+const LINE_DEAUTH = 'https://api.line.me/user/v1/deauthorize';    /* 本人が あたえた許可を取り消す */
 const SESSION_HOURS = 24;
 const SESSIONS_PER_MEMBER = 10;
 const SAVE_MAX = 1_500_000;          /* セーブの JSON の文字数の上限（写真なしで、ふつうは 100KB より小さい） */
@@ -48,7 +55,7 @@ const AI_PER_DAY = intEnv('AI_PER_DAY', 3, 50);           /* 1人1日（日本�
 const AI_ALL_PER_DAY = intEnv('AI_ALL_PER_DAY', 300, 100_000);  /* 全員あわせて1日 */
 const AI_TIMEOUT_MS = 45_000;
 const IMAGE_MAX = 400_000;           /* 写真（base64）の文字数の上限。端末で はば768pxまでに小さくするので、ふつうは 150KB くらい */
-const BODY_MAX = { login:8_000, save:8_000, act:8_000, import:MOVE_MAX + 2_000, read:IMAGE_MAX + 2_000 } as const;
+const BODY_MAX = { login:8_000, save:8_000, act:8_000, import:MOVE_MAX + 2_000, read:IMAGE_MAX + 2_000, leave:8_000 } as const;
 const CARE = new Set(['feed', 'treat', 'play', 'trick']);
 const CARE_GAP_MS = 2_500;
 const STROKE_MAX = 12;
@@ -391,6 +398,49 @@ async function aiRead(req: Request, member: string) {
   } };
 }
 
+/* ----- やめる（退会） ----- */
+/* LINE に、この人が うちのこ日和に あたえた許可を取り消してもらう。結果は 'done'（取り消した）・'already'（もう取り消されていた／トークンが合わない）・
+   'nosecret'（チャネルシークレットがない）・'notoken'（アクセストークンが来なかった）・'failed'（LINE に届かない など） */
+async function deauthorize(userAccessToken: string | null): Promise<string> {
+  if (!userAccessToken) return 'notoken';
+  const secret = env('LINE_CHANNEL_SECRET');   /* Secrets（チャネルシークレット）。使うときだけ読む */
+  if (!secret){ console.error('leave: no channel secret'); return 'nosecret'; }
+  try {
+    const t = await fetch(LINE_TOKEN, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/x-www-form-urlencoded' },
+      body:new URLSearchParams({ grant_type:'client_credentials', client_id:CHANNELS[0], client_secret:secret }),
+      signal:AbortSignal.timeout(8000),
+    });
+    let tv: Record<string, unknown> = {};
+    try { tv = await t.json(); } catch { /* 下で弾く */ }
+    if (!t.ok || typeof tv.access_token !== 'string'){ console.error('leave: channel token ' + t.status); return 'failed'; }
+    const r = await fetch(LINE_DEAUTH, {
+      method:'POST',
+      headers:{ 'Authorization':'Bearer ' + tv.access_token, 'Content-Type':'application/json' },
+      body:JSON.stringify({ userAccessToken }),
+      signal:AbortSignal.timeout(8000),
+    });
+    if (r.status === 204 || r.ok) return 'done';
+    if (r.status === 400) return 'already';
+    console.error('leave: deauthorize ' + r.status);
+    return 'failed';
+  } catch {
+    console.error('leave: line unavailable');
+    return 'failed';
+  }
+}
+
+async function leave(req: Request, member: string) {
+  const body = await readBody(req, BODY_MAX.leave);
+  if (body.confirm !== 'leave') throw new HttpError(400, 'noconfirm');
+  const at = typeof body.accessToken === 'string' && /^[\w.~+/=-]{10,4096}$/.test(body.accessToken) ? body.accessToken : null;
+  /* 会員の行を消すと、LINEのひもづけ・セッション・セーブ・AIの回数も いっしょに消える（on delete cascade） */
+  const [gone] = await sql`delete from app.members where id = ${member} returning id`;
+  if (!gone) throw new HttpError(401, 'nosession');
+  return { ok:true, deauth:await deauthorize(at) };
+}
+
 async function route(req: Request): Promise<unknown> {
   const path = new URL(req.url).pathname.replace(/^.*?\/api(?=\/|$)/, '') || '/';
   const m = req.method;
@@ -402,6 +452,7 @@ async function route(req: Request): Promise<unknown> {
   if (path === '/import' && m === 'POST') return await importCode(req, await sessionMember(req));
   if (path === '/ai' && m === 'GET') return { ai:await aiStatus(await sessionMember(req)), now:Date.now() };
   if (path === '/read' && m === 'POST') return await aiRead(req, await sessionMember(req));
+  if (path === '/leave' && m === 'POST') return await leave(req, await sessionMember(req));
   throw new HttpError(404, 'notfound');
 }
 
