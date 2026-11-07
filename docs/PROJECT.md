@@ -319,7 +319,7 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 
 - **画面（`js_line.js` の `LineAI`）：** LINEの中でサーバーに つながっていて、サーバーが「使える」と言うとき（`/login` の `ai.on`）だけ。写真をえらぶと、送る前に「AIで 読みとる？」（のこり回数、「AIを使わずに、自分で えらぶ」、どこへ送り・残さないことの説明）。読みとるときは、この端末で長いほうの辺を768pxまでの JPEG に作り直して（キャンバスで作るので位置情報などは入らない）`POST /read` へ。返事は Claude版と同じ `parseAI()` を通して、候補の種類・毛色・顔つき・ひとことを編集の画面に出す（`esc()` を通す）。読みとれない・回数をこえた・届かないときは、写真の色で仮の見た目（ホーム画面版と同じ）。はじめての画面の写真のことわりも、AIが使えるときは「えらんだあとに きく」に変わる。ホーム画面版の `index.html` は変わらない（`Onboard.analyze` を LINE版だけで包む）。
 - **サーバー（`index.ts`）：** `GET /ai`（使えるか・きょうの のこり）、`POST /read { image }`（`data:image/jpeg;base64,…` だけ。40万文字まで、JPEG の頭のバイトも確かめる）。日付のロックの中で回数を1つとってから（`app.ai_usage`：日本時間の日付・会員・回数だけ。7日より前の行は消す）、Anthropic の Messages API へ（画像＋Claude版と同じ `buildPrompt()`、考える時間なし・effort low、45秒まで）。AIに届かなかった・エラーのときは回数を返す。返事は `parseAI()` で、知っている種類・決まった形の色・短い文字だけにして返す。写真と返事は保存もログもしない（ログはエラーの種類だけ）。回数の表が読めないときは「休み」にして、ログインやおせわは止めない。
-- **本物のようす（2026-11-06）：** 回数の表 `app.ai_usage` は入れた（会員IDの索引も）。鍵 `ANTHROPIC_API_KEY` は まだ（オーナーのカードの準備待ち）なので、読みとりは「おやすみ」。そのあいだ LINE版で写真をえらぶと、ホーム画面版と同じ色ひろい（写真のまんなか寄りの色）になる。
+- **本物のようす：** 回数の表 `app.ai_usage` は入れた（会員IDの索引も、2026-11-06）。鍵 `ANTHROPIC_API_KEY` は 2026-11-07 にオーナーが入れ、iPhone の LINE で「AIで 読みとる？」→ 読みとり が動くことを確かめた（回数の表が1になった）。
 - **設定（Secrets／環境変数）：** `ANTHROPIC_API_KEY`（必須。ないと休み）、`AI_MODEL`（既定 `claude-haiku-5-5`）、`AI_PER_DAY`（既定3）、`AI_ALL_PER_DAY`（既定300）。
 - **確認：** `tools/server/api_test.ts`（AI をまねて：写真の確かめ、1人3回・全員の上限、エラーで回数を返す、返事の確かめ、表がないときは休み）、`tools/line_e2e.py` の10〜10c（送る前に きく、768px の JPEG、候補が出る、AIを使わない えらび方、届かないとき、犬や猫が写っていないとき、LINEの外）。
 
@@ -370,7 +370,8 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 
 済み（2026-11-06）：Cloudflare Pages（https://uchinoko-biyori.pages.dev/ ）、LINE Developers のプロバイダーと LINEミニアプリチャネル（開発用のエンドポイントURLは上の pages.dev）。権限設定は、Admin が管理用のアカウント（メールのビジネスID）、Tester がオーナーのふだんのLINEアカウント。実機での確認は Tester のLINEで行う（Admin はスマホのLINEとつながっていないため）。
 - 実機での確認ずみ（2026-11-06、iPhone の LINE）：画面が出る、下の5つのボタンとシートが隠れない、上の LINE のバーとヘッダーが重ならない、プロフィールに「LINEと つながっています」。Android は未確認。
-- まだ（2026-11-06）：① AIの鍵 → Anthropic Console（https://platform.claude.com/ ）でクレジットを買い、APIキーを作り、月の利用上限を5ドルに → Supabase の画面で プロジェクト uchinoko-biyori → Edge Functions → Secrets に `ANTHROPIC_API_KEY`。② やめる人の LINE の許可の取り消し → LINE Developers の LINEミニアプリチャネルの「チャネル基本設定」にある チャネルシークレット を、同じ Secrets に `LINE_CHANNEL_SECRET` として入れる。どちらも チャットには貼らない。入れたら すぐ使える（デプロイし直さなくてよい）。
+- 済み（2026-11-07）：Secrets に `ANTHROPIC_API_KEY`（Anthropic Console の月の利用上限5ドル）と `LINE_CHANNEL_SECRET`（開発用の内部チャネルのもの）を入れた。実機で、メーターが動きの おわりに動く・AIの読みとり・新しい子をむかえる（直したあと）を確かめた。
+- まだ：お問い合わせ用の専用メールアドレス（作ったら `src/build.sh` の `CONTACT` へ）。「LINEの データを けす」の実機の確認（公開の前に）。
 - Supabase：うちのこ日和用のプロジェクト「uchinoko-biyori」を新しく作った（2026-11-06、オーナーが決定。無料プランの2つ目なので、組織の枠はいっぱい）。チャネルシークレットなどの秘密は使っていない（IDトークンの検証に要るのはチャネルIDだけ）。
 
 1. Cloudflare Pages：Workers & Pages → Create application → Pages → Connect to Git → GitHub の `Y-s-Apps/uchinoko-biyori` をえらぶ → 上の設定で Save and Deploy。できた `*.pages.dev` のURLをソーイに知らせる。
