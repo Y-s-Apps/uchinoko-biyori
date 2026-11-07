@@ -61,8 +61,8 @@ const CARE = new Set(['feed', 'treat', 'play', 'trick']);
 const CARE_GAP_MS = 2_500;
 const STROKE_MAX = 12;
 /* 長く ひらかない人：最後に ひらいて（ログインして）から この日数で、会員ごと ぜんぶ消す（プライバシーポリシーの「2年」）。
-   だれかが ログインするたびに、まとめて消す（その人自身が 2年ぶりなら、消してから あたらしい会員にする） */
-const KEEP_DAYS = intEnv('MEMBER_KEEP_DAYS', 730, 3650) || 730;
+   だれかが ログインするたびに、まとめて消す（その人自身が 2年ぶりなら、消してから あたらしい会員にする）。まちがえて小さくしても30日より短くしない */
+const KEEP_DAYS = Math.max(30, intEnv('MEMBER_KEEP_DAYS', 730, 3650));
 
 const sql = postgres(env('SUPABASE_DB_URL'), { prepare:false, max:3, idle_timeout:20, connect_timeout:10 });
 
