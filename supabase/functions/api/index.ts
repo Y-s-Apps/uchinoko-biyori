@@ -29,6 +29,7 @@
  * - AIの鍵（ANTHROPIC_API_KEY）は Supabase の Edge Function の秘密（Secrets）にだけ置く。ないときは読みとりを休む。
  * - LINEミニアプリチャネルのチャネルシークレット（LINE_CHANNEL_SECRET）も Secrets にだけ置く。やめる人の許可の取り消し（deauthorize）だけに使う。
  *   ないときも データは消す（許可は、LINEの設定から本人が外せる）。
+ * - 最後に ひらいてから MEMBER_KEEP_DAYS 日（既定 730＝2年）たった会員は、だれかの ログインのときに ぜんぶ消す。
  * - デプロイは verify_jwt: false（自前のセッションで確かめるため）。
  */
 import postgres from 'npm:postgres@3.4.5';
@@ -59,6 +60,9 @@ const BODY_MAX = { login:8_000, save:8_000, act:8_000, import:MOVE_MAX + 2_000, 
 const CARE = new Set(['feed', 'treat', 'play', 'trick']);
 const CARE_GAP_MS = 2_500;
 const STROKE_MAX = 12;
+/* 長く ひらかない人：最後に ひらいて（ログインして）から この日数で、会員ごと ぜんぶ消す（プライバシーポリシーの「2年」）。
+   だれかが ログインするたびに、まとめて消す（その人自身が 2年ぶりなら、消してから あたらしい会員にする） */
+const KEEP_DAYS = intEnv('MEMBER_KEEP_DAYS', 730, 3650) || 730;
 
 const sql = postgres(env('SUPABASE_DB_URL'), { prepare:false, max:3, idle_timeout:20, connect_timeout:10 });
 
@@ -168,6 +172,7 @@ async function login(req: Request) {
   const hex = await sha256hex(token);
   const out = await sql.begin(async tx => {
     await tx`select pg_advisory_xact_lock(hashtextextended(${'line:' + sub}, 0))`;
+    await tx`delete from app.members where last_seen_at < now() - make_interval(days => ${KEEP_DAYS})`;
     const [acc] = await tx`select member_id from app.line_accounts where sub = ${sub}`;
     let member = acc ? acc.member_id as string : null;
     if (!member){

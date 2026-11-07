@@ -27,7 +27,8 @@
 | `src/js_line.js` | LINE版だけのJS（LIFF の準備、サーバーでの本人確認とセーブ、AIの読みとり `LineAI`、やめる `LineLeave`。`LINE_CFG.liffId`・`LINE_CFG.api`） |
 | `src/sw.js` | オフライン用のService Worker（`__VER__` はビルド時に置きかわる） |
 | `src/build.sh` | 組み立て。`../index.html` と `../sw.js`（ホーム画面版）、`out/uchinoko-claude.html`（Claude版）、`out/line/`（LINE版）を出力 |
-| `src/icons/` | アイコンの元データ（1024px）と描画スクリプト |
+| `src/icons/` | アイコンの元データ（1024px）と描画スクリプト。LINE用（130px）は `line_icon.js`・`render_line.py` → `line-icon-130.png` |
+| `src/legal/` | LINE版のプライバシーポリシー・利用規約（`build.sh` が お問い合わせ先 `CONTACT` を入れて `out/line/` に出す。空なら出さない） |
 | `tools/smoke.py` | スマホ幅での動作確認とスクリーンショット |
 | `supabase/migrations/` | LINE版のサーバー（Supabase「uchinoko-biyori」）の表。`app` スキーマ（Data API に出さない） |
 | `supabase/functions/api/index.ts` | LINE版のサーバーの関数（本人確認・おせわの判定 `/act`・名前とみための `/save`・引っこしコードの取りこみ・AIの読みとり `/read`・やめる `/leave`） |
@@ -68,3 +69,4 @@ JSは1つの `<script>` に `build.sh` の順でつなげられます。`const H
 - **ルールは1か所。** おせわの数字・上限・日付・偶然は `src/js_rules.js` に書き、時刻は `now()`/`dayKey()`（`Clock`）、偶然は `Clock.rand()` を使います（`Date.now()`・`new Date()`・`Math.random()` を ルールの中で直接使わない。見た目だけの処理は そのままでよい）。画面の処理（`$`・`Pet`・`Modal` など）はルールに入れません（サーバーで動かないため）。
 - **LINE版のサーバー。** おせわの数字や記録は画面から受けとりません（判定は `/act`、`/save` は名前・みためだけ、はじめての子は `adopt` か取りこみ）。表は `app` スキーマに置き、Data API に出しません（`public` に置かない。anon・authenticated に権限をあたえない）。読み書きは Edge Function `api` からだけ。セッションのトークンは画面のメモリだけに置き（localStorage に保存しない）、DB にはハッシュだけ。ログにトークン・IDトークン・セーブの中身を出しません。チャネルシークレットや APIの鍵が要るときは、チャットに貼ってもらわず、Supabase の画面で入れてもらいます（`create_edge_function_secret`）。LINE版の端末のキー `uchinoko-biyori:line-owner`・`uchinoko-biyori:line-guest`・`uchinoko-biyori:line-left` も消す処理は書きません（やめた人の端末の子は、`line-left` で ゲストにする）。やめる人のデータはサーバーから すぐに消し、LINE の deauthorize で許可も取り消します（チャネルシークレットは Secrets の `LINE_CHANNEL_SECRET`）。サーバーの URL を変えるときは `LINE_CFG.api` と `line_head.html` の CSP（`connect-src`）をそろえます。
 - **ポップアップ。** 画面全体を暗くして中央に出します（`Modal.show`）。同時に複数あるときは順番に出ます。
+- **ポリシーと規約。** 取る情報・送り先・保存期間・使う外部サービス・回数の上限などを変えたら、`src/legal/privacy.html`（と `terms.html`）も同じコミットで直し、制定日の下に改定日を足します。認証されたあとに ポリシー・規約の URL やアイコンを変えると再審査になります（`docs/PROJECT.md` の10章）。

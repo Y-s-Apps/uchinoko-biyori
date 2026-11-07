@@ -29,6 +29,31 @@ const LINE_OWNER_KEY = 'uchinoko-biyori:line-owner';  /* この端末のセー�
 const LINE_GUEST_KEY = 'uchinoko-biyori:line-guest';  /* LINEの子と入れかわった、この端末にいた子（消さずにとっておく） */
 const LINE_LEFT_KEY = 'uchinoko-biyori:line-left';    /* やめた（LINEの データを けした）会員ID。line-owner が これと同じなら、この端末の子は ゲスト */
 
+/* プライバシーポリシーと利用規約（この画面と同じ場所の privacy.html・terms.html。build.sh が src/legal/ から作る）。
+   LINEの中では LINEのブラウザで上に ひらく（うちのこ日和の画面は そのまま）。LINEの外では べつのタブ */
+const LineDocs = {
+  on:typeof LINE_DOCS !== 'undefined' && LINE_DOCS === true,   /* build.sh が お問い合わせ先を入れたときだけ ページがある */
+  url(name){ return new URL(name + '.html', location.href).href; },
+  open(name){
+    const url = this.url(name);
+    try {
+      if (window.liff && LineApp.state === 'ready' && LineApp.inClient && typeof liff.openWindow === 'function'){ liff.openWindow({ url, external:false }); return; }
+    } catch(e){}
+    window.open(url, '_blank', 'noopener');
+  },
+  links(){
+    const p = document.createElement('p');
+    p.className = 'line-docs';
+    for (const [name, label] of [['privacy', 'プライバシーポリシー'], ['terms', '利用規約']]){
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'linkbtn'; b.textContent = label;
+      b.addEventListener('click', () => this.open(name));
+      p.appendChild(b);
+    }
+    return p;
+  },
+};
+
 const LineApp = {
   state:'off',        /* off（LIFF IDなし）→ loading → ready ／ failed */
   inClient:false, os:null, error:null,
@@ -119,6 +144,12 @@ const LineApp = {
         lb.type = 'button'; lb.className = 'linkbtn line-leave'; lb.textContent = 'LINEの データを けす';
         lb.addEventListener('click', () => LineLeave.start());
         p.insertAdjacentElement('afterend', lb);
+      }
+      /* プライバシーポリシーと利用規約：いつも いちばん下に */
+      if (LineDocs.on){
+        let docs = sh.querySelector('.line-docs');
+        if (!docs) docs = LineDocs.links();
+        if (sh.lastElementChild !== docs) sh.appendChild(docs);
       }
     }
     /* はじめての画面の写真のことわり：AIで読みとれるときは、えらんだあとに きくことを書く */
@@ -564,7 +595,7 @@ const LineAI = {
       <button class="btn primary" type="button" id="aiGo">AIで 読みとる</button>
       <p class="note" id="aiLeft" role="status">${esc(this.leftText(LineServer.ai))}</p>
       <button class="btn" type="button" id="aiSelf">AIを使わずに、自分で えらぶ</button>
-      <p class="note">写真は この端末で 小さくしてから、うちのこ日和の サーバーを通して AI（Anthropic の Claude）に 送ります。読みとったら すぐに すてて、サーバーには のこしません。AIを使わないときは、写真は この端末の中だけで つかいます。</p>
+      <p class="note">写真は この端末で 小さくしてから、うちのこ日和の サーバーを通して AI（Anthropic の Claude）に 送ります。読みとったら すぐに すてて、サーバーには のこしません。AIを使わないときは、写真は この端末の中だけで つかいます。${LineDocs.on ? '<button class="linkbtn inline" type="button" id="aiPolicy">くわしく（プライバシーポリシー）</button>' : ''}</p>
       <button class="linkbtn" type="button" id="aiBack">べつの写真にする</button>
     </div>`;
     const go = $('#aiGo'), self = $('#aiSelf'), left = $('#aiLeft');
@@ -580,6 +611,7 @@ const LineAI = {
     go.addEventListener('click', () => { if (!go.disabled) this.read(ob, img); });
     self.addEventListener('click', () => ob.fromPhotoOnly(img, '写真から毛の色をひろいました。犬か猫と種類をえらんで、色を近づけてね。'));
     $('#aiBack').addEventListener('click', () => ob.welcome());
+    if (LineDocs.on) $('#aiPolicy').addEventListener('click', () => LineDocs.open('privacy'));
   },
   async read(ob, img){
     ob.scan(img.preview);

@@ -28,11 +28,21 @@ cp manifest.webmanifest ../
 
 # LINE版：ホーム画面版と同じJS（端末保存・写真は端末の中だけ）に js_line.js を足す。
 # Service Worker・manifest・apple-touch-icon は使わない。CSP は LIFF SDK（static.line-scdn.net）も読みこめる
+# プライバシーポリシーと利用規約（LINEの審査で URL を出す：…/privacy.html と …/terms.html。もとは legal/）。
+# お問い合わせ先（専用のメールアドレス）は ここ1か所。空のあいだは ページを出さず、アプリにもリンクを出さない
+# （ためしでは CONTACT=… sh src/build.sh で入れられる）
+CONTACT="${CONTACT-}"
+case "$CONTACT" in ''|*@*.*) ;; *) echo "CONTACT はメールアドレスにしてください" >&2; exit 1;; esac
+if [ -n "$CONTACT" ]; then DOCS=true; else DOCS=false; fi
 rm -rf out/line; mkdir -p out/line
-{ echo; echo 'const HOME = true;'; cat $JS js_line.js; } > out/line-script.js
+{ echo; echo 'const HOME = true;'; echo "const LINE_DOCS = $DOCS;"; cat $JS js_line.js; } > out/line-script.js
 LHASH="sha256-$(sha256b64 out/line-script.js)"
 { sed "s|__SCRIPT_HASH__|$LHASH|" line_head.html; cat head.html; echo '</head>'; echo '<body>'; cat body.html;
   printf '<script>'; cat out/line-script.js; echo '</script>'; echo '</body>'; echo '</html>'; } > out/line/index.html
 grep -q "'$LHASH'" out/line/index.html
 cp ../favicon-32.png ../favicon-64.png out/line/
+if [ "$DOCS" = true ]; then
+  for f in privacy terms; do sed "s|__CONTACT__|$CONTACT|g" legal/$f.html > out/line/$f.html; done
+  if grep -q '__CONTACT__' out/line/privacy.html out/line/terms.html; then echo 'お問い合わせ先が入っていません' >&2; exit 1; fi
+fi
 echo "built ($VER)"

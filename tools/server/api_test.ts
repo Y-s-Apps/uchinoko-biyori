@@ -452,6 +452,17 @@ Deno.env.set('LINE_CHANNEL_SECRET', 'test-secret');
 const hank = await joiner('hank');
 r = await call('POST', '/leave', { confirm:'leave', accessToken:'bad token with spaces' }, hank.token);
 ok(r.data.ok && r.data.deauth === 'notoken' && (await rows(hank.id)).m === 0, 'odd access token is not sent', r.data);
+console.log('keep (最後に ひらいてから 2年で消す)');
+const ivy = await joiner('ivy'), jay = await joiner('jay');
+await db`update app.members set last_seen_at = now() - interval '731 days' where id = ${ivy.id}`;
+await db`update app.members set last_seen_at = now() - interval '729 days' where id = ${jay.id}`;
+r = await call('POST', '/login', { idToken:mkToken('kim', '2012410263', 'Ukim') });
+ok(r.status === 200 && (await rows(ivy.id)).m === 0 && (await rows(ivy.id)).v === 0 && (await rows(ivy.id)).u === 0, '2年より前の会員は、だれかの ログインで ぜんぶ消える', await rows(ivy.id));
+ok((await rows(jay.id)).m === 1 && (await rows(jay.id)).v === 1, '2年より みじかい会員は のこる', await rows(jay.id));
+await db`update app.members set last_seen_at = now() - interval '800 days' where id = ${jay.id}`;
+r = await call('POST', '/login', { idToken:mkToken('jay2', '2012410263', 'Ujay') });
+ok(r.status === 200 && r.data.member.id !== jay.id && r.data.save === null && r.data.member.importable === true && (await rows(jay.id)).m === 0,
+   '2年ぶりに ひらいた人は、消してから あたらしい会員に', r.data);
 await db.end();
 
 console.log(fails ? `\n${fails} FAILED` : '\nall passed');
