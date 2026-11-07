@@ -13,7 +13,8 @@
    ・おせわはサーバーで（ほかの端末の変化も返事でとどく） ・端末の時計をずらしても得をしない
    ・サーバーに届かないとき（ゲストの子は遊べる／LINEの子は まってもらう） ・外部ブラウザ
    ・AIの読みとり（送る前に きく、小さくした JPEG、サーバーでの回数、AIを使わない えらび方、読みとれないとき）
-   ・やめる（2回 たしかめる、サーバーの データを すぐに消す、LINE の許可の取り消し、この端末の子は ゲストに、また ひらくと つれてくる）を確かめる。
+   ・やめる（2回 たしかめる、サーバーの データを すぐに消す、LINE の許可の取り消し、この端末の子は ゲストに、また ひらくと つれてくる）
+   ・LINEに子がいるときの「新しい子をむかえる」と 引っこしシートでの受け取り（前の子に もどらない）を確かめる。
    ページのエラーと CSP の違反が0件であることも見る。スクリーンショットは smoke-out/line-e2e/。
 
 サーバーの URL（LINE_CFG.api）への通信は、ブラウザの中でこのローカルのサーバーへつなぎかえる。本物の Supabase にはさわらない。
@@ -484,6 +485,44 @@ async def browser_tests(srv_port):
         ok(s and s['name'] == 'やめるこ' and s['imported'], 'つれてくると、またLINEの子になる', s)
         i = await info(page)
         ok(i['owner'] == s['id'] and i['server'] == 'on', 'この端末のセーブは あたらしい会員のものに', i)
+        all_errs += errs; await ctx.close()
+
+        print('12. LINEに子がいるとき「新しい子をむかえる」')
+        ctx, page, errs, calls = await open_page('Uten')
+        await page.click('#obManual'); await page.wait_for_timeout(300)
+        await page.click('[data-g="shiba"]'); await page.fill('#edName', 'もとのこ')
+        await page.click('#edGo'); await page.wait_for_timeout(2600)
+        await close_popups(page)
+        await page.click('#actFeed'); await page.wait_for_timeout(7000)
+        await close_popups(page)
+        old = state('Uten')
+        await page.click('#menuBtn'); await page.wait_for_timeout(400)
+        await page.click('#mNew'); await page.wait_for_timeout(300)
+        await page.click('#mYes'); await page.wait_for_timeout(600)
+        await page.click('#obManual'); await page.wait_for_timeout(300)
+        await page.click('[data-g="pomeranian"]'); await page.fill('#edName', 'あたらしいこ')
+        await page.click('#edGo'); await page.wait_for_timeout(3500)
+        await close_popups(page)
+        s, i = state('Uten'), await info(page)
+        ok(old['meals'] == 1 and s['name'] == 'あたらしいこ' and s['meals'] == 0 and s['love'] == 0 and s['created'] > old['created'],
+           'サーバーも まっさらの 新しい子になる（前の子の なかよしは のこらない）', {'old': old, 'new': s})
+        ok(i['name'] == 'あたらしいこ' and i['meals'] == 0 and i['love'] == 0, '画面も 新しい子のまま（前の子に もどらない）', i)
+        await page.reload(); await page.wait_for_timeout(2500)
+        await close_popups(page)
+        i = await info(page)
+        ok(i['name'] == 'あたらしいこ' and i['meals'] == 0, 'ひらきなおしても 新しい子', i)
+
+        print('12b. LINEに子がいるとき、引っこしシートで コードを受け取る（はじめての取りこみ）')
+        await page.click('#menuBtn'); await page.wait_for_timeout(400)
+        await page.click('#mMove'); await page.wait_for_timeout(400)
+        await page.fill('#mvIn', code_of(sample('コードの子', created_days=40)))
+        await page.click('#mvTake'); await page.wait_for_timeout(400)
+        yes = await page.query_selector('#mvYes')
+        if yes:
+            await yes.click(); await page.wait_for_timeout(3500)
+        await close_popups(page)
+        s, i = state('Uten'), await info(page)
+        ok(yes is not None and s['name'] == 'コードの子' and s['imported'] and i['name'] == 'コードの子', 'コードの子が サーバーに入り、画面も その子のまま', {'state': s, 'info': i})
         all_errs += errs; await ctx.close()
 
         await browser.close()

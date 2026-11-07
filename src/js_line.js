@@ -227,31 +227,15 @@ const ServerRef = {
     return LineSync.queue(async () => {
       if (!S || LineSync.state !== 'on') return;
       try {
-        const p = LineSync.pendingCode;
-        if (p && p.st === S){
-          /* 引っこしコードで受け取った子は、取りこみ口（1回だけ）から入れる */
-          const r = await LineSync.send('POST', '/import', { code:p.text });
-          LineSync.pendingCode = null;
-          LineServer.importable = false;
-          LineSync.apply(r.save, { photo:S.pet.photo });
-        } else if (LineSync.fresh && LineSync.fresh === S){
-          /* この端末でむかえた新しい子：サーバーが まっさらの子を作る（名前・みためだけ送る） */
-          const photo = S.pet.photo;
-          const r = await LineSync.send('POST', '/act', { type:'adopt', pet:linePet(S) });
-          LineSync.fresh = null;
-          LineSync.apply(r.save, { photo });
-          setTimeout(() => Act.open(0), 0);
-        } else if (LineSync.created != null && Number(S.created) === LineSync.created && lineIdKey(S) !== LineSync.idSent){
+        const sent = await LineSync.pushPending();
+        if (sent === 'adopt') setTimeout(() => Act.open(0), 0);
+        else if (!sent && LineSync.created != null && Number(S.created) === LineSync.created && lineIdKey(S) !== LineSync.idSent){
           const r = await LineSync.send('POST', '/save', { pet:linePet(S) });
           LineSync.apply(r.save);
         }
         LineSync.markOwner();
       } catch(e){
-        if (e.code === 'already' || e.code === 'badcode'){
-          LineSync.pendingCode = null;
-          if (e.code === 'already') LineServer.importable = false;
-          return LineSync.reload(e.code === 'already' ? '引っこしコードで 受け取れるのは 1回だけでした。LINEに ほぞんしている子に もどります' : 'コードを サーバーで 読めませんでした。LINEに ほぞんしている子に もどります');
-        }
+        if (LineSync.pendingRefused(e)) return;
         if (LineSync.refusal(e)) return;
         LineSync.fail(e);
         throw lineErr('off');   /* Persist はこの回 端末だけに保存する */
@@ -272,6 +256,38 @@ const LineSync = {
   settle(){ if (lineSettle){ lineSettle(); lineSettle = null; } },
   /* サーバーとのやりとりは、1つずつ順に */
   queue(fn){ const job = this.chain.then(fn, fn); this.chain = job.catch(() => {}); return job; },
+  /* この端末で うまれた子（新しい子・引っこしコードの子）を、おせわより先に サーバーへ送る（queue の中から呼ぶ）。
+     先に おせわ（open など）を送ると、サーバーは前の子の セーブを返し、画面が前の子に もどってしまうため。
+     送ったものを返す（'import'・'adopt'・null） */
+  async pushPending(){
+    if (!S || this.state !== 'on') return null;
+    const p = this.pendingCode;
+    if (p && p.st === S){
+      /* 引っこしコードで受け取った子は、取りこみ口（1回だけ）から入れる */
+      const r = await this.send('POST', '/import', { code:p.text });
+      this.pendingCode = null;
+      LineServer.importable = false;
+      this.apply(r.save, { photo:S.pet.photo });
+      return 'import';
+    }
+    if (this.fresh && this.fresh === S){
+      /* この端末でむかえた新しい子：サーバーが まっさらの子を作る（名前・みためだけ送る） */
+      const photo = S.pet.photo;
+      const r = await this.send('POST', '/act', { type:'adopt', pet:linePet(S) });
+      this.fresh = null;
+      this.apply(r.save, { photo });
+      return 'adopt';
+    }
+    return null;
+  },
+  /* 取りこみを サーバーが ことわった：LINEに ほぞんしている子に もどす（queue の中から呼ぶので、reload は またない） */
+  pendingRefused(e){
+    if (!e || (e.code !== 'already' && e.code !== 'badcode')) return false;
+    this.pendingCode = null;
+    if (e.code === 'already') LineServer.importable = false;
+    this.reload(e.code === 'already' ? '引っこしコードで 受け取れるのは 1回だけでした。LINEに ほぞんしている子に もどります' : 'コードを サーバーで 読めませんでした。LINEに ほぞんしている子に もどります');
+    return true;
+  },
   async send(method, path, body){
     try { return await LineServer.call(method, path, body); }
     catch(e){
@@ -362,7 +378,11 @@ const LineSync = {
     Act.remote = (t, p) => this.act(t, p);
     if (remote){
       this.setState('on');
-      if (S && this.samePet(S, remote)) this.apply(save);        /* 同じ子：サーバーのほうにそろえる（写真の控えはのこす） */
+      if (S && mine && (this.fresh === S || (this.pendingCode && this.pendingCode.st === S))){
+        this.know(remote);
+        Persist.flush();                                        /* この端末で むかえた子が まだ とどいていない：先に送る */
+      }
+      else if (S && this.samePet(S, remote)) this.apply(save);   /* 同じ子：サーバーのほうにそろえる（写真の控えはのこす） */
       else {
         if (S && !mine) this.stash(S);                          /* この端末の子は、このLINEの子ではない：とっておく */
         this.adopt(save);
@@ -414,10 +434,12 @@ const LineSync = {
     return this.queue(async () => {
       if (this.state !== 'on') return { ok:false, why:'offline', ev:[] };
       try {
+        await this.pushPending();   /* むかえたばかりの子が まだなら、先に */
         const r = await this.send('POST', '/act', Object.assign({ type }, p));
         if (r && r.save) this.apply(r.save);
         return Object.assign({ ev:[] }, r);
       } catch(e){
+        if (this.pendingRefused(e)) return { ok:false, why:'nosave', ev:[] };
         if (e.code === 'nosave'){ this.reload(); return { ok:false, why:'nosave', ev:[] }; }
         if (this.refusal(e)) return { ok:false, why:e.code, ev:[] };
         this.fail(e);
