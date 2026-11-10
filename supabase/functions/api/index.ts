@@ -12,7 +12,7 @@
  *                                    1人1日 AI_PER_DAY 回・全員で1日 AI_ALL_PER_DAY 回まで（日本時間の日付）。写真も結果も保存しない
  *   POST /leave   { confirm:'leave', accessToken }
  *                                    やめる（退会）：この会員のデータ（会員・LINEのひもづけ・セッション・セーブ・AIの回数）を すぐに ぜんぶ消し、
- *                                    LINE の deauthorize で、うちのこ日和に あたえた許可も取り消す（チャネルシークレットがあるとき）
+ *                                    LINE の deauthorize で、うちのこ日和に あたえた許可も取り消す（その内部チャネルのシークレットがあるとき）
  *   GET  /health                     動いているか・サーバーの時刻
  *
  * - おなか・ごきげんの減り、おやつの回数、おみやげ、きょうのおねがい、連続記録とおたすけ、季節のイベント、
@@ -20,6 +20,8 @@
  *   画面の時計や数字は使わないので、端末の時計を動かしても得をしない。
  * - おせわ（ごはん・おやつ・あそぶ・げい）は、前のおせわから 2.5 秒あける（画面の動きより短い）。
  * - IDトークンは https://api.line.me/oauth2/v2.1/verify で検証し、sub だけを使う（プロフィールの値は使わない）。
+ *   LINEミニアプリチャネルの中の 開発用・審査用・本番用（内部チャネル）は チャネルIDが べつなので、3つとも通す（LINE_CHANNEL_IDS）。
+ *   sub はプロバイダーごとなので、どの内部チャネルから ひらいても 同じ会員になる。
  *   LINE のトークンは保存しない。セッションのトークンは端末のメモリだけに置き、DB にはハッシュだけを持つ。
  * - セッションは x-session ヘッダーで受けとる（Authorization は Supabase の入口が JWT として読むので使わない）。
  * - セーブは画面と同じ ensureState() を通し、写真の控えは null にする。
@@ -27,7 +29,8 @@
  *   GitHub に push したコミットの game.js を指す（デプロイで送るのは index.ts と deno.json だけ）。
  * - ログにトークンやセーブの中身、写真、AIの返事を出さない。
  * - AIの鍵（ANTHROPIC_API_KEY）は Supabase の Edge Function の秘密（Secrets）にだけ置く。ないときは読みとりを休む。
- * - LINEミニアプリチャネルのチャネルシークレット（LINE_CHANNEL_SECRET）も Secrets にだけ置く。やめる人の許可の取り消し（deauthorize）だけに使う。
+ * - 内部チャネルのチャネルシークレットも Secrets にだけ置く（LINE_CHANNEL_SECRET_<チャネルID>。開発用は いままでの LINE_CHANNEL_SECRET でもよい）。
+ *   やめる人の許可の取り消し（deauthorize）だけに使う。アクセストークンを LINE で確かめて、どの内部チャネルのものかを知ってから えらぶ。
  *   ないときも データは消す（許可は、LINEの設定から本人が外せる）。
  * - 最後に ひらいてから MEMBER_KEEP_DAYS 日（既定 730＝2年）たった会員は、だれかの ログインのときに ぜんぶ消す。
  * - デプロイは verify_jwt: false（自前のセッションで確かめるため）。
@@ -36,8 +39,9 @@ import postgres from 'npm:postgres@3.4.5';
 import { ensureState, readMoveCode, MOVE_MAX, dayKey, Rules, newState, normalizeLook, buildPrompt, parseAI } from 'uchinoko-game';
 
 const env = (k: string, d = '') => (Deno.env.get(k) ?? d).trim();
-/* LINEミニアプリチャネルのチャネルID（LIFF ID の前半）。秘密ではない。カンマで複数 */
-const CHANNELS = env('LINE_CHANNEL_IDS', '2012410263').split(',').map(s => s.trim()).filter(Boolean);
+/* LINEミニアプリチャネルの内部チャネル（開発用・審査用・本番用）のチャネルID（LIFF ID の前半）。秘密ではない。カンマで複数。
+   先頭は開発用（シークレットが LINE_CHANNEL_SECRET だけのとき、それを開発用のものとして使う） */
+const CHANNELS = env('LINE_CHANNEL_IDS', '2012410263,2012410264,2012410265').split(',').map(s => s.trim()).filter(s => /^\d{6,12}$/.test(s));
 /* 画面の置き場所。Cloudflare Pages のプレビュー（<hash>.uchinoko-biyori.pages.dev）も通す */
 const ORIGINS = env('ALLOWED_ORIGINS', 'https://uchinoko-biyori.pages.dev').split(',').map(s => s.trim()).filter(Boolean);
 const PREVIEW = /^https:\/\/[a-z0-9-]+\.uchinoko-biyori\.pages\.dev$/;
@@ -404,17 +408,28 @@ async function aiRead(req: Request, member: string) {
 }
 
 /* ----- やめる（退会） ----- */
-/* LINE に、この人が うちのこ日和に あたえた許可を取り消してもらう。結果は 'done'（取り消した）・'already'（もう取り消されていた／トークンが合わない）・
-   'nosecret'（チャネルシークレットがない）・'notoken'（アクセストークンが来なかった）・'failed'（LINE に届かない など） */
+/* LINE に、この人が うちのこ日和に あたえた許可を取り消してもらう。結果は 'done'（取り消した）・'already'（もう取り消されていた／トークンが切れている）・
+   'nosecret'（その内部チャネルのシークレットがない）・'notoken'（アクセストークンが来なかった）・'failed'（LINE に届かない・ほかのチャネルのトークン など）。
+   開発用・審査用・本番用で チャネルIDとシークレットが べつなので、まずアクセストークンを LINE で確かめて client_id（チャネルID）を知る */
+function channelSecret(ch: string): string {
+  return env('LINE_CHANNEL_SECRET_' + ch) || (ch === CHANNELS[0] ? env('LINE_CHANNEL_SECRET') : '');   /* Secrets。使うときだけ読む */
+}
 async function deauthorize(userAccessToken: string | null): Promise<string> {
   if (!userAccessToken) return 'notoken';
-  const secret = env('LINE_CHANNEL_SECRET');   /* Secrets（チャネルシークレット）。使うときだけ読む */
-  if (!secret){ console.error('leave: no channel secret'); return 'nosecret'; }
   try {
+    const v = await fetch(LINE_VERIFY + '?access_token=' + encodeURIComponent(userAccessToken), { signal:AbortSignal.timeout(8000) });
+    if (v.status === 400 || v.status === 401) return 'already';
+    let vv: Record<string, unknown> = {};
+    try { vv = await v.json(); } catch { /* 下で弾く */ }
+    const ch = String(vv.client_id ?? '');
+    if (!v.ok || !(Number(vv.expires_in) > 0)){ console.error('leave: verify ' + v.status); return v.ok ? 'already' : 'failed'; }
+    if (!CHANNELS.includes(ch)){ console.error('leave: token of another channel'); return 'failed'; }
+    const secret = channelSecret(ch);
+    if (!secret){ console.error('leave: no channel secret ' + ch); return 'nosecret'; }
     const t = await fetch(LINE_TOKEN, {
       method:'POST',
       headers:{ 'Content-Type':'application/x-www-form-urlencoded' },
-      body:new URLSearchParams({ grant_type:'client_credentials', client_id:CHANNELS[0], client_secret:secret }),
+      body:new URLSearchParams({ grant_type:'client_credentials', client_id:ch, client_secret:secret }),
       signal:AbortSignal.timeout(8000),
     });
     let tv: Record<string, unknown> = {};

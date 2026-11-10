@@ -1,6 +1,6 @@
 # うちのこ日和：仕様と決めたこと
 
-最終更新：2026-11-10（ナレッジの中身がこの日付より古いときは、プロジェクトのナレッジで「Sync now」を押すと最新になります）
+最終更新：2026-11-11（ナレッジの中身がこの日付より古いときは、プロジェクトのナレッジで「Sync now」を押すと最新になります）
 
 ## 1. どんなアプリか
 
@@ -14,7 +14,7 @@
 
 | | ホーム画面版（メイン） | Claude版（予備） | LINE版（準備中） |
 | --- | --- | --- | --- |
-| 置き場所 | GitHub Pages（このリポジトリ） | Claudeのアーティファクト | 画面は Cloudflare Pages（https://uchinoko-biyori.pages.dev/ 。main から `src/out/line/` を自動で公開）、サーバーは Supabase |
+| 置き場所 | GitHub Pages（このリポジトリ） | Claudeのアーティファクト | 画面は Cloudflare Pages（https://uchinoko-biyori.pages.dev/ 。main から `src/out/line/` を自動で公開。本番用＝`/`・審査用＝`/review/`・開発用＝`/dev/`）、サーバーは Supabase |
 | 写真から迎える | 写真の毛色を自動でひろう（タップでも色をひろえる）。種類は自分でえらぶ | Claudeが種類、毛色、耳やしっぽの形を読みとる | LINEの中でサーバーにつながっているときは、写真をえらんだあとに「AIで読みとる？」ときく（サーバー経由で Claude Haiku 5.5、1人1日3回）。使わないとき・LINEの外・つながらないときは ホーム画面版と同じ（端末の中だけ） |
 | 保存 | 端末の localStorage | アカウントのDB（`data/users/<id>/pet`）＋ localStorage | LINEの中で開くと、本人確認してサーバー（Supabase）に保存。おせわはサーバーが時刻と乱数で判定し、端末はその写し。LINEに ほぞんしている子は、つながらないと おせわを まってもらう。外部ブラウザ・LINEに まだ子がいないときは端末だけ（ゲスト） |
 | その他 | 全画面表示、オフライン可、アイコン | ― | LIFF SDK、Android版LINEの下のすき間。Service Worker・manifest なし |
@@ -199,6 +199,7 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 
 ## 8. 更新履歴
 
+- **2026-11-11** LINE版を、LINEミニアプリの3つの内部チャネル（開発用・審査用・本番用）に対応。画面は同じものを `/`（本番用）・`/review/`（審査用）・`/dev/`（開発用）に置き、ひらいた場所で LIFF ID をえらぶ（開発用の画面だけ、プロフィールの1行に「［開発用］」）。サーバーは3つのチャネルIDの IDトークンを通し、やめる人の許可の取り消しは、アクセストークンを LINE で確かめて その内部チャネルのシークレット（`LINE_CHANNEL_SECRET_<チャネルID>`）で行う（オーナー決定）。LINE Developers の エンドポイントURL を そろえる。ホーム画面版とClaude版の中身は変わらない。
 - **2026-11-10** お問い合わせフォーム（https://forms.gle/aywxktpPZettxFSS7 、タイトル「うちのこ日和 お問い合わせフォーム」）を `build.sh` の `CONTACT` に入れて、プライバシーポリシー（https://uchinoko-biyori.pages.dev/privacy.html ）と利用規約（https://uchinoko-biyori.pages.dev/terms.html ）を公開した。LINE版のプロフィールに 3つのリンクが出る。
 - **2026-11-10** LINE版のお問い合わせ先を、専用メールから Googleフォームに変えた（Googleアカウントの電話番号の確認が上限になったため。オーナー決定）。`build.sh` の `CONTACT` は フォームの URL（`forms.gle` か `docs.google.com/forms/d/e/…/viewform` だけ通す）。ポリシーに、フォームで受けとる情報・Googleフォーム（外国のサーバー）・お問い合わせの保存期間（対応が終わってから1年、オーナー決定）を足した。LINE版のプロフィールのリンクに「おといあわせ」。制定日は 2026年11月10日に。
 - **2026-11-07** LINE版の認証審査の準備。プライバシーポリシーと利用規約のページ（`src/legal/`、提供者は Y's Apps。お問い合わせ先のメールを入れると LINE版と いっしょに公開され、プロフィールの いちばん下と「AIで 読みとる？」に リンクが出る）。LINE用のアイコン（130×130、クリーム）。サーバーで、最後に ひらいてから2年たった会員を消すように（オーナー決定）。ホーム画面版とClaude版の中身は変わらない。
@@ -261,7 +262,7 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 
 - `build.sh` が `src/out/line/`（`index.html` と favicon）を作る。JS はホーム画面版と同じものに `js_line.js` を足したもの（`HOME = true`：端末に保存、写真は端末の中だけ）。ホーム画面版の `index.html`・`sw.js` と Claude版は変わらない。
 - LIFF SDK は、`js_line.js` がエッジパス `https://static.line-scdn.net/liff/edge/2/sdk.js`（v2 の最新版）を読みこむ（待ち受けを先につけるので、失敗を取りこぼさない）。v2.20.0〜v2.31.0 には脆弱性があり、2026年11月24日ごろに利用制限の予定。版を固定しない。
-- LIFF ID は `js_line.js` の `LINE_CFG.liffId`。いまは開発用の `2012410263-cuCI7vQS`（LIFF URL：https://miniapp.line.me/2012410263-cuCI7vQS）。空にすると LIFF を使わない。SDK が読みこめない・初期化できない（10秒まで待つ）・外部ブラウザで開いた、のどれでもゲストとして遊べる。状態は `<html data-line="off|loading|ready|failed">`。
+- LIFF ID は `js_line.js` の `LINE_CFG.liffIds`（内部チャネルごと。下の「しくみ（内部チャネル）」）。ひらいた場所で `LINE_CH`（`prod`・`review`・`dev`）と `LINE_CFG.liffId` が きまる。空にすると その場所では LIFF を使わない。SDK が読みこめない・初期化できない（10秒まで待つ）・外部ブラウザで開いた、のどれでもゲストとして遊べる。状態は `<html data-line="off|loading|ready|failed" data-line-ch="prod|review|dev">`。
 - プロフィールのシートのいちばん下に、LINEとのつながりを1行出す（「LINEと つながっています」「LINEの外で ひらいています。ゲストとして あそべます」「LINEに つながれませんでした。ゲストとして あそべます（理由）」）。
 - CSP：スクリプトは `index.html` の中の1つと `static.line-scdn.net`。通信と iframe は `*.line.me`・`*.line-scdn.net`。通信はほかに、サーバーの `https://ftakgswltcavwixqxpzi.supabase.co`（`js_line.js` の `LINE_CFG.api` とそろえる）。
 - Android版LINE（26.3.0以降）の edge-to-edge：下のすき間を `max(env(safe-area-inset-bottom), var(--android-safe-area-inset-bottom))` で、`:root`・シート・ポップアップ・オンボーディングにあける。
@@ -278,7 +279,7 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
   - `sessions`：自前のセッション。トークンの SHA-256 だけを持つ。有効は24時間、1人10個まで（古いものから消す）
   - `saves`：セーブ（いまの `S` を丸ごと JSON。`pet.photo` はつねに null）、`rev`（書くたびに +1）
 - **Edge Function `api`**（`supabase/functions/api/index.ts`、`verify_jwt: false`。自前のセッションで確かめる）：
-  - `POST /login {idToken}`：IDトークンの `aud` が LINEミニアプリチャネルのチャネルID（`2012410263`。秘密ではない）か見てから、`https://api.line.me/oauth2/v2.1/verify` で検証し、`iss`・`aud`・`exp`・`sub` を確かめる。はじめての `sub` なら会員IDを作る。新しいセッションのトークン、会員ID、取りこみが使えるか、セーブを返す。
+  - `POST /login {idToken}`：IDトークンの `aud` が LINEミニアプリチャネルの内部チャネルのチャネルID（開発用 `2012410263`・審査用 `2012410264`・本番用 `2012410265`。秘密ではない。`LINE_CHANNEL_IDS` で変えられる）か見てから、`https://api.line.me/oauth2/v2.1/verify` で検証し、`iss`・`aud`・`exp`・`sub` を確かめる。はじめての `sub` なら会員IDを作る。新しいセッションのトークン、会員ID、取りこみが使えるか、セーブを返す。
   - `GET /save`、`POST /save {data, baseRev}`：書くときは画面と同じ `ensureState()` を通し、写真を null にし、JSON は150万文字まで。`baseRev` が今の `rev` とちがえば 409 と今のセーブを返す（ほかの端末が先に書いた）。
   - `POST /import {code}`：引っこしコード（`UCHINOKO2`）を、画面と同じ `readMoveCode()`（`decodeMovePayload()`＋`carryExtras()`）で読み、1人1回だけ入れる（おみやげの回数・きょうのおねがい・おやつの記録などはコードと同じく初期化）。2回目は 409。
   - `GET /health`：サーバーの時刻と、日本時間の日付。
@@ -338,9 +339,9 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 - **画面（`js_line.js` の `LineLeave`）：** サーバーに つながっているときだけ、プロフィールのシートの いちばん下（LINEの1行の下）に「LINEの データを けす」。1回目「LINEの データを けしますか？」（消えるもの・もどせないこと・この端末の子は のこること、「さきに 引っこしコードを コピー」）→ 2回目「ほんとうに けしますか？」→ `POST /leave { confirm:'leave', accessToken }`（`liff.getAccessToken()` は このときだけ送る）→「LINEの データを けしました」。届かないときは「いまは けせませんでした」で、なにも変えない。
   - けしたあと：セッションを わすれ、保存は この端末だけ（`Persist.mode = 'local'`）、`<html data-line-server="left">`。プロフィールの1行は「LINEの データを けしました。この端末で ゲストとして あそべます」。その回は サーバーに つなぎなおさない（新しい会員を作らない）。
   - 端末のキー `uchinoko-biyori:line-owner` は消さず、`uchinoko-biyori:line-left` に やめた会員IDを書く（`line-owner` が これと同じなら、この端末の子は ゲスト＝おせわを またせない）。また LINEで ひらいて つれてくると、`line-owner` は新しい会員IDに なる。
-- **サーバー（`index.ts`）：** `POST /leave` はセッションで本人を確かめ、`confirm:'leave'` がないと 400（`noconfirm`）。`app.members` の行を消すと、`line_accounts`・`sessions`・`saves`・`ai_usage` も いっしょに消える（on delete cascade）。そのあと、チャネルシークレットで ステートレスチャネルアクセストークン（`POST https://api.line.me/oauth2/v3/token`、15分）をもらい、`POST https://api.line.me/user/v1/deauthorize { userAccessToken }` で許可を取り消す。返事の `deauth` は `done`・`already`（もう取り消されていた）・`nosecret`・`notoken`・`failed`。どれでも データは消す（取り消せなかったときは、画面に「LINEの『設定』の『アカウント』から はずせます」）。ログは エラーの種類だけ。
-- **設定（Secrets）：** `LINE_CHANNEL_SECRET`（LINEミニアプリチャネルのチャネルシークレット。deauthorize だけに使う。ないと `nosecret`）。
-- **確認：** `tools/server/api_test.ts`（確かめが要る、ぜんぶの表から すぐ消える、古いセッションは使えない、ほかの人は そのまま、また ログインすると新しい会員、取り消し済み・トークンなし・LINEに届かない・シークレットなしでも消す）、`tools/line_e2e.py` の 11・11b（2回 たしかめる、コピー、サーバーから消える、LINEの許可の取り消し、この端末の子は ゲストで遊べる、また ひらくと つれてくる）。
+- **サーバー（`index.ts`）：** `POST /leave` はセッションで本人を確かめ、`confirm:'leave'` がないと 400（`noconfirm`）。`app.members` の行を消すと、`line_accounts`・`sessions`・`saves`・`ai_usage` も いっしょに消える（on delete cascade）。そのあと、アクセストークンを `GET https://api.line.me/oauth2/v2.1/verify?access_token=` で確かめて どの内部チャネルのものか（`client_id`）を知り、その内部チャネルのチャネルシークレットで ステートレスチャネルアクセストークン（`POST https://api.line.me/oauth2/v3/token`、15分）をもらい、`POST https://api.line.me/user/v1/deauthorize { userAccessToken }` で許可を取り消す。返事の `deauth` は `done`・`already`（もう取り消されていた／トークンが切れている）・`nosecret`（その内部チャネルのシークレットがない）・`notoken`・`failed`（LINE に届かない・ほかのチャネルのトークン）。どれでも データは消す（取り消せなかったときは、画面に「LINEの『設定』の『アカウント』から はずせます」）。ログは エラーの種類だけ。
+- **設定（Secrets）：** `LINE_CHANNEL_SECRET_<チャネルID>`（内部チャネルごとのチャネルシークレット。deauthorize だけに使う。ないと `nosecret`。ほかのチャネルのシークレットでは代わりにしない）。開発用（`LINE_CHANNEL_IDS` の先頭）は、`LINE_CHANNEL_SECRET_2012410263` がなければ いままでの `LINE_CHANNEL_SECRET` を使う。
+- **確認：** `tools/server/api_test.ts`（確かめが要る、ぜんぶの表から すぐ消える、古いセッションは使えない、ほかの人は そのまま、また ログインすると新しい会員、取り消し済み・トークンなし・LINEに届かない・シークレットなしでも消す、本番用のトークンは本番用のシークレット・審査用のシークレットがなければ nosecret・ほかのチャネルのトークンは取り消さない）、`tools/line_e2e.py` の 11・11b（2回 たしかめる、コピー、サーバーから消える、LINEの許可の取り消し、この端末の子は ゲストで遊べる、また ひらくと つれてくる）。
 
 ### 決めたこと（2026-11-07、認証審査の準備）
 
@@ -359,6 +360,20 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 - **規約に書いたこと：** サービスの内容（無料・年齢や寿命なし・LINEヤフーの提供ではない）、使う条件、写真とAI（使う権利のある写真・結果は候補・回数の上限）、引っこしコード（取りこみは1人1回・人にわたさない）、してはいけないこと、データとやめるとき（2年）、変更・お休み・終了（30日前に知らせ、引っこしコードで持ちだせる）、責任（消費者契約法に あわせた書き方）、規約の変更、お問い合わせ、準拠法と裁判所。有料の機能を足すときは、規約を変える（特定商取引法の表示も）。
 - **2年で消す（サーバー）：** `index.ts` の `/login` で、だれかが ログインするたびに `last_seen_at`（ログインの日時）が `MEMBER_KEEP_DAYS`（Secrets、既定 730日）より前の会員を消す（ひもづけ・セッション・セーブ・AIの回数も いっしょに消える）。2年ぶりに ひらいた人は、消してから あたらしい会員になる。LINEの許可の取り消しは、その人のトークンがないので しない（LINEの設定から はずせる、とポリシーに書いた）。確認：`api_test.ts` の keep。
 - **アイコン：** `src/icons/line_icon.js`（`lab.js` の2匹を使う）と `python3 src/icons/render_line.py` → `src/icons/line-icon-130.png`（130×130 の PNG。1040px で描いて小さくする）。LINE の決まり：背景130×130、ロゴ54〜90px（おすすめ54〜76px）、PNG か JPEG、LINEミニアプリのロゴを入れない、背景は自動で切り抜かれる。
+
+### 決めたこと（2026-11-11、内部チャネル）
+
+- **画面はパスで分ける**（オーナー決定）。本番用＝https://uchinoko-biyori.pages.dev/ 、審査用＝https://uchinoko-biyori.pages.dev/review/ 、開発用＝https://uchinoko-biyori.pages.dev/dev/ 。同じドメインなので、端末の保存（localStorage）は3つで同じ。サブドメイン（Cloudflare のブランチ）にする案は、保存が分かれ ブランチの管理がふえるので とらなかった。本番用を いちばん上にしたのは、認証されたあとに 本番用の エンドポイントURL を変えると再審査になるため。
+- **シークレットは `LINE_CHANNEL_SECRET_<チャネルID>`**（オーナー決定）。いまの `LINE_CHANNEL_SECRET` は開発用として そのまま使える。
+- **サーバーと DB は3つで同じ**（Supabase の無料の枠が いっぱい、かつ LINE の `sub` はプロバイダーごとなので、どの内部チャネルから ひらいても 同じ会員になる）。Tester の子は 本番用でも出る。公開の前に消す（`docs/HANDOFF.md` の「次にやること」）。
+- 2026-11-11 に LINE Developers で確かめた値：チャネルID 開発用 `2012410263`・審査用 `2012410264`・本番用 `2012410265`。LIFF ID 開発用 `2012410263-cuCI7vQS`・審査用 `2012410264-JD4WhzAb`・本番用 `2012410265-PutgsCLS`（LIFF URL は `https://miniapp.line.me/<LIFF ID>`）。
+
+### しくみ（内部チャネル：2026-11-11）
+
+- **画面：** `build.sh` が `src/out/line/index.html` を `review/index.html`・`dev/index.html` にも そのままコピーする。`js_line.js` の `LINE_CH` が ひらいた場所の さいしょのフォルダ（`/dev/`・`/review/`、ほかは本番用）で きまり、`LINE_CFG.liffIds[LINE_CH]` で `liff.init()` する。ポリシー・規約（`LineDocs.url()`）と favicon（`line_head.html`）は いちばん上のもの（`/privacy.html` など）を使う。開発用の画面だけ、プロフィールの1行の前に「［開発用］」（本番用・審査用には出さない）。
+- **サーバー：** `CHANNELS`（`LINE_CHANNEL_IDS`、既定は3つ。数字だけ通す）の どれかの `aud` なら IDトークンを検証する。やめる人の取り消しは、アクセストークン → `client_id` → `LINE_CHANNEL_SECRET_<client_id>`（開発用だけ `LINE_CHANNEL_SECRET` も）。
+- **LINE Developers（ウェブアプリ設定 → エンドポイントURL）：** 開発用＝`…/dev/`、審査用＝`…/review/`、本番用＝`…/`（いちばん上）。審査が始まるときに開発用の設定が審査用へコピーされるが、エンドポイントURL は内部チャネルごとに入れる。審査の前に、審査用と本番用の LIFF URL が同じサービスを映していることを確かめる（LINEの審査ガイド）。
+- **確認：** `tools/line_e2e.py` の 13（`/`・`/review/`・`/dev/` で それぞれの LIFF ID・同じ会員の子・「［開発用］」・ポリシーと favicon は いちばん上）、`api_test.ts`（審査用・本番用の IDトークンが通り同じ会員、となりの番号は通らない、内部チャネルごとの シークレット）。
 
 ### サーバーのきまり
 

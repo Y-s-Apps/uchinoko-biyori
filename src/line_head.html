@@ -8,9 +8,10 @@
 <meta name="description" content="写真の犬や猫をそっくりなペットにして、ごはん・おやつ・なでなででのんびり育てるアプリ">
 <meta name="theme-color" content="#EDF3F0" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1B1922" media="(prefers-color-scheme: dark)">
-<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
-<link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
-<!-- LIFF SDK は js_line.js が読みこむ（読みこめたか・失敗したかを取りこぼさないため）。CSP で static.line-scdn.net を許可。
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png">
+<!-- favicon は いちばん上のもの（同じページを 審査用 /review/・開発用 /dev/ にも置くため）。
+     LIFF SDK は js_line.js が読みこむ（読みこめたか・失敗したかを取りこぼさないため）。CSP で static.line-scdn.net を許可。
      サーバー（本人確認とセーブ）は Supabase の Edge Function：connect-src の ftakgswltcavwixqxpzi.supabase.co は js_line.js の LINE_CFG.api とそろえる -->
 <style>
 /* Android版LINEは edge-to-edge 表示：下のナビゲーションバーの分を、LINEの変数と safe-area の大きいほうであける

@@ -47,6 +47,11 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     if (AI.mode === 'down') return new Response('{"type":"error","error":{"type":"api_error"}}', { status:500 });
     return new Response(JSON.stringify({ type:'message', role:'assistant', content:[{ type:'text', text }], stop_reason:'end_turn' }));
   }
+  if (url.startsWith('https://api.line.me/oauth2/v2.1/verify?access_token=')){
+    /* やめる人のアクセストークンの確かめ（e2e のトークンは 開発用の内部チャネルのもの） */
+    if (new URL(url).searchParams.get('access_token') !== 'e2e-access-token') return new Response(JSON.stringify({ error:'invalid_request' }), { status:400 });
+    return new Response(JSON.stringify({ scope:'openid profile', client_id:'2012410263', expires_in:3600 }));
+  }
   if (url === 'https://api.line.me/oauth2/v3/token'){
     return new Response(JSON.stringify({ token_type:'Bearer', access_token:'chan-token', expires_in:900 }));
   }

@@ -14,7 +14,8 @@
    ・サーバーに届かないとき（ゲストの子は遊べる／LINEの子は まってもらう） ・外部ブラウザ
    ・AIの読みとり（送る前に きく、小さくした JPEG、サーバーでの回数、AIを使わない えらび方、読みとれないとき）
    ・やめる（2回 たしかめる、サーバーの データを すぐに消す、LINE の許可の取り消し、この端末の子は ゲストに、また ひらくと つれてくる）
-   ・LINEに子がいるときの「新しい子をむかえる」と 引っこしシートでの受け取り（前の子に もどらない）を確かめる。
+   ・LINEに子がいるときの「新しい子をむかえる」と 引っこしシートでの受け取り（前の子に もどらない）
+   ・内部チャネルごとの画面（/・/review/・/dev/ で それぞれの LIFF ID、同じ会員の子、ポリシーと favicon は いちばん上）を確かめる。
    ページのエラーと CSP の違反が0件であることも見る。スクリーンショットは smoke-out/line-e2e/。
 
 サーバーの URL（LINE_CFG.api）への通信は、ブラウザの中でこのローカルのサーバーへつなぎかえる。本物の Supabase にはさわらない。
@@ -131,14 +132,14 @@ async def browser_tests(srv_port):
     async with async_playwright() as p:
         browser = await p.chromium.launch()
 
-        async def open_page(sub, local=None, external=False, server_down=False, owner=None, skew_ms=0, keys=None):
+        async def open_page(sub, local=None, external=False, server_down=False, owner=None, skew_ms=0, keys=None, path='/'):
             ctx = await browser.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True,
                                             has_touch=True, timezone_id='Asia/Tokyo', locale='ja-JP')
             page = await ctx.new_page()
             errs, calls = [], []
             page.on('pageerror', lambda e: errs.append(str(e)))
             page.on('console', lambda m: errs.append('CSP: ' + m.text) if m.type == 'error' and 'Content Security Policy' in m.text else None)
-            liff = ("window.liff={init:()=>Promise.resolve(),isInClient:()=>%s,getOS:()=>'ios',getIDToken:()=>%s,getAccessToken:()=>'e2e-access-token'};"
+            liff = ("window.liff={init:o=>{window.__liffId=o&&o.liffId;return Promise.resolve()},isInClient:()=>%s,getOS:()=>'ios',getIDToken:()=>%s,getAccessToken:()=>'e2e-access-token'};"
                     % ('false' if external else 'true', json.dumps(token(sub))))
             await page.route('https://static.line-scdn.net/**', lambda r: r.fulfill(status=200, content_type='application/javascript', body=liff))
 
@@ -162,7 +163,7 @@ async def browser_tests(srv_port):
                     init.append("localStorage.setItem(%s, %s);" % (json.dumps(k), json.dumps(v)))
             if init:
                 await page.add_init_script("if(!sessionStorage.getItem('e2e')){%s sessionStorage.setItem('e2e','1')}" % ''.join(init))
-            await page.goto(f'http://127.0.0.1:{PAGE_PORT}/')
+            await page.goto(f'http://127.0.0.1:{PAGE_PORT}{path}')
             await page.wait_for_timeout(2200)
             return ctx, page, errs, calls
 
@@ -524,6 +525,21 @@ async def browser_tests(srv_port):
         s, i = state('Uten'), await info(page)
         ok(yes is not None and s['name'] == 'コードの子' and s['imported'] and i['name'] == 'コードの子', 'コードの子が サーバーに入り、画面も その子のまま', {'state': s, 'info': i})
         all_errs += errs; await ctx.close()
+
+        print('13. 内部チャネルごとの画面（本番用＝/、審査用＝/review/、開発用＝/dev/）')
+        want = {'/': ('prod', '2012410265-PutgsCLS'), '/review/': ('review', '2012410264-JD4WhzAb'), '/dev/': ('dev', '2012410263-cuCI7vQS')}
+        for path, (ch, lid) in want.items():
+            ctx, page, errs, calls = await open_page('Uten', path=path)
+            await page.click('#menuBtn'); await page.wait_for_timeout(500)
+            g = await page.evaluate('''() => ({ liff: window.__liffId, ch: document.documentElement.dataset.lineCh, server: document.documentElement.dataset.lineServer,
+                status: (document.querySelector('#sheet .line-status') || {}).textContent || '', docs: LineDocs.url('privacy'),
+                icon: document.querySelector('link[rel=icon]').href, name: S && S.pet && S.pet.name })''')
+            label = (g['status'] or '').startswith('［開発用］') if ch == 'dev' else not (g['status'] or '').startswith('［')
+            ok(g['liff'] == lid and g['ch'] == ch and g['server'] == 'on' and g['name'] == 'コードの子' and label
+               and g['docs'] == f'http://127.0.0.1:{PAGE_PORT}/privacy.html' and g['icon'] == f'http://127.0.0.1:{PAGE_PORT}/favicon-32.png',
+               f'{path} は {ch} の LIFF ID で ひらき、同じ会員の子・ポリシーは いちばん上', g)
+            await snap(page, 'channel_' + ch)
+            all_errs += errs; await ctx.close()
 
         await browser.close()
     httpd.shutdown()

@@ -17,7 +17,11 @@
      LINE の許可も取り消す）。この端末の子は のこして ゲストにする（line-owner は消さず、line-left に やめた会員IDを書く）。 */
 const LINE_CFG = {
   sdk:'https://static.line-scdn.net/liff/edge/2/sdk.js',  /* エッジパス：v2 の最新版が自動で入る（古い版に固定しない） */
-  liffId:'2012410263-cuCI7vQS',  /* 開発用の LIFF ID（https://miniapp.line.me/2012410263-cuCI7vQS）。空なら LIFF は使わない */
+  /* LINEミニアプリの内部チャネル（本番用・審査用・開発用）ごとの LIFF ID（秘密ではない。前の数字がチャネルID）。
+     build.sh が 同じページを3か所に置き、ひらいた場所でえらぶ：本番用＝/、審査用＝/review/、開発用＝/dev/
+     （LINE Developers の「ウェブアプリ設定」の エンドポイントURL と そろえる）。空なら その場所では LIFF を使わない */
+  liffIds:{ prod:'2012410265-PutgsCLS', review:'2012410264-JD4WhzAb', dev:'2012410263-cuCI7vQS' },
+  liffId:'',   /* この画面で使う LIFF ID（下の LINE_CH で きまる） */
   initTimeout:10000,  /* LIFF の初期化を待つ上限（ミリ秒） */
   api:'https://ftakgswltcavwixqxpzi.supabase.co/functions/v1/api',  /* 空ならサーバーを使わない（CSP の connect-src にも同じホスト） */
   apiTimeout:15000,
@@ -25,18 +29,22 @@ const LINE_CFG = {
   aiSide:768,       /* AIに送る写真の 長いほうの辺（px） */
   aiQuality:.8,
 };
+/* この画面が どの内部チャネルのものか（ひらいた場所の さいしょのフォルダ。/dev/ と /review/ のほかは本番用） */
+const LINE_CH = (/^\/(dev|review)(?:\/|$)/.exec(location.pathname) || [0, 'prod'])[1];
+LINE_CFG.liffId = LINE_CFG.liffIds[LINE_CH] || '';
 const LINE_OWNER_KEY = 'uchinoko-biyori:line-owner';  /* この端末のセーブが、どの会員のものか（サーバーの会員ID） */
 const LINE_GUEST_KEY = 'uchinoko-biyori:line-guest';  /* LINEの子と入れかわった、この端末にいた子（消さずにとっておく） */
 const LINE_LEFT_KEY = 'uchinoko-biyori:line-left';    /* やめた（LINEの データを けした）会員ID。line-owner が これと同じなら、この端末の子は ゲスト */
 
-/* プライバシーポリシーと利用規約（この画面と同じ場所の privacy.html・terms.html。build.sh が src/legal/ から作る）と、
+/* プライバシーポリシーと利用規約（サイトの いちばん上の /privacy.html・/terms.html。build.sh が src/legal/ から作る。
+   審査用・開発用の画面〈/review/・/dev/〉からも 同じページ）と、
    おといあわせ（Googleフォーム。build.sh の CONTACT）。
    LINEの中では LINEのブラウザで上に ひらく（うちのこ日和の画面は そのまま）。LINEの外では べつのタブ */
 const LineDocs = {
   on:typeof LINE_DOCS !== 'undefined' && LINE_DOCS === true,   /* build.sh が お問い合わせ先を入れたときだけ ページがある */
   url(name){
     if (name === 'contact') return typeof LINE_CONTACT === 'string' ? LINE_CONTACT : '';
-    return new URL(name + '.html', location.href).href;
+    return new URL('/' + name + '.html', location.href).href;
   },
   open(name){
     const url = this.url(name);
@@ -102,6 +110,7 @@ const LineApp = {
   mark(){
     const d = document.documentElement.dataset;
     d.line = this.state;
+    d.lineCh = LINE_CH;   /* どの内部チャネルの画面か（prod・review・dev） */
     if (this.inClient) d.lineClient = '1';
     if (LineSync.state !== 'off') d.lineServer = LineSync.state;
     this.paint();
@@ -139,7 +148,7 @@ const LineApp = {
       if (!text){ if (p) p.remove(); }
       else {
         if (!p){ p = document.createElement('p'); p.className = 'note line-status'; sh.appendChild(p); }
-        p.textContent = text;
+        p.textContent = (LINE_CH === 'dev' ? '［開発用］' : '') + text;   /* 開発用の画面だと わかるように（本番用・審査用には出さない） */
       }
       /* やめる：サーバーに つながっているときだけ、いちばん下に */
       let lb = sh.querySelector('.line-leave');

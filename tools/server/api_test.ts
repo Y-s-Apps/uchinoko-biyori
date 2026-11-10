@@ -29,8 +29,14 @@ function mkToken(name: string, aud = '2012410263', sub = 'U' + '0'.repeat(31) + 
 }
 let verifyCalls = 0;
 // ---- fake LINE token / deauthorize（やめる人） ----
+// 内部チャネル：開発用 2012410263（LINE_CHANNEL_SECRET）・審査用 2012410264（シークレットなし）・本番用 2012410265（LINE_CHANNEL_SECRET_2012410265）
 Deno.env.set('LINE_CHANNEL_SECRET', 'test-secret');
-const LINE = { tokenCalls:0, deauthCalls:0, auth:'', last:null as any, mode:'ok' };
+Deno.env.set('LINE_CHANNEL_SECRET_2012410265', 'prod-secret');
+const SECRETS: Record<string, string[]> = { '2012410263':['test-secret', 'dev-secret-new'], '2012410265':['prod-secret'] };
+/* アクセストークン → どの内部チャネルのものか（GET /oauth2/v2.1/verify?access_token= の client_id） */
+const ACCESS: Record<string, string> = { 'carol-access-token':'2012410263', 'frank-access-token':'2012410263', 'gina-access-token':'2012410263',
+  'nora-access-token':'2012410263', 'lena-review-token':'2012410264', 'mia-prod-token':'2012410265', 'otto-other-token':'1111111111' };
+const LINE = { tokenCalls:0, deauthCalls:0, atVerifyCalls:0, auth:'', last:null as any, client:'', secret:'', mode:'ok' };
 // ---- fake Anthropic Messages API（AIの読みとり） ----
 Deno.env.set('ANTHROPIC_API_KEY', 'test-key');
 Deno.env.set('AI_ALL_PER_DAY', '5');
@@ -67,10 +73,20 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     /* ステートレスチャネルアクセストークン（やめる人の許可の取り消しに使う） */
     LINE.tokenCalls++;
     const p = new URLSearchParams(String(init!.body));
-    if (p.get('grant_type') !== 'client_credentials' || p.get('client_id') !== '2012410263' || p.get('client_secret') !== 'test-secret'){
+    LINE.client = p.get('client_id') || ''; LINE.secret = p.get('client_secret') || '';
+    if (p.get('grant_type') !== 'client_credentials' || !(SECRETS[LINE.client] || []).includes(LINE.secret)){
       return new Response(JSON.stringify({ error:'invalid_client' }), { status:400 });
     }
-    return new Response(JSON.stringify({ token_type:'Bearer', access_token:'chan-token', expires_in:900 }), { status:200 });
+    return new Response(JSON.stringify({ token_type:'Bearer', access_token:'chan-token-' + LINE.client, expires_in:900 }), { status:200 });
+  }
+  if (url.startsWith('https://api.line.me/oauth2/v2.1/verify?access_token=')){
+    /* アクセストークンの確かめ（やめる人：どの内部チャネルのトークンかを知る） */
+    LINE.atVerifyCalls++;
+    if (LINE.mode === 'down') throw new Error('network');
+    if ((init?.method || 'GET') !== 'GET') return new Response(JSON.stringify({ error:'invalid_request' }), { status:405 });
+    const ch = ACCESS[new URL(url).searchParams.get('access_token') || ''];
+    if (!ch) return new Response(JSON.stringify({ error:'invalid_request', error_description:'access token expired' }), { status:400 });
+    return new Response(JSON.stringify({ scope:'openid profile', client_id:ch, expires_in:3600 }), { status:200 });
   }
   if (url === 'https://api.line.me/user/v1/deauthorize'){
     LINE.deauthCalls++;
@@ -150,6 +166,14 @@ const alice2 = r.data.token;
 r = await call('POST', '/login', { idToken:mkToken('bob', '2012410263', 'Ubob') });
 const bob = r.data.token;
 ok(r.status === 200 && r.data.member.id !== aliceId, 'bob is another member');
+r = await call('POST', '/login', { idToken:mkToken('pat-dev', '2012410263', 'Upat') });
+const patId = r.data.member.id;
+r = await call('POST', '/login', { idToken:mkToken('pat-review', '2012410264', 'Upat') });
+ok(r.status === 200 && r.data.member.id === patId, '審査用の内部チャネル（2012410264）も通る → 同じ会員（sub はプロバイダーごと）', r);
+r = await call('POST', '/login', { idToken:mkToken('pat-prod', '2012410265', 'Upat') });
+ok(r.status === 200 && r.data.member.id === patId, '本番用の内部チャネル（2012410265）も通る → 同じ会員', r);
+r = await call('POST', '/login', { idToken:mkToken('wrongaud2', '2012410266') });
+ok(r.status === 401 && r.data.error === 'badtoken', 'となりの番号のチャネルは通らない', r);
 
 const db = postgres(DB, { prepare:false, max:1 });
 const jst = (ms: number) => new Date(ms + 9 * 3600e3).toISOString().slice(0, 10);
@@ -397,7 +421,7 @@ await db`update app.sessions set expires_at = now() - interval '1 minute'`;
 r = await call('GET', '/save', undefined, bob);
 ok(r.status === 401, 'expired session rejected', r);
 const [{ c }] = await db`select count(*)::int c from app.line_accounts`;
-ok(c === 2, 'two LINE accounts (no token stored)', c);
+ok(c === 3, 'three LINE accounts: alice・bob・pat（内部チャネルが ちがっても 1つ。no token stored）', c);
 const cols = await db`select column_name from information_schema.columns where table_schema='app'`;
 ok(!cols.some((x: any) => /token$|id_token/.test(x.column_name)), 'no raw token columns');
 
@@ -406,8 +430,8 @@ const rows = async (id: string) => (await db`select
   (select count(*) from app.members where id = ${id})::int as m, (select count(*) from app.line_accounts where member_id = ${id})::int as a,
   (select count(*) from app.sessions where member_id = ${id})::int as s, (select count(*) from app.saves where member_id = ${id})::int as v,
   (select count(*) from app.ai_usage where member_id = ${id})::int as u`)[0];
-async function joiner(name: string){
-  const lr = await call('POST', '/login', { idToken:mkToken(name, '2012410263', 'U' + name) });
+async function joiner(name: string, aud = '2012410263'){
+  const lr = await call('POST', '/login', { idToken:mkToken(name, aud, 'U' + name) });
   await call('POST', '/act', { type:'adopt', pet }, lr.data.token);
   await db`insert into app.ai_usage (day, member_id, n) values (${jst(Date.now())}::date, ${lr.data.member.id}, 1)`;
   return { token:lr.data.token as string, id:lr.data.member.id as string };
@@ -425,7 +449,8 @@ r = await call('POST', '/leave', { confirm:'leave', accessToken:'carol-access-to
 rc = await rows(carol.id);
 ok(r.status === 200 && r.data.ok === true && r.data.deauth === 'done', 'leave: ok, deauthorized', r.data);
 ok(rc.m === 0 && rc.a === 0 && rc.s === 0 && rc.v === 0 && rc.u === 0, 'every row of carol is gone at once', rc);
-ok(LINE.tokenCalls === 1 && LINE.auth === 'Bearer chan-token' && LINE.last.userAccessToken === 'carol-access-token', 'deauthorize: stateless channel token + the user\'s access token', LINE);
+ok(LINE.atVerifyCalls === 1 && LINE.tokenCalls === 1 && LINE.client === '2012410263' && LINE.secret === 'test-secret' && LINE.auth === 'Bearer chan-token-2012410263'
+   && LINE.last.userAccessToken === 'carol-access-token', 'deauthorize: access token → 開発用 → LINE_CHANNEL_SECRET の stateless token + the user\'s access token', LINE);
 r = await call('GET', '/save', undefined, carol.token);
 ok(r.status === 401 && r.data.error === 'nosession', 'the old session no longer works', r);
 r = await call('GET', '/save', undefined, bobLogin.data.token);
@@ -452,6 +477,27 @@ Deno.env.set('LINE_CHANNEL_SECRET', 'test-secret');
 const hank = await joiner('hank');
 r = await call('POST', '/leave', { confirm:'leave', accessToken:'bad token with spaces' }, hank.token);
 ok(r.data.ok && r.data.deauth === 'notoken' && (await rows(hank.id)).m === 0, 'odd access token is not sent', r.data);
+console.log('leave（内部チャネルごとの シークレット）');
+const mia = await joiner('mia', '2012410265');
+r = await call('POST', '/leave', { confirm:'leave', accessToken:'mia-prod-token' }, mia.token);
+ok(r.data.ok && r.data.deauth === 'done' && LINE.client === '2012410265' && LINE.secret === 'prod-secret' && LINE.auth === 'Bearer chan-token-2012410265'
+   && LINE.last.userAccessToken === 'mia-prod-token' && (await rows(mia.id)).m === 0, '本番用のトークン → LINE_CHANNEL_SECRET_2012410265 で取り消す', { d:r.data, c:LINE.client, a:LINE.auth });
+const lena = await joiner('lena', '2012410264');
+let tc2 = LINE.tokenCalls, dc2 = LINE.deauthCalls;
+r = await call('POST', '/leave', { confirm:'leave', accessToken:'lena-review-token' }, lena.token);
+ok(r.data.ok && r.data.deauth === 'nosecret' && LINE.tokenCalls === tc2 && LINE.deauthCalls === dc2 && (await rows(lena.id)).m === 0,
+   '審査用のシークレットがない → nosecret（ほかのチャネルのシークレットは使わない）・データは消す', r.data);
+const otto = await joiner('otto');
+tc2 = LINE.tokenCalls; dc2 = LINE.deauthCalls;
+r = await call('POST', '/leave', { confirm:'leave', accessToken:'otto-other-token' }, otto.token);
+ok(r.data.ok && r.data.deauth === 'failed' && LINE.tokenCalls === tc2 && LINE.deauthCalls === dc2 && (await rows(otto.id)).m === 0,
+   'ほかのチャネルのトークン → 取り消さない（failed）・データは消す', r.data);
+Deno.env.set('LINE_CHANNEL_SECRET_2012410263', 'dev-secret-new');
+const nora = await joiner('nora');
+r = await call('POST', '/leave', { confirm:'leave', accessToken:'nora-access-token' }, nora.token);
+ok(r.data.ok && r.data.deauth === 'done' && LINE.client === '2012410263' && LINE.secret === 'dev-secret-new',
+   '開発用は LINE_CHANNEL_SECRET_2012410263 があれば そちらを使う', { d:r.data, s:LINE.secret });
+Deno.env.delete('LINE_CHANNEL_SECRET_2012410263');
 console.log('keep (最後に ひらいてから 2年で消す)');
 const ivy = await joiner('ivy'), jay = await joiner('jay');
 await db`update app.members set last_seen_at = now() - interval '731 days' where id = ${ivy.id}`;
