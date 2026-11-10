@@ -31,7 +31,7 @@ cp manifest.webmanifest ../
 # プライバシーポリシーと利用規約（LINEの審査で URL を出す：…/privacy.html と …/terms.html。もとは legal/）。
 # お問い合わせ先（Googleフォームの URL：https://forms.gle/… か https://docs.google.com/forms/d/e/…/viewform）は ここ1か所。
 # 空のあいだは ページを出さず、アプリにもリンクを出さない（ためしでは CONTACT=… sh src/build.sh で入れられる）
-CONTACT="${CONTACT-}"
+CONTACT="${CONTACT-https://forms.gle/aywxktpPZettxFSS7}"
 CONTACT="${CONTACT%%\?*}"   # ?usp=… などは はずす
 if [ -n "$CONTACT" ] && ! printf '%s' "$CONTACT" | grep -Eq '^https://(forms\.gle/[A-Za-z0-9]+|docs\.google\.com/forms/d/e/[A-Za-z0-9_-]+/viewform)$'; then
   echo "CONTACT は Googleフォームの URL にしてください" >&2; exit 1

@@ -199,6 +199,7 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 
 ## 8. 更新履歴
 
+- **2026-11-10** お問い合わせフォーム（https://forms.gle/aywxktpPZettxFSS7 、タイトル「うちのこ日和 お問い合わせフォーム」）を `build.sh` の `CONTACT` に入れて、プライバシーポリシー（https://uchinoko-biyori.pages.dev/privacy.html ）と利用規約（https://uchinoko-biyori.pages.dev/terms.html ）を公開した。LINE版のプロフィールに 3つのリンクが出る。
 - **2026-11-10** LINE版のお問い合わせ先を、専用メールから Googleフォームに変えた（Googleアカウントの電話番号の確認が上限になったため。オーナー決定）。`build.sh` の `CONTACT` は フォームの URL（`forms.gle` か `docs.google.com/forms/d/e/…/viewform` だけ通す）。ポリシーに、フォームで受けとる情報・Googleフォーム（外国のサーバー）・お問い合わせの保存期間（対応が終わってから1年、オーナー決定）を足した。LINE版のプロフィールのリンクに「おといあわせ」。制定日は 2026年11月10日に。
 - **2026-11-07** LINE版の認証審査の準備。プライバシーポリシーと利用規約のページ（`src/legal/`、提供者は Y's Apps。お問い合わせ先のメールを入れると LINE版と いっしょに公開され、プロフィールの いちばん下と「AIで 読みとる？」に リンクが出る）。LINE用のアイコン（130×130、クリーム）。サーバーで、最後に ひらいてから2年たった会員を消すように（オーナー決定）。ホーム画面版とClaude版の中身は変わらない。
 - **2026-11-07** LINE版で、LINEに子がいるときに「新しい子をむかえる」と、前の子（なかよしLvなど）に もどってしまう不具合を直した（引っこしシートで コードを受け取ったときも同じだった）。むかえた子を おせわより先に サーバーへ送る。`tools/line_e2e.py` に 12・12b。ホーム画面版とClaude版の中身は変わらない。
@@ -373,7 +374,8 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 済み（2026-11-06）：Cloudflare Pages（https://uchinoko-biyori.pages.dev/ ）、LINE Developers のプロバイダーと LINEミニアプリチャネル（開発用のエンドポイントURLは上の pages.dev）。権限設定は、Admin が管理用のアカウント（メールのビジネスID）、Tester がオーナーのふだんのLINEアカウント。実機での確認は Tester のLINEで行う（Admin はスマホのLINEとつながっていないため）。
 - 実機での確認ずみ（2026-11-06、iPhone の LINE）：画面が出る、下の5つのボタンとシートが隠れない、上の LINE のバーとヘッダーが重ならない、プロフィールに「LINEと つながっています」。Android は未確認。
 - 済み（2026-11-07）：Secrets に `ANTHROPIC_API_KEY`（Anthropic Console の月の利用上限5ドル）と `LINE_CHANNEL_SECRET`（開発用の内部チャネルのもの）を入れた。実機で、メーターが動きの おわりに動く・AIの読みとり・新しい子をむかえる（直したあと）を確かめた。
-- まだ：お問い合わせ用の Googleフォーム（作ったら URL を `src/build.sh` の `CONTACT` へ）。「LINEの データを けす」の実機の確認（公開の前に）。
+- 済み（2026-11-10）：お問い合わせ用の Googleフォーム（https://forms.gle/aywxktpPZettxFSS7 ）を作り、`src/build.sh` の `CONTACT` に入れた。
+- まだ：LINE Developers の「チャネル基本設定」に ポリシー・規約の URL とアイコンを入れる。「LINEの データを けす」の実機の確認（公開の前に）。
 - Supabase：うちのこ日和用のプロジェクト「uchinoko-biyori」を新しく作った（2026-11-06、オーナーが決定。無料プランの2つ目なので、組織の枠はいっぱい）。チャネルシークレットなどの秘密は使っていない（IDトークンの検証に要るのはチャネルIDだけ）。
 
 1. Cloudflare Pages：Workers & Pages → Create application → Pages → Connect to Git → GitHub の `Y-s-Apps/uchinoko-biyori` をえらぶ → 上の設定で Save and Deploy。できた `*.pages.dev` のURLをソーイに知らせる。
