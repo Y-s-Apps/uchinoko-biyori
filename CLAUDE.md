@@ -28,7 +28,7 @@
 | `src/sw.js` | オフライン用のService Worker（`__VER__` はビルド時に置きかわる） |
 | `src/build.sh` | 組み立て。`../index.html` と `../sw.js`（ホーム画面版）、`out/uchinoko-claude.html`（Claude版）、`out/line/`（LINE版）を出力 |
 | `src/icons/` | アイコンの元データ（1024px）と描画スクリプト。LINE用（130px）は `line_icon.js`・`render_line.py` → `line-icon-130.png` |
-| `src/legal/` | LINE版のプライバシーポリシー・利用規約（`build.sh` が お問い合わせ先 `CONTACT` を入れて `out/line/` に出す。空なら出さない） |
+| `src/legal/` | LINE版のプライバシーポリシー・利用規約（`build.sh` が お問い合わせ先 `CONTACT`＝Googleフォームの URL を入れて `out/line/` に出す。空なら出さない） |
 | `tools/smoke.py` | スマホ幅での動作確認とスクリーンショット |
 | `supabase/migrations/` | LINE版のサーバー（Supabase「uchinoko-biyori」）の表。`app` スキーマ（Data API に出さない） |
 | `supabase/functions/api/index.ts` | LINE版のサーバーの関数（本人確認・おせわの判定 `/act`・名前とみための `/save`・引っこしコードの取りこみ・AIの読みとり `/read`・やめる `/leave`） |

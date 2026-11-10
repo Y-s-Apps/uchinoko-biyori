@@ -29,13 +29,18 @@ const LINE_OWNER_KEY = 'uchinoko-biyori:line-owner';  /* この端末のセー�
 const LINE_GUEST_KEY = 'uchinoko-biyori:line-guest';  /* LINEの子と入れかわった、この端末にいた子（消さずにとっておく） */
 const LINE_LEFT_KEY = 'uchinoko-biyori:line-left';    /* やめた（LINEの データを けした）会員ID。line-owner が これと同じなら、この端末の子は ゲスト */
 
-/* プライバシーポリシーと利用規約（この画面と同じ場所の privacy.html・terms.html。build.sh が src/legal/ から作る）。
+/* プライバシーポリシーと利用規約（この画面と同じ場所の privacy.html・terms.html。build.sh が src/legal/ から作る）と、
+   おといあわせ（Googleフォーム。build.sh の CONTACT）。
    LINEの中では LINEのブラウザで上に ひらく（うちのこ日和の画面は そのまま）。LINEの外では べつのタブ */
 const LineDocs = {
   on:typeof LINE_DOCS !== 'undefined' && LINE_DOCS === true,   /* build.sh が お問い合わせ先を入れたときだけ ページがある */
-  url(name){ return new URL(name + '.html', location.href).href; },
+  url(name){
+    if (name === 'contact') return typeof LINE_CONTACT === 'string' ? LINE_CONTACT : '';
+    return new URL(name + '.html', location.href).href;
+  },
   open(name){
     const url = this.url(name);
+    if (!url) return;
     try {
       if (window.liff && LineApp.state === 'ready' && LineApp.inClient && typeof liff.openWindow === 'function'){ liff.openWindow({ url, external:false }); return; }
     } catch(e){}
@@ -44,7 +49,7 @@ const LineDocs = {
   links(){
     const p = document.createElement('p');
     p.className = 'line-docs';
-    for (const [name, label] of [['privacy', 'プライバシーポリシー'], ['terms', '利用規約']]){
+    for (const [name, label] of [['privacy', 'プライバシーポリシー'], ['terms', '利用規約'], ['contact', 'おといあわせ']]){
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'linkbtn'; b.textContent = label;
       b.addEventListener('click', () => this.open(name));
