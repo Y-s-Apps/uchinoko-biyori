@@ -6,7 +6,6 @@
 set -e
 cd "$(dirname "$0")"
 JS="js_data.js js_data2.js js_data3.js js_pet.js js_wear.js js_rules.js js_app.js js_features.js js_onboard.js"
-VER=$(cat $JS head.html body.html home_head.html sw.js manifest.webmanifest | sha1sum | cut -c1-10)
 # スクリプトの SHA-256（base64）。openssl がない環境（Cloudflare のビルドなど）では python3 で同じ値を出す
 sha256b64(){
   if command -v openssl >/dev/null 2>&1; then openssl dgst -sha256 -binary "$1" | base64 | tr -d '\n'
@@ -16,9 +15,15 @@ mkdir -p out
 { cat head.html; cat body.html; echo '<script>'; echo 'const HOME = false;'; cat $JS; echo '</script>'; } > out/uchinoko-claude.html
 
 # ホーム画面版の <script> の中身。CSP はこの中身のハッシュだけを実行してよいものにする
-{ echo; echo 'const HOME = true;'; cat $JS;
+# おたすけのおねがいの間隔（日）は、ホーム画面版だけ js_rules.js の 7 を HOME_RESCUE_EVERY に置きかえる
+# （2 ＝ 1日おき。2026-11-12 オーナー決定）。Claude版・LINE版とサーバー（game.js）は js_rules.js の 7 のまま
+HOME_RESCUE_EVERY=2
+{ echo; echo 'const HOME = true;'; cat $JS | sed "s/^const RESCUE_EVERY = 7;\$/const RESCUE_EVERY = $HOME_RESCUE_EVERY;/";
   echo "if ('serviceWorker' in navigator && location.protocol === 'https:') addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));"; } > out/home-script.js
+grep -q "^const RESCUE_EVERY = $HOME_RESCUE_EVERY;\$" out/home-script.js || { echo 'ホーム画面版の RESCUE_EVERY を置きかえられませんでした（js_rules.js を確かめて）' >&2; exit 1; }
 HASH="sha256-$(sha256b64 out/home-script.js)"
+# キャッシュ名の版番号（sw.js の __VER__）は、ホーム画面版に入る中身から作る（LINE版だけの変更では変わらない）
+VER=$(cat out/home-script.js head.html body.html home_head.html sw.js manifest.webmanifest | sha1sum | cut -c1-10)
 { sed "s|__SCRIPT_HASH__|$HASH|" home_head.html; cat head.html; echo '</head>'; echo '<body>'; cat body.html;
   printf '<script>'; cat out/home-script.js; echo '</script>'; echo '</body>'; echo '</html>'; } > ../index.html
 grep -q "'$HASH'" ../index.html

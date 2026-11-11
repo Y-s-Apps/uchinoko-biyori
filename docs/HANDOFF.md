@@ -2,9 +2,9 @@
 
 このファイルは、チャットのいちばん最後に毎回まるごと書き直します。次のチャットは、ここを読めば続きから始められます。オーナーは、更新のたびにプロジェクトナレッジのGitHubを「同期」し、作業ごとに新しいチャットへ移ります（`CLAUDE.md` の作業の流れ 7）。
 
-- 最終更新：2026-11-11
+- 最終更新：2026-11-12
 - リポジトリ：`Y-s-Apps/uchinoko-biyori`（組織 Y-s-Apps）。ホーム画面版：https://y-s-apps.github.io/uchinoko-biyori/
-- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 `uchinoko-df2f01ac7a`（`047f1e0` から中身は変わっていない。2026-11-07〜11 の変更も LINE版とサーバーだけ）
+- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 `uchinoko-928d8ce3db`（2026-11-12 おたすけを1日おきに。版番号の作り方も変えた＝ホーム画面版に入る中身から）
 - Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン21**（`047f1e0` の中身）。いまの main で作っても中身は同じ
 - LINE版の画面：Cloudflare Pages（main の push で自動ビルド。`23cfaa3` のビルドは成功、3か所とも手元のビルドと同じ md5 を pg_net で確かめた）
   - 本番用 https://uchinoko-biyori.pages.dev/ 、審査用 https://uchinoko-biyori.pages.dev/review/ 、開発用 https://uchinoko-biyori.pages.dev/dev/ （同じページ。ひらいた場所で LIFF ID をえらぶ）
@@ -17,6 +17,10 @@
 - LINE版の計画書：https://claude.ai/artifact/AgKkCkHCsWAywKGV6VFxwK
 
 ## 直近のチャットでやったこと
+
+- **2026-11-12 ホーム画面版だけ、おたすけのおねがいを1日おき（2日に1回）に（オーナー決定）：** `src/build.sh` の `HOME_RESCUE_EVERY=2` が、ホーム画面版の `const RESCUE_EVERY = 7;` を置きかえる（行の形が変わるとビルドが止まる）。`js_rules.js`・`game.js`・Claude版・LINE版（3か所）は ビルドの前後で同じ（サーバーのデプロイは不要、`build_server.py --check` OK）。1日おやすみ → つぎの日に おたすけ、をくりかえしても毎回つなげる。`tools/rules_test.mjs` に その場面、`smoke.py`・`compare_home.py` OK、ホーム画面版でピンチ・Claude版で「とぎれちゃった」を画面で確かめた。
+
+### その前のチャット（2026-11-11）
 
 - **審査用・本番用の内部チャネルに対応（`23cfaa3`）：** オーナーと決めたこと＝画面は**パスで分ける**（本番用＝いちばん上、審査用＝`/review/`、開発用＝`/dev/`）／シークレットは **`LINE_CHANNEL_SECRET_<チャネルID>`**（開発用は いまの `LINE_CHANNEL_SECRET` でもよい）。くわしくは `docs/PROJECT.md` 10章「決めたこと（2026-11-11、内部チャネル）」「しくみ（内部チャネル）」。
   - 画面（`js_line.js`）：`LINE_CFG.liffIds` に3つの LIFF ID、`LINE_CH`（`prod`・`review`・`dev`）で えらぶ。`<html data-line-ch>`。開発用の画面だけ プロフィールの1行の前に「［開発用］」。ポリシー・規約のリンクと favicon は いちばん上のもの。`build.sh` が `out/line/review/`・`out/line/dev/` に同じ `index.html` をコピー。
@@ -34,7 +38,7 @@
 4. **審査の申請の前に決めること：** 「Scope」を `openid` だけにするか（いまは名前・アイコンを使わない。友だち機能を足すときに `profile` を足す、が計画書の方針）。英語のチャネル名と説明（案を作る）。「会社・事業者の所在国・地域」（日本）。
 5. **アイデア（迷っている）：AIを使わないときの色ひろいを よくする。** 案A：いまのまま＝おすすめ（LINE版は AIで読める）。案B：地面らしい色を よけるように直す（ホーム画面版の `index.html` も変わり、だいずのアプリが更新される）。
 - Android は未確認。
-- おたすけの「週に1回」は「前回から7日」のまま（曜日区切りは希望があれば）。
+- おたすけ：ホーム画面版は1日おき（2026-11-12）。Claude版・LINE版は「前回から7日」のまま（LINE版も変えるなら、`js_rules.js` を変えてサーバーも作り直す）。
 
 ## 次にやること
 

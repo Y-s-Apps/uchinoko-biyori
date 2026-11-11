@@ -1,13 +1,13 @@
 /* おせわのルール（src/js_rules.js。サーバー用の game.js に入っているもの）を、時計を動かして確かめる。
  *   node tools/rules_test.mjs   （python3 tools/line_e2e.py からも動く）
- * 日をまたぐもの：れんぞく記録、おたすけ（1日だけ空いたとき、7日に1回）、2日あいたとき、季節のイベント、記念日、
+ * 日をまたぐもの：れんぞく記録、おたすけ（1日だけ空いたとき、7日に1回。ホーム画面版は1日おき）、2日あいたとき、季節のイベント、記念日、
  * おみやげの1日3回、げいのなかよしの1日10、なでなでのなかよしの回復。日付は日本時間。 */
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 
 const here = path.dirname(new URL(import.meta.url).pathname);
 const g = await import(pathToFileURL(path.join(here, '..', 'supabase', 'functions', 'api', 'game.js')).href);
-const { Rules, Clock, ensureState, newState } = g;
+let { Rules, Clock, ensureState, newState } = g;   /* さいごに ホーム画面版のルールに入れかえて確かめる */
 
 let T = Date.UTC(2026, 10, 2, 3, 0);   /* 2026-11-02 12:00 日本時間 */
 let seed = 7;
@@ -138,6 +138,28 @@ st.created = T - 365 * D;   /* 1年まえの きょう（日本時間） */
 st.milestones = {};
 ev = []; Rules.open(st, 0, ev);
 ok(ev.some(e => e.k === 'anniv' && e.years === 1) && st.milestones.days300 && st.milestones.anniv1, 'うちのこ記念日と、日数のアルバム', ev);
+
+console.log('ホーム画面版：おたすけは1日おき（src/build.sh の HOME_RESCUE_EVERY で RESCUE_EVERY を置きかえる）');
+{
+  const fs = await import('node:fs');
+  const every = Number((fs.readFileSync(path.join(here, '..', 'src', 'build.sh'), 'utf8').match(/^HOME_RESCUE_EVERY=(\d+)$/m) || [])[1]);
+  const src = fs.readFileSync(path.join(here, '..', 'supabase', 'functions', 'api', 'game.js'), 'utf8');
+  const homeSrc = src.replace(/^const RESCUE_EVERY = 7;$/m, `const RESCUE_EVERY = ${every};`);
+  ok(every === 2 && homeSrc !== src, 'ホーム画面版は2日に1回（ほかの版とサーバーは7日に1回）', every);
+  ({ Rules, Clock, ensureState, newState } = await import('data:text/javascript;base64,' + Buffer.from(homeSrc).toString('base64')));
+  Clock.now = () => T;
+  Clock.rand = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  T = Date.UTC(2026, 10, 2, 3, 0);
+  st = child(); completeAll(st); nextDay(); completeAll(st);
+  for (let i = 0; i < 3; i++){
+    nextDay(2);   /* 前のおたすけの つぎの日は おやすみ */
+    ev = []; Rules.open(st, 0, ev);
+    const pinch = !!st.daily.rescue && ev.some(e => e.k === 'pinch') && !ev.some(e => e.k === 'broke');
+    completeAll(st, true);
+    ok(pinch && st.streak.n === 3 + i && st.rescued.includes(jst(T - D)), `${i + 1}回め：1日おやすみ → つぎの日の おたすけで つながる（れんぞく${3 + i}）`, { pinch, streak:st.streak, rescued:st.rescued });
+  }
+  ok(Rules.nextRescueDay(st) === jst(T + 2 * D), 'つぎに使えるのは あさって', { next:Rules.nextRescueDay(st), today:jst(T) });
+}
 
 console.log(fails ? `\n${fails} FAILED` : '\nall passed');
 process.exit(fails ? 1 : 0);
