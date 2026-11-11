@@ -18,9 +18,11 @@ mkdir -p out
 # おたすけのおねがいの間隔（日）は、ホーム画面版だけ js_rules.js の 7 を HOME_RESCUE_EVERY に置きかえる
 # （2 ＝ 1日おき。2026-11-12 オーナー決定）。Claude版・LINE版とサーバー（game.js）は js_rules.js の 7 のまま
 HOME_RESCUE_EVERY=2
-{ echo; echo 'const HOME = true;'; cat $JS | sed "s/^const RESCUE_EVERY = 7;\$/const RESCUE_EVERY = $HOME_RESCUE_EVERY;/";
+# ホーム画面版だけのJS（js_home.js）は js_rules.js のすぐあとに入れる
+HOME_JS=$(echo "$JS" | sed 's/js_rules\.js/js_rules.js js_home.js/')
+{ echo; echo 'const HOME = true;'; cat $HOME_JS | sed "s/^const RESCUE_EVERY = 7;\$/const RESCUE_EVERY = $HOME_RESCUE_EVERY;/";
   echo "if ('serviceWorker' in navigator && location.protocol === 'https:') addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));"; } > out/home-script.js
-grep -q "^const RESCUE_EVERY = $HOME_RESCUE_EVERY;\$" out/home-script.js || { echo 'ホーム画面版の RESCUE_EVERY を置きかえられませんでした（js_rules.js を確かめて）' >&2; exit 1; }
+grep -q "^const RESCUE_EVERY = $HOME_RESCUE_EVERY;\$" out/home-script.js && grep -q '^const HomeRescue = ' out/home-script.js || { echo 'ホーム画面版の RESCUE_EVERY の置きかえか js_home.js が入っていません（js_rules.js の行の形を確かめて）' >&2; exit 1; }
 HASH="sha256-$(sha256b64 out/home-script.js)"
 # キャッシュ名の版番号（sw.js の __VER__）は、ホーム画面版に入る中身から作る（LINE版だけの変更では変わらない）
 VER=$(cat out/home-script.js head.html body.html home_head.html sw.js manifest.webmanifest | sha1sum | cut -c1-10)

@@ -144,9 +144,12 @@ console.log('ホーム画面版：おたすけは1日おき（src/build.sh の H
   const fs = await import('node:fs');
   const every = Number((fs.readFileSync(path.join(here, '..', 'src', 'build.sh'), 'utf8').match(/^HOME_RESCUE_EVERY=(\d+)$/m) || [])[1]);
   const src = fs.readFileSync(path.join(here, '..', 'supabase', 'functions', 'api', 'game.js'), 'utf8');
-  const homeSrc = src.replace(/^const RESCUE_EVERY = 7;$/m, `const RESCUE_EVERY = ${every};`);
-  ok(every === 2 && homeSrc !== src, 'ホーム画面版は2日に1回（ほかの版とサーバーは7日に1回）', every);
-  ({ Rules, Clock, ensureState, newState } = await import('data:text/javascript;base64,' + Buffer.from(homeSrc).toString('base64')));
+  /* build.sh と同じく、RESCUE_EVERY を置きかえて、ホーム画面版だけの js_home.js（HomeRescue）を足す */
+  const homeJs = fs.readFileSync(path.join(here, '..', 'src', 'js_home.js'), 'utf8');
+  const homeSrc = src.replace(/^const RESCUE_EVERY = 7;$/m, `const RESCUE_EVERY = ${every};`).replace(/^export \{ /m, homeJs + '\nexport { HomeRescue, ');
+  ok(every === 2 && /^const RESCUE_EVERY = 2;$/m.test(homeSrc), 'ホーム画面版は2日に1回（ほかの版とサーバーは7日に1回）', every);
+  const h = await import('data:text/javascript;base64,' + Buffer.from(homeSrc).toString('base64'));
+  ({ Rules, Clock, ensureState, newState } = h);
   Clock.now = () => T;
   Clock.rand = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
   T = Date.UTC(2026, 10, 2, 3, 0);
@@ -159,6 +162,30 @@ console.log('ホーム画面版：おたすけは1日おき（src/build.sh の H
     ok(pinch && st.streak.n === 3 + i && st.rescued.includes(jst(T - D)), `${i + 1}回め：1日おやすみ → つぎの日の おたすけで つながる（れんぞく${3 + i}）`, { pinch, streak:st.streak, rescued:st.rescued });
   }
   ok(Rules.nextRescueDay(st) === jst(T + 2 * D), 'つぎに使えるのは あさって', { next:Rules.nextRescueDay(st), today:jst(T) });
+
+  console.log('ホーム画面版：前のルール（7日に1回）で れんぞくが1にもどった日に、おたすけを出しなおす（HomeRescue）');
+  const n0 = st.streak.n;               /* いま れんぞく5（おととい まで） */
+  nextDay(); completeAll(st);           /* れんぞく6 */
+  nextDay(2);                           /* きのう おやすみ。前のおたすけから3日 */
+  /* 前の版で ひらいて3つを かなえた あとの形：おたすけは出ず、れんぞくは1、とぎれたお知らせは出した */
+  st.daily = Rules.genDaily(st, jst(T));
+  st.daily.list.forEach(r => { r.got = r.n; r.done = true; });
+  st.daily.all = true; st.daily.rescueNoticed = true;
+  st.stamps.push(jst(T)); st.streak.n = 1; st.streak.last = jst(T);
+  ev = []; Rules.open(st, 0, ev);
+  ok(st.streak.saved && st.streak.saved.n === n0 + 1 && st.daily.rescue && ev.some(e => e.k === 'pinch' && e.n === n0 + 1) && Rules.reqLeft(st) === 1,
+     `ひらくと ピンチのお知らせと おたすけ（れんぞく${n0 + 1}日の記録を まつ）`, { streak:st.streak, ev });
+  ev = []; Rules.open(st, 0, ev);
+  ok(!ev.some(e => e.k === 'pinch') && st.streak.saved.n === n0 + 1, 'もう一度 ひらいても かわらない', { streak:st.streak, ev });
+  ev = completeAll(st, true);
+  ok(st.streak.n === n0 + 2 && !st.streak.saved && st.rescued.includes(jst(T - D)) && ev.some(e => e.k === 'rescue' && e.bridged), `おたすけを かなえると れんぞく${n0 + 2}日に つながる`, { streak:st.streak });
+  ok(!h.HomeRescue.fix(st), 'つないだあとは 当てはまらない');
+  /* 2日 おやすみしたときは 出さない */
+  nextDay(3);
+  st.daily = Rules.genDaily(st, jst(T));
+  st.daily.list.forEach(r => { r.got = r.n; r.done = true; });
+  st.daily.all = true; st.stamps.push(jst(T)); st.streak.n = 1; st.streak.last = jst(T);
+  ok(!h.HomeRescue.fix(st) && !st.streak.saved, '2日 おやすみしたときは 出さない', st.streak);
 }
 
 console.log(fails ? `\n${fails} FAILED` : '\nall passed');

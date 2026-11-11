@@ -4,7 +4,7 @@
 
 - 最終更新：2026-11-12
 - リポジトリ：`Y-s-Apps/uchinoko-biyori`（組織 Y-s-Apps）。ホーム画面版：https://y-s-apps.github.io/uchinoko-biyori/
-- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 `uchinoko-928d8ce3db`（2026-11-12 おたすけを1日おきに。版番号の作り方も変えた＝ホーム画面版に入る中身から）
+- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 `uchinoko-29c51138fd`（2026-11-12 おたすけを1日おきに＋出なかった不具合の直し。版番号の作り方も変えた＝ホーム画面版に入る中身から）
 - Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン21**（`047f1e0` の中身）。いまの main で作っても中身は同じ
 - LINE版の画面：Cloudflare Pages（main の push で自動ビルド。`23cfaa3` のビルドは成功、3か所とも手元のビルドと同じ md5 を pg_net で確かめた）
   - 本番用 https://uchinoko-biyori.pages.dev/ 、審査用 https://uchinoko-biyori.pages.dev/review/ 、開発用 https://uchinoko-biyori.pages.dev/dev/ （同じページ。ひらいた場所で LIFF ID をえらぶ）
@@ -19,6 +19,7 @@
 ## 直近のチャットでやったこと
 
 - **2026-11-12 ホーム画面版だけ、おたすけのおねがいを1日おき（2日に1回）に（オーナー決定）：** `src/build.sh` の `HOME_RESCUE_EVERY=2` が、ホーム画面版の `const RESCUE_EVERY = 7;` を置きかえる（行の形が変わるとビルドが止まる）。`js_rules.js`・`game.js`・Claude版・LINE版（3か所）は ビルドの前後で同じ（サーバーのデプロイは不要、`build_server.py --check` OK）。1日おやすみ → つぎの日に おたすけ、をくりかえしても毎回つなげる。`tools/rules_test.mjs` に その場面、`smoke.py`・`compare_home.py` OK、ホーム画面版でピンチ・Claude版で「とぎれちゃった」を画面で確かめた。
+- **おたすけが出なかった不具合（同じ日）：** オーナーが 前の版のまま きょう（11/12）の3つを かなえたので、れんぞくが1にもどり（31日 → 1日、11/11 が おやすみ、11/9 に おたすけ使用ずみ）、新しい版でも おたすけが出なかった。ホーム画面版だけの `src/js_home.js`（`HomeRescue`）を足し、ひらいたときに `streak.saved` を作りなおして、おたすけとピンチを出しなおす（だいずは かなえると 32日）。`rules_test.mjs` に場面、だいずと同じ形のセーブで ピンチ（31日）→ おたすけ → 32日 を画面で確かめた。**オーナーが 11/12 のうちに おたすけを かなえたか、つぎのチャットで聞く。**
 
 ### その前のチャット（2026-11-11）
 
