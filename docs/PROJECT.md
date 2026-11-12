@@ -1,6 +1,6 @@
 # うちのこ日和：仕様と決めたこと
 
-最終更新：2026-11-12（ナレッジの中身がこの日付より古いときは、プロジェクトのナレッジで「Sync now」を押すと最新になります）
+最終更新：2026-11-13（ナレッジの中身がこの日付より古いときは、プロジェクトのナレッジで「Sync now」を押すと最新になります）
 
 ## 1. どんなアプリか
 
@@ -201,6 +201,7 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 
 ## 8. 更新履歴
 
+- **2026-11-13** LINE版の認証審査の前に決めること（オーナー決定）：Scope は `openid` だけ、英語のチャネル名「Uchinoko Biyori」と英語のチャネル説明（日本語の説明と同じ中身）、「会社・事業者の所在国・地域」は日本（10章「決めたこと（2026-11-13、審査の前）」）。チャネルシークレット3つを新しく発行して、Secrets に入れなおした（オーナー）。アプリの中身は変わらない。
 - **2026-11-12** ホーム画面版で、おたすけが出なかった不具合を直した。前の版（7日に1回）のまま きょうの3つを かなえると、れんぞくが1にもどり、新しい版に なっても おたすけが出なかった（だいず：31日 → 1日）。ひらいたときに、いまのルールなら出ていた「おたすけを まつ」形にもどして、おたすけを出しなおす（`src/js_home.js` の `HomeRescue`。ホーム画面版だけ、`build.sh` が `js_rules.js` のあとに入れる）。Claude版・LINE版・サーバーは変わらない。`tools/rules_test.mjs` に その場面。
 - **2026-11-12** ホーム画面版だけ、おたすけのおねがいを1日おき（2日に1回）に（オーナー決定）。`build.sh` の `HOME_RESCUE_EVERY=2` で、ホーム画面版の `RESCUE_EVERY` を置きかえる（`js_rules.js`・`game.js` は7のまま。Claude版・LINE版とサーバーは変わらない）。`sw.js` のキャッシュ名の版番号を、ホーム画面版に入る中身（`out/home-script.js` など）から作るように。`tools/rules_test.mjs` にホーム画面版の1日おきの場面。
 - **2026-11-11** LINE版を、LINEミニアプリの3つの内部チャネル（開発用・審査用・本番用）に対応。画面は同じものを `/`（本番用）・`/review/`（審査用）・`/dev/`（開発用）に置き、ひらいた場所で LIFF ID をえらぶ（開発用の画面だけ、プロフィールの1行に「［開発用］」）。サーバーは3つのチャネルIDの IDトークンを通し、やめる人の許可の取り消しは、アクセストークンを LINE で確かめて その内部チャネルのシークレット（`LINE_CHANNEL_SECRET_<チャネルID>`）で行う（オーナー決定）。LINE Developers の エンドポイントURL を そろえる。ホーム画面版とClaude版の中身は変わらない。
@@ -379,6 +380,19 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 - **LINE Developers（ウェブアプリ設定 → エンドポイントURL）：** 開発用＝`…/dev/`、審査用＝`…/review/`、本番用＝`…/`（いちばん上）。審査が始まるときに開発用の設定が審査用へコピーされるが、エンドポイントURL は内部チャネルごとに入れる。審査の前に、審査用と本番用の LIFF URL が同じサービスを映していることを確かめる（LINEの審査ガイド）。
 - **確認：** `tools/line_e2e.py` の 13（`/`・`/review/`・`/dev/` で それぞれの LIFF ID・同じ会員の子・「［開発用］」・ポリシーと favicon は いちばん上）、`api_test.ts`（審査用・本番用の IDトークンが通り同じ会員、となりの番号は通らない、内部チャネルごとの シークレット）。
 
+### 決めたこと（2026-11-13、審査の前）
+
+- **Scope は `openid` だけ**（オーナー決定）。いまは名前・アイコン（`profile`）を使わない（画面が使うのは `liff.getIDToken()` と、やめるときの `liff.getAccessToken()` だけ）。プライバシーポリシーの「名前・アイコンは使わない」とも そろう。認証されたあとに Scope を変えると再審査なので、友だち機能や友だち追加オプション（`openid` 以外のスコープが要る）を足すときに、`profile` なども足して いっしょに再審査を受ける。
+  - 2026年1月8日以降に作ったチャネルは「チャネル同意の簡略化」が いつも有効で、同意なしで使えるのは `openid` だけ。ほかの権限は、要るときに「アクセス許可要求画面」が出る（起動の直後に `liff.getProfile()` などを呼ばない）。
+- **英語のチャネル名は「Uchinoko Biyori」**（オーナー決定。20文字まで、「LINE」という文字は入れられない）。「チャネル基本設定」→「多言語対応」に入れる。ユーザーの LINE の言語にあう名前・説明がないときは、英語のものが出る。
+- **英語のチャネル説明は、日本語の説明と同じ中身**（オーナー決定。496文字、上限500文字）。審査は チャネル説明をもとに行われ、ミニアプリタブの紹介文とカテゴリも ここから作られる。説明を変えるときは、日本語と英語を そろえる。
+
+  ```
+  Choose a photo of your dog or cat, and AI reads its breed, coat color, and ear and tail shape to create a look-alike illustrated pet in a cozy room. Feed it, give treats, play, pet it, teach tricks, dress it up, and redecorate the room to raise your friendship level. Enjoy three daily requests, souvenirs, seasonal events, and a memory album. Pets never age, so take it slow. Photos are resized and sent to AI only for reading, and are never stored. You can also pick colors and breeds yourself.
+  ```
+- **「会社・事業者の所在国・地域」は日本**（オーナー決定。サービスを提供する地域＝日本と同じであることを表明する欄）。
+- 認証されたあとに変えると再審査になる項目（LINE の「サービスを更新する」）：チャネルアイコン・チャネル名・チャネル説明・メールアドレス・ポリシーと規約の URL・多言語対応・リンクされたLINE公式アカウント・シェアターゲットピッカー・本番用のエンドポイントURL・Scope・友だち追加オプション・サービス事業主。
+
 ### サーバーのきまり
 
 - `liff.getIDToken()` の生のトークンだけをサーバーへ送り、`https://api.line.me/oauth2/v2.1/verify` で検証して `sub` を使う。`liff.getProfile()` や `getDecodedIDToken()` の値は本人確認に使わない。（済み）
@@ -396,8 +410,9 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 - 済み（2026-11-10）：お問い合わせ用の Googleフォーム（https://forms.gle/aywxktpPZettxFSS7 ）を作り、`src/build.sh` の `CONTACT` に入れた。
 - 済み（2026-11-11 までに）：LINE Developers の「チャネル基本設定」に ポリシー・規約の URL とアイコン、チャネル説明（計画書7章の案）を入れた（2026-11-11 にソーイが画面で確かめた）。
 - 済み（2026-11-11）：「ウェブアプリ設定」の エンドポイントURL を 開発用＝`…/dev/`・審査用＝`…/review/`・本番用＝`…/` にした（オーナーの許可で、ソーイがアプリ内ブラウザから入れた）。
-- まだ：審査用・本番用のチャネルシークレットを Secrets に（`LINE_CHANNEL_SECRET_2012410264`・`LINE_CHANNEL_SECRET_2012410265`）。2026-11-11 に「チャネル基本設定」のページの文字を読んだとき、シークレット3つがソーイにも見えてしまったので、3つとも「発行」で新しくしてから入れる（開発用の `LINE_CHANNEL_SECRET` も入れかえる）。「LINEの データを けす」の実機の確認（公開の前に）。
-- 審査の前に（2026-11-11 に画面で気づいたこと）：「多言語対応」で英語のチャネル名と説明を入れる（審査の申請に必要と画面に書いてある）。「会社・事業者の所在国・地域」が未設定。「Scope」が `openid, profile`（いまは名前・アイコンを使わないので、`openid` だけにするか決める）。
+- 済み（2026-11-12〜13）：チャネルシークレット3つを「発行」で新しくして、Secrets に `LINE_CHANNEL_SECRET`（開発用）・`LINE_CHANNEL_SECRET_2012410264`（審査用）・`LINE_CHANNEL_SECRET_2012410265`（本番用）を入れた（2026-11-11 に「チャネル基本設定」のページの文字を読んだとき、前のシークレットがソーイにも見えてしまったため）。
+- まだ：「LINEの データを けす」の実機の確認（公開の前に）。
+- まだ（2026-11-13 に決めた。上の「決めたこと（2026-11-13、審査の前）」）：「Scope」を `openid` だけに、「多言語対応」に英語のチャネル名と説明、「会社・事業者の所在国・地域」を日本に。
 - Supabase：うちのこ日和用のプロジェクト「uchinoko-biyori」を新しく作った（2026-11-06、オーナーが決定。無料プランの2つ目なので、組織の枠はいっぱい）。チャネルシークレットなどの秘密は使っていない（IDトークンの検証に要るのはチャネルIDだけ）。
 
 1. Cloudflare Pages：Workers & Pages → Create application → Pages → Connect to Git → GitHub の `Y-s-Apps/uchinoko-biyori` をえらぶ → 上の設定で Save and Deploy。できた `*.pages.dev` のURLをソーイに知らせる。
