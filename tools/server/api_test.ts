@@ -61,8 +61,31 @@ function aiReply(){
   }
   throw new Error('network');
 }
+// ---- fake Supabase Storage（うちのこカードの画像） ----
+Deno.env.set('SUPABASE_URL', 'https://store.test');
+Deno.env.set('SUPABASE_SECRET_KEYS', JSON.stringify({ default:'sb_secret_test' }));
+const STORE = { mode:'ok', objects:new Map<string, Uint8Array>(), puts:0, dels:0, headers:null as any, cache:'' };
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input instanceof Request ? input.url : input);
+  if (url.startsWith('https://store.test/storage/v1/object/cards')){
+    if (STORE.mode === 'down') throw new Error('network');
+    STORE.headers = new Headers(init!.headers);
+    if (STORE.mode === 'error') return new Response(JSON.stringify({ error:'internal' }), { status:500 });
+    if (init?.method === 'POST'){
+      STORE.puts++;
+      const name = url.slice('https://store.test/storage/v1/object/cards/'.length);
+      if (STORE.objects.has(name)) return new Response(JSON.stringify({ error:'Duplicate' }), { status:409 });
+      STORE.objects.set(name, new Uint8Array(init!.body as Uint8Array));
+      STORE.cache = STORE.headers.get('cache-control') || '';
+      return new Response(JSON.stringify({ Key:'cards/' + name }), { status:200 });
+    }
+    if (init?.method === 'DELETE'){
+      STORE.dels++;
+      const gone = (JSON.parse(String(init!.body)).prefixes as string[]).filter(n => STORE.objects.delete(n));
+      return new Response(JSON.stringify(gone.map(n => ({ name:n }))), { status:200 });
+    }
+    return new Response('{}', { status:405 });
+  }
   if (url === 'https://api.anthropic.com/v1/messages'){
     AI.calls++;
     AI.last = JSON.parse(String(init!.body));
@@ -509,6 +532,129 @@ await db`update app.members set last_seen_at = now() - interval '800 days' where
 r = await call('POST', '/login', { idToken:mkToken('jay2', '2012410263', 'Ujay') });
 ok(r.status === 200 && r.data.member.id !== jay.id && r.data.save === null && r.data.member.importable === true && (await rows(jay.id)).m === 0,
    '2年ぶりに ひらいた人は、消してから あたらしい会員に', r.data);
+console.log('card (うちのこカード：Storage に画像・1人1日3枚・1年で消す)');
+/* ためしの PNG（中身の画像データは でたらめ。サーバーは形・たて・よこ・チャンクだけを見る） */
+function png(w: number, h: number, seed = 1, o: { text?: boolean; tail?: boolean; noEnd?: boolean; firstNotIhdr?: boolean; sig?: boolean } = {}){
+  const chunk = (type: string, data: Uint8Array) => {
+    const c = new Uint8Array(12 + data.length), dv = new DataView(c.buffer);
+    dv.setUint32(0, data.length); for (let i = 0; i < 4; i++) c[4 + i] = type.charCodeAt(i);
+    c.set(data, 8); return c;
+  };
+  const ihdr = new Uint8Array(13), dv = new DataView(ihdr.buffer);
+  dv.setUint32(0, w); dv.setUint32(4, h); ihdr[8] = 8; ihdr[9] = 6;
+  const idat = new Uint8Array(200).map((_, i) => (i * 31 + seed * 7) & 255);
+  const parts = [new Uint8Array(o.sig ? [1, 2, 3, 4, 5, 6, 7, 8] : [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])];
+  if (o.firstNotIhdr) parts.push(chunk('tEXt', new TextEncoder().encode('a')));
+  parts.push(chunk('IHDR', ihdr));
+  if (o.text) parts.push(chunk('tEXt', new TextEncoder().encode('Comment\0secret-note')));
+  parts.push(chunk('IDAT', idat));
+  if (!o.noEnd) parts.push(chunk('IEND', new Uint8Array(0)));
+  if (o.tail) parts.push(new TextEncoder().encode('TRAILING-DATA'));
+  const all = new Uint8Array(parts.reduce((n, p) => n + p.length, 0)); let k = 0;
+  for (const p of parts){ all.set(p, k); k += p.length; }
+  let bin = ''; for (const b of all) bin += String.fromCharCode(b);
+  return 'data:image/png;base64,' + btoa(bin);
+}
+const cardRows = async (id: string) => (await db`select count(*)::int as n from app.cards where member_id = ${id}`)[0].n as number;
+r = await call('GET', '/card');
+ok(r.status === 401, 'card needs a session', r);
+const lc = await call('POST', '/login', { idToken:mkToken('cara', '2012410263', 'Ucara') });
+ok(lc.data.card && lc.data.card.on === true && lc.data.card.left === 3 && lc.data.card.perDay === 3, 'login tells the card status (on, 3 a day)', lc.data.card);
+const cara = { token:lc.data.token as string, id:lc.data.member.id as string };
+r = await call('POST', '/card', { image:png(800, 800) }, cara.token);
+ok(r.status === 409 && r.data.error === 'nosave', 'no child yet → nosave', r);
+await call('POST', '/act', { type:'adopt', pet }, cara.token);
+for (const [label, image] of [['not a data URL', 'https://evil.example/x.png'], ['jpeg', 'data:image/jpeg;base64,' + btoa('\xFF\xD8\xFF' + 'x'.repeat(600))],
+    ['svg', 'data:image/svg+xml;base64,' + btoa('<svg/>')], ['bad signature', png(800, 800, 1, { sig:true })], ['too small (100px)', png(100, 100)],
+    ['too big (2000px)', png(2000, 800)], ['no IEND', png(800, 800, 1, { noEnd:true })], ['first chunk is not IHDR', png(800, 800, 1, { firstNotIhdr:true })],
+    ['not a string', 12345]] as [string, unknown][]){
+  r = await call('POST', '/card', { image }, cara.token);
+  ok(r.status === 400 && r.data.error === 'badimage', 'bad image: ' + label, r);
+}
+r = await call('POST', '/card', { image:'data:image/png;base64,' + 'A'.repeat(2_100_000) }, cara.token);
+ok(r.status === 413 || (r.status === 400 && r.data.error === 'badimage'), 'too large body is refused', r.status);
+ok(STORE.puts === 0 && await cardRows(cara.id) === 0, 'nothing stored for refused images');
+r = await call('POST', '/card', { image:png(800, 800, 1, { text:true, tail:true }) }, cara.token);
+const name1 = r.data && r.data.url ? String(r.data.url).split('/').pop()! : '';
+ok(r.status === 200 && r.data.ok === true && /^https:\/\/store\.test\/storage\/v1\/object\/public\/cards\/[A-Za-z0-9_-]{32}\.png$/.test(r.data.url)
+   && r.data.w === 800 && r.data.h === 800 && r.data.card.left === 2, 'card: stored, public URL, size, 2 left', r.data);
+const stored = String.fromCharCode(...(STORE.objects.get(name1) || new Uint8Array()));
+ok(stored.startsWith('\x89PNG') && stored.includes('IDAT') && stored.slice(-8, -4) === 'IEND' && !stored.includes('secret-note') && !stored.includes('TRAILING'),
+   'stored PNG keeps only image chunks (text and trailing data dropped)', stored.length);
+ok(STORE.headers.get('apikey') === 'sb_secret_test' && !STORE.headers.get('authorization') && STORE.headers.get('content-type') === 'image/png'
+   && STORE.headers.get('x-upsert') === 'false' && STORE.cache === 'max-age=3600', 'storage: new secret key on apikey only, image/png, no upsert, cache 1h',
+   Object.fromEntries(STORE.headers));
+r = await call('POST', '/card', { image:png(800, 800, 1) }, cara.token);
+ok(r.data.ok && String(r.data.url).endsWith(name1) && r.data.card.left === 2 && STORE.puts === 1, 'the same picture again → same URL, not counted, not uploaded again', r.data);
+r = await call('POST', '/card', { image:png(800, 600, 2) }, cara.token);
+ok(r.data.ok && r.data.w === 800 && r.data.h === 600 && r.data.card.left === 1, 'another picture → 1 left', r.data);
+STORE.mode = 'error';
+r = await call('POST', '/card', { image:png(800, 800, 3) }, cara.token);
+ok(r.data.ok === false && r.data.why === 'unavailable' && r.data.card.left === 1 && await cardRows(cara.id) === 2, 'storage error → unavailable, the count is given back', r.data);
+STORE.mode = 'down';
+r = await call('POST', '/card', { image:png(800, 800, 3) }, cara.token);
+ok(r.data.ok === false && r.data.why === 'unavailable' && r.data.card.left === 1, 'storage unreachable → unavailable', r.data);
+STORE.mode = 'ok';
+r = await call('POST', '/card', { image:png(800, 800, 3) }, cara.token);
+ok(r.data.ok && r.data.card.left === 0, 'third picture → 0 left', r.data);
+r = await call('POST', '/card', { image:png(800, 800, 4) }, cara.token);
+ok(r.data.ok === false && r.data.why === 'limit' && r.data.card.left === 0 && STORE.objects.size === 3, '4th new picture in a day → limit', r.data);
+r = await call('POST', '/card', { image:png(800, 800, 1) }, cara.token);
+ok(r.data.ok && String(r.data.url).endsWith(name1), 'a picture made before can still be sent at the limit', r.data);
+r = await call('GET', '/card', undefined, cara.token);
+ok(r.status === 200 && r.data.card.on && r.data.card.left === 0, 'GET /card', r.data);
+await db`update app.cards set day = day - 1 where member_id = ${cara.id}`;
+r = await call('GET', '/card', undefined, cara.token);
+ok(r.data.card.left === 3, 'next day (Japan time) → 3 again', r.data);
+const bea = await joiner('bea');
+r = await call('POST', '/card', { image:png(800, 800, 1) }, bea.token);
+ok(r.data.ok && !String(r.data.url).endsWith(name1), 'another member with the same picture gets their own image', r.data);
+const bobCard = String(r.data.url).split('/').pop()!;
+// 1年 使わない画像は、だれかの ログインで消える（365日より前）。364日は のこる
+await db`update app.cards set used_at = now() - interval '366 days' where name = ${name1}`;
+const keepName = (await db`select name from app.cards where member_id = ${cara.id} and name <> ${name1} limit 1`)[0].name as string;
+await db`update app.cards set used_at = now() - interval '364 days' where name = ${keepName}`;
+r = await call('POST', '/login', { idToken:mkToken('cara2', '2012410263', 'Ucara') });
+const left1 = (await db`select name from app.cards where name in (${name1}, ${keepName})`).map((x: any) => x.name);
+ok(!STORE.objects.has(name1) && !left1.includes(name1) && STORE.objects.has(keepName) && left1.includes(keepName), 'unused for a year → image and row are deleted at someone\'s login; 364 days stay', left1);
+// やめると、その人のカードの画像も すぐ消える（ほかの人のは のこる）
+const caraNames = (await db`select name from app.cards where member_id = ${cara.id}`).map((x: any) => x.name as string);
+r = await call('POST', '/leave', { confirm:'leave', accessToken:null }, r.data.token);
+ok(r.data.ok && r.data.cards === 'done' && caraNames.length === 2 && caraNames.every(n => !STORE.objects.has(n)) && (await db`select count(*)::int as n from app.cards where name in ${db(caraNames)}`)[0].n === 0
+   && STORE.objects.has(bobCard), 'leave: that member\'s images are deleted at once (others stay)', { d:r.data, caraNames });
+// やめるときに Storage に届かなくても、データは消え、画像は あとの掃除で消える
+const dora = await joiner('dora');
+r = await call('POST', '/card', { image:png(640, 640, 9) }, dora.token);
+const doraName = String(r.data.url).split('/').pop()!;
+STORE.mode = 'down';
+r = await call('POST', '/leave', { confirm:'leave', accessToken:null }, dora.token);
+const orphan = (await db`select member_id from app.cards where name = ${doraName}`)[0];
+ok(r.data.ok && r.data.cards === 'later' && (await rows(dora.id)).m === 0 && orphan && orphan.member_id === null && STORE.objects.has(doraName),
+   'leave while storage is unreachable: data deleted, the image row is kept (member_id null) to retry', { d:r.data, orphan });
+STORE.mode = 'ok';
+await call('POST', '/login', { idToken:mkToken('cara3', '2012410263', 'Ucara') });
+ok(!STORE.objects.has(doraName) && !(await db`select 1 from app.cards where name = ${doraName}`).length, 'the next login deletes the left-over image');
+// 2年 ひらかない会員の画像も消える
+const ezra = await joiner('ezra');
+r = await call('POST', '/card', { image:png(640, 640, 10) }, ezra.token);
+const ezraName = String(r.data.url).split('/').pop()!;
+await db`update app.members set last_seen_at = now() - interval '731 days' where id = ${ezra.id}`;
+await call('POST', '/login', { idToken:mkToken('cara4', '2012410263', 'Ucara') });
+ok((await rows(ezra.id)).m === 0 && !STORE.objects.has(ezraName) && !(await db`select 1 from app.cards where name = ${ezraName}`).length, 'members gone after 2 years: their images go too');
+// Storage の鍵がないときは休み（古い service_role の鍵なら Authorization にも入れる）
+Deno.env.delete('SUPABASE_SECRET_KEYS');
+r = await call('GET', '/card', undefined, bea.token);
+const h0 = await call('GET', '/health');
+ok(r.data.card.on === false && h0.data.cards === false, 'no storage key → cards off (GET /card, /health)', { c:r.data, h:h0.data });
+r = await call('POST', '/card', { image:png(640, 640, 11) }, bea.token);
+ok(r.data.ok === false && r.data.why === 'off', 'no storage key → POST /card is off', r.data);
+Deno.env.set('SUPABASE_SERVICE_ROLE_KEY', 'legacy.jwt.key');
+r = await call('POST', '/card', { image:png(640, 640, 11) }, bea.token);
+ok(r.data.ok && STORE.headers.get('apikey') === 'legacy.jwt.key' && STORE.headers.get('authorization') === 'Bearer legacy.jwt.key', 'legacy service_role key → apikey and Authorization', r.data);
+Deno.env.delete('SUPABASE_SERVICE_ROLE_KEY');
+Deno.env.set('SUPABASE_SECRET_KEYS', JSON.stringify({ default:'sb_secret_test' }));
+const h1 = await call('GET', '/health');
+ok(h1.data.cards === true, '/health tells cards are on');
 await db.end();
 
 console.log(fails ? `\n${fails} FAILED` : '\nall passed');

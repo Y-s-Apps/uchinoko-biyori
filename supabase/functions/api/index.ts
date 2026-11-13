@@ -13,6 +13,10 @@
  *   POST /leave   { confirm:'leave', accessToken }
  *                                    やめる（退会）：この会員のデータ（会員・LINEのひもづけ・セッション・セーブ・AIの回数）を すぐに ぜんぶ消し、
  *                                    LINE の deauthorize で、うちのこ日和に あたえた許可も取り消す（その内部チャネルのシークレットがあるとき）
+ *   GET  /card                       うちのこカードが作れるか・きょうの のこり枚数
+ *   POST /card    { image }          うちのこカードの画像（端末で作った PNG：きせかえを着た うちのこ＋季節のわく。写真・文字は入れない）を
+ *                                    Storage の公開バケットに置き、URL を返す。1人1日 CARD_PER_DAY 枚まで（同じ絵なら つくりなおさず、数えない）。
+ *                                    さいごに使ってから CARD_KEEP_DAYS 日（既定 365＝1年）で消す。やめる人・2年ひらかない人の画像も消す
  *   GET  /health                     動いているか・サーバーの時刻
  *
  * - おなか・ごきげんの減り、おやつの回数、おみやげ、きょうのおねがい、連続記録とおたすけ、季節のイベント、
@@ -33,6 +37,8 @@
  *   やめる人の許可の取り消し（deauthorize）だけに使う。アクセストークンを LINE で確かめて、どの内部チャネルのものかを知ってから えらぶ。
  *   ないときも データは消す（許可は、LINEの設定から本人が外せる）。
  * - 最後に ひらいてから MEMBER_KEEP_DAYS 日（既定 730＝2年）たった会員は、だれかの ログインのときに ぜんぶ消す。
+ * - うちのこカードの画像は Storage（SUPABASE_URL）に、Edge Function の秘密の鍵（SUPABASE_SECRET_KEYS、なければ SUPABASE_SERVICE_ROLE_KEY）で置く・消す。
+ *   画像の中身はログに出さない。PNG は形を確かめ、IHDR・PLTE・tRNS・IDAT・IEND のほか（文字やメタデータ）は すてて置く。
  * - デプロイは verify_jwt: false（自前のセッションで確かめるため）。
  */
 import postgres from 'npm:postgres@3.4.5';
@@ -60,7 +66,14 @@ const AI_PER_DAY = intEnv('AI_PER_DAY', 3, 50);           /* 1人1日（日本�
 const AI_ALL_PER_DAY = intEnv('AI_ALL_PER_DAY', 300, 100_000);  /* 全員あわせて1日 */
 const AI_TIMEOUT_MS = 45_000;
 const IMAGE_MAX = 400_000;           /* 写真（base64）の文字数の上限。端末で はば768pxまでに小さくするので、ふつうは 150KB くらい */
-const BODY_MAX = { login:8_000, save:8_000, act:8_000, import:MOVE_MAX + 2_000, read:IMAGE_MAX + 2_000, leave:8_000 } as const;
+/* うちのこカード。枚数と とっておく日数は Secrets（環境変数）で変えられる。Storage の鍵がなければ休み（画面にボタンを出さない） */
+const CARD_PER_DAY = intEnv('CARD_PER_DAY', 3, 50);         /* 1人1日（日本時間の0時で戻る）。同じ絵は数えない */
+const CARD_KEEP_DAYS = Math.max(30, intEnv('CARD_KEEP_DAYS', 365, 3650));   /* さいごに使ってから この日数で消す（プライバシーポリシーの「1年」） */
+const CARD_BUCKET = 'cards';
+const CARD_MAX = 1_500_000;          /* PNG のバイト数の上限（バケットは 2MB まで） */
+const CARD_B64_MAX = Math.ceil(CARD_MAX / 3) * 4;
+const CARD_SIDE = { min:240, max:1024 } as const;   /* 画像の たて・よこ（px）。LINE の Flex Message の画像は 1024px まで */
+const BODY_MAX = { login:8_000, save:8_000, act:8_000, import:MOVE_MAX + 2_000, read:IMAGE_MAX + 2_000, leave:8_000, card:CARD_B64_MAX + 2_000 } as const;
 const CARE = new Set(['feed', 'treat', 'play', 'trick']);
 const CARE_GAP_MS = 2_500;
 const STROKE_MAX = 12;
@@ -102,6 +115,7 @@ async function readBody(req: Request, max: number): Promise<Record<string, unkno
   return v as Record<string, unknown>;
 }
 
+const hexOf = (buf: ArrayBuffer) => Array.from(new Uint8Array(buf), b => b.toString(16).padStart(2, '0')).join('');
 const b64url = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 async function sha256hex(s: string): Promise<string> {
   const d = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)));
@@ -195,7 +209,9 @@ async function login(req: Request) {
     const [sv] = await tx<SaveRow[]>`select data, rev::int as rev, updated_at from app.saves where member_id = ${member}`;
     return { member, expiresAt:new Date(s.expires_at).getTime(), importable:!mem.imported_at, save:saveOut(sv) };
   });
-  return { token, expiresAt:out.expiresAt, member:{ id:out.member, importable:out.importable }, save:out.save, ai:await aiStatus(out.member), now:Date.now() };
+  await later(sweepCards());   /* 1年 使わない・会員が消えた カードの画像を消す（2年の削除と同じく、だれかの ログインのとき） */
+  return { token, expiresAt:out.expiresAt, member:{ id:out.member, importable:out.importable }, save:out.save,
+    ai:await aiStatus(out.member), card:await cardStatus(out.member), now:Date.now() };
 }
 
 async function getSave(member: string) {
@@ -407,6 +423,161 @@ async function aiRead(req: Request, member: string) {
   } };
 }
 
+/* ----- うちのこカード ----- */
+/* Storage への鍵（Edge Function に はじめから入っている秘密）。新しい鍵（sb_secret_…）は apikey だけ、古い service_role は Authorization にも */
+function storageAuth(): Record<string, string> | null {
+  if (!/^https:\/\/[\w.-]+(:\d+)?\/?$/.test(env('SUPABASE_URL'))) return null;
+  let key = '';
+  try {
+    const o = JSON.parse(env('SUPABASE_SECRET_KEYS') || '{}') as Record<string, unknown>;
+    const v = typeof o.default === 'string' ? o.default : Object.values(o).find(x => typeof x === 'string');
+    key = typeof v === 'string' ? v.trim() : '';
+  } catch { /* 下へ */ }
+  if (key) return { apikey:key };
+  const legacy = env('SUPABASE_SERVICE_ROLE_KEY');
+  return legacy ? { apikey:legacy, Authorization:'Bearer ' + legacy } : null;
+}
+const storageBase = () => env('SUPABASE_URL').replace(/\/+$/, '') + '/storage/v1';
+const cardUrl = (name: string) => storageBase() + '/object/public/' + CARD_BUCKET + '/' + name;
+
+type CardStatus = { on: boolean; left: number; perDay: number };
+async function cardStatus(member: string): Promise<CardStatus> {
+  if (!storageAuth()) return { on:false, left:0, perDay:CARD_PER_DAY };
+  try {
+    const [r] = await sql`select count(*)::int as n from app.cards where member_id = ${member} and day = ${dayKey()}::date`;
+    return { on:true, left:Math.max(0, CARD_PER_DAY - Number(r.n)), perDay:CARD_PER_DAY };
+  } catch {
+    console.error('card: table unavailable');
+    return { on:false, left:0, perDay:CARD_PER_DAY };
+  }
+}
+
+/* カードの画像は data:image/png;base64,… の PNG だけ。たて・よこを確かめ、画像に要る チャンク（IHDR・PLTE・tRNS・IDAT・IEND）だけで作り直す
+   （文字・メタデータ・IEND のうしろは すてる） */
+const PNG_RE = /^data:image\/png;base64,([A-Za-z0-9+/]+={0,2})$/;
+const PNG_SIG = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+const PNG_KEEP = new Set(['IHDR', 'PLTE', 'tRNS', 'IDAT', 'IEND']);
+function cleanPng(raw: unknown): { bytes: Uint8Array<ArrayBuffer>; w: number; h: number } {
+  const bad = () => new HttpError(400, 'badimage');
+  if (typeof raw !== 'string' || raw.length > CARD_B64_MAX + 40) throw bad();
+  const m = raw.match(PNG_RE);
+  if (!m || m[1].length % 4) throw bad();
+  let b: Uint8Array;
+  try { b = Uint8Array.from(atob(m[1]), c => c.charCodeAt(0)); } catch { throw bad(); }
+  if (b.length < 8 + 25 + 12 + 12 || b.length > CARD_MAX || PNG_SIG.some((v, i) => b[i] !== v)) throw bad();
+  const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const keep: Uint8Array[] = [b.subarray(0, 8)];
+  let i = 8, w = 0, h = 0, idat = 0, end = false;
+  while (i + 12 <= b.length){
+    const len = dv.getUint32(i);
+    const type = String.fromCharCode(b[i + 4], b[i + 5], b[i + 6], b[i + 7]);
+    if (!/^[A-Za-z]{4}$/.test(type) || len > b.length - i - 12) throw bad();
+    if (i === 8){
+      if (type !== 'IHDR' || len !== 13) throw bad();
+      w = dv.getUint32(i + 8); h = dv.getUint32(i + 12);
+    } else if (type === 'IHDR') throw bad();
+    if (type === 'IDAT') idat++;
+    if (PNG_KEEP.has(type)) keep.push(b.subarray(i, i + 12 + len));
+    i += 12 + len;
+    if (type === 'IEND'){ end = true; break; }
+  }
+  if (!end || !idat || w < CARD_SIDE.min || h < CARD_SIDE.min || w > CARD_SIDE.max || h > CARD_SIDE.max) throw bad();
+  const out = new Uint8Array(keep.reduce((n, c) => n + c.length, 0));
+  let o = 0;
+  for (const c of keep){ out.set(c, o); o += c.length; }
+  return { bytes:out, w, h };
+}
+
+/* Storage の画像を消す（ない画像は そのまま通る）。届かなかったら false（表の行は のこして、あとで消しなおす） */
+async function dropCardObjects(names: string[]): Promise<boolean> {
+  if (!names.length) return true;
+  const auth = storageAuth();
+  if (!auth) return false;
+  try {
+    const res = await fetch(storageBase() + '/object/' + CARD_BUCKET, {
+      method:'DELETE',
+      headers:{ ...auth, 'content-type':'application/json' },
+      body:JSON.stringify({ prefixes:names }),
+      signal:AbortSignal.timeout(15_000),
+    });
+    await res.body?.cancel();
+    if (!res.ok){ console.error('card: storage delete ' + res.status); return false; }
+    return true;
+  } catch {
+    console.error('card: storage unavailable');
+    return false;
+  }
+}
+/* カードの画像を消して、表の行も消す。names がないときは、会員が消えた行と CARD_KEEP_DAYS 日 使っていない行（100こまで） */
+async function sweepCards(names?: string[]): Promise<'none' | 'done' | 'later'> {
+  try {
+    const list = names ?? (await sql`select name from app.cards
+      where member_id is null or used_at < now() - make_interval(days => ${CARD_KEEP_DAYS}) order by used_at limit 100`).map(r => String(r.name));
+    if (!list.length) return 'none';
+    if (!await dropCardObjects(list)) return 'later';
+    await sql`delete from app.cards where name in ${sql(list)}`;
+    return 'done';
+  } catch {
+    console.error('card: sweep failed');
+    return 'later';
+  }
+}
+/* 返事のあとも つづける（Supabase の EdgeRuntime.waitUntil）。ためしの環境（ない）では まつ */
+function later(p: Promise<unknown>): Promise<unknown> {
+  const er = (globalThis as unknown as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
+  if (er && typeof er.waitUntil === 'function'){ er.waitUntil(p); return Promise.resolve(); }
+  return p;
+}
+
+async function makeCard(req: Request, member: string) {
+  const body = await readBody(req, BODY_MAX.card);
+  const png = cleanPng(body.image);
+  const auth = storageAuth();
+  if (!auth) return { ok:false, why:'off', card:await cardStatus(member) };
+  const sha = hexOf(await crypto.subtle.digest('SHA-256', png.bytes));
+  const day = dayKey();
+  const name = b64url(crypto.getRandomValues(new Uint8Array(24))) + '.png';
+  let got: { reuse?: string; limit?: boolean };
+  try {
+    got = await sql.begin(async tx => {
+      await tx`select pg_advisory_xact_lock(hashtextextended(${'card:' + member}, 0))`;
+      const [sv] = await tx`select 1 as x from app.saves where member_id = ${member}`;
+      if (!sv) throw new HttpError(409, 'nosave');
+      /* 同じ絵は つくりなおさない（枚数にも数えない）。使った日時を新しくして、そこから1年 */
+      const [old] = await tx`update app.cards set used_at = now() where member_id = ${member} and sha = decode(${sha}, 'hex') returning name`;
+      if (old) return { reuse:String(old.name) };
+      const [c] = await tx`select count(*)::int as n from app.cards where member_id = ${member} and day = ${day}::date`;
+      if (Number(c.n) >= CARD_PER_DAY) return { limit:true };
+      await tx`insert into app.cards (name, member_id, sha, day) values (${name}, ${member}, decode(${sha}, 'hex'), ${day}::date)`;
+      return {};
+    });
+  } catch (e) {
+    if (e instanceof HttpError) throw e;
+    console.error('card: table unavailable');
+    return { ok:false, why:'off', card:{ on:false, left:0, perDay:CARD_PER_DAY } };
+  }
+  if (got.limit) return { ok:false, why:'limit', card:await cardStatus(member) };
+  if (got.reuse) return { ok:true, url:cardUrl(got.reuse), w:png.w, h:png.h, card:await cardStatus(member) };
+  let put = false;
+  try {
+    const res = await fetch(storageBase() + '/object/' + CARD_BUCKET + '/' + name, {
+      method:'POST',
+      headers:{ ...auth, 'content-type':'image/png', 'cache-control':'max-age=3600', 'x-upsert':'false' },
+      body:png.bytes,
+      signal:AbortSignal.timeout(15_000),
+    });
+    await res.body?.cancel();
+    put = res.ok;
+    if (!put) console.error('card: storage ' + res.status);
+  } catch { console.error('card: storage unavailable'); }
+  if (!put){
+    /* 置けなかったら、枚数を返す */
+    await sql`delete from app.cards where name = ${name}`;
+    return { ok:false, why:'unavailable', card:await cardStatus(member) };
+  }
+  return { ok:true, url:cardUrl(name), w:png.w, h:png.h, card:await cardStatus(member) };
+}
+
 /* ----- やめる（退会） ----- */
 /* LINE に、この人が うちのこ日和に あたえた許可を取り消してもらう。結果は 'done'（取り消した）・'already'（もう取り消されていた／トークンが切れている）・
    'nosecret'（その内部チャネルのシークレットがない）・'notoken'（アクセストークンが来なかった）・'failed'（LINE に届かない・ほかのチャネルのトークン など）。
@@ -455,16 +626,21 @@ async function leave(req: Request, member: string) {
   const body = await readBody(req, BODY_MAX.leave);
   if (body.confirm !== 'leave') throw new HttpError(400, 'noconfirm');
   const at = typeof body.accessToken === 'string' && /^[\w.~+/=-]{10,4096}$/.test(body.accessToken) ? body.accessToken : null;
-  /* 会員の行を消すと、LINEのひもづけ・セッション・セーブ・AIの回数も いっしょに消える（on delete cascade） */
+  let cards: string[] = [];
+  try { cards = (await sql`select name from app.cards where member_id = ${member}`).map(r => String(r.name)); }
+  catch { console.error('card: table unavailable'); }   /* カードの表が読めなくても、やめる人のデータは消す */
+  /* 会員の行を消すと、LINEのひもづけ・セッション・セーブ・AIの回数も いっしょに消える（on delete cascade）。
+     カードの行は member_id が null になり、ここで Storage の画像ごと消す（届かなければ、あとの掃除で消す） */
   const [gone] = await sql`delete from app.members where id = ${member} returning id`;
   if (!gone) throw new HttpError(401, 'nosession');
-  return { ok:true, deauth:await deauthorize(at) };
+  const [deauth, card] = await Promise.all([deauthorize(at), sweepCards(cards)]);
+  return { ok:true, deauth, cards:card };
 }
 
 async function route(req: Request): Promise<unknown> {
   const path = new URL(req.url).pathname.replace(/^.*?\/api(?=\/|$)/, '') || '/';
   const m = req.method;
-  if (path === '/health' && m === 'GET') return { ok:true, now:Date.now(), day:dayKey() };
+  if (path === '/health' && m === 'GET') return { ok:true, now:Date.now(), day:dayKey(), cards:!!storageAuth() };
   if (path === '/login' && m === 'POST') return await login(req);
   if (path === '/save' && m === 'GET') return await getSave(await sessionMember(req));
   if (path === '/save' && m === 'POST') return await putSave(req, await sessionMember(req));
@@ -473,6 +649,8 @@ async function route(req: Request): Promise<unknown> {
   if (path === '/ai' && m === 'GET') return { ai:await aiStatus(await sessionMember(req)), now:Date.now() };
   if (path === '/read' && m === 'POST') return await aiRead(req, await sessionMember(req));
   if (path === '/leave' && m === 'POST') return await leave(req, await sessionMember(req));
+  if (path === '/card' && m === 'GET') return { card:await cardStatus(await sessionMember(req)), now:Date.now() };
+  if (path === '/card' && m === 'POST') return await makeCard(req, await sessionMember(req));
   throw new HttpError(404, 'notfound');
 }
 
