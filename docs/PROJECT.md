@@ -207,6 +207,7 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 
 ## 8. 更新履歴
 
+- **2026-11-14** 約束①の直し かたまり A の 6（診断 1-1・5-4）：カードの通報が来たときに消す手順を 10章に。利用規約 第5条に「カードとして置けるのは 本サービスが作った子のイラストだけ」（改定日 2026-11-14）。アプリ・サーバーは変わらない。
 - **2026-11-14** 約束①の直し かたまり A の 4・5（診断 1-2・1-3・5-1）：サーバーの カードに 1人 新しい30まい・全員で1日100まい・ぜんぶで3000まいの上限、PNG は 600KB まで（画面も そろえる。バケットは 1MB）。「新しい子」と取りこみの前の セーブを 1人1つ・30日 とっておく表 `app.save_backups`（もどし方は 10章）。プライバシーポリシーと利用規約を改定（2026-11-14）。`api_test.ts` に card caps・backup。
 - **2026-11-14** 約束①の直し かたまり A の 3（診断 3-2）：LINE版で「つれてくる」が 通信で しっぱいしたら、新しい子を むりに むかえさせず「あとで／もういちど ためす」に（見本を見て オーナー決定）。あとでは この回 この端末で あそべて、つぎに ひらくと また きく。`tools/line_e2e.py` に 2c・2d。ホーム画面版・Claude版・サーバーは変わらない。
 - **2026-11-14** 約束①の直し かたまり A の 2（診断 1-4）：名前・毛色の名前・AIの ひとこと・アルバムの文を 文字（コードポイント）で切り、制御文字と かたわれの絵文字を取りのぞく `cleanText()`。10文字目の絵文字が 半分のこると サーバーの DB が ことわって LINE に入れなかった。3つの版と サーバー（`game.js`・`cleanPet`）。ホーム画面版も更新される（動きは同じ。`compare_home.py`）。`api_test.ts` に names。
@@ -549,6 +550,12 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
   - ポリシー（1.(4)・6.）と規約 第5条に1行（2026-11-14 改定）。確認：`api_test.ts` の card caps。
 - **上書きの前の セーブの ひかえ（1-3・5-1）：** 「新しい子」（`adopt`）と 取りこみ（`/import`）の前に、いまの セーブを 表 `app.save_backups` に とっておく（1人1つ。前の ひかえは 置きかえる。`reason` は adopt／import）。30日（`SAVE_BACKUP_DAYS`）で、だれかの ログインのときに 消す。会員を消すと いっしょに消える。表が ないときは とばす（上書きは とめない）。画面からは 読まない。Supabase の無料プランには 自動バックアップが ないための そなえ（5-1。だいずは ときどき 引っこしコードも 保存する）。ポリシー（1.(2)・2.・6.・7.）に1行。確認：`api_test.ts` の backup。
   - **もどし方（お問い合わせが来たとき、オーナーが Supabase の SQL で）：** お問い合わせの 子の名前と 日時から 会員を さがす：`select member_id, reason, created_at, data->'pet'->>'name' as name from app.save_backups order by created_at desc;` → もどす：`update app.saves s set data = b.data, rev = s.rev + 1, updated_at = now() from app.save_backups b where s.member_id = b.member_id and s.member_id = '<会員ID>';`（本人が ひらきなおすと もどった子に会える）。会員IDは 画面に出していないので、名前が 同じ子が 多いときは さがせないことがある。LINE の ユーザーIDは 本人から もらわない。
+- **カードの通報が来たとき（1-1・5-4）：** いまの `/card` は 形の正しい PNG なら どんな絵でも 置けるので、うちのこ以外の画像が 置かれたら 消す。
+  1. お問い合わせで カードの URL（`https://ftakgswltcavwixqxpzi.supabase.co/storage/v1/object/public/cards/<名前>.png`）を おしえてもらい、ひらいて 確かめる。
+  2. Supabase の SQL：`select member_id, created_at, used_at from app.cards where name = '<名前>.png';`（だれのカードか）。
+  3. Supabase の ダッシュボードの Storage → `cards` で その画像を消す（SQL から `storage.objects` は 消せない。Storage の API か ダッシュボード）。
+  4. SQL：`delete from app.cards where name = '<名前>.png';`。くりかえす人は `select name from app.cards where member_id = '<会員ID>';` で ぜんぶ さがして 同じように消す。配信の一時的なコピーが 1時間ほど のこる。
+  - よりどころは 規約 第5条（2026-11-14：「カードとして置けるのは 本サービスが作った子のイラストだけ。ほかの画像は 予告なく削除することがある」を足した）と 第6条。しっかり直すなら サーバーが セーブから絵を作る（大きな作りかえ。あとで）。
 
 ### サーバーのきまり
 
