@@ -4,6 +4,19 @@ const findDecor = (cat, id) => DECOR[cat].find(d => d.id === id) || DECOR[cat][0
 const lvNow = () => levelInfo(S.stats.love).lv;
 const isCat = () => S && S.pet.species === 'cat';
 
+/* 名前などの みじかい文字：文字（コードポイント）で max まで。制御文字と、かたわれの絵文字（サロゲートの片方）は取りのぞく。
+   slice(0, n) だと 絵文字の まんなかで切れて かたわれが のこり、サーバーの DB（jsonb）が ことわるため（\u0000 も ことわる）。
+   正規表現の うしろ読みは 古い iPhone で 動かないので、1文字ずつ見る */
+function cleanText(v, max){
+  const out = [];
+  for (const ch of String(v == null ? '' : v)){
+    const c = ch.codePointAt(0);
+    if (c < 0x20 || (c >= 0x7f && c < 0xa0) || c === 0x2028 || c === 0x2029 || (c >= 0xd800 && c <= 0xdfff)) continue;
+    if (out.push(ch) >= max) break;
+  }
+  return out.join('');
+}
+
 /* ===== state upgrade (old saves gain the new fields) ===== */
 function ensureState(st){
   if (!st) return st;
@@ -11,8 +24,8 @@ function ensureState(st){
   /* numbers and text that reach the screen are coerced here, whatever the source (this browser, the cloud copy, a move code) */
   const num = (v, d, lo, hi) => { v = Number(v); return Number.isFinite(v) ? clamp(v, lo, hi) : d; };
   if (obj(st.pet)){
-    if (typeof st.pet.name !== 'string') st.pet.name = String(st.pet.name || 'うちのこ');
-    if (typeof st.pet.colorName !== 'string') st.pet.colorName = '';
+    st.pet.name = cleanText(typeof st.pet.name === 'string' ? st.pet.name : (st.pet.name || 'うちのこ'), 10);
+    st.pet.colorName = typeof st.pet.colorName === 'string' ? cleanText(st.pet.colorName, 14) : '';
     st.pet.photo = safePhoto(st.pet.photo);
   }
   st.stats = obj(st.stats) ? st.stats : {};
@@ -85,7 +98,7 @@ function carryExtras(o, st){
   st.streak = { last:/^\d{4}-\d{2}-\d{2}$/.test(src.streak.last) ? src.streak.last : null, n:clamp(Number(src.streak.n) || 0, 0, 1e5), best:clamp(Number(src.streak.best) || 0, 0, 1e5) };
   st.souv = { have, day:null, n:0 };
   st.events = { got:src.events.got, seen:Object.fromEntries(Object.entries(src.events.seen).filter(([k]) => /^[a-z]+:\d{4}$/.test(k)).map(([k, v]) => [k, Number(v) || 1])) };
-  st.album = src.album.map(a => ({ t:a.t, k:String(a.k || '').slice(0, 20), ti:a.ti.slice(0, 40), su:String(a.su || '').slice(0, 80), ic:String(a.ic || '').slice(0, 40) }));
+  st.album = src.album.map(a => ({ t:a.t, k:cleanText(a.k || '', 20), ti:cleanText(a.ti, 40), su:cleanText(a.su || '', 80), ic:cleanText(a.ic || '', 40) }));
   st.milestones = Object.fromEntries(Object.entries(src.milestones).filter(([k]) => /^[a-z0-9:_-]{1,30}$/.test(k)).map(([k, v]) => [k, !!v]));
   st.firsts = firsts;
   return ensureState(st);

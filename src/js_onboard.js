@@ -123,8 +123,8 @@ function parseAI(r){
   const look = normalizeLook(Object.assign({}, lk, { species, breedId:cands[0].id }));
   return {
     species, cands, look,
-    colorName:typeof r.colorName === 'string' ? r.colorName.trim().slice(0, 14) : '',
-    comment:typeof r.comment === 'string' ? r.comment.trim().slice(0, 60) : '',
+    colorName:typeof r.colorName === 'string' ? cleanText(r.colorName.trim(), 14) : '',
+    comment:typeof r.comment === 'string' ? cleanText(r.comment.trim(), 60) : '',
   };
 }
 
@@ -423,7 +423,7 @@ const Onboard = {
   commit(){
     const d = this.draft, look = normalizeLook(d.look);
     const typed = ($('#edName').value || '').trim();
-    const name = (typed || $('#edName').placeholder || 'うちのこ').slice(0, 10);
+    const name = cleanText(typed || $('#edName').placeholder || 'うちのこ', 10).trim() || 'うちのこ';
     const pet = { name, species:look.species, breedId:look.breedId, look, photo:d.photo || null, colorName:d.colorName || '', wear:{ head:null, face:null, neck:null } };
     let greet;
     if (this.mode === 'edit' && S){

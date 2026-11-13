@@ -363,6 +363,19 @@ ok(r.data.member.importable === false && r.data.save.data.pet.name === 'だい�
 r = await A('open', {}, bob);
 ok(r.data.ok && r.data.save.data.daily && r.data.save.data.daily.day === jst(Date.now()), 'bob: act after import works');
 
+console.log('names (1-4：絵文字の まんなかで 切らない・制御文字と かたわれの絵文字を とる。jsonb が ことわるため)');
+const emo = (await call('POST', '/login', { idToken:mkToken('emo', '2012410263', 'Uemo') })).data;
+r = await call('POST', '/act', { type:'adopt', pet:{ ...pet, name:'あいうえおかきくけ😀', colorName:'くり\u0000ーむ' } }, emo.token);
+ok(r.status === 200 && r.data.save.data.pet.name === 'あいうえおかきくけ😀' && r.data.save.data.pet.colorName === 'くりーむ', 'adopt: an emoji at the 10th letter stays whole, \\u0000 removed', r.data);
+r = await call('POST', '/save', { pet:{ ...pet, name:'a\u0000b\ud83dcdefghijkl😀' } }, emo.token);
+ok(r.status === 200 && r.data.save.data.pet.name === 'abcdefghij', '/save: control chars and a half emoji removed, cut by letters', r.data);
+const codeEmo = { ...save1, pet:{ ...pet, name:'かきくけこさしすせ😀😀' }, album:[{ t:t0, k:'home', ti:'x'.repeat(39) + '😀😀', su:'a\u0000b', ic:'home' }] };
+r = await call('POST', '/import', { code:enc(codeEmo) }, emo.token);
+const emoSave = r.data && r.data.save && r.data.save.data;
+ok(r.status === 200 && emoSave.pet.name === 'かきくけこさしすせ😀' && emoSave.album[0].ti === 'x'.repeat(39) + '😀' && emoSave.album[0].su === 'ab',
+   '/import: name and album text cut by letters (no half emoji, no control chars)', emoSave && { name:emoSave.pet.name, album:emoSave.album[0] });
+
+
 console.log('AIの読みとり（/read）');
 const jpeg = '/9j/4AAQSkZJRgABAQAAAQABAAD' + 'A'.repeat(1200) + '/9k=';
 const IMG = 'data:image/jpeg;base64,' + jpeg.slice(0, jpeg.length - jpeg.length % 4);
@@ -443,7 +456,7 @@ ok(n2 === 10, 'sessions capped at 10', n2);
 await db`update app.sessions set expires_at = now() - interval '1 minute'`;
 r = await call('GET', '/save', undefined, bob);
 ok(r.status === 401, 'expired session rejected', r);
-const [{ c }] = await db`select count(*)::int c from app.line_accounts`;
+const [{ c }] = await db`select count(*)::int c from app.line_accounts where sub in ('Ualice', 'Ubob', 'Upat')`;
 ok(c === 3, 'three LINE accounts: alice・bob・pat（内部チャネルが ちがっても 1つ。no token stored）', c);
 const cols = await db`select column_name from information_schema.columns where table_schema='app'`;
 ok(!cols.some((x: any) => /token$|id_token/.test(x.column_name)), 'no raw token columns');

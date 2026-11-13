@@ -42,7 +42,7 @@
  * - デプロイは verify_jwt: false（自前のセッションで確かめるため）。
  */
 import postgres from 'npm:postgres@3.4.5';
-import { ensureState, readMoveCode, MOVE_MAX, dayKey, Rules, newState, normalizeLook, buildPrompt, parseAI } from 'uchinoko-game';
+import { cleanText, ensureState, readMoveCode, MOVE_MAX, dayKey, Rules, newState, normalizeLook, buildPrompt, parseAI } from 'uchinoko-game';
 
 const env = (k: string, d = '') => (Deno.env.get(k) ?? d).trim();
 /* LINEミニアプリチャネルの内部チャネル（開発用・審査用・本番用）のチャネルID（LIFF ID の前半）。秘密ではない。カンマで複数。
@@ -225,8 +225,9 @@ function cleanPet(raw: unknown): Pet {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new HttpError(400, 'badpet');
   const p = raw as Record<string, unknown>;
   const look = normalizeLook((p.look && typeof p.look === 'object' ? p.look : p) as Record<string, unknown>);
-  const name = String(p.name ?? '').trim().slice(0, 10) || 'うちのこ';
-  return { name, species:look.species, breedId:look.breedId, look, colorName:typeof p.colorName === 'string' ? p.colorName.slice(0, 14) : '' };
+  /* 文字（コードポイント）で切り、制御文字と かたわれの絵文字を取りのぞく（jsonb が ことわる \u0000 と サロゲートの片方を 入れない） */
+  const name = cleanText(String(p.name ?? '').trim(), 10).trim() || 'うちのこ';
+  return { name, species:look.species, breedId:look.breedId, look, colorName:typeof p.colorName === 'string' ? cleanText(p.colorName, 14) : '' };
 }
 
 /* サーバーだけが使う控え（画面には関係ない）：なでなでのなかよしの残り、前のおせわの時刻 */

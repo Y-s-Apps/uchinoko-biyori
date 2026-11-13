@@ -1,5 +1,5 @@
 /* うちのこ日和: offline cache */
-const CACHE = 'uchinoko-e98616883d';
+const CACHE = 'uchinoko-cda9a57d42';
 const PREFIX = 'uchinoko-';
 const CORE = ['./', 'index.html', 'manifest.webmanifest', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'favicon-32.png', 'favicon-64.png'];
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];

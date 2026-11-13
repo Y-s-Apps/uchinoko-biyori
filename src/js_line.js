@@ -965,7 +965,7 @@ const LineCard = {
     const L = levelInfo(st.stats.love), si = Rules.streakInfo(st);
     const days = Math.max(1, daysBetween(st.created || now(), now()) + 1);
     return {
-      name:String(st.pet.name || 'うちのこ').slice(0, 40), breed:breedLabel(st.pet),
+      name:cleanText(st.pet.name || 'うちのこ', 40), breed:breedLabel(st.pet),
       love:`Lv ${L.lv}・${titleFor(L.lv)}`,
       days:si.n >= 2 ? ['れんぞく', `${si.n}日`] : ['きてから', `${days}日`],
     };

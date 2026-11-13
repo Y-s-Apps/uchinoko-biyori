@@ -811,8 +811,8 @@ function decodeMovePayload(b64){
     const t0 = now();
     const st = {
       v:1,
-      pet:{ name:String(p.name || 'うちのこ').slice(0, 10), species:look.species, breedId:look.breedId, look, photo,
-            colorName:typeof p.colorName === 'string' ? p.colorName.slice(0, 14) : '', wear },
+      pet:{ name:cleanText(p.name || 'うちのこ', 10) || 'うちのこ', species:look.species, breedId:look.breedId, look, photo,
+            colorName:typeof p.colorName === 'string' ? cleanText(p.colorName, 14) : '', wear },
       stats:{ full:num(o.stats.full, 70, 0, 100), mood:num(o.stats.mood, 70, 0, 100), love:num(o.stats.love, 0, 0, 1e7) },
       counts:{ meals:num(c.meals, 0, 0, 1e9), treats:num(c.treats, 0, 0, 1e9), pets:num(c.pets, 0, 0, 1e9), plays:num(c.plays, 0, 0, 1e9) },
       recentTreats:[], last:t0, created:num(o.created, t0, 0, t0), updated:t0,

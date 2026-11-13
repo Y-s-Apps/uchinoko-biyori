@@ -26,10 +26,10 @@ OUT = os.path.join(ROOT, 'supabase', 'functions', 'api', 'game.js')
 WHOLE = ['js_data.js', 'js_data2.js', 'js_data3.js', 'js_pet.js', 'js_rules.js']
 PICK = {
     'js_app.js': ['PHOTO_RE', 'safePhoto', 'MOVE_PREFIX', 'MOVE_MAX', 'readMoveCode', 'decodeMovePayload'],
-    'js_features.js': ['ensureState', 'carryExtras'],
+    'js_features.js': ['cleanText', 'ensureState', 'carryExtras'],
     'js_onboard.js': ['buildPrompt', 'parseAI'],
 }
-EXPORTS = ['ensureState', 'carryExtras', 'readMoveCode', 'safePhoto', 'levelInfo', 'normalizeLook', 'dayKey', 'MOVE_MAX',
+EXPORTS = ['cleanText', 'ensureState', 'carryExtras', 'readMoveCode', 'safePhoto', 'levelInfo', 'normalizeLook', 'dayKey', 'MOVE_MAX',
            'Rules', 'Clock', 'newState', 'wearFrom', 'buildPrompt', 'parseAI']
 
 DAYKEY_JST = '''/* サーバーの時計：日付は日本時間（UTC+9。夏時間はない）、偶然は crypto */
@@ -90,6 +90,9 @@ const ai = g.parseAI({ species:'dog', candidates:[{ id:'pomeranian', confidence:
 if (!ai || ai.cands.length !== 1 || ai.cands[0].id !== 'pomeranian' || ai.colorName.length > 14 || ai.comment.length > 60 || ai.look.ear !== 'small' || !/^#[0-9a-f]{6}$/i.test(ai.look.colors.main)) throw new Error('parseAI ' + JSON.stringify(ai).slice(0, 300));
 if (g.parseAI({ species:'other' }).species !== 'other' || g.parseAI(null) !== null || g.parseAI([]) !== null) throw new Error('parseAI other');
 if (!/pomeranian\(ポメラニアン\)/.test(g.buildPrompt())) throw new Error('buildPrompt');
+if (g.cleanText('\u0000ab\ud83dc' + '😀'.repeat(12), 10) !== 'abc' + '😀'.repeat(7)) throw new Error('cleanText');
+const half = g.ensureState({ v:1, pet:{ ...pet, name:'あいうえおかきくけ😀'.slice(0, 10), colorName:'くり\u0000ーむ' }, stats:{}, counts:{} });
+if (half.pet.name !== 'あいうえおかきくけ' || half.pet.colorName !== 'くりーむ') throw new Error('ensureState name ' + JSON.stringify(half.pet.name));
 console.log('game.js ok');
 '''
     r = subprocess.run(['node', '--input-type=module', '-e', test, path], capture_output=True, text=True)
