@@ -34,7 +34,7 @@ const LINE_CFG = {
      下の行の アイコンは LINEミニアプリの アイコン（build.sh が src/icons/line-icon-130.png を いちばん上に置く） */
   cardIcon:'https://uchinoko-biyori.pages.dev/line-icon.png',
   cardTimeout:30000,
-  cardMax:1990000,  /* POST /card に送る data URL の長さの上限（サーバーは PNG 1.5MB まで） */
+  cardMax:800000,   /* POST /card に送る data URL の長さの上限（サーバーは PNG 600KB まで＝base64 で 800000 文字。こえたら 576×768 で作りなおす） */
   reopenGap:10 * 60e3,  /* IDトークンが切れたときに LIFF URL から ひらきなおすのは、この間に1回まで（くりかえさない） */
   reopenWait:8000,      /* ひらきなおすとき、ページが うつるのを まつ上限（うつらなければ「つながれません」にする） */
 };

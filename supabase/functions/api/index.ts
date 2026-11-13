@@ -16,7 +16,9 @@
  *   GET  /card                       うちのこカードが作れるか・きょうの のこり枚数
  *   POST /card    { image }          うちのこカードの画像（端末で作った PNG：きせかえを着た うちのこ＋季節のわく。写真・文字は入れない）を
  *                                    Storage の公開バケットに置き、URL を返す。1人1日 CARD_PER_DAY 枚まで（同じ絵なら つくりなおさず、数えない）。
- *                                    さいごに使ってから CARD_KEEP_DAYS 日（既定 365＝1年）で消す。やめる人・2年ひらかない人の画像も消す
+ *                                    さいごに使ってから CARD_KEEP_DAYS 日（既定 365＝1年）で消す。やめる人・2年ひらかない人の画像も消す。
+ *                                    1人が とっておけるのは 新しい CARD_KEEP_PER_MEMBER 枚（既定30。こえたら 古いものから消す）。
+ *                                    全員で1日 CARD_ALL_PER_DAY 枚・ぜんぶで CARD_ALL_MAX 枚まで（Storage の無料の枠を こえないように）
  *   GET  /health                     動いているか・サーバーの時刻
  *
  * - おなか・ごきげんの減り、おやつの回数、おみやげ、きょうのおねがい、連続記録とおたすけ、季節のイベント、
@@ -37,6 +39,8 @@
  *   やめる人の許可の取り消し（deauthorize）だけに使う。アクセストークンを LINE で確かめて、どの内部チャネルのものかを知ってから えらぶ。
  *   ないときも データは消す（許可は、LINEの設定から本人が外せる）。
  * - 最後に ひらいてから MEMBER_KEEP_DAYS 日（既定 730＝2年）たった会員は、だれかの ログインのときに ぜんぶ消す。
+ * - 新しい子（adopt）と 取りこみ（/import）で セーブを 上書きする前に、いまの セーブを 1人1つ とっておく（app.save_backups）。
+ *   SAVE_BACKUP_DAYS 日（既定 30）で消す。もどすのは お問い合わせのとき、オーナーが SQL で（docs/PROJECT.md 10章）。
  * - うちのこカードの画像は Storage（SUPABASE_URL）に、Edge Function の秘密の鍵（SUPABASE_SECRET_KEYS、なければ SUPABASE_SERVICE_ROLE_KEY）で置く・消す。
  *   画像の中身はログに出さない。PNG は形を確かめ、IHDR・PLTE・tRNS・IDAT・IEND のほか（文字やメタデータ）は すてて置く。
  * - デプロイは verify_jwt: false（自前のセッションで確かめるため）。
@@ -69,8 +73,13 @@ const IMAGE_MAX = 400_000;           /* 写真（base64）の文字数の上限�
 /* うちのこカード。枚数と とっておく日数は Secrets（環境変数）で変えられる。Storage の鍵がなければ休み（画面にボタンを出さない） */
 const CARD_PER_DAY = intEnv('CARD_PER_DAY', 3, 50);         /* 1人1日（日本時間の0時で戻る）。同じ絵は数えない */
 const CARD_KEEP_DAYS = Math.max(30, intEnv('CARD_KEEP_DAYS', 365, 3650));   /* さいごに使ってから この日数で消す（プライバシーポリシーの「1年」） */
+const CARD_KEEP_PER_MEMBER = Math.max(3, intEnv('CARD_KEEP_PER_MEMBER', 30, 1000));  /* 1人が とっておける枚数（さいごに使った 新しいものから。プライバシーポリシーの「30まい」） */
+const CARD_ALL_PER_DAY = intEnv('CARD_ALL_PER_DAY', 100, 100_000);   /* 全員あわせて 1日に作れる 新しい絵 */
+const CARD_ALL_MAX = intEnv('CARD_ALL_MAX', 3000, 1_000_000);       /* 全員あわせて とっておく枚数（1まい 0.2MB ほど。Storage の無料の枠 1GB を こえないように） */
 const CARD_BUCKET = 'cards';
-const CARD_MAX = 1_500_000;          /* PNG のバイト数の上限（バケットは 2MB まで） */
+/* PNG のバイト数の上限。はかった大きさは 768×1024 で 0.14〜0.2MB（Chromium、季節・イベント・おへや 70とおり）。
+   iPhone の WebKit は 大きめに なりうるので 3倍。こえたら 画面が 576×768 で作りなおす（js_line.js の cardMax と そろえる）。バケットは 1MB まで */
+const CARD_MAX = 600_000;
 const CARD_B64_MAX = Math.ceil(CARD_MAX / 3) * 4;
 const CARD_SIDE = { min:240, max:1024 } as const;   /* 画像の たて・よこ（px）。LINE の Flex Message の画像は 1024px まで */
 const BODY_MAX = { login:8_000, save:8_000, act:8_000, import:MOVE_MAX + 2_000, read:IMAGE_MAX + 2_000, leave:8_000, card:CARD_B64_MAX + 2_000 } as const;
@@ -80,6 +89,8 @@ const STROKE_MAX = 12;
 /* 長く ひらかない人：最後に ひらいて（ログインして）から この日数で、会員ごと ぜんぶ消す（プライバシーポリシーの「2年」）。
    だれかが ログインするたびに、まとめて消す（その人自身が 2年ぶりなら、消してから あたらしい会員にする）。まちがえて小さくしても30日より短くしない */
 const KEEP_DAYS = Math.max(30, intEnv('MEMBER_KEEP_DAYS', 730, 3650));
+/* 上書きの前の セーブの ひかえ（1人1つ）を とっておく日数（プライバシーポリシーの「30日」） */
+const BACKUP_DAYS = Math.max(7, intEnv('SAVE_BACKUP_DAYS', 30, 365));
 
 const sql = postgres(env('SUPABASE_DB_URL'), { prepare:false, max:3, idle_timeout:20, connect_timeout:10 });
 
@@ -209,7 +220,8 @@ async function login(req: Request) {
     const [sv] = await tx<SaveRow[]>`select data, rev::int as rev, updated_at from app.saves where member_id = ${member}`;
     return { member, expiresAt:new Date(s.expires_at).getTime(), importable:!mem.imported_at, save:saveOut(sv) };
   });
-  await later(sweepCards());   /* 1年 使わない・会員が消えた カードの画像を消す（2年の削除と同じく、だれかの ログインのとき） */
+  /* 1年 使わない・会員が消えた カードの画像と、30日たった セーブの ひかえを消す（2年の削除と同じく、だれかの ログインのとき） */
+  await later((async () => { await sweepCards(); await sweepBackups(); })());   /* 1つずつ順に */
   return { token, expiresAt:out.expiresAt, member:{ id:out.member, importable:out.importable }, save:out.save,
     ai:await aiStatus(out.member), card:await cardStatus(out.member), now:Date.now() };
 }
@@ -274,14 +286,34 @@ async function act(req: Request, member: string) {
   });
 }
 
-/* 新しい子をむかえる：名前・みためから、まっさらのセーブを作る（数字や記録は画面から受けとらない） */
+/* 上書き（新しい子・取りこみ）の前の セーブを 1人1つ とっておく（まちがいや 画面の不具合で 置きかわっても、お問い合わせで もどせるように）。
+   前の ひかえは 置きかえる。表が まだないなどで 書けないときは とばす（上書きは とめない） */
+async function keepBackup(tx: postgres.TransactionSql, member: string, why: 'adopt' | 'import') {
+  try {
+    await tx.savepoint(async sp => {
+      await sp`insert into app.save_backups (member_id, data, rev, reason)
+        select member_id, data, rev, ${why} from app.saves where member_id = ${member}
+        on conflict (member_id) do update set data = excluded.data, rev = excluded.rev, reason = excluded.reason, created_at = now()`;
+    });
+  } catch { console.error('backup: table unavailable'); }
+}
+async function sweepBackups() {
+  try { await sql`delete from app.save_backups where created_at < now() - make_interval(days => ${BACKUP_DAYS})`; }
+  catch { console.error('backup: sweep failed'); }
+}
+
+/* 新しい子をむかえる：名前・みためから、まっさらのセーブを作る（数字や記録は画面から受けとらない）。前の子の セーブは ひかえに */
 async function adopt(member: string, pet: Pet) {
   const t = Date.now();
   const st = newState({ ...pet, photo:null, wear:{ head:null, face:null, neck:null } }, t) as Record<string, unknown>;
   ensureState(st);
-  const out = await sql<SaveRow[]>`insert into app.saves (member_id, data) values (${member}, ${sql.json(st as Json)})
-    on conflict (member_id) do update set data = excluded.data, rev = app.saves.rev + 1, updated_at = now()
-    returning data, rev::int as rev, updated_at`;
+  const out = await sql.begin(async tx => {
+    await tx`select 1 from app.saves where member_id = ${member} for update`;
+    await keepBackup(tx, member, 'adopt');
+    return await tx<SaveRow[]>`insert into app.saves (member_id, data) values (${member}, ${sql.json(st as Json)})
+      on conflict (member_id) do update set data = excluded.data, rev = app.saves.rev + 1, updated_at = now()
+      returning data, rev::int as rev, updated_at`;
+  });
   return { ok:true, ev:[], save:saveOut(out[0]), now:t };
 }
 
@@ -310,6 +342,7 @@ async function importCode(req: Request, member: string) {
     const [mem] = await tx`select imported_at from app.members where id = ${member} for update`;
     if (!mem) throw new HttpError(401, 'nosession');
     if (mem.imported_at) throw new HttpError(409, 'already');
+    await keepBackup(tx, member, 'import');   /* いまの子（あれば）は ひかえに */
     const [sv] = await tx<SaveRow[]>`insert into app.saves (member_id, data) values (${member}, ${sql.json(data as Json)})
       on conflict (member_id) do update set data = excluded.data, rev = app.saves.rev + 1, updated_at = now()
       returning data, rev::int as rev, updated_at`;
@@ -538,17 +571,22 @@ async function makeCard(req: Request, member: string) {
   const sha = hexOf(await crypto.subtle.digest('SHA-256', png.bytes));
   const day = dayKey();
   const name = b64url(crypto.getRandomValues(new Uint8Array(24))) + '.png';
-  let got: { reuse?: string; limit?: boolean };
+  let got: { reuse?: string; limit?: boolean; busy?: boolean };
   try {
     got = await sql.begin(async tx => {
-      await tx`select pg_advisory_xact_lock(hashtextextended(${'card:' + member}, 0))`;
+      /* 全員の1日の枚数も 数えるので、日付で ロックして 1まいずつ順に */
+      await tx`select pg_advisory_xact_lock(hashtextextended(${'card:' + day}, 0))`;
       const [sv] = await tx`select 1 as x from app.saves where member_id = ${member}`;
       if (!sv) throw new HttpError(409, 'nosave');
       /* 同じ絵は つくりなおさない（枚数にも数えない）。使った日時を新しくして、そこから1年 */
       const [old] = await tx`update app.cards set used_at = now() where member_id = ${member} and sha = decode(${sha}, 'hex') returning name`;
       if (old) return { reuse:String(old.name) };
-      const [c] = await tx`select count(*)::int as n from app.cards where member_id = ${member} and day = ${day}::date`;
-      if (Number(c.n) >= CARD_PER_DAY) return { limit:true };
+      const [c] = await tx`select count(*) filter (where member_id = ${member})::int as mine, count(*)::int as everyone
+        from app.cards where day = ${day}::date`;
+      if (Number(c.mine) >= CARD_PER_DAY) return { limit:true };
+      if (Number(c.everyone) >= CARD_ALL_PER_DAY) return { busy:true };
+      const [all] = await tx`select count(*)::int as n from app.cards`;
+      if (Number(all.n) >= CARD_ALL_MAX){ console.error('card: storage cap reached'); return { busy:true }; }
       await tx`insert into app.cards (name, member_id, sha, day) values (${name}, ${member}, decode(${sha}, 'hex'), ${day}::date)`;
       return {};
     });
@@ -558,6 +596,7 @@ async function makeCard(req: Request, member: string) {
     return { ok:false, why:'off', card:{ on:false, left:0, perDay:CARD_PER_DAY } };
   }
   if (got.limit) return { ok:false, why:'limit', card:await cardStatus(member) };
+  if (got.busy) return { ok:false, why:'busy', card:await cardStatus(member) };
   if (got.reuse) return { ok:true, url:cardUrl(got.reuse), w:png.w, h:png.h, card:await cardStatus(member) };
   let put = false;
   try {
@@ -576,6 +615,12 @@ async function makeCard(req: Request, member: string) {
     await sql`delete from app.cards where name = ${name}`;
     return { ok:false, why:'unavailable', card:await cardStatus(member) };
   }
+  /* 1人が とっておけるのは 新しい CARD_KEEP_PER_MEMBER 枚まで。こえた古いものは 画像ごと消す（返事のあとに うしろで） */
+  try {
+    const extra = (await sql`select name from app.cards where member_id = ${member}
+      order by used_at desc, created_at desc offset ${CARD_KEEP_PER_MEMBER}`).map(r => String(r.name));
+    if (extra.length) await later(sweepCards(extra));
+  } catch { console.error('card: trim failed'); }
   return { ok:true, url:cardUrl(name), w:png.w, h:png.h, card:await cardStatus(member) };
 }
 

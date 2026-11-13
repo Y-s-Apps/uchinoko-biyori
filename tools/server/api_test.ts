@@ -365,16 +365,39 @@ ok(r.data.ok && r.data.save.data.daily && r.data.save.data.daily.day === jst(Dat
 
 console.log('names (1-4：絵文字の まんなかで 切らない・制御文字と かたわれの絵文字を とる。jsonb が ことわるため)');
 const emo = (await call('POST', '/login', { idToken:mkToken('emo', '2012410263', 'Uemo') })).data;
+const emoId = emo.member.id as string;
+const backup = async (id: string) => (await db`select data->'pet'->>'name' as name, reason, rev::int as rev from app.save_backups where member_id = ${id}`)[0] || null;
 r = await call('POST', '/act', { type:'adopt', pet:{ ...pet, name:'あいうえおかきくけ😀', colorName:'くり\u0000ーむ' } }, emo.token);
 ok(r.status === 200 && r.data.save.data.pet.name === 'あいうえおかきくけ😀' && r.data.save.data.pet.colorName === 'くりーむ', 'adopt: an emoji at the 10th letter stays whole, \\u0000 removed', r.data);
+ok(await backup(emoId) === null, 'the first child: no backup (nothing was overwritten)');
 r = await call('POST', '/save', { pet:{ ...pet, name:'a\u0000b\ud83dcdefghijkl😀' } }, emo.token);
 ok(r.status === 200 && r.data.save.data.pet.name === 'abcdefghij', '/save: control chars and a half emoji removed, cut by letters', r.data);
+ok(await backup(emoId) === null, '/save (name and look) is not a backup');
 const codeEmo = { ...save1, pet:{ ...pet, name:'かきくけこさしすせ😀😀' }, album:[{ t:t0, k:'home', ti:'x'.repeat(39) + '😀😀', su:'a\u0000b', ic:'home' }] };
 r = await call('POST', '/import', { code:enc(codeEmo) }, emo.token);
 const emoSave = r.data && r.data.save && r.data.save.data;
 ok(r.status === 200 && emoSave.pet.name === 'かきくけこさしすせ😀' && emoSave.album[0].ti === 'x'.repeat(39) + '😀' && emoSave.album[0].su === 'ab',
    '/import: name and album text cut by letters (no half emoji, no control chars)', emoSave && { name:emoSave.pet.name, album:emoSave.album[0] });
 
+console.log('backup (1-3：上書きの前の セーブを 1人1つ とっておく)');
+let bk = await backup(emoId);
+ok(bk && bk.name === 'abcdefghij' && bk.reason === 'import', 'import over a child → the previous save is kept (reason import)', bk);
+r = await call('POST', '/act', { type:'adopt', pet:{ ...pet, name:'つぎのこ' } }, emo.token);
+bk = await backup(emoId);
+ok(r.status === 200 && bk && bk.name === 'かきくけこさしすせ😀' && bk.reason === 'adopt', 'adopt over a child → the previous save replaces the backup (1 per member)', bk);
+const [{ nb }] = await db`select count(*)::int as nb from app.save_backups where member_id = ${emoId}`;
+ok(nb === 1, 'only one backup per member', nb);
+await db`alter table app.save_backups rename to save_backups_away`;   /* 表が まだないとき（マイグレーションの前） */
+r = await call('POST', '/act', { type:'adopt', pet:{ ...pet, name:'ひょうなし' } }, emo.token);
+ok(r.status === 200 && r.data.save.data.pet.name === 'ひょうなし', 'no backup table: adopt still works', r.status);
+await db`alter table app.save_backups_away rename to save_backups`;
+await db`update app.save_backups set created_at = now() - interval '31 days' where member_id = ${emoId}`;
+const keepBk = (await call('POST', '/login', { idToken:mkToken('bkeep', '2012410263', 'Ubkeep') })).data;
+await call('POST', '/act', { type:'adopt', pet }, keepBk.token);
+await call('POST', '/act', { type:'adopt', pet:{ ...pet, name:'にばんめ' } }, keepBk.token);
+await db`update app.save_backups set created_at = now() - interval '29 days' where member_id = ${keepBk.member.id}`;
+await call('POST', '/login', { idToken:mkToken('emo2', '2012410263', 'Uemo') });
+ok(await backup(emoId) === null && (await backup(keepBk.member.id)) !== null, 'backups older than 30 days are deleted at someone\'s login; 29 days stay');
 
 console.log('AIの読みとり（/read）');
 const jpeg = '/9j/4AAQSkZJRgABAQAAAQABAAD' + 'A'.repeat(1200) + '/9k=';
@@ -547,7 +570,7 @@ ok(r.status === 200 && r.data.member.id !== jay.id && r.data.save === null && r.
    '2年ぶりに ひらいた人は、消してから あたらしい会員に', r.data);
 console.log('card (うちのこカード：Storage に画像・1人1日3枚・1年で消す)');
 /* ためしの PNG（中身の画像データは でたらめ。サーバーは形・たて・よこ・チャンクだけを見る） */
-function png(w: number, h: number, seed = 1, o: { text?: boolean; tail?: boolean; noEnd?: boolean; firstNotIhdr?: boolean; sig?: boolean } = {}){
+function png(w: number, h: number, seed = 1, o: { text?: boolean; tail?: boolean; noEnd?: boolean; firstNotIhdr?: boolean; sig?: boolean; pad?: number } = {}){
   const chunk = (type: string, data: Uint8Array) => {
     const c = new Uint8Array(12 + data.length), dv = new DataView(c.buffer);
     dv.setUint32(0, data.length); for (let i = 0; i < 4; i++) c[4 + i] = type.charCodeAt(i);
@@ -555,7 +578,7 @@ function png(w: number, h: number, seed = 1, o: { text?: boolean; tail?: boolean
   };
   const ihdr = new Uint8Array(13), dv = new DataView(ihdr.buffer);
   dv.setUint32(0, w); dv.setUint32(4, h); ihdr[8] = 8; ihdr[9] = 6;
-  const idat = new Uint8Array(200).map((_, i) => (i * 31 + seed * 7) & 255);
+  const idat = new Uint8Array(o.pad || 200).map((_, i) => (i * 31 + seed * 7) & 255);
   const parts = [new Uint8Array(o.sig ? [1, 2, 3, 4, 5, 6, 7, 8] : [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])];
   if (o.firstNotIhdr) parts.push(chunk('tEXt', new TextEncoder().encode('a')));
   parts.push(chunk('IHDR', ihdr));
@@ -668,6 +691,35 @@ Deno.env.delete('SUPABASE_SERVICE_ROLE_KEY');
 Deno.env.set('SUPABASE_SECRET_KEYS', JSON.stringify({ default:'sb_secret_test' }));
 const h1 = await call('GET', '/health');
 ok(h1.data.cards === true, '/health tells cards are on');
+console.log('card caps (1-2：1人 新しい30まい・全員で1日100まい・ぜんぶで3000まい)');
+const fay = await joiner('fay');
+const fake = (i: number) => 'f' + String(i).padStart(31, '0') + '.png';
+const shaOf = (i: number) => i.toString(16).padStart(64, '0');
+for (let i = 0; i < 30; i++){
+  await db`insert into app.cards (name, member_id, sha, day, used_at) values (${fake(i)}, ${fay.id}, decode(${shaOf(i + 1)}, 'hex'), current_date - 2, now() - make_interval(mins => ${100 - i}))`;
+  STORE.objects.set(fake(i), new Uint8Array([1]));
+}
+r = await call('POST', '/card', { image:png(640, 640, 21) }, fay.token);
+const fayRows = (await db`select name from app.cards where member_id = ${fay.id}`).map((x: any) => x.name as string);
+ok(r.data.ok && fayRows.length === 30 && !fayRows.includes(fake(0)) && !STORE.objects.has(fake(0)) && fayRows.includes(fake(1)) && STORE.objects.has(fake(1)),
+   'the 31st card → the oldest one (by last use) is deleted with its image', { ok:r.data.ok, n:fayRows.length });
+r = await call('POST', '/card', { image:png(640, 640, 22) }, fay.token);
+ok(r.data.ok && !STORE.objects.has(fake(1)), 'another new card → the next oldest goes');
+const gus = await joiner('gus');
+await db`insert into app.cards (name, member_id, sha, day) select 'g' || lpad(g::text, 31, '0') || '.png', ${fay.id}::uuid, decode(lpad(to_hex(1000 + g), 64, '0'), 'hex'), ${jst(Date.now())}::date
+  from generate_series(1, 100) as g`;
+r = await call('POST', '/card', { image:png(640, 640, 23) }, gus.token);
+ok(r.data.ok === false && r.data.why === 'busy' && r.data.card.left === 3, '100 new cards today (everyone) → busy (not counted for the member)', r.data);
+await db`delete from app.cards where name like 'g%'`;
+await db`insert into app.cards (name, member_id, sha, day, used_at) select 'h' || lpad(g::text, 31, '0') || '.png', ${fay.id}::uuid, decode(lpad(to_hex(5000 + g), 64, '0'), 'hex'), current_date - 3, now()
+  from generate_series(1, 3000) as g`;
+r = await call('POST', '/card', { image:png(640, 640, 24) }, gus.token);
+ok(r.data.ok === false && r.data.why === 'busy', '3000 cards kept (everyone) → busy', r.data);
+await db`delete from app.cards where name like 'h%'`;
+r = await call('POST', '/card', { image:png(640, 640, 24) }, gus.token);
+ok(r.data.ok === true, 'below the caps again → ok', r.data);
+r = await call('POST', '/card', { image:png(800, 800, 25, { pad:600_003 }) }, gus.token);
+ok(r.status === 400 && r.data.error === 'badimage', 'a PNG over 600KB is refused', r);
 await db.end();
 
 console.log(fails ? `\n${fails} FAILED` : '\nall passed');
