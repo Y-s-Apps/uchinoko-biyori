@@ -122,7 +122,7 @@ def toast_texts():
         for m in re.finditer(r'(?:toast|this\.reload)\((.*?)\);', src, re.S):
             for s in re.findall(r"'([^'\n]*[ぁ-んァ-ン一-龥][^'\n]*)'|`([^`\n]*[ぁ-んァ-ン一-龥][^`\n]*)`", m.group(1)):
                 texts.append(s[0] or s[1])
-    sub = lambda t: re.sub(r'\$\{[^}]*\}', '30', re.sub(r'\$\{(?:S|g)\.pet\.name\}', 'だいず', t))
+    sub = lambda t: re.sub(r'\$\{[^}]*\}', '30', re.sub(r'\$\{(?:S|g)\.pet\.name\}', 'だいず', t)).replace('\\n', '\n')   # \n は 改行（トーストは pre-line）
     out = []
     for t in texts:
         t = sub(t)

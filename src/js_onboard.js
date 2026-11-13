@@ -147,6 +147,15 @@ const Onboard = {
   show(){ this.el.hidden = false; this.el.scrollTop = 0; },
   close(){ this.el.hidden = true; this.busy = false; clearInterval(this.msgT); if (this.ctl) this.ctl.abort(); this.ctl = null; },
   openNew(canCancel){ this.mode = 'new'; this.canCancel = !!canCancel; this.welcome(); },
+  /* Claude版：クラウドの セーブを たしかめている あいだだけ、はじめての画面に 1行（Persist.connect） */
+  checkLine(){ const el = $('#obCheck'); if (el) el.hidden = !Persist.checking; },
+  /* クラウドを たしかめている あいだに おされたら まつ。クラウドの子で はじめたら false */
+  async waitCloud(btn){
+    if (this.mode === 'edit' || !Persist.checking) return true;
+    if (btn){ btn.disabled = true; btn.textContent = 'たしかめています…'; }
+    await Persist.settle();
+    return this.busy;
+  },
   openEdit(){
     if (!S) return;
     this.mode = 'edit'; this.canCancel = true;
@@ -168,6 +177,7 @@ const Onboard = {
       <button class="linkbtn" type="button" id="obManual">写真なしで、種類からえらぶ</button>
       <button class="linkbtn" type="button" id="obImport">引っこしコードで受け取る</button>
       ${this.canCancel ? '<button class="linkbtn" type="button" id="obBack">もどる</button>' : ''}
+      ${HOME ? '' : `<p class="note obcheck" id="obCheck" aria-live="polite"${Persist.checking ? '' : ' hidden'}>クラウドの セーブを たしかめています…</p>`}
       <p class="note">${HOME
         ? '写真は 毛の色を ひろうためだけに、この端末の中で 使います。どこにも 送られません。お部屋には 小さな サムネイルを 飾ります。'
         : '写真は 種類と 毛の色を 読みとるために Claudeへ 送られます。読みとりには あなたの Claudeの 利用枠を 少し 使います。お部屋には 小さな サムネイルだけを 飾ります。'}</p>
@@ -190,9 +200,10 @@ const Onboard = {
       <label class="btn filebtn">ファイルからえらぶ<input type="file" id="imFile" accept=".txt,text/plain"></label>
       <button class="linkbtn" type="button" id="imBack">もどる</button>
     </div>`;
-    const take = text => {
+    const take = async text => {
       const r = readMoveCode(text);
       if (!r.st) return this.importView(moveErrorText(r));
+      if (!await this.waitCloud($('#imGo'))) return;
       S = r.st; this.busy = false;
       Persist.schedule();
       Game.start('ただいま！');
@@ -420,7 +431,8 @@ const Onboard = {
     }).join('');
     grid.querySelectorAll('[data-g]').forEach(b => b.addEventListener('click', () => { this.applyBreed(b.dataset.g); this.refresh(); }));
   },
-  commit(){
+  async commit(){
+    if (!await this.waitCloud($('#edGo'))) return;
     const d = this.draft, look = normalizeLook(d.look);
     const typed = ($('#edName').value || '').trim();
     const name = cleanText(typed || $('#edName').placeholder || 'うちのこ', 10).trim() || 'うちのこ';

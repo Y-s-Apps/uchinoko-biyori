@@ -147,9 +147,10 @@ serve({ port:Number(PORT), hostname:'127.0.0.1', onListen(){ console.log('e2e se
     return j({ ok:true });
   }
   if (u.pathname === '/__debug/patch'){
-    /* 数字のまね：おなか（と、前のおせわの時刻を前に） */
-    const { sub, full } = await req.json();
-    await admin`update app.saves s set data = jsonb_set(jsonb_set(s.data, '{stats,full}', to_jsonb(${full}::float)), '{srv}', '{"cd":0}'::jsonb)
+    /* 数字のまね：おなか（と、前のおせわの時刻を前に。busy なら 前のおせわを いまにして、つぎの おせわを ことわらせる＝3-9） */
+    const { sub, full, busy } = await req.json();
+    const srv = busy ? { cd:Date.now() + 60e3 } : { cd:0 };
+    await admin`update app.saves s set data = jsonb_set(jsonb_set(s.data, '{stats,full}', to_jsonb(${full}::float)), '{srv}', ${srv}::jsonb)
       from app.line_accounts a where a.member_id = s.member_id and a.sub = ${sub}`;
     return j({ ok:true });
   }

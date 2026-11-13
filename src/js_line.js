@@ -572,7 +572,7 @@ const LineSync = {
   },
   guestHtml(g, body){
     const wear = wearFrom(g.pet);
-    for (const k of ['head','face','neck']) if (wear[k] && !WEAR_BY_ID[wear[k]]) wear[k] = WEAR_RENAMED[wear[k]] || null;
+    for (const k of ['head','face','neck']) if (!hasId(WEAR_BY_ID, wear[k])) wear[k] = hasId(WEAR_RENAMED, wear[k]) ? WEAR_RENAMED[wear[k]] : null;
     return `<div class="mpet ex-happy">${renderPet(g.pet.look, { wear })}</div>${body}`;
   },
   /* この端末の子を、取りこみ口（1回だけ）からつれてくる */

@@ -139,6 +139,104 @@ st.milestones = {};
 ev = []; Rules.open(st, 0, ev);
 ok(ev.some(e => e.k === 'anniv' && e.years === 1) && st.milestones.days300 && st.milestones.anniv1, 'うちのこ記念日と、日数のアルバム', ev);
 
+console.log('こわれたセーブ（診断 2-1・1-7）');
+{
+  const bad = { v:1, pet:{ name:'', species:'xyz', breedId:'constructor', look:'?', photo:'javascript:x', colorName:7,
+    wear:{ head:'constructor', face:['glasses_red'], neck:'__proto__' } }, stats:{}, counts:{}, events:{ got:['constructor', 'ev_santa', ['ev_santa']] },
+    souv:{ have:{ constructor:3, __proto__:1 } }, last:T, created:T - 3 * D, updated:T };
+  const fixed = ensureState(JSON.parse(JSON.stringify(bad)));
+  ok(fixed.pet.species === 'dog' && fixed.pet.look.species === 'dog' && fixed.pet.breedId === 'mix_dog' && fixed.pet.name === 'うちのこ' && fixed.pet.photo === null && fixed.pet.colorName === '',
+     '種類・品種・みため・名前を そろえる（犬・猫で ないと 犬に）', fixed.pet);
+  ok(fixed.pet.wear.head === null && fixed.pet.wear.face === null && fixed.pet.wear.neck === null, 'きせかえは 知っている ID だけ（constructor・配列・__proto__ は はずす）', fixed.pet.wear);
+  ok(JSON.stringify(fixed.events.got) === '["ev_santa"]', 'もらった きせかえも 知っている ID だけ', fixed.events.got);
+  let threw = null;
+  try { ev = []; Rules.act(fixed, 'open', {}, { away:0 }); Rules.act(fixed, 'feed', {}, {}); Rules.act(fixed, 'treat', { id:'bolo' }, {}); Rules.ensureDaily(fixed); } catch(e){ threw = String(e); }
+  ok(!threw, 'こわれていた セーブでも ルールが 止まらない', threw);
+  const cat = ensureState({ v:1, pet:{ name:'ねこ', species:'?', breedId:'?', look:{ species:'cat', breedId:'mix_cat' } }, stats:{}, counts:{} });
+  ok(cat.pet.species === 'cat' && cat.pet.look.species === 'cat', '種類が こわれても みための 種類（ねこ）を つかう', cat.pet);
+  const old = ensureState({ v:1, pet:{ name:'むかし', species:'dog', breedId:'shiba', acc:'bandana' }, stats:{}, counts:{} });
+  ok(old.pet.look.breedId === 'shiba' && old.pet.wear.neck === 'bandana_red' && !('acc' in old.pet), 'look の ない 前の形の セーブも そろえる（前の アクセサリーも）', old.pet);
+  const ren = ensureState({ v:1, pet:{ name:'り', species:'dog', breedId:'shiba', look:{ species:'dog', breedId:'shiba' }, wear:{ head:'bandana_red', face:null, neck:'scarf_stripe' } }, stats:{}, counts:{} });
+  ok(ren.pet.wear.neck === 'scarf_brown' && ren.pet.wear.head === null, '名前の かわった きせかえは つなぐ・ちがう場所の きせかえは はずす', ren.pet.wear);
+  const good = child();
+  const before = JSON.stringify(good.pet);
+  ensureState(good);
+  ok(JSON.stringify(good.pet) === before, 'ふつうの セーブの ペットは かわらない', { before, after:good.pet });
+  ok(!Rules.act(child(), 'dress', { slot:'head', id:'constructor' }).ok && !Rules.act(child(), 'dress', { slot:'head', id:['tiara'] }).ok, 'きせかえ：constructor や 配列の ID は ことわる');
+}
+
+console.log('時計が もどった日（診断 3-4）');
+{
+  T = Date.UTC(2026, 10, 20, 3, 0);
+  st = child(); completeAll(st); nextDay(); completeAll(st); nextDay(); completeAll(st);
+  const day3 = jst(T);
+  ok(st.streak.n === 3 && st.streak.last === day3, 'れんぞく3', st.streak);
+  T -= D;   /* 西への旅行・時計を手で 前の日に */
+  ok(Rules.streakInfo(st).n === 3, 'もどった日も れんぞくの 表示は 3', Rules.streakInfo(st));
+  completeAll(st);
+  ok(st.streak.n === 3 && st.streak.last === day3, 'もどった日に ぜんぶ かなえても れんぞくは 3 のまま（前は 1 に もどった）', st.streak);
+  T += D;   /* 時計が もとに もどる：同じ日を 2回 数えない */
+  completeAll(st);
+  ok(st.streak.n === 3, 'もとの日に もどって また かなえても 3（2回 数えない）', st.streak);
+  nextDay(); completeAll(st);
+  ok(st.streak.n === 4, 'つぎの日は 4', st.streak);
+  st.streak.last = jst(T + 30 * D);   /* 前に 時計が ずっと先に なっていた */
+  nextDay(); completeAll(st);
+  ok(st.streak.n === 4 && st.streak.last === jst(T), 'ずっと先の 日付が のこっていても れんぞくは そのまま、きょうから つづける', st.streak);
+  nextDay(); completeAll(st);
+  ok(st.streak.n === 5, 'つぎの日は 5', st.streak);
+}
+
+console.log('2月29日に むかえた子の 記念日（診断 3-5）');
+{
+  const born = Date.UTC(2028, 1, 29, 3, 0);   /* 2028-02-29 12:00 日本時間（うるう年） */
+  st = child(); st.created = born; st.milestones = {};
+  T = Date.UTC(2029, 1, 27, 3, 0); ev = []; Rules.open(st, 0, ev);
+  ok(!ev.some(e => e.k === 'anniv'), '2029-02-27 は まだ', ev.filter(e => e.k === 'anniv'));
+  T = Date.UTC(2029, 1, 28, 3, 0); ev = []; Rules.open(st, 0, ev);
+  ok(ev.some(e => e.k === 'anniv' && e.years === 1) && st.milestones.anniv1, 'うるう年でない年は 2/28 が 記念日（1年）', ev.filter(e => e.k === 'anniv'));
+  T = Date.UTC(2032, 1, 28, 3, 0); ev = []; Rules.open(st, 0, ev);
+  ok(!ev.some(e => e.k === 'anniv'), 'うるう年（2032）の 2/28 は まだ', ev.filter(e => e.k === 'anniv'));
+  T = Date.UTC(2032, 1, 29, 3, 0); ev = []; Rules.open(st, 0, ev);
+  ok(ev.some(e => e.k === 'anniv' && e.years === 4), 'うるう年は 2/29 が 記念日（4年）', ev.filter(e => e.k === 'anniv'));
+  st = child(); st.created = Date.UTC(2027, 2, 1, 3, 0); st.milestones = {};
+  T = Date.UTC(2028, 1, 29, 3, 0); ev = []; Rules.open(st, 0, ev);
+  ok(!ev.some(e => e.k === 'anniv'), '3/1 に むかえた子は 2/29 では ない', ev.filter(e => e.k === 'anniv'));
+}
+
+console.log('ピンチの日の 引っこしコード（診断 3-6）');
+{
+  const pinchChild = () => {
+    T = Date.UTC(2026, 10, 2, 3, 0);
+    const s = child(); completeAll(s); nextDay(); completeAll(s); nextDay(); completeAll(s);
+    nextDay(2);   /* 1日 おやすみ */
+    const e = []; Rules.open(s, 0, e);
+    completeAll(s, false);   /* いつもの3つだけ：れんぞく3 を まつ */
+    return s;
+  };
+  const code = s => { const b = Buffer.from(JSON.stringify(s)).toString('base64'); return 'UCHINOKO2:' + b.length + ':' + b; };
+  st = pinchChild();
+  ok(st.streak.saved && st.streak.saved.n === 3, 'ピンチ：れんぞく3 を まっている', st.streak);
+  let moved = g.readMoveCode(code(st)).st;
+  ok(moved && moved.streak.saved && moved.streak.saved.n === 3 && moved.streak.saved.day === jst(T), 'まっている れんぞくも 運ぶ（前は 運ばれず 1 に）', moved && moved.streak);
+  ev = completeAll(moved, true);
+  ok(moved.streak.n === 4 && !moved.streak.saved && ev.some(e => (e.k === 'rescue' || e.k === 'all') && e.bridged), '運んだ先で おたすけを かなえると れんぞく4 に つながる', { streak:moved.streak, ev:ev.filter(e => e.k === 'all' || e.k === 'rescue') });
+  /* おたすけを 先に かなえてから いつもの3つ */
+  moved = g.readMoveCode(code(pinchChild())).st;
+  Rules.ensureDaily(moved);
+  const rq = moved.daily.rescue, list = moved.daily.list;
+  moved.daily.list = [];   /* おたすけだけ 先に */
+  completeAll(moved, true);
+  moved.daily.list = list;
+  ok(rq.done && !moved.daily.all && moved.streak.saved, 'おたすけを 先に かなえた（まだ つながらない）', moved.streak);
+  ev = completeAll(moved, false);
+  ok(moved.streak.n === 4 && !moved.streak.saved && ev.some(e => e.k === 'all' && e.bridged), 'あとから いつもの3つで れんぞく4 に つながる', { streak:moved.streak, ev:ev.filter(e => e.k === 'all') });
+  /* つぎの日に 運ぶと、まっている れんぞくは もう ない（ensureState が きょうの分だけ のこす） */
+  st = pinchChild(); const c2 = code(st); nextDay();
+  moved = g.readMoveCode(c2).st;
+  ok(moved && !moved.streak.saved, 'つぎの日に 読みこむと、まっている れんぞくは のこらない', moved && moved.streak);
+}
+
 console.log('ホーム画面版：おたすけは1日おき（src/build.sh の HOME_RESCUE_EVERY で RESCUE_EVERY を置きかえる）');
 {
   const fs = await import('node:fs');

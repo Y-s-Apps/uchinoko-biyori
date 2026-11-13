@@ -30,7 +30,7 @@
 | `src/build.sh` | 組み立て。`../index.html` と `../sw.js`（ホーム画面版）、`out/uchinoko-claude.html`（Claude版）、`out/line/`（LINE版。本番用＝いちばん上、審査用＝`review/`、開発用＝`dev/` に同じページ。うちのこカードの メッセージに出す `line-icon.png` も）を出力 |
 | `src/icons/` | アイコンの元データ（1024px）と描画スクリプト。LINE用（130px）は `line_icon.js`・`render_line.py` → `line-icon-130.png` |
 | `src/legal/` | LINE版のプライバシーポリシー・利用規約（`build.sh` が お問い合わせ先 `CONTACT`＝Googleフォームの URL を入れて `out/line/` に出す。空なら出さない） |
-| `tools/smoke.py` | スマホ幅での動作確認とスクリーンショット |
+| `tools/smoke.py` | スマホ幅での動作確認とスクリーンショット。見た目（文字と地の色の差・11px より小さい文字・「とじる」の さわれる大きさ）も数える。ホーム画面版では オフラインで 自分の キャッシュから ひらくかも（`--dark` ダーク、`--fresh` はじめて、`--line` LINE版、`--claude` Claude版の クラウドの子の まね） |
 | `tools/linebreak.py` | 改行の確認：375・390px で シート・ポップアップ・トースト・はじめての画面を出し、ことばの まんなかの改行と 横はみだしを数える（`--line` LINE版、`--claude` Claude版、`--shots DIR` で スクリーンショット） |
 | `tools/webfonts.py`・`tools/fonts/` | 確認用に Google Fonts と同じフォント（@fontsource）を手元から出す（はじめに `cd tools/fonts && npm install`。`linebreak.py` が使う） |
 | `supabase/migrations/` | LINE版のサーバー（Supabase「uchinoko-biyori」）の表。`app` スキーマ（Data API に出さない） |
@@ -51,7 +51,7 @@ JSは1つの `<script>` に `build.sh` の順でつなげられます。`const H
 
 1. `src/` だけを編集します。ルートの `index.html` は手で直しません。
 2. `sh src/build.sh` を実行します。`node --check` 相当の構文チェックは、ビルド結果を `node --check` に通して確認します。
-3. `python3 tools/smoke.py` で、スマホ幅（390×844）の主要画面を確認します。スクリーンショットを見て、ページエラーが0件であることを確かめます。文言や CSS を変えたときは `python3 tools/linebreak.py`（LINE版は `--line` も）で、ことばの まんなかの改行が0件か確かめます。LINE版にかかわる変更では `python3 tools/smoke.py --line --android-inset 48` と `python3 tools/line_e2e.py`（サーバーと画面の通し確認）も通します。
+3. `python3 tools/smoke.py` で、スマホ幅（390×844）の主要画面を確認します。スクリーンショットを見て、ページエラー（見た目の 数も ふくむ）が0件であることを確かめます。色や CSS を変えたときは `--dark` も、Claude版の保存や はじめての画面を変えたときは `--claude` も通します。文言や CSS を変えたときは `python3 tools/linebreak.py`（LINE版は `--line` も）で、ことばの まんなかの改行が0件か確かめます。LINE版にかかわる変更では `python3 tools/smoke.py --line --android-inset 48` と `python3 tools/line_e2e.py`（サーバーと画面の通し確認）も通します。
    - **おせわのルール（`js_rules.js`）や おせわの画面を、動きを変えるつもりなしに直したとき：** `python3 tools/compare_home.py` で、ホーム画面版の最後のセーブが前の版（HEAD）と同じか確かめます。
    - **サーバー（`supabase/`）や、サーバーでも使う関数（`ensureState`・`carryExtras`・引っこしコードの読みとり、`js_rules.js`、データのファイル）を変えたとき：** `python3 tools/build_server.py` → `python3 tools/line_e2e.py` → main に push → `python3 tools/build_server.py --pin <そのコミットのSHA>` → Supabase の MCP で `api` に `index.ts` と `deno.json` をデプロイ（`verify_jwt: false`、`import_map_path: deno.json`）→ `--check` → `execute_sql` から pg_net（`net.http_get` / `net.http_post`）で `/health` などを確かめる → deno.json を含めてもう一度 push。表を変えるときは `supabase/migrations/` に足して `apply_migration` し、`get_advisors` で確かめます（`docs/PROJECT.md` の10章）。
 4. 日本語のコミットメッセージで `main` に push します。1〜2分で GitHub Pages に反映されます（Actions の「pages build and deployment」で確認できます）。
@@ -75,7 +75,7 @@ JSは1つの `<script>` に `build.sh` の順でつなげられます。`const H
 - **スマホ優先。** 390px幅で横スクロールが出ないこと。タップしやすい大きさにします。iPhoneのSafariで残像が出るので、体ごと大きく動くアニメは `#petArt` に付けます（SVG内のグループで枠の外まで動かさない）。
 - **文言。** やさしいひらがな多めにし、メインメニューの言葉にそろえます（例：「げい」「◯日」）。
 - **改行と見た目。** 日本語の文が ことばの まんなかで 切れないようにします（「カ／ード」のように切れない）。CSS は 画面ぜんたいに `word-break:keep-all; overflow-wrap:anywhere`（`head.html` の `body`）なので、新しい文にも 文節の あいだに スペースを入れます（スペースが ないと 長い文は どこでも切れる）。見出しや のこり回数など、切れ目を決めたいところは `<br>` で 行を分けます。タイルなど せまいところの名前は `softName()`（`js_app.js`）で出し、カタカナの長い名前を足したら `SOFT_WORDS` に つなぎめを足します。新しい機能や直しでは、`tools/linebreak.py` と スマホ幅のスクリーンショットで 改行・配置・色を 目で確かめてから push します（2026-11-13 オーナーから。画面ぜんたいに入れたのも 2026-11-13）。
-- **色。** `head.html` の `:root` トークンを使い、ライトとダークの両方で読めるようにします。
+- **色。** `head.html` の `:root` トークンを使い、ライトとダークの両方で読めるようにします。文字と地の色の差は ふつうの文字 4.5・大きい文字 3 より大きく（`tools/smoke.py`・`--dark` が数える）。小さい ピンクの文字は `--berry-ink`、ミントの ボタンの文字は `--on-mint`、バッジの地は `--badge`（2026-11-14 オーナー決定。`docs/PROJECT.md` 7章）。文字は 11px 以上。
 - **デザイン。** 実在のチームやブランドのデザイン（ユニフォームなど）は再現しません。トリコロールの色づかいはOKです。
 - **Claude版。** https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs に `src/out/uchinoko-claude.html` を同じURLのまま公開し直します。`capabilities` ははぶいて、いまの宣言（db のルール、user・sample・downloads）を引きつぎます。権限を足すときは、`docs/PROJECT.md` の「安全のための決まり」にある宣言を全部書いたうえで足します。
 - **LINE版。** LINE版だけの変更は `src/line_head.html` と `src/js_line.js` に書き、ホーム画面版の `index.html`・`sw.js` を変えないようにします（変わると、だいずのアプリが更新されます。ビルドの前後で比べる）。LIFF SDK はエッジパスのまま使い、古い版に固定しません。LINE のユーザーIDやプロフィールの値を本人確認に使わず、IDトークンをサーバーで検証します。写真の控え（160px）はサーバーに送りません。AIの読みとりで写真を送るときは、端末で小さくしてからサーバー経由で送り、保存もログもしません。AIの鍵は Supabase の Secrets の `ANTHROPIC_API_KEY` だけに置き、回数の上限はサーバーで数えます（`docs/PROJECT.md` の10章）。

@@ -37,6 +37,10 @@ PAGE_PORT = 8765
 OUT = os.path.join(ROOT, 'smoke-out', 'line-e2e')
 
 
+# 3-9：サーバーが busy で ことわったときの ひとこと（js_app.js の careRefused と そろえる）
+BUSY_WORDS = 'いまのは かぞえられなかったよ。'
+
+
 def free_port():
     s = socket.socket(); s.bind(('127.0.0.1', 0)); p = s.getsockname()[1]; s.close(); return p
 
@@ -384,6 +388,21 @@ async def browser_tests(srv_port):
         await page.wait_for_timeout(2500)
         s2 = state('Uthree')
         ok(s2['pets'] == s['pets'] + 1, 'なでなでも手がとまったら サーバーで数える', {'before': s['pets'], 'after': s2['pets']})
+        # つづけて おせわして サーバーが ことわった（busy）：動きだけで なにも ふえないので、ひとこと（3-9）
+        await close_popups(page)
+        dbg('/__debug/patch', {'sub': 'Uthree', 'full': 40, 'busy': True})
+        await page.click('#actFeed')
+        toast = ''
+        for _ in range(40):
+            await page.wait_for_timeout(200)
+            toast = await page.evaluate("(() => { const t = document.getElementById('toast'); return t.classList.contains('show') ? t.textContent : '' })()")
+            if toast:
+                break
+        s3 = state('Uthree')
+        ok(BUSY_WORDS in toast and s3['meals'] == s2['meals'], 'サーバーが ことわったら（busy）ひとこと、ごはんは ふえない', {'toast': toast, 'meals': [s2['meals'], s3['meals']]})
+        await snap(page, 'busy')
+        dbg('/__debug/patch', {'sub': 'Uthree', 'full': 40})
+        await page.wait_for_timeout(5000)
         all_errs += errs; await ctx.close()
 
         print('7b. 端末の時計をずらしても得をしない')

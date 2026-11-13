@@ -26,6 +26,7 @@ function keyShift(key, k){
 }
 const keyDiff = (a, b) => { const p = k => { const [Y, M, D] = k.split('-').map(Number); return Date.UTC(Y, M - 1, D); }; return Math.round((p(b) - p(a)) / 864e5); };
 const daysBetween = (a, b) => Math.floor((new Date(dayKey(b)) - new Date(dayKey(a))) / 864e5);
+const isDayKey = k => typeof k === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(k);
 const mdOfKey = k => { const [, M, D] = k.split('-').map(Number); return `${M}/${D}`; };
 function hashStr(s){ let h = 2166136261; for (let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 function rng(seed){
@@ -71,8 +72,8 @@ const Rules = {
     if (!st.pet.wear){ st.pet.wear = wearFrom(st.pet); delete st.pet.acc; }
     for (const k of ['head','face','neck']){
       const v = st.pet.wear[k];
-      if (v && WEAR_RENAMED[v]) st.pet.wear[k] = WEAR_RENAMED[v];
-      else if (v && !WEAR_BY_ID[v]) st.pet.wear[k] = null;
+      if (hasId(WEAR_RENAMED, v)) st.pet.wear[k] = WEAR_RENAMED[v];
+      else if (!hasId(WEAR_BY_ID, v)) st.pet.wear[k] = null;
     }
     return st.pet.wear;
   },
@@ -153,6 +154,7 @@ const Rules = {
     const t = dayKey(), L = st.streak.last;
     if (st.streak.saved && st.streak.saved.day === t && !(st.daily && st.daily.rescue && st.daily.rescue.done)) return { n:st.streak.saved.n, pinch:true };
     if (L === t || L === keyShift(t, -1)) return { n:st.streak.n, pinch:false };
+    if (isDayKey(L) && L > t) return { n:st.streak.n, pinch:false };   /* 時計が もどった日（下の reqComplete） */
     if (this.rescueOpen(st, t)) return { n:st.streak.n, pinch:true };
     return { n:0, pinch:false };
   },
@@ -194,19 +196,31 @@ const Rules = {
       const d = st.daily.day;
       if (!st.stamps.includes(d)) st.stamps.push(d);
       const y = keyShift(d, -1), prevN = st.streak.n, last = st.streak.last;
+      /* 端末の日付が 前の日に もどった（西への旅行・時計を手で変えた）：れんぞくは そのまま。1〜2日 先なら last も そのまま
+         （時計が もどったときに 同じ日を 2回 数えない）、もっと先なら 前の時計が まちがっていたので きょうから つづける（診断 3-4） */
+      const ahead = isDayKey(last) ? keyDiff(d, last) : 0;
+      const saved = st.streak.saved && st.streak.saved.day === d ? st.streak.saved : null;
       let bridged = false, waiting = false;
       if (last === y) st.streak.n = prevN + 1;
-      else if (last === d) st.streak.n = prevN;
+      else if (last === d){
+        st.streak.n = prevN;
+        /* まっている れんぞく（引っこしコードで 運んだ ピンチの日など）：おたすけが 済んでいれば つなぐ */
+        if (saved && st.daily.rescue){
+          if (st.daily.rescue.done){ this.bridgeStreak(st, saved.n, d); bridged = true; }
+          else waiting = true;
+        }
+      }
+      else if (ahead > 0) st.streak.n = prevN;
       else if (last === keyShift(d, -2) && prevN > 0 && this.rescueReady(st, d)){
         if (st.daily.rescue && st.daily.rescue.done){ this.bridgeStreak(st, prevN, d); bridged = true; }
         else { st.streak.saved = { n:prevN, day:d }; st.streak.n = 1; waiting = true; }
       } else st.streak.n = 1;
-      st.streak.last = d;
+      st.streak.last = ahead > 0 && ahead <= 2 ? last : d;
       st.streak.best = Math.max(st.streak.best || 0, st.streak.n);
       this.gainLove(st, 10, ev);
       if (!this.first(st, 'daily', 'はじめて おねがいを ぜんぶかなえた', 'スタンプカードに 1こめのスタンプ', 'stamp')){
         const total = st.stamps.length;
-        if ([3, 7, 14, 30, 50, 100, 200, 365].includes(st.streak.n)) this.addAlbum(st, 'stamp', `おねがい${st.streak.n}日れんぞく！`, 'まいにち ありがとう', 'stamp');
+        if (st.streak.n !== prevN && [3, 7, 14, 30, 50, 100, 200, 365].includes(st.streak.n)) this.addAlbum(st, 'stamp', `おねがい${st.streak.n}日れんぞく！`, 'まいにち ありがとう', 'stamp');
         else if (total % 10 === 0) this.addAlbum(st, 'stamp', `スタンプが${total}こに！`, 'たくさん かなえてくれたね', 'stamp');
       }
       ev.push({ k:'all', bridged, waiting });
@@ -230,7 +244,7 @@ const Rules = {
     if (type === 'pet') this.first(st, 'pet', 'はじめてのなでなで', 'うれしそうだったね', 'pet');
     if (type === 'dress' && data.id && !st.firsts.wear[data.id]){
       st.firsts.wear[data.id] = true;
-      const w = WEAR_BY_ID[data.id];
+      const w = hasId(WEAR_BY_ID, data.id) ? WEAR_BY_ID[data.id] : null;
       if (w) this.addAlbum(st, 'wear', `はじめての${w.ja.replace(/（.*?）/, '')}`, `${w.ja}、にあってるね`, 'dress');
     }
     if (type === 'room') this.first(st, 'room', 'はじめてのもようがえ', data.ja ? `${data.ja}にしたよ` : '', 'room');
@@ -250,7 +264,10 @@ const Rules = {
     }
     const c = dateOfDay(dayKey(st.created)), d = clockDate();
     const years = d.getFullYear() - c.getFullYear();
-    if (years >= 1 && d.getMonth() === c.getMonth() && d.getDate() === c.getDate() && !st.milestones['anniv' + years]){
+    /* 2月29日に むかえた子は、うるう年でない年は 2月28日を 記念日にする（診断 3-5） */
+    const Y = d.getFullYear(), leap = (Y % 4 === 0 && Y % 100 !== 0) || Y % 400 === 0;
+    const cDate = c.getMonth() === 1 && c.getDate() === 29 && !leap ? 28 : c.getDate();
+    if (years >= 1 && d.getMonth() === c.getMonth() && d.getDate() === cDate && !st.milestones['anniv' + years]){
       st.milestones['anniv' + years] = true;
       this.addAlbum(st, 'days', `うちのこ記念日（${years}年）`, `${st.pet.name}がうちにきて ${years}年！`, 'days');
       ev.push({ k:'anniv', years });
@@ -404,7 +421,7 @@ const Rules = {
   },
   dress(st, p, ev){
     const slot = SLOTS.some(([k]) => k === p.slot) ? p.slot : null;
-    const w = p.id == null ? null : WEAR_BY_ID[p.id];
+    const w = p.id == null ? null : hasId(WEAR_BY_ID, p.id) ? WEAR_BY_ID[p.id] : undefined;
     if (!slot || (p.id != null && (!w || w.slot !== slot || !this.wearOwned(st, w)))) return { ok:false, why:'locked' };
     const W = Object.assign({}, this.wear(st));
     W[slot] = w ? w.id : null;

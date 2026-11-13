@@ -8,6 +8,9 @@ const APP_PAGES = [SCOPE, SCOPE + 'index.html'];      /* the only pages kept for
 
 /* our own folder, same-origin, a real 200 answer that was not redirected */
 const keepable = res => res && res.ok && res.type === 'basic' && !res.redirected;
+/* look only in this app's own cache: caches.match() would search every cache of y-s-apps.github.io,
+   and another app of the organization may have stored the same URL */
+const fromCache = r => caches.open(CACHE).then(c => c.match(r));
 
 self.addEventListener('install', e => {
   /* skip the browser's HTTP cache so a new version never stores an older copy */
@@ -36,16 +39,16 @@ self.addEventListener('fetch', e => {
       if (keepable(res) && html){ const cp = res.clone(); caches.open(CACHE).then(c => c.put('index.html', cp)); }
       /* the site is gone or broken (404 after the repository moves, 5xx): open the saved copy,
          so the pet and its move code stay reachable from the old home-screen app */
-      if (res.status >= 400) return caches.match('index.html').then(hit => hit || res);
+      if (res.status >= 400) return fromCache('index.html').then(hit => hit || res);
       return res;
-    }).catch(() => caches.match('index.html').then(hit => hit || Response.error())));
+    }).catch(() => fromCache('index.html').then(hit => hit || Response.error())));
     return;
   }
 
   const mine = url.href.startsWith(SCOPE);
   const font = FONT_HOSTS.includes(url.hostname);
   if (!mine && !font) return;
-  e.respondWith(caches.match(r).then(hit => {
+  e.respondWith(fromCache(r).then(hit => {
     const net = fetch(r).then(res => {
       /* fonts and their stylesheet are loaded with CORS, so a failed or opaque answer is never kept */
       if (mine ? keepable(res) : (res.ok && res.type === 'cors' && !res.redirected)){ const cp = res.clone(); caches.open(CACHE).then(c => c.put(r, cp)); }

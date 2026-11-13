@@ -36,6 +36,7 @@ function nextReward(lv){
 const Persist = {
   ref:null, mode:'local', timer:null, writing:false, again:false,
   restored:null, bkDay:null, failNoticed:false,
+  checking:false,   /* Claude版：クラウドの セーブを たしかめている あいだ（はじめての画面に「たしかめています」。診断 3-7） */
   base:null,   /* `updated` of the save this device opened with: opening the app bumps S.updated, this does not */
   readSave(t){
     try { const v = t ? JSON.parse(t) : null; return v && typeof v === 'object' && v.pet && typeof v.pet === 'object' ? v : null; }
@@ -120,6 +121,18 @@ const Persist = {
     if (this.again){ this.again = false; this.flush(); }
   },
   async connect(){
+    if (!CL) return;
+    this.checking = true;
+    Onboard.checkLine();
+    try { await this.connectCloud(); }
+    finally { this.checking = false; Onboard.checkLine(); }
+  },
+  /* はじめての画面で「この子とくらす」「受け取る」を押したとき、クラウドを たしかめている あいだは 8秒まで まつ */
+  async settle(ms = 8000){
+    const t0 = Date.now();
+    while (this.checking && Date.now() - t0 < ms) await new Promise(r => setTimeout(r, 200));
+  },
+  async connectCloud(){
     const [db, user] = await Promise.all([useCap('db'), useCap('user')]);
     if (!db || !user) return;
     let uid = null;
@@ -136,11 +149,16 @@ const Persist = {
          so an older copy on this device never overwrites newer play from another device */
       const remoteT = remote ? Number(remote.updated) || 0 : 0;
       const localT = this.base != null ? this.base : (S ? Number(S.updated) || 0 : 0);
-      if (remote && (!S || remoteT > localT)){
+      /* この端末に セーブが なかった（はじめての端末）ときは、クラウドの子が 先。クラウドが 答える前に はじめての画面で
+         新しい子を 作っても、クラウドの子を 上書きしない（診断 3-7） */
+      const fresh = this.base == null;
+      if (remote && (!S || fresh || remoteT > localT)){
+        const met = fresh && (Onboard.busy || Game.started);
         S = JSON.parse(JSON.stringify(remote));
         this.base = remoteT;
         this.saveLocal();
-        Game.onStateReplaced();
+        if (met){ Onboard.close(); Game.start('ただいま！'); toast(`クラウドに いた ${S.pet.name}と あえたよ`); }
+        else Game.onStateReplaced();
       } else if (S && (!remote || (Number(S.updated) || 0) > remoteT)){
         this.flush();
       }
@@ -338,6 +356,8 @@ function renderStats(){
 function renderHeader(){
   $('#petName').textContent = S.pet.name;
   $('#petBreed').textContent = breedLabel(S.pet);
+  /* むかえた日だけ、右上の ボタンに 名前を出す */
+  $('.top').classList.toggle('newday', !!S.created && dayKey(S.created) === dayKey());
   const f = $('#frame');
   if (S.pet.photo){ $('#frameImg').src = S.pet.photo; f.hidden = false; } else f.hidden = true;
 }
@@ -391,6 +411,8 @@ function careRefused(r){
     case 'full': Pet.wake(); Pet.tilt(); Pet.say(cat ? 'おなかいっぱいにゃ…' : 'おなかいっぱい！'); break;
     case 'hungry': Pet.wake(); Pet.flash('sad', 2000); Pet.say('おなかがすいて できないよ…'); break;
     case 'locked': toast('まだ えらべないよ'); break;
+    /* LINE版：前の おせわから 2.5秒 たたないうちに サーバーへ 届いた（動きだけ出て なにも ふえない。診断 3-9） */
+    case 'busy': toast('いまのは かぞえられなかったよ。\nすこし まってね'); break;
   }
 }
 /* what the rules said happened, as popups and words (the same order and timing as always) */
@@ -806,7 +828,7 @@ function decodeMovePayload(b64){
     const p = o.pet, look = normalizeLook(p.look || p);
     const photo = safePhoto(p.photo, 400000);
     const wear = wearFrom(p);
-    for (const k of ['head','face','neck']){ const v = wear[k]; if (v && WEAR_RENAMED[v]) wear[k] = WEAR_RENAMED[v]; else if (v && !WEAR_BY_ID[v]) wear[k] = null; }
+    for (const k of ['head','face','neck']){ const v = wear[k]; if (hasId(WEAR_RENAMED, v)) wear[k] = WEAR_RENAMED[v]; else if (!hasId(WEAR_BY_ID, v)) wear[k] = null; }
     const c = o.counts || {};
     const t0 = now();
     const st = {

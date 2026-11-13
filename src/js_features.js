@@ -24,9 +24,27 @@ function ensureState(st){
   /* numbers and text that reach the screen are coerced here, whatever the source (this browser, the cloud copy, a move code) */
   const num = (v, d, lo, hi) => { v = Number(v); return Number.isFinite(v) ? clamp(v, lo, hi) : d; };
   if (obj(st.pet)){
-    st.pet.name = cleanText(typeof st.pet.name === 'string' ? st.pet.name : (st.pet.name || 'うちのこ'), 10);
-    st.pet.colorName = typeof st.pet.colorName === 'string' ? cleanText(st.pet.colorName, 14) : '';
-    st.pet.photo = safePhoto(st.pet.photo);
+    const p = st.pet;
+    /* 種類（dog・cat）・品種・みため・きせかえも そろえる。端末の セーブが こわれて 種類が 犬・猫で なくなると、
+       ルールが 止まって アプリが ひらけなかったため（JSON としては 読めるので ひかえからも もどらない。診断 2-1） */
+    const lk = obj(p.look) ? p.look : p;
+    const sp = p.species === 'dog' || p.species === 'cat' ? p.species
+      : lk.species === 'dog' || lk.species === 'cat' ? lk.species
+      : hasId(BREED_BY_ID, p.breedId) ? BREED_BY_ID[p.breedId].sp : 'dog';
+    /* みための ほかの値は 絵を かくとき（renderPet）に かならず normalizeLook を 通るので、こわれているときだけ 作りなおす */
+    if (!obj(p.look) || p.look.species !== sp) p.look = normalizeLook(Object.assign({}, lk, { species:sp }));
+    p.species = sp;
+    if (!hasId(BREED_BY_ID, p.breedId)) p.breedId = p.look.breedId;
+    const w = wearFrom(p);
+    delete p.acc;
+    for (const k of ['head','face','neck']){
+      const v = hasId(WEAR_RENAMED, w[k]) ? WEAR_RENAMED[w[k]] : w[k];
+      w[k] = hasId(WEAR_BY_ID, v) && WEAR_BY_ID[v].slot === k ? v : null;
+    }
+    p.wear = w;
+    p.name = cleanText(typeof p.name === 'string' ? p.name : (p.name || 'うちのこ'), 10) || 'うちのこ';
+    p.colorName = typeof p.colorName === 'string' ? cleanText(p.colorName, 14) : '';
+    p.photo = safePhoto(p.photo);
   }
   st.stats = obj(st.stats) ? st.stats : {};
   st.stats.full = num(st.stats.full, 70, 0, 100);
@@ -62,7 +80,7 @@ function ensureState(st){
   for (const k of Object.keys(st.souv.have)) st.souv.have[k] = num(st.souv.have[k], 0, 0, 1e6);
   st.souv.n = num(st.souv.n, 0, 0, 99);
   st.events = obj(st.events) ? st.events : {};
-  st.events.got = Array.isArray(st.events.got) ? st.events.got.filter(id => WEAR_BY_ID[id]) : [];
+  st.events.got = Array.isArray(st.events.got) ? st.events.got.filter(id => hasId(WEAR_BY_ID, id)) : [];
   st.events.seen = obj(st.events.seen) ? st.events.seen : {};
   st.album = Array.isArray(st.album) ? st.album.filter(a => a && Number.isFinite(a.t) && typeof a.ti === 'string').slice(0, 300) : [];
   st.album.forEach(a => { if (a.k === 'trick' || /^芸/.test(a.ti)) a.ti = a.ti.replace(/芸/g, 'げい'); });
@@ -88,14 +106,16 @@ function carryExtras(o, st){
   for (const [k, v] of Object.entries(src.tricks)) if (trickIds.has(k) && v && typeof v === 'object') tricks[k] = { p:clamp(Number(v.p) || 0, 0, 99), ok:!!v.ok };
   const firsts = { _init:true, wear:{} };
   for (const k of ['meal','treat','play','pet','room','daily']) firsts[k] = !!src.firsts[k];
-  for (const k of Object.keys(src.firsts.wear)) if (WEAR_BY_ID[k] || WEAR_RENAMED[k]) firsts.wear[k] = true;
+  for (const k of Object.keys(src.firsts.wear)) if (hasId(WEAR_BY_ID, k) || hasId(WEAR_RENAMED, k)) firsts.wear[k] = true;
   const have = {};
-  for (const [k, v] of Object.entries(src.souv.have)) if (SOUV_BY_ID[k]) have[k] = clamp(Number(v) || 0, 0, 1e6);
+  for (const [k, v] of Object.entries(src.souv.have)) if (hasId(SOUV_BY_ID, k)) have[k] = clamp(Number(v) || 0, 0, 1e6);
   st.room = src.room;
   st.tricks = tricks;
   st.stamps = src.stamps.filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x));
   st.rescued = src.rescued.filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x));
   st.streak = { last:/^\d{4}-\d{2}-\d{2}$/.test(src.streak.last) ? src.streak.last : null, n:clamp(Number(src.streak.n) || 0, 0, 1e5), best:clamp(Number(src.streak.best) || 0, 0, 1e5) };
+  /* ピンチ（おたすけ まち）の日の まっている れんぞくも 運ぶ（ensureState が きょうの分だけ のこす。診断 3-6） */
+  if (src.streak.saved && /^\d{4}-\d{2}-\d{2}$/.test(src.streak.saved.day)) st.streak.saved = { n:src.streak.saved.n, day:src.streak.saved.day };
   st.souv = { have, day:null, n:0 };
   st.events = { got:src.events.got, seen:Object.fromEntries(Object.entries(src.events.seen).filter(([k]) => /^[a-z]+:\d{4}$/.test(k)).map(([k, v]) => [k, Number(v) || 1])) };
   st.album = src.album.map(a => ({ t:a.t, k:cleanText(a.k || '', 20), ti:cleanText(a.ti, 40), su:cleanText(a.su || '', 80), ic:cleanText(a.ic || '', 40) }));

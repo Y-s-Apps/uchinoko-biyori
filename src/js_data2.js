@@ -148,6 +148,6 @@ const LEGACY_ACC = { bandana:{ neck:'bandana_red' }, bell:{ neck:'bell_blue' }, 
 function wearFrom(o){
   if (o && o.wear && typeof o.wear === 'object') return { head:o.wear.head || null, face:o.wear.face || null, neck:o.wear.neck || null };
   const w = { head:null, face:null, neck:null };
-  if (o && LEGACY_ACC[o.acc]) Object.assign(w, LEGACY_ACC[o.acc]);
+  if (o && hasId(LEGACY_ACC, o.acc)) Object.assign(w, LEGACY_ACC[o.acc]);
   return w;
 }

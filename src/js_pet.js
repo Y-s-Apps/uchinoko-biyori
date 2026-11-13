@@ -1,5 +1,8 @@
 /* ===== color utils ===== */
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+/* 表（BREED_BY_ID・WEAR_BY_ID など）の 知っている ID か。WEAR_BY_ID[id] の「あるか」だけだと constructor・__proto__ や 配列 ["id"] も通るため（診断 1-7）。
+   Object.hasOwn と同じ意味で、古い iPhone でも動く書き方 */
+const hasId = (t, id) => typeof id === 'string' && Object.prototype.hasOwnProperty.call(t, id);
 function isHex(v){ return typeof v === 'string' && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(v.trim()); }
 function hexToRgb(h){ h = h.trim().replace('#',''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h, 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
 function rgbToHex(r, g, b){ return '#' + [r, g, b].map(v => Math.round(clamp(v, 0, 255)).toString(16).padStart(2, '0')).join(''); }
@@ -20,10 +23,11 @@ const ENUMS = {
 function normalizeLook(raw){
   raw = raw || {};
   const sp = raw.species === 'cat' ? 'cat' : 'dog';
-  let preset = BREED_BY_ID[raw.breedId];
+  const known = hasId(BREED_BY_ID, raw.breedId);
+  let preset = known ? BREED_BY_ID[raw.breedId] : null;
   if (!preset || preset.sp !== sp) preset = BREED_BY_ID[sp === 'cat' ? 'mix_cat' : 'mix_dog'];
   const P = preset.look;
-  const L = { species: sp, breedId: (BREED_BY_ID[raw.breedId] ? raw.breedId : preset.id) };
+  const L = { species: sp, breedId: (known ? raw.breedId : preset.id) };
   for (const k in ENUMS) L[k] = ENUMS[k].includes(raw[k]) ? raw[k] : P[k];
   const useRaw = raw.colors && isHex(raw.colors.main);
   const src = useRaw ? raw.colors : P.colors;
