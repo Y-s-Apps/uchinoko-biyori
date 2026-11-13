@@ -8,16 +8,16 @@
 - Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン24**（`3933abe` の中身。かたまり C では かわらない）。公開するときは `src/out/uchinoko-claude.html` の前に いまの版と同じ1行目（`<!doctype html><html><head><meta charset=utf8><meta name=viewport …><style>…</style></head><body>` ＋改行）を、うしろに `</body></html>` ＋改行 を つけて `publish_files`（`capabilities` は はぶいて 引きつぐ）
 - LINE版の画面：Cloudflare Pages（main の push で自動ビルド。`1a8a9b3` で pg_net で `/`・`/dev/`・`/review/` の md5 が 手元の `src/out/line/index.html` と同じ＝`0968d82b…`）
   - 本番用 https://uchinoko-biyori.pages.dev/ 、審査用 https://uchinoko-biyori.pages.dev/review/ 、開発用 https://uchinoko-biyori.pages.dev/dev/ （同じページ。ひらいた場所で LIFF ID をえらぶ）
-  - **ヘッダー（`_headers`、かたまり C）：** 3か所とも `Referrer-Policy: no-referrer`・`X-Content-Type-Options: nosniff`。枠の制限（`frame-ancestors 'none'`・`X-Frame-Options: DENY`）は **`/dev/` だけ**（下の 保留2）
+  - **ヘッダー（`_headers`、かたまり C）：** ぜんぶ（`/*`）に `Referrer-Policy: no-referrer`・`X-Content-Type-Options: nosniff`・`Content-Security-Policy: frame-ancestors 'none'`・`X-Frame-Options: DENY`（枠の制限は はじめ 開発用だけ → オーナーが iPhone の LINE で ひらけるのを 確かめて 2026-11-14 に ぜんぶへ）
   - LIFF URL：開発用 https://miniapp.line.me/2012410263-cuCI7vQS ／審査用 https://miniapp.line.me/2012410264-JD4WhzAb （審査担当者だけ）／本番用 https://miniapp.line.me/2012410265-PutgsCLS （未認証なので URL を知っている人は開ける）
   - チャネルID：開発用 `2012410263`・審査用 `2012410264`・本番用 `2012410265`
   - プライバシーポリシー https://uchinoko-biyori.pages.dev/privacy.html （2026-11-14 改定。かたまり C で その日の回数の書き方を 直した）、利用規約 https://uchinoko-biyori.pages.dev/terms.html （2026-11-14 改定）、お問い合わせフォーム https://forms.gle/aywxktpPZettxFSS7
 - LINE版のサーバー：Supabase のプロジェクト「uchinoko-biyori」（`ftakgswltcavwixqxpzi`、東京、組織 `Yuthy's` の無料プラン）。Edge Function `api` は **MCP の version 19**（`index.ts` は `1a8a9b3`。`get_edge_function` で 手元と同じ）。`deno.json` は `game.js` を コミット **`3933abe`** に固定のまま（`game.js` は かわらない。`--check` 同じ）
 - 表：`app` スキーマに members・line_accounts・sessions・saves・cards・save_backups・**day_quota・error_counts・chores**（かたまり C で足した）。**`ai_usage` は 消した**（`day_quota` へ）
-- 役：**`uchinoko_api`**（かたまり C。`app` の表だけ 読み書き、RLS は この役の ポリシー `api_role_all`。ログインできるが **パスワードは まだ ない**＝オーナーの 2手 まち。下の 保留3）
+- 役：**`uchinoko_api`**（かたまり C。`app` の表だけ 読み書き、RLS は この役の ポリシー `api_role_all`）。**2026-11-14 5:35 に オーナーが パスワードと Secrets の `APP_DB_PASSWORD` を入れ、サーバーは この役で つないでいる**（`pg_stat_activity` に `uchinoko_api` の postgres.js、`db_role` の エラーなし）
 - Storage：バケット `cards`（公開・PNG だけ・1MB まで、ポリシーなし）
 - サーバーを起こす：GitHub Actions「サーバーを起こす」（`.github/workflows/keepalive.yml`、active）。cron `23 18 */3 * *`＝日本時間 3:23 ごろ。**かたまり C から `/health` の `errors`（3日の エラーの数）が 10以上でも 失敗にする**。手で動かした回：2026-11-13 11:06 成功、2026-11-14 5:19 成功（`health: 200`・`db: 401 {"error":"nosession"}`・`errors (3 days): 0`）。**予定の実行（schedule）は まだ 1回も ない**（下の 保留1）
-- Secrets：`ANTHROPIC_API_KEY`・`LINE_CHANNEL_SECRET`（開発用）・`LINE_CHANNEL_SECRET_2012410264`（審査用）・`LINE_CHANNEL_SECRET_2012410265`（本番用）。（あとで オーナーが `APP_DB_PASSWORD`）
+- Secrets：`ANTHROPIC_API_KEY`・`LINE_CHANNEL_SECRET`（開発用）・`LINE_CHANNEL_SECRET_2012410264`（審査用）・`LINE_CHANNEL_SECRET_2012410265`（本番用）・`APP_DB_PASSWORD`（`uchinoko_api` の パスワード。2026-11-14）
 - 本物の DB：このチャットでも 本物の DB に ためしの会員などは 書いていない（会員・カード・ひかえ・エラーの数は 0件）
 - LINE Developers：Scope は `openid` だけ。「シェアターゲットピッカー」は 有効（2026-11-13）。認証審査は まだ申請しない（未認証でリリース → 個人事業主 → 申請）
 - **診断レポート（約束①）：https://claude.ai/artifact/8kuQtwwyAD9RJ42PPy7GU6 （Claude Docs。段階0〜6、42こ。番号 1-1〜5-11 で よぶ。表の「リリースの前」の欄に「→ 済み（コミット）」を書きたしている。いまの rev 44）**
@@ -37,8 +37,8 @@
 | 1-6 | その日の AI・カードの回数を その日だけの しるし（種類:日付:sub の SHA-256）で `app.day_quota` に。やめても その日の分は もどらない（2日で消す）。ポリシー改定 |
 | 1-8 | ログインのとき 1日1回（`app.chores`）、Storage の一覧と `app.cards` を くらべて 1時間より前の まいごの画像を消す |
 | 1-9 | `readBody` は 上限で 読むのを やめる・こわれた UTF-8 は 400 |
-| 1-10 | 役 `uchinoko_api`（`APP_DB_PASSWORD` が あれば その役で つなぐ。ない・まちがいは 持ち主に もどして `db_role` を数える）（オーナー決定） |
-| 2-2 | `_headers`：nosniff・no-referrer。枠の制限は まず `/dev/` だけ |
+| 1-10 | 役 `uchinoko_api`（`APP_DB_PASSWORD` が あれば その役で つなぐ。ない・まちがいは 持ち主に もどして `db_role` を数える）（オーナー決定）。オーナーが パスワードを入れ、この役で つながるのを 確かめた |
+| 2-2 | `_headers`：nosniff・no-referrer・枠の制限（はじめ `/dev/` だけ → オーナーが iPhone の LINE で 確かめて ぜんぶへ） |
 | 5-2 | `app.error_counts`（日付・種類・数）・`/health` の `errors`・サーバーを起こすが 10以上で 失敗 |
 | 5-3 | このまま（返事は もう gzip。1年 育てた子で 13.8KB → 3.5KB。オーナー決定。7章） |
 
@@ -50,9 +50,9 @@
 ## 保留・オーナーの判断待ち（つぎのチャットのはじめに）
 
 1. **「サーバーを起こす」の予定の実行が まだ 1回も ない**（2026-11-14 3:23 の予定は 5:21 の時点で なし。`event=schedule` の回は 0）。手で動かすと 成功する。かたまり C で `keepalive.yml` を push したので、予定が 登録しなおされるかも。**つぎの予定は 11-17 3:23 ごろ（UTC 11-16 18:23）**：`gh api 'repos/Y-s-Apps/uchinoko-biyori/actions/workflows/keepalive.yml/runs?per_page=5&event=schedule'`。11-17 も 動かなければ、GitHub の予定が はたらいていない（オーナーに Actions の画面で「サーバーを起こす」を いちど Disable → Enable してもらう。それでも だめなら Supabase Cron など べつの しくみ を 考える）。そのあいだも DB が 1週間 しずかだと Supabase が 止まるので、チャットの はじめに `get_project` を見る（止まっていたら `restore_project`）。
-2. **2-2 の 枠の制限を ぜんぶに 広げる：** オーナーに iPhone の LINE で **開発用の LIFF URL**（https://miniapp.line.me/2012410263-cuCI7vQS ）を ひらいてもらい、ふつうに ひらけて「［開発用］LINEと つながっています」が出るか 見てもらう。ひらけたら `src/build.sh` の `_headers` の `/dev/*` を `/*` に して push（ホーム画面版は かわらない）→ pg_net で 3か所の ヘッダーを確かめ、PROJECT.md 10章「かたまり C」と 診断レポートの 2-2 に 書く。ひらけなかったら `/dev/*` の 2行を 消して 「LINE が 枠を つかう」と 書く。
-3. **1-10 の 役に パスワードを 入れる（オーナーの 2手。いつでも）：** ① Supabase の SQL エディタで `alter role uchinoko_api with password '（パスワード管理アプリで作った 長い文字。英数字だけ）';` ② Edge Functions の Secrets に `APP_DB_PASSWORD` として 同じ文字（チャットに 貼らない）。入れたら ソーイが：pg_net で `/health`（`errors` が ふえていないか）、`execute_sql` で `select usename, count(*) from pg_stat_activity where usename = 'uchinoko_api' group by 1;`（つなぎが あるか。`/health` を よんだ直後に）と `select * from app.error_counts where kind = 'db_role';`（ないこと）。Secrets を かえると 関数は つぎの よびだしから 新しい値。
-4. **約束①の直し（リリースの前に 42こ ぜんぶ）。かたまり A・B・C は済み（2-2 は 上の 2 の 広げる だけ）。つぎは かたまり D（書類）：**
+2. ~~2-2 の 枠の制限を ぜんぶに 広げる~~ → 済み（2026-11-14。オーナーが iPhone の LINE で 開発用が ひらけるのを 確かめたので `/*` に。pg_net で 3か所の ヘッダーを 確かめた）。
+3. ~~1-10 の 役に パスワードを 入れる~~ → 済み（2026-11-14 5:35 オーナー。サーバーは `uchinoko_api` で つないでいる）。Secrets の `APP_DB_PASSWORD` を かえるときは、先に SQL エディタで `alter role` → そのあと Secrets（あいだは 持ち主に もどって `db_role` が 数えられる）。
+4. **約束①の直し（リリースの前に 42こ ぜんぶ）。かたまり A・B・C は済み。つぎは かたまり D（書類）：**
    - **1-12／5-11：** PROJECT.md 10章「しくみ（本人確認とセーブ）」の 古い説明（`POST /save {data, baseRev}` と 409。いまは `/save {pet}`、ぶつかりは 行のロック）を いまの しくみに。ついでに 同じ章の「サーバー単体の36項目」「9つの場面」など 古い数も（いまは api_test 197こ・e2e 1〜19）。Supabase の ログに IP と ブラウザの種類が のこる ことの ポリシーの書き方も 段階5の とおりか 見る。
    - **5-6：** ポリシー 1. の「取得する情報」に「会員を作った日時」を足す（`app.members.created_at`）。「大事な変更は 本サービスの中でも知らせます」「終えるときは30日前に」に こたえる アプリの中の お知らせの しくみ（例：サーバーの `/health` か `/login` に お知らせを のせて ポップアップ。通知の「画面の中の お知らせ」と いっしょに 作れるか）を 案にして オーナーに 聞く。
    - **5-8：** カードの ボタンの色（`#4FAE9A`）を かえてよいか、LINE の「カスタムシェアメッセージ」の 資料（https://developers.line.biz/ja/docs/line-mini-app/develop/share-messages/ ）で 確かめる。
@@ -69,7 +69,7 @@
 
 ## 次にやること
 
-- 上の保留（予定の実行の確認 → 2-2 を 広げる・1-10 の 役（オーナーの 準備しだい）→ かたまり D → 通知 → Fable の さいごのチェック → リリース → 約束② → 個人事業主 → 認証審査の申請）。
+- 上の保留（予定の実行の確認 → かたまり D → 通知 → Fable の さいごのチェック → リリース → 約束② → 個人事業主 → 認証審査の申請）。
 - 認証審査を申請したら：審査は1〜2週間、「審査中」は取り消しも変更も できない（画面とサーバーも変えない）。認証されたら：「検索可能にする」は 承認から30日以内に押す。
 - **公開の日：** オーナーの iPhone の LINE には ためしの子「こむぎ」が ゲストとして のこっているので、本番用の LIFF URL を LINE で ひらいて「こむぎを LINEに つれてくる？」が出たら**「やめておく」**→ はじめての画面の「引っこしコード」で だいずを取りこむ（取りこみは1人1回）。こむぎは「引っこし・バックアップ」の「この端末に とっておいた子」に 出る（かたまり C）。ホーム画面版で「引っこし・バックアップ」→「ファイルで保存」の控えも とっておく。開発用・審査用・本番用は 同じサーバーと DB。ためしで作った会員・カードの画像は、公開の前に けす（`app.cards`・`app.save_backups` と Storage の `cards` が0件か確かめる。`app.day_quota`・`app.error_counts` は 2日・60日で 消えるので のこっていてよい）。公開の日に、本番用で「うちのこカードを おくる」が出るかも だいずで見る。
   - ピンチ（おたすけ まち）の日に 引っこしても、まっている れんぞくは 運ばれる（3-6、`3933abe`）。念のため、ピンチなら おたすけを かなえてから 引っこしても よい。

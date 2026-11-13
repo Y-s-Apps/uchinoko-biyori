@@ -58,12 +58,12 @@ cp icons/line-icon-130.png out/line/line-icon.png
 # 中身は同じで、js_line.js が ひらいた場所で LIFF ID をえらぶ。ポリシー・規約・favicon は いちばん上のものを使う
 for d in review dev; do mkdir -p out/line/$d; cp out/line/index.html out/line/$d/index.html; done
 # Cloudflare Pages の HTTP ヘッダー（診断 2-2）。nosniff は Cloudflare も はじめから つける。リファラーは ページの meta と そろえて 送らない。
-# ほかのサイトの枠（iframe）に 入れさせない設定は、LINE の中で ひらけるかを iPhone で 確かめるまで 開発用（/dev/）だけ（meta の CSP では 書けない）
+# ほかのサイトの枠（iframe）に 入れさせない（meta の CSP では 書けない）。2026-11-14 に 開発用だけで 入れて、iPhone の LINE で ひらけるのを
+# オーナーが 確かめてから ぜんぶに 広げた（LINE は ミニアプリを 枠に 入れない）
 cat > out/line/_headers <<'HEADERS'
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
-/dev/*
   Content-Security-Policy: frame-ancestors 'none'
   X-Frame-Options: DENY
 HEADERS
