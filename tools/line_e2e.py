@@ -17,7 +17,9 @@
    ・LINEに子がいるときの「新しい子をむかえる」と 引っこしシートでの受け取り（前の子に もどらない）
    ・内部チャネルごとの画面（/・/review/・/dev/ で それぞれの LIFF ID、同じ会員の子、ポリシーと favicon は いちばん上）
    ・写真立て（写真の控えがない子は イラスト）
-   ・うちのこカード（見本 → POST /card〈Storage のまね〉→ シェアターゲットピッカーのまね、同じ絵は数えない、1日3まい、けすと消える）を確かめる。
+   ・うちのこカード（見本 → POST /card〈Storage のまね〉→ シェアターゲットピッカーのまね、同じ絵は数えない、1日3まい、けすと消える）
+   ・この端末に とっておいた子（引っこし・バックアップから コピー・つれてくる。5ひきまで）・とどかないまま とじた 新しい子（もどる／おくる）
+   ・返事だけ なくした おせわは 1回と 数える（おせわの番号）を確かめる。
    ページのエラーと CSP の違反が0件であることも見る。スクリーンショットは smoke-out/line-e2e/。
 
 サーバーの URL（LINE_CFG.api）への通信は、ブラウザの中でこのローカルのサーバーへつなぎかえる。本物の Supabase にはさわらない。
@@ -49,6 +51,7 @@ def env(db_port):
     e = dict(os.environ)
     e['SUPABASE_DB_URL'] = f'postgres://postgres:postgres@127.0.0.1:{db_port}/postgres'
     e['ALLOWED_ORIGINS'] = f'https://uchinoko-biyori.pages.dev,http://127.0.0.1:{PAGE_PORT}'
+    e['LOGIN_PER_MIN'] = '1000'   # 画面の通し確認は 同じ人が 何度も ひらく（1-5 の 制限は api_test で 確かめる)
     if os.path.exists('/root/.ccr/ca-bundle.crt'):
         e.setdefault('DENO_CERT', '/root/.ccr/ca-bundle.crt')
     return e
@@ -139,9 +142,10 @@ async def browser_tests(srv_port):
     async with async_playwright() as p:
         browser = await p.chromium.launch()
 
-        async def open_page(sub, local=None, external=False, server_down=False, owner=None, skew_ms=0, keys=None, path='/', id_token=None, fail=None):
+        async def open_page(sub, local=None, external=False, server_down=False, owner=None, skew_ms=0, keys=None, path='/', id_token=None, fail=None, lose=None):
             """id_token：getIDToken() が返す JS の式（既定は sub の とおるトークン）。
-            fail：{'/import': 2} のように、その口への通信を はじめの N 回 とどかなくする（あとから 0 に できる）"""
+            fail：{'/import': 2} のように、その口への通信を はじめの N 回 とどかなくする（あとから 0 に できる）。
+            lose：{'/act': 1} のように、サーバーには とどけて 返事だけ はじめの N 回 なくす（3-3）"""
             ctx = await browser.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True,
                                             has_touch=True, timezone_id='Asia/Tokyo', locale='ja-JP')
             page = await ctx.new_page()
@@ -171,6 +175,11 @@ async def browser_tests(srv_port):
                     return await route.abort()
                 if fail and fail.get(where, 0) > 0:
                     fail[where] -= 1
+                    return await route.abort()
+                if lose and lose.get(where, 0) > 0:
+                    lose[where] -= 1
+                    calls.append('LOST ' + where)
+                    await route.fetch(url=route.request.url.replace(API, base + '/api'))
                     return await route.abort()
                 resp = await route.fetch(url=route.request.url.replace(API, base + '/api'))
                 await route.fulfill(response=resp)
@@ -791,6 +800,108 @@ async def browser_tests(srv_port):
         i2 = await info(page)
         ok(i['server'] == 'on' and len(reopens(calls)) == 1 and i2['server'] == 'on' and i2['name'] == one['name'],
            'ひらいたまま セッションが切れても、1回 ひらきなおして また つながる', {'before': i, 'after': i2, 'calls': calls[-6:]})
+        all_errs += errs; await ctx.close()
+
+        keep_js = """(()=>{const c=document.querySelector('#sheet .keepcard');return c?{text:c.innerText,bring:!!c.querySelector('[data-kbring]'),kids:c.querySelectorAll('.keepkid').length}:null})()"""
+        kids_js = "(JSON.parse(localStorage.getItem('uchinoko-biyori:line-guest')||'{}').kids||[]).map(k=>[k.st.pet.name,k.b])"
+
+        print('17. 引っこし・バックアップの「この端末に とっておいた子」（3-2）')
+        ctx, page, errs, calls = await open_page('Ukeep')
+        await page.click('#obManual'); await page.wait_for_timeout(300)
+        await page.click('[data-g="shiba"]'); await page.fill('#edName', 'ラインのこ')
+        await page.click('#edGo'); await page.wait_for_timeout(2600)
+        await close_popups(page)
+        all_errs += errs; await ctx.close()
+        # べつの端末：この端末に いた子（と、前の形で とっておいた子）。「やめておく」で とっておく
+        old_guest = json.dumps(sample('むかしの子', created_days=60), ensure_ascii=False)
+        ctx, page, errs, calls = await open_page('Ukeep', local=sample('とっておく子', created_days=20, photo=True), keys={'uchinoko-biyori:line-guest': old_guest})
+        m = await find_modal(page, '.levelup [data-close="take"]')
+        if m:
+            no = await page.query_selector('.levelup [data-close=""]')
+            await no.click(); await page.wait_for_timeout(700)
+        await page.click('#menuBtn'); await page.wait_for_timeout(400)
+        await page.click('#mMove'); await page.wait_for_timeout(600)
+        card = await page.evaluate(keep_js)
+        ok(m is not None and card and card['kids'] == 2 and 'とっておく子' in card['text'] and 'むかしの子' in card['text'] and card['bring'] and '1回だけ' in card['text'],
+           'とっておいた子が 出る（前の形の子も 上書きされずに のこる。コピーと つれてくる）', card)
+        await snap(page, 'keep_card')
+        await page.click('#sheet [data-kcopy="0"]'); await page.wait_for_timeout(600)
+        cp = await page.evaluate("(()=>{const k=document.querySelector('#sheet .keepkid');const t=k.querySelector('textarea');return {msg:k.querySelector('.keepmsg').textContent, code:t?t.value:''}})()")
+        code_ok = cp['code'].startswith('UCHINOKO2:')
+        if code_ok:
+            body = json.loads(base64.b64decode(cp['code'].split(':', 2)[2]).decode())
+            code_ok = body['pet']['name'] == 'とっておく子' and bool(body['pet']['photo']) and 'srv' not in body
+        ok(code_ok and ('コピーしました' in cp['msg'] or '選びました' in cp['msg']), 'コードを コピー（写真の控えも入る ふつうの 引っこしコード）', cp['msg'])
+        await page.click('#sheet [data-kbring="0"]'); await page.wait_for_timeout(700)
+        txt = await page.evaluate("(document.querySelector('.levelup .card')||{}).innerText||''")
+        ok('LINEに つれてくる？' in txt and 'ラインのこ' in txt and '1回だけ' in txt, 'つれてくる前に たしかめる', txt)
+        await snap(page, 'keep_bring_confirm')
+        await page.click('.levelup [data-close="take"]'); await page.wait_for_timeout(2600)
+        await close_popups(page)
+        s, i = state('Ukeep'), await info(page)
+        ok(s['name'] == 'とっておく子' and s['imported'] and i['name'] == 'とっておく子', 'LINEに つれてこられる（取りこみの1回）', {'state': s, 'info': i})
+        await page.click('#menuBtn'); await page.wait_for_timeout(400)
+        await page.click('#mMove'); await page.wait_for_timeout(600)
+        card = await page.evaluate(keep_js)
+        kl = await page.evaluate(kids_js)
+        ok(card and card['kids'] == 2 and 'ラインのこ' in card['text'] and 'むかしの子' in card['text'] and 'とっておく子' not in card['text']
+           and not card['bring'] and 'もう つかいました' in card['text'], 'いれかわった LINEの子も とっておく（1回は もう つかったので コピーだけ）', card)
+        ok(['とっておく子', 1] in kl and len(kl) == 3, 'つれていった子は 一覧に 出さないだけ（セーブは のこる）', kl)
+        await snap(page, 'keep_card_used')
+        all_errs += errs; await ctx.close()
+
+        print('18. 新しい子が サーバーに とどかないまま とじても、つぎに ひらいたとき きく（3-8）')
+        for sub, choice in (('Ulost', 'back'), ('Ulost2', 'send')):
+            flaky = {'/act': 0}
+            ctx, page, errs, calls = await open_page(sub, fail=flaky)
+            await page.click('#obManual'); await page.wait_for_timeout(300)
+            await page.click('[data-g="shiba"]'); await page.fill('#edName', 'もとのこ')
+            await page.click('#edGo'); await page.wait_for_timeout(2600)
+            await close_popups(page)
+            flaky['/act'] = 99
+            await page.click('#menuBtn'); await page.wait_for_timeout(400)
+            await page.click('#mNew'); await page.wait_for_timeout(300)
+            await page.click('#mYes'); await page.wait_for_timeout(600)
+            await page.click('#obManual'); await page.wait_for_timeout(300)
+            await page.click('[data-g="pomeranian"]'); await page.fill('#edName', 'ビスケ')
+            await page.click('#edGo'); await page.wait_for_timeout(4000)
+            await close_popups(page)
+            i = await info(page)
+            ok(i['name'] == 'ビスケ' and state(sub)['name'] == 'もとのこ', f'{sub}：新しい子は まだ サーバーに とどいていない', {'info': i, 'state': state(sub)})
+            flaky['/act'] = 0
+            await page.reload(); await page.wait_for_timeout(2800)
+            txt = await page.evaluate("(document.querySelector('.levelup .unsent')||{}).innerText||''")
+            ok('ビスケは' in txt and 'とどいていませんでした' in txt and 'もとのこに もどる' in txt and 'ビスケを おくる' in txt, f'{sub}：つぎに ひらくと きく', txt)
+            if choice == 'back':
+                await snap(page, 'unsent_ask')
+            btn = await page.query_selector(f'.levelup [data-close="{choice}"]')
+            if btn:
+                await btn.click(); await page.wait_for_timeout(2600)
+            await close_popups(page)
+            s, i = state(sub), await info(page)
+            kl = await page.evaluate(kids_js)
+            unsent = await page.evaluate("localStorage.getItem('uchinoko-biyori:line-unsent')")
+            if choice == 'back':
+                ok(s['name'] == 'もとのこ' and i['name'] == 'もとのこ' and ['ビスケ', 0] in kl and not unsent, 'もどる：LINEの子のまま、ビスケは とっておく', {'state': s, 'info': i, 'kids': kl})
+                await page.reload(); await page.wait_for_timeout(2600)
+                again = await page.query_selector('.levelup .unsent')
+                ok(again is None, 'もう きかない', calls[-3:])
+            else:
+                ok(s['name'] == 'ビスケ' and s['love'] == 0 and i['name'] == 'ビスケ' and ['もとのこ', 0] in kl and not unsent, 'おくる：ビスケが LINEの子に（もとのこは とっておく）', {'state': s, 'info': i, 'kids': kl})
+            all_errs += errs; await ctx.close()
+
+        print('19. おせわの返事だけ とどかなくても、おくりなおしで 2回 数えない（3-3）')
+        lose = {}
+        one = state('Uone')
+        ctx, page, errs, calls = await open_page('Uone', owner=one['id'], lose=lose)
+        await close_popups(page)
+        dbg('/__debug/patch', {'sub': 'Uone', 'full': 40})
+        before = state('Uone')['meals']
+        lose['/act'] = 1
+        await page.click('#actFeed'); await page.wait_for_timeout(7500)
+        await close_popups(page)
+        after, i = state('Uone')['meals'], await info(page)
+        ok('LOST /act' in calls and after == before + 1 and i['meals'] == after and i['server'] == 'on', 'とどいたのに 返事が なくても、おくりなおしは 1回と 数える', {'before': before, 'after': after, 'info': i, 'calls': calls[-5:]})
         all_errs += errs; await ctx.close()
 
         await browser.close()

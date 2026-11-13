@@ -64,9 +64,20 @@ function aiReply(){
 // ---- fake Supabase Storage（うちのこカードの画像） ----
 Deno.env.set('SUPABASE_URL', 'https://store.test');
 Deno.env.set('SUPABASE_SECRET_KEYS', JSON.stringify({ default:'sb_secret_test' }));
-const STORE = { mode:'ok', objects:new Map<string, Uint8Array>(), puts:0, dels:0, headers:null as any, cache:'' };
+const STORE = { mode:'ok', objects:new Map<string, Uint8Array>(), created:new Map<string, number>(), puts:0, dels:0, lists:0, headers:null as any, cache:'' };
+/* 回数の制限（1-5）は ふだんは ゆるく（ためしは つづけて たくさん よぶ）。下の rate で しぼって 確かめる */
+Deno.env.set('LOGIN_PER_MIN', '1000');
+Deno.env.set('ACT_PER_WINDOW', '100000');
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input instanceof Request ? input.url : input);
+  if (url === 'https://store.test/storage/v1/object/list/cards'){
+    /* 一覧（まいごの画像の掃除。1-8）：名前の じゅんに offset から limit こ */
+    STORE.lists++;
+    if (STORE.mode === 'down') throw new Error('network');
+    const b = JSON.parse(String(init!.body));
+    const all = [...STORE.objects.keys()].sort().map(name => ({ name, id:'id-' + name, created_at:new Date(STORE.created.get(name) ?? Date.now()).toISOString(), metadata:{} }));
+    return new Response(JSON.stringify(all.slice(b.offset || 0, (b.offset || 0) + (b.limit || 100))), { status:200 });
+  }
   if (url.startsWith('https://store.test/storage/v1/object/cards')){
     if (STORE.mode === 'down') throw new Error('network');
     STORE.headers = new Headers(init!.headers);
@@ -76,6 +87,7 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const name = url.slice('https://store.test/storage/v1/object/cards/'.length);
       if (STORE.objects.has(name)) return new Response(JSON.stringify({ error:'Duplicate' }), { status:409 });
       STORE.objects.set(name, new Uint8Array(init!.body as Uint8Array));
+      STORE.created.set(name, Date.now());
       STORE.cache = STORE.headers.get('cache-control') || '';
       return new Response(JSON.stringify({ Key:'cards/' + name }), { status:200 });
     }
@@ -406,12 +418,12 @@ const read = (session = alice, image: unknown = IMG) => call('POST', '/read', { 
 const aiLeft = async (session = alice) => (await call('GET', '/ai', undefined, session)).data.ai;
 r = await call('GET', '/ai');
 ok(r.status === 401, '/ai needs a session', r);
-await db`alter table app.ai_usage rename to ai_usage_away`;   /* 回数の表がまだないとき（マイグレーション前） */
+await db`alter table app.day_quota rename to day_quota_away`;   /* 回数の表がまだないとき（マイグレーション前） */
 r = await call('GET', '/ai', undefined, alice);
 ok(r.status === 200 && r.data.ai.on === false, 'no usage table: AI is off (nothing breaks)', r.data);
 r = await read();
 ok(r.status === 200 && r.data.ok === false && r.data.why === 'off' && AI.calls === 0, 'no usage table: /read is off, AI not called', r.data);
-await db`alter table app.ai_usage_away rename to ai_usage`;
+await db`alter table app.day_quota_away rename to day_quota`;
 r = await call('GET', '/ai', undefined, alice);
 ok(r.status === 200 && r.data.ai.on === true && r.data.ai.left === 3 && r.data.ai.perDay === 3, '/ai: on, 3 left', r.data);
 r = await read(alice, 'data:image/png;base64,iVBORw0KGgo' + 'A'.repeat(800));
@@ -429,7 +441,6 @@ ok(r.status === 200 && r.data.ok === false && r.data.why === 'unavailable' && r.
 AI.mode = 'network';
 r = await read();
 ok(r.data.ok === false && r.data.why === 'unavailable' && r.data.ai.left === 3, 'AI unreachable: refunded', r.data);
-await db`insert into app.ai_usage (day, member_id, n) values (${jst(Date.now() - 10 * 864e5)}::date, ${aliceId}, 2)`;
 AI.mode = 'ok';
 r = await read();
 const res = r.data.result;
@@ -440,8 +451,6 @@ ok(L.model === 'claude-haiku-5-5' && L.thinking && L.thinking.type === 'disabled
   && L.messages[0].content[0].type === 'image' && L.messages[0].content[0].source.media_type === 'image/jpeg' && L.messages[0].content[0].source.data === IMG.split(',')[1]
   && /pomeranian\(ポメラニアン\)/.test(L.messages[0].content[1].text), 'request: model, no thinking, the jpeg, the breed list', { model:L.model, thinking:L.thinking });
 ok(AI.headers.get('x-api-key') === 'test-key' && AI.headers.get('anthropic-version') === '2023-06-01', 'request headers (key only on the server)');
-const [{ old }] = await db`select count(*)::int old from app.ai_usage where day < ${jst(Date.now() - 7 * 864e5)}::date`;
-ok(old === 0, 'old days are removed', old);
 AI.mode = 'evil';
 r = await read();
 const ev = r.data.result;
@@ -465,8 +474,10 @@ r = await read(bob);
 ok(r.data.ok === false && r.data.why === 'busy' && AI.calls === callsNow + 2, 'everyone together: 5 a day (busy)', r.data);
 r = await call('POST', '/login', { idToken:mkToken('bob2', '2012410263', 'Ubob') });
 ok(r.data.ai && r.data.ai.on === true && r.data.ai.left === 1 && r.data.ai.perDay === 3, 'login tells the AI status', r.data.ai);
-const aiCols = (await db`select column_name from information_schema.columns where table_schema='app' and table_name='ai_usage' order by column_name`).map((x: any) => x.column_name);
-ok(aiCols.join() === 'day,member_id,n', 'ai_usage keeps only day, member and count (no photo)', aiCols);
+const aiCols = (await db`select column_name from information_schema.columns where table_schema='app' and table_name='day_quota' order by column_name`).map((x: any) => x.column_name);
+ok(aiCols.join() === 'day,kind,n,who', 'day_quota keeps only day, kind, the day\'s mark and count (no member, no photo)', aiCols);
+const [{ oldt }] = await db`select count(*)::int as oldt from information_schema.tables where table_schema='app' and table_name='ai_usage'`;
+ok(oldt === 0, 'the old per-member ai_usage table is gone', oldt);
 const [{ ph }] = await db`select count(*)::int ph from app.saves where data::text like '%/9j/%'`;
 ok(ph === 0, 'no photo in any save', ph);
 
@@ -488,18 +499,18 @@ console.log('leave (やめる：すぐに ぜんぶ消す・LINE の許可も取
 const rows = async (id: string) => (await db`select
   (select count(*) from app.members where id = ${id})::int as m, (select count(*) from app.line_accounts where member_id = ${id})::int as a,
   (select count(*) from app.sessions where member_id = ${id})::int as s, (select count(*) from app.saves where member_id = ${id})::int as v,
-  (select count(*) from app.ai_usage where member_id = ${id})::int as u`)[0];
+  (select count(*) from app.save_backups where member_id = ${id})::int as u`)[0];
 async function joiner(name: string, aud = '2012410263'){
   const lr = await call('POST', '/login', { idToken:mkToken(name, aud, 'U' + name) });
   await call('POST', '/act', { type:'adopt', pet }, lr.data.token);
-  await db`insert into app.ai_usage (day, member_id, n) values (${jst(Date.now())}::date, ${lr.data.member.id}, 1)`;
+  await call('POST', '/act', { type:'adopt', pet:{ ...pet, name:pet.name + '2' } }, lr.data.token);   /* 上書きの ひかえも 1つ */
   return { token:lr.data.token as string, id:lr.data.member.id as string };
 }
 const carol = await joiner('carol');
 const bobLogin = await call('POST', '/login', { idToken:mkToken('bob3', '2012410263', 'Ubob') });
 const bobRev = (await call('GET', '/save', undefined, bobLogin.data.token)).data.save.rev;
 let rc = await rows(carol.id);
-ok(rc.m === 1 && rc.a === 1 && rc.s === 1 && rc.v === 1 && rc.u === 1, 'carol has a member, LINE link, session, save and AI count', rc);
+ok(rc.m === 1 && rc.a === 1 && rc.s === 1 && rc.v === 1 && rc.u === 1, 'carol has a member, LINE link, session, save and a backup', rc);
 r = await call('POST', '/leave', { confirm:'leave' });
 ok(r.status === 401, 'leave needs a session', r);
 r = await call('POST', '/leave', {}, carol.token);
@@ -640,6 +651,7 @@ ok(r.data.ok && String(r.data.url).endsWith(name1), 'a picture made before can s
 r = await call('GET', '/card', undefined, cara.token);
 ok(r.status === 200 && r.data.card.on && r.data.card.left === 0, 'GET /card', r.data);
 await db`update app.cards set day = day - 1 where member_id = ${cara.id}`;
+await db`update app.day_quota set day = day - 1 where kind = 'card'`;
 r = await call('GET', '/card', undefined, cara.token);
 ok(r.data.card.left === 3, 'next day (Japan time) → 3 again', r.data);
 const bea = await joiner('bea');
@@ -720,6 +732,180 @@ r = await call('POST', '/card', { image:png(640, 640, 24) }, gus.token);
 ok(r.data.ok === true, 'below the caps again → ok', r.data);
 r = await call('POST', '/card', { image:png(800, 800, 25, { pad:600_003 }) }, gus.token);
 ok(r.status === 400 && r.data.error === 'badimage', 'a PNG over 600KB is refused', r);
+console.log('rid (3-3：おせわの番号。返事だけ とどかなくて おくりなおしても 2回 数えない)');
+const rina = await joiner('rina');
+await patch(rina.id, d => { d.stats.full = 40; });
+let r1 = await call('POST', '/act', { type:'feed', rid:'rid-feed-0001' }, rina.token);
+let r2 = await call('POST', '/act', { type:'feed', rid:'rid-feed-0001' }, rina.token);
+ok(r1.data.ok && r2.data.ok && r2.data.dup === true && r2.data.save.data.counts.meals === 1 && r2.data.save.rev === r1.data.save.rev
+   && JSON.stringify(r2.data.ev) === JSON.stringify(r1.data.ev), 'the same feed again (within 2.5s) → the first answer, counted once, not busy', { r1:r1.data.ok, r2:r2.data });
+await rest(rina.id);
+r2 = await call('POST', '/act', { type:'feed', rid:'rid-feed-0002' }, rina.token);
+ok(r2.data.ok && !r2.data.dup && r2.data.save.data.counts.meals === 2, 'another number → counted', r2.data.save && r2.data.save.data.counts);
+await rest(rina.id);
+await patch(rina.id, d => { d.stats.full = 40; });
+r2 = await call('POST', '/act', { type:'feed', rid:'bad rid!' }, rina.token);
+ok(r2.data.ok && r2.data.save.data.counts.meals === 3, 'an odd number is ignored (counted as usual)', r2.data);
+const bk0 = await backup(rina.id);
+const ad1 = await call('POST', '/act', { type:'adopt', pet:{ ...pet, name:'にばんめ' }, rid:'rid-adopt-0001' }, rina.token);
+const bk1 = await backup(rina.id);
+const ad2 = await call('POST', '/act', { type:'adopt', pet:{ ...pet, name:'にばんめ' }, rid:'rid-adopt-0001' }, rina.token);
+const bk2 = await backup(rina.id);
+ok(ad1.data.ok && ad2.data.ok && ad2.data.dup && ad2.data.save.rev === ad1.data.save.rev && ad2.data.save.data.created === ad1.data.save.data.created
+   && bk1 && bk2 && bk1.rev === bk2.rev && bk1.name !== 'にばんめ' && bk0 && bk0.rev !== bk1.rev, 'the same adopt again → not made twice, the backup keeps the child before', { ad1:ad1.data.save.rev, ad2:ad2.data, bk0, bk1, bk2 });
+const codeR = enc({ ...codePet, pet:{ ...pet, name:'りなのコード' } });
+const im1 = await call('POST', '/import', { code:codeR, rid:'rid-import-001' }, rina.token);
+const im2 = await call('POST', '/import', { code:codeR, rid:'rid-import-001' }, rina.token);
+ok(im1.status === 200 && im2.status === 200 && im2.data.save.rev === im1.data.save.rev && im2.data.save.data.pet.name === 'りなのコード' && im2.data.importable === false,
+   'the same import again → the imported child (not "only once")', { im1:im1.status, im2:im2.data });
+const im3 = await call('POST', '/import', { code:codeR, rid:'rid-import-002' }, rina.token);
+ok(im3.status === 409 && im3.data.error === 'already', 'a new import with another number → only once', im3);
+r = await call('POST', '/act', { type:'open', rid:'rid-open-0001' }, rina.token);
+ok(r.data.ok && r.data.save.data.srv.rq.id === 'rid-open-0001' && !('save' in r.data.save.data.srv.rq.r), 'the save keeps only the last number and its answer (no save inside)', r.data.save && r.data.save.data.srv);
+
+console.log('rate (1-5：会員ごとの 回数の制限)');
+const tom = await joiner('tom');
+Deno.env.set('ACT_PER_WINDOW', '5');
+let okN = 0, busyN = 0;
+const revT0 = (await call('GET', '/save', undefined, tom.token)).data.save.rev;
+for (let i = 0; i < 7; i++){
+  const x = await call('POST', '/act', { type:'open' }, tom.token);
+  if (x.data.ok) okN++; else if (x.data.why === 'busy') busyN++;
+}
+const revT1 = (await call('GET', '/save', undefined, tom.token)).data.save.rev;
+ok(okN === 4 && busyN === 3 && revT1 === revT0 + 4, 'writes: 5 in 10 seconds (the 2nd adopt counted) → then busy, nothing written', { okN, busyN, revT0, revT1 });
+r = await call('POST', '/save', { pet:{ ...pet, name:'かえたい' } }, tom.token);
+ok(r.status === 429 && r.data.error === 'slow', '/save over the window → 429 slow', r);
+await patch(tom.id, d => { d.srv.rt.w -= 11_000; });
+r = await call('POST', '/act', { type:'open' }, tom.token);
+ok(r.data.ok, '10 seconds later → ok again', r.data);
+await patch(tom.id, d => { d.srv.rt.w -= 11_000; d.srv.rt.dn = 3000; });
+r = await call('POST', '/act', { type:'open' }, tom.token);
+ok(r.data.ok === false && r.data.why === 'busy', '3000 writes in a day → busy', r.data);
+Deno.env.set('ACT_PER_WINDOW', '100000');
+await patch(tom.id, d => { d.srv.rt.dn = 0; });
+Deno.env.set('LOGIN_PER_MIN', '3');
+const lous = [];
+for (let i = 0; i < 4; i++) lous.push(await call('POST', '/login', { idToken:mkToken('lou' + i, '2012410263', 'Ulou') }));
+ok(lous.slice(0, 3).every(x => x.status === 200) && lous[3].status === 429 && lous[3].data.error === 'slow', 'login: 3 a minute per member, then 429 slow', lous.map(x => x.status));
+await db`update app.sessions set created_at = created_at - interval '2 minutes' where member_id = ${lous[0].data.member.id}`;
+r = await call('POST', '/login', { idToken:mkToken('lou9', '2012410263', 'Ulou') });
+ok(r.status === 200, 'a minute later → login ok', r.status);
+const same = mkToken('samet', '2012410263', 'Usame');
+const vc0 = verifyCalls;
+const sames = [];
+for (let i = 0; i < 4; i++) sames.push((await call('POST', '/login', { idToken:same })).status);
+ok(verifyCalls === vc0 + 1 && sames.join() === '200,200,200,429', 'the same ID token: LINE is asked once; over 3 a minute → 429 before LINE', { calls:verifyCalls - vc0, sames });
+Deno.env.set('LOGIN_PER_MIN', '1000');
+const ms = Object.fromEntries(Array.from({ length:1000 }, (_, i) => ['m' + i, true]));
+const seen = Object.fromEntries(Array.from({ length:3000 }, (_, i) => ['halloween:' + (1000 + i), 1000 + i]));
+const capper = (await call('POST', '/login', { idToken:mkToken('capper', '2012410263', 'Ucapper') })).data;
+r = await call('POST', '/import', { code:enc({ ...save1, pet:{ ...pet, name:'おおきい' }, milestones:ms, events:{ got:[], seen } }) }, capper.token);
+const capSave = r.data && r.data.save && r.data.save.data;
+ok(r.status === 200 && Object.keys(capSave.milestones).length === 400 && Object.keys(capSave.events.seen).length === 2000
+   && capSave.events.seen['halloween:3999'] && !capSave.events.seen['halloween:1000'], 'import: milestones up to 400, seen events up to 2000 (the newest)',
+   capSave && { m:Object.keys(capSave.milestones).length, s:Object.keys(capSave.events.seen).length });
+
+console.log('day quota (1-6：その日の AI・カードは、やめて また はじめても もどらない)');
+await db`delete from app.day_quota where kind = 'ai'`;   /* 全員の1日（ためしは5回）を あける */
+AI.mode = 'ok';
+let quinn = await joiner('quinn');
+for (let i = 0; i < 3; i++) await read(quinn.token);
+r = await read(quinn.token);
+ok(r.data.ok === false && r.data.why === 'limit', 'quinn used 3 reads today', r.data);
+for (let i = 0; i < 3; i++) await call('POST', '/card', { image:png(640, 640, 300 + i) }, quinn.token);
+r = await call('GET', '/card', undefined, quinn.token);
+ok(r.data.card.left === 0, 'quinn made 3 cards today', r.data);
+const [{ qrows }] = await db`select count(*)::int as qrows from app.day_quota where day = ${jst(Date.now())}::date`;
+r = await call('POST', '/leave', { confirm:'leave', accessToken:null }, quinn.token);
+const [{ qrows2 }] = await db`select count(*)::int as qrows2 from app.day_quota where day = ${jst(Date.now())}::date`;
+ok(r.data.ok && qrows2 === qrows && qrows >= 2, 'leave: the day\'s counts stay (no member in them)', { qrows, qrows2 });
+const q2 = (await call('POST', '/login', { idToken:mkToken('quinn2', '2012410263', 'Uquinn') })).data;
+ok(q2.member.id !== quinn.id && q2.ai.left === 0 && q2.card.left === 0, 'logging in again (a new member) → the same day\'s AI and cards are still used up', { ai:q2.ai, card:q2.card });
+await call('POST', '/act', { type:'adopt', pet }, q2.token);
+r = await read(q2.token);
+const r2c = await call('POST', '/card', { image:png(640, 640, 310) }, q2.token);
+ok(r.data.why === 'limit' && r2c.data.why === 'limit', 'reads and new cards → limit', { ai:r.data, card:r2c.data });
+const w1 = (await db`select encode(who, 'hex') as h from app.day_quota where kind = 'ai' order by n desc limit 1`)[0].h as string;
+ok(!/quinn|Uquinn/.test(w1) && w1.length === 64, 'the mark is a SHA-256, not the LINE id', w1);
+
+console.log('daily sweep (1-6・5-2・1-8：1日1回の 掃除。まいごの カードの画像も)');
+await db`insert into app.day_quota (day, kind, who, n) values (${jst(Date.now() - 2 * 864e5)}::date, 'ai', decode(repeat('ab', 32), 'hex'), 2)`;
+await db`insert into app.day_quota (day, kind, who, n) values (${jst(Date.now() - 864e5)}::date, 'ai', decode(repeat('ac', 32), 'hex'), 1)`;
+await db`insert into app.error_counts (day, kind, n) values (${jst(Date.now() - 61 * 864e5)}::date, 'server', 4), (${jst(Date.now() - 59 * 864e5)}::date, 'server', 1)`;
+const lostOld = 'o' + '1'.repeat(31) + '.png', lostNew = 'o' + '2'.repeat(31) + '.png', oddName = 'notes.txt';
+for (const [nm, ago] of [[lostOld, 2 * 3600e3], [lostNew, 10 * 60e3], [oddName, 5 * 3600e3]] as [string, number][]){ STORE.objects.set(nm, new Uint8Array([1])); STORE.created.set(nm, Date.now() - ago); }
+const keptCard = (await db`select name from app.cards limit 1`)[0].name as string;
+STORE.created.set(keptCard, Date.now() - 5 * 3600e3);
+await db`update app.chores set done_at = now() - interval '2 days'`;
+const lists0 = STORE.lists;
+await call('POST', '/login', { idToken:mkToken('sweeper', '2012410263', 'Usweeper') });
+const qd = (await db`select encode(who, 'hex') as h from app.day_quota where who in (decode(repeat('ab', 32), 'hex'), decode(repeat('ac', 32), 'hex'))`).map((x: any) => x.h.slice(0, 2));
+const ed = (await db`select n from app.error_counts where kind = 'server' and day < ${jst(Date.now() - 30 * 864e5)}::date`).map((x: any) => x.n);
+ok(qd.join() === 'ac', 'the day\'s counts: yesterday stays, the day before is deleted', qd);
+ok(ed.join() === '1', 'error counts older than 60 days are deleted', ed);
+ok(STORE.lists > lists0 && !STORE.objects.has(lostOld) && STORE.objects.has(lostNew) && STORE.objects.has(keptCard) && STORE.objects.has(oddName),
+   'a lost image (not in the table, over 1 hour) is deleted; a new one, a known card and other names stay', { old:STORE.objects.has(lostOld), nw:STORE.objects.has(lostNew), kept:STORE.objects.has(keptCard) });
+const lostOld2 = 'o' + '3'.repeat(31) + '.png';
+STORE.objects.set(lostOld2, new Uint8Array([1])); STORE.created.set(lostOld2, Date.now() - 2 * 3600e3);
+const lists1 = STORE.lists;
+await call('POST', '/login', { idToken:mkToken('sweeper2', '2012410263', 'Usweeper') });
+ok(STORE.lists === lists1 && STORE.objects.has(lostOld2), 'only once a day (the next login does not sweep again)', STORE.lists - lists1);
+
+console.log('body (1-9：上限まで 読んだら やめる)');
+let pulls = 0;
+const stream = new ReadableStream({ pull(c){ pulls++; if (pulls > 200) c.close(); else c.enqueue(new TextEncoder().encode('{"idToken":"' + 'a'.repeat(1000))); } });
+const resBig = await handler(new Request('https://x.supabase.co/api/login', { method:'POST', headers:{ origin:ORIGIN, 'content-type':'application/json' }, body:stream, duplex:'half' } as RequestInit));
+ok(resBig.status === 413 && pulls < 20, 'no content-length: stops reading at the limit (413)', { status:resBig.status, pulls });
+const resBad = await handler(new Request('https://x.supabase.co/api/login', { method:'POST', headers:{ origin:ORIGIN, 'content-type':'application/json' }, body:new Uint8Array([0x7b, 0xff, 0x7d]) }));
+ok(resBad.status === 400, 'broken UTF-8 → 400', resBad.status);
+
+console.log('errors (5-2：エラーの数を 数えて /health で返す)');
+const e0 = (await call('GET', '/health')).data.errors;
+const bea2 = await joiner('bea2');
+STORE.mode = 'error';
+await call('POST', '/card', { image:png(640, 640, 400) }, bea2.token);
+STORE.mode = 'ok';
+await db`alter table app.saves rename to saves_away`;
+r = await call('GET', '/save', undefined, bea2.token);
+await db`alter table app.saves_away rename to saves`;
+const e1 = (await call('GET', '/health')).data.errors;
+const ek = (await db`select kind, n from app.error_counts where day = ${jst(Date.now())}::date order by kind`).map((x: any) => x.kind);
+ok(r.status === 500 && r.data.error === 'server' && typeof e0 === 'number' && e1 >= e0 + 2 && ek.includes('server') && ek.includes('card_storage'),
+   'a server error and a storage error are counted (/health: errors in 3 days)', { e0, e1, ek });
+const ecols = (await db`select column_name from information_schema.columns where table_schema='app' and table_name='error_counts' order by column_name`).map((x: any) => x.column_name);
+ok(ecols.join() === 'day,kind,n', 'error counts keep only the day, the kind and the number', ecols);
+await db`alter table app.error_counts rename to error_counts_away`;
+const hx = await call('GET', '/health');
+await db`alter table app.error_counts_away rename to error_counts`;
+ok(hx.status === 200 && hx.data.ok && hx.data.errors === null, 'no error table → /health still ok (errors null)', hx.data);
+
+console.log('role (1-10：app の表だけ さわれる役 uchinoko_api)');
+await db`create table if not exists public.not_app (x int)`;
+const can: Record<string, boolean> = {};
+try {
+  await db.begin(async (tx: any) => {
+    await tx`set local role uchinoko_api`;
+    const tryIt = async (k: string, f: (q: any) => Promise<unknown>) => { try { await tx.savepoint(f); can[k] = true; } catch { can[k] = false; } };
+    await tryIt('read saves', async q => { const [x] = await q`select count(*)::int as n from app.saves`; if (!(x.n > 0)) throw new Error('rls hides rows'); });
+    await tryIt('new member', q => q`insert into app.members default values`);
+    await tryIt('lock', q => q`select pg_advisory_xact_lock(hashtextextended('x', 0))`);
+    await tryIt('quota', q => q`insert into app.day_quota (day, kind, who, n) values (current_date, 'card', decode(repeat('cd', 32), 'hex'), 1)`);
+    await tryIt('errors', q => q`insert into app.error_counts (day, kind, n) values (current_date, 'role_test', 1)`);
+    await tryIt('chores', q => q`update app.chores set done_at = now()`);
+    await tryIt('cards', q => q`select count(*) from app.cards`);
+    await tryIt('backups', q => q`select count(*) from app.save_backups`);
+    await tryIt('delete member (cascade)', q => q`delete from app.members where id = (select member_id from app.saves limit 1)`);
+    await tryIt('other schema', q => q`select * from public.not_app`);
+    await tryIt('create table', q => q`create table app.evil (x int)`);
+    await tryIt('drop table', q => q`drop table app.saves`);
+    throw new Error('rollback');
+  });
+} catch { /* もどす */ }
+ok(can['read saves'] && can['new member'] && can['lock'] && can['quota'] && can['errors'] && can['chores'] && can['cards'] && can['backups'] && can['delete member (cascade)']
+   && !can['other schema'] && !can['create table'] && !can['drop table'], 'the role reads and writes app tables (RLS opened only for it), nothing else', can);
+const [{ anonp }] = await db`select count(*)::int as anonp from pg_policies where schemaname = 'app' and not ('uchinoko_api' = any(roles))`;
+ok(anonp === 0, 'no policy for other roles (anon・authenticated see nothing)', anonp);
 await db.end();
 
 console.log(fails ? `\n${fails} FAILED` : '\nall passed');

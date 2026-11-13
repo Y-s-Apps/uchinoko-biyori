@@ -45,6 +45,20 @@ html .onboard{padding-bottom:calc(24px + max(env(safe-area-inset-bottom,0px),var
 .cardprev .cardleft{font-size:12px;margin:-4px 0 12px}
 .cardprev .cardleft small{font-size:11px}
 .cardprev .cardnote{font-size:11px;margin:12px 0 0;text-align:left}
+/* 引っこし・バックアップの「この端末に とっておいた子」（LINE版だけ。診断 3-2） */
+.keepcard .keepkid{display:flex;flex-direction:column;gap:8px;padding-top:10px;border-top:2px dashed var(--line)}
+.keepcard .keeprow{display:flex;align-items:center;gap:12px}
+.keepcard .keepart{flex:0 0 64px;width:64px}
+.keepcard .keepart .pet-svg{display:block;width:100%;height:auto}
+.keepcard .keepart .pet-svg g{animation:none!important}
+.keepcard .keepinfo{display:flex;flex-direction:column;gap:2px;min-width:0}
+.keepcard .keepinfo b{font-size:16px}
+.keepcard .keepinfo span{font-size:12px;color:var(--ink-soft)}
+.keepcard .keepmsg{font-size:12px}
+/* とどいていなかった子（3-8）：ボタンの中で 文節で おりかえす。名前が ながいときは たてに ならべる */
+.unsent .btnrow .btn{white-space:normal;line-height:1.3}
+.unsent.stack .btnrow{flex-direction:column}
+.unsent.stack .btnrow .btn{flex:none;width:100%}
 /* プライバシーポリシー・利用規約へのリンク（LINE版だけ） */
 .line-docs{display:flex;justify-content:center;flex-wrap:wrap;gap:4px 14px;margin:6px 0 0}
 .line-docs .linkbtn{font-size:13px;font-weight:500}

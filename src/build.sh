@@ -2,7 +2,8 @@
 # うちのこ日和: src/ から公開用ファイルを組み立てる
 #   ../index.html, ../sw.js        … ホーム画面版（GitHub Pages）
 #   out/uchinoko-claude.html       … Claude アーティファクト版
-#   out/line/                      … LINE版（LINEミニアプリ。Cloudflare Pages がこのフォルダを公開する。本番用＝いちばん上、審査用＝review/、開発用＝dev/）
+#   out/line/                      … LINE版（LINEミニアプリ。Cloudflare Pages がこのフォルダを公開する。本番用＝いちばん上、審査用＝review/、開発用＝dev/。
+#                                    Cloudflare の ヘッダー _headers も）
 set -e
 cd "$(dirname "$0")"
 JS="js_data.js js_data2.js js_data3.js js_pet.js js_wear.js js_rules.js js_app.js js_features.js js_onboard.js"
@@ -56,6 +57,16 @@ cp icons/line-icon-130.png out/line/line-icon.png
 # 審査用・開発用の内部チャネルの画面（LINE Developers の エンドポイントURL：…/review/・…/dev/。本番用は いちばん上の …/）。
 # 中身は同じで、js_line.js が ひらいた場所で LIFF ID をえらぶ。ポリシー・規約・favicon は いちばん上のものを使う
 for d in review dev; do mkdir -p out/line/$d; cp out/line/index.html out/line/$d/index.html; done
+# Cloudflare Pages の HTTP ヘッダー（診断 2-2）。nosniff は Cloudflare も はじめから つける。リファラーは ページの meta と そろえて 送らない。
+# ほかのサイトの枠（iframe）に 入れさせない設定は、LINE の中で ひらけるかを iPhone で 確かめるまで 開発用（/dev/）だけ（meta の CSP では 書けない）
+cat > out/line/_headers <<'HEADERS'
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+/dev/*
+  Content-Security-Policy: frame-ancestors 'none'
+  X-Frame-Options: DENY
+HEADERS
 if [ "$DOCS" = true ]; then
   for f in privacy terms; do sed "s|__CONTACT__|$CONTACT|g" legal/$f.html > out/line/$f.html; done
   if grep -q '__CONTACT__' out/line/privacy.html out/line/terms.html; then echo 'お問い合わせ先が入っていません' >&2; exit 1; fi

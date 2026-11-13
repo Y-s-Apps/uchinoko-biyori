@@ -117,7 +117,7 @@ serve({ port:Number(PORT), hostname:'127.0.0.1', onListen(){ console.log('e2e se
   if (u.pathname === '/__debug/ai'){
     /* AIのまねの返事を変える／届いたものを見る */
     if (req.method === 'POST') Object.assign(AI, await req.json());
-    const [{ n }] = await admin`select coalesce(sum(n), 0)::int as n from app.ai_usage`;
+    const [{ n }] = await admin`select coalesce(sum(n), 0)::int as n from app.day_quota where kind = 'ai'`;
     return j({ ...AI, used:n });
   }
   if (u.pathname === '/__debug/cards'){

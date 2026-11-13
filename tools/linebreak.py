@@ -169,6 +169,13 @@ def scenes(line):
               "LineApp.state='ready'; LineApp.inClient=true; window.liff=Object.assign(window.liff||{}, {isApiAvailable:()=>true});")
         add('profile_line', on + 'openMenu(); LineApp.paint()', '#sheet')
         add('move_line', on + 'openMove(); LineApp.paint()', '#sheet')
+        # 引っこし・バックアップの「この端末に とっておいた子」（診断 3-2）。名前の ながい子と みじかい子
+        kid = ("(n, c, love) => ({at:1, b:0, st:Object.assign(JSON.parse(JSON.stringify(S)), {created:c, pet:Object.assign({}, S.pet, {name:n, breedId:'shiba', look:{species:'dog', breedId:'shiba'}}),"
+               " stats:{full:50, mood:50, love:love}})})")
+        keep = "localStorage.setItem(LINE_GUEST_KEY, JSON.stringify({v:2, kids:[(%s)('ながいながいなまえの', 11, 900), (%s)('こむぎ', 12, 30)]}));" % (kid, kid)
+        add('move_line_keep', on + keep + 'openMove(); LineApp.paint()', '#sheet')
+        add('move_line_keep_used', on + keep + 'LineServer.importable=false; openMove(); LineApp.paint()', '#sheet')
+        add('move_line_keep_guest', keep + 'openMove(); LineApp.paint()', '#sheet')
         for st in ['loading', 'failed']:
             add('profile_line_' + st, "LineApp.state='%s'; LineApp.error='timeout'; openMenu(); LineApp.paint()" % st, '#sheet')
         add('profile_line_outside', "LineApp.state='ready'; LineApp.inClient=false; openMenu(); LineApp.paint()", '#sheet')
@@ -209,6 +216,11 @@ def scenes(line):
         # 「つれてくる」が 通信で しっぱいした（診断 3-2）
         add('line_bring_failed', "LineServer.importable=true; LineSync.stash=()=>{}; LineSync.bring=async()=>{const e=new Error('unavailable'); e.code='unavailable'; throw e;};"
             "LineSync.offerLocal(); await new Promise(r => setTimeout(r, 400)); document.querySelector('.levelup [data-close=\"take\"]').click()", '.levelup .card', 900)
+        # とっておいた子を つれてくる前の たしかめ（3-2）と、とどかないまま とじた子（3-8）
+        other = "Object.assign(JSON.parse(JSON.stringify(S)), {created:77, pet:Object.assign({}, S.pet, {name:'ながいながいなまえの', breedId:'shiba', look:{species:'dog', breedId:'shiba'}})})"
+        add('line_keep_bring', on + "LineServer.importable=true; LineKeep.bring(%s)" % other, '.levelup .card')
+        for k, imp in [('adopt', 'true'), ('import', 'true'), ('import', 'false')]:
+            add('line_unsent_%s_%s' % (k, imp), on + "LineServer.importable=%s; LineSync.unsent=()=>({m:'x', c:77, k:'%s'}); LineSync.offerUnsent(%s)" % (imp, k, other), '.levelup .card')
         add('line_leave_1', on + 'LineLeave.busy=false; LineLeave.start()', '.levelup .card')
         add('line_leave_2', on + "LineLeave.busy=false; LineLeave.start(); await new Promise(r => setTimeout(r, 400)); document.querySelector('.levelup [data-close=\"next\"]').click()", '.levelup .card', 700)
         add('line_leave_done', on + "LineServer.call=async()=>({deauth:'none'}); LineLeave.busy=false; LineLeave.run(esc(S.pet.name))", '.levelup .card')
@@ -289,7 +301,7 @@ async def run(args, width):
 
         for name, js, root, wait, pet in scenes(args.line):
             # 子がいない画面と いる画面で ページを ひらきなおす。LINE版の「つれてくる？」なども 状態を変えるので 毎回
-            fresh = name.startswith('line_offer') or name.startswith('ob_') or name.startswith('profile_line') or name == 'move_line'
+            fresh = name.startswith('line_offer') or name.startswith('ob_') or name.startswith('profile_line') or name.startswith('move_line') or name.startswith('line_unsent') or name.startswith('line_keep')
             if fresh:
                 cur['pet'] = None
             await load(pet)

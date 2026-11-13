@@ -6,6 +6,8 @@
 #   でたらめのトークンは毎回つくりなおし、どこにも保存しない。会員・セーブは作らないし、さわらない。
 # - アプリ・サーバーの中身は変えない。GitHub の鍵も使わない（permissions は空）。
 # - 返事がちがう（止まっている・こわれている）ときは、この仕事を失敗にする（GitHub の Actions に赤く出る）。
+# - /health の errors（この3日の サーバーの エラーの数。診断 5-2）が ERR_MAX 以上のときも 失敗にする（失敗の メールで 気づける）。
+#   数が 読めない（null）ときは 失敗に しない（DB が ねているなどは 下の /save で わかる）。
 # - GitHub は、60日 リポジトリに動きがないと、予定の仕事を止める。止まったら Actions の画面で もういちど有効にする。
 name: サーバーを起こす
 
@@ -24,6 +26,7 @@ jobs:
       - name: サーバーに たずねる
         env:
           API: https://ftakgswltcavwixqxpzi.supabase.co/functions/v1/api
+          ERR_MAX: 10
         run: |
           set -eu
           h=$(curl -sS --max-time 60 --retry 2 --retry-delay 20 -o health.json -w '%{http_code}' "$API/health")
@@ -35,3 +38,7 @@ jobs:
           echo "db: $s $(cat save.json)"
           [ "$s" = 401 ]
           grep -q '"nosession"' save.json
+          # エラーの数は さいごに 見る（多くても、DB を起こす よびだしは すませてから 失敗にする）
+          e=$(sed -n 's/.*"errors":\([0-9][0-9]*\).*/\1/p' health.json)
+          echo "errors (3 days): ${e:-unknown}"
+          if [ -n "$e" ] && [ "$e" -ge "$ERR_MAX" ]; then echo "サーバーの エラーが $e 回（3日）。Supabase の ログと app.error_counts を 見てください"; exit 1; fi

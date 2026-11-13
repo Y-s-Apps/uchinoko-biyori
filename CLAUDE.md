@@ -27,13 +27,13 @@
 | `src/js_home.js` | ホーム画面版だけのJS（`build.sh` が `js_rules.js` のすぐあとに入れる）。いまは `HomeRescue`：前の きびしいルールで きょう れんぞくが1にもどった子に、おたすけを出しなおす |
 | `src/js_line.js` | LINE版だけのJS（LIFF の準備、サーバーでの本人確認とセーブ、AIの読みとり `LineAI`、やめる `LineLeave`、写真立ての イラスト `LineFrame`、うちのこカード `CardArt`・`LineCard`〈絵を PNG に → `POST /card` → `liff.shareTargetPicker()`〉。`LINE_CFG.liffIds`（内部チャネルごと。ひらいた場所 `/`・`/review/`・`/dev/` で えらぶ）・`LINE_CFG.api`） |
 | `src/sw.js` | オフライン用のService Worker（`__VER__` はビルド時に置きかわる） |
-| `src/build.sh` | 組み立て。`../index.html` と `../sw.js`（ホーム画面版）、`out/uchinoko-claude.html`（Claude版）、`out/line/`（LINE版。本番用＝いちばん上、審査用＝`review/`、開発用＝`dev/` に同じページ。うちのこカードの メッセージに出す `line-icon.png` も）を出力 |
+| `src/build.sh` | 組み立て。`../index.html` と `../sw.js`（ホーム画面版）、`out/uchinoko-claude.html`（Claude版）、`out/line/`（LINE版。本番用＝いちばん上、審査用＝`review/`、開発用＝`dev/` に同じページ。うちのこカードの メッセージに出す `line-icon.png` と、Cloudflare Pages の ヘッダー `_headers` も）を出力 |
 | `src/icons/` | アイコンの元データ（1024px）と描画スクリプト。LINE用（130px）は `line_icon.js`・`render_line.py` → `line-icon-130.png` |
 | `src/legal/` | LINE版のプライバシーポリシー・利用規約（`build.sh` が お問い合わせ先 `CONTACT`＝Googleフォームの URL を入れて `out/line/` に出す。空なら出さない） |
 | `tools/smoke.py` | スマホ幅での動作確認とスクリーンショット。見た目（文字と地の色の差・11px より小さい文字・「とじる」の さわれる大きさ）も数える。ホーム画面版では オフラインで 自分の キャッシュから ひらくかも（`--dark` ダーク、`--fresh` はじめて、`--line` LINE版、`--claude` Claude版の クラウドの子の まね） |
 | `tools/linebreak.py` | 改行の確認：375・390px で シート・ポップアップ・トースト・はじめての画面を出し、ことばの まんなかの改行と 横はみだしを数える（`--line` LINE版、`--claude` Claude版、`--shots DIR` で スクリーンショット） |
 | `tools/webfonts.py`・`tools/fonts/` | 確認用に Google Fonts と同じフォント（@fontsource）を手元から出す（はじめに `cd tools/fonts && npm install`。`linebreak.py` が使う） |
-| `supabase/migrations/` | LINE版のサーバー（Supabase「uchinoko-biyori」）の表。`app` スキーマ（Data API に出さない） |
+| `supabase/migrations/` | LINE版のサーバー（Supabase「uchinoko-biyori」）の表。`app` スキーマ（Data API に出さない）。サーバーが つなぐ役 `uchinoko_api`（`app` の表だけ）も |
 | `supabase/functions/api/index.ts` | LINE版のサーバーの関数（本人確認・おせわの判定 `/act`・名前とみための `/save`・引っこしコードの取りこみ・AIの読みとり `/read`・やめる `/leave`・うちのこカードの画像 `/card`〈Storage のバケット `cards`〉） |
 | `supabase/functions/api/game.js` | サーバーで使う `ensureState`・`Rules`・AIの `buildPrompt`/`parseAI` など（`tools/build_server.py` が src/ から作る。手で直さない） |
 | `supabase/functions/api/deno.json` | `uchinoko-game` が、push したコミットの `game.js` を指す（`--pin` で書きかえる） |
@@ -42,7 +42,7 @@
 | `tools/rules_test.mjs` | ルール（`js_rules.js`）を時計を動かして確かめる（れんぞく・おたすけ・日本時間の0時・おみやげ・げい・イベント・記念日） |
 | `tools/compare_home.py` | ホーム画面版の動きが前の版と同じかをくらべる（`python3 tools/compare_home.py [コミット]`、既定は HEAD） |
 | `docs/REVIEW_PROMPT.md` | 約束①（Claude Fable 5.2 の診断とレビュー）の チャットに貼るプロンプト |
-| `.github/workflows/keepalive.yml` | GitHub Actions「サーバーを起こす」：3日ごとに LINE版のサーバーの `/health` と、DB を1回読む呼び出し（でたらめのセッションで 401）をして、Supabase の無料プランが止まらないようにする（`docs/PROJECT.md` の10章） |
+| `.github/workflows/keepalive.yml` | GitHub Actions「サーバーを起こす」：3日ごとに LINE版のサーバーの `/health` と、DB を1回読む呼び出し（でたらめのセッションで 401）をして、Supabase の無料プランが止まらないようにする。`/health` の この3日の エラーの数が 10以上でも 失敗にする（`docs/PROJECT.md` の10章） |
 | ルートの `index.html` `sw.js` `manifest.webmanifest` `*.png` | 公開ファイル（ビルド結果なので手で直さない） |
 
 JSは1つの `<script>` に `build.sh` の順でつなげられます。`const HOME = true/false` で、ホーム画面版とClaude版の差を切り替えます。LINE版は `HOME = true` に `js_line.js` を足したものです（`docs/PROJECT.md` の10章）。
@@ -80,6 +80,6 @@ JSは1つの `<script>` に `build.sh` の順でつなげられます。`const H
 - **Claude版。** https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs に `src/out/uchinoko-claude.html` を同じURLのまま公開し直します。`capabilities` ははぶいて、いまの宣言（db のルール、user・sample・downloads）を引きつぎます。権限を足すときは、`docs/PROJECT.md` の「安全のための決まり」にある宣言を全部書いたうえで足します。
 - **LINE版。** LINE版だけの変更は `src/line_head.html` と `src/js_line.js` に書き、ホーム画面版の `index.html`・`sw.js` を変えないようにします（変わると、だいずのアプリが更新されます。ビルドの前後で比べる）。LIFF SDK はエッジパスのまま使い、古い版に固定しません。LINE のユーザーIDやプロフィールの値を本人確認に使わず、IDトークンをサーバーで検証します。写真の控え（160px）はサーバーに送りません。AIの読みとりで写真を送るときは、端末で小さくしてからサーバー経由で送り、保存もログもしません。AIの鍵は Supabase の Secrets の `ANTHROPIC_API_KEY` だけに置き、回数の上限はサーバーで数えます（`docs/PROJECT.md` の10章）。
 - **ルールは1か所。** おせわの数字・上限・日付・偶然は `src/js_rules.js` に書き、時刻は `now()`/`dayKey()`（`Clock`）、偶然は `Clock.rand()` を使います（`Date.now()`・`new Date()`・`Math.random()` を ルールの中で直接使わない。見た目だけの処理は そのままでよい）。例外：おたすけの間隔は、ホーム画面版だけ `build.sh` の `HOME_RESCUE_EVERY`（2＝1日おき）で `RESCUE_EVERY` を置きかえます（`js_rules.js` の `const RESCUE_EVERY = 7;` の行の形を変えると、ビルドが止まります）。画面の処理（`$`・`Pet`・`Modal` など）はルールに入れません（サーバーで動かないため）。
-- **LINE版のサーバー。** おせわの数字や記録は画面から受けとりません（判定は `/act`、`/save` は名前・みためだけ、はじめての子は `adopt` か取りこみ）。表は `app` スキーマに置き、Data API に出しません（`public` に置かない。anon・authenticated に権限をあたえない）。読み書きは Edge Function `api` からだけ。セッションのトークンは画面のメモリだけに置き（localStorage に保存しない）、DB にはハッシュだけ。ログにトークン・IDトークン・セーブの中身を出しません。チャネルシークレットや APIの鍵が要るときは、チャットに貼ってもらわず、Supabase の画面で入れてもらいます（`create_edge_function_secret`）。LINE版の端末のキー `uchinoko-biyori:line-owner`・`uchinoko-biyori:line-guest`・`uchinoko-biyori:line-left` も消す処理は書きません（やめた人の端末の子は、`line-left` で ゲストにする）。やめる人のデータはサーバーから すぐに消し、LINE の deauthorize で許可も取り消します（チャネルシークレットは内部チャネルごとに Secrets の `LINE_CHANNEL_SECRET_<チャネルID>`。開発用は `LINE_CHANNEL_SECRET` でもよい）。LIFF ID と チャネルID は 開発用・審査用・本番用で べつ（`docs/PROJECT.md` の10章「内部チャネル」）。サーバーの URL を変えるときは `LINE_CFG.api` と `line_head.html` の CSP（`connect-src`）をそろえます。
+- **LINE版のサーバー。** おせわの数字や記録は画面から受けとりません（判定は `/act`、`/save` は名前・みためだけ、はじめての子は `adopt` か取りこみ）。表は `app` スキーマに置き、Data API に出しません（`public` に置かない。anon・authenticated に権限をあたえない）。読み書きは Edge Function `api` からだけ。セッションのトークンは画面のメモリだけに置き（localStorage に保存しない）、DB にはハッシュだけ。ログにトークン・IDトークン・セーブの中身を出しません。チャネルシークレットや APIの鍵が要るときは、チャットに貼ってもらわず、Supabase の画面で入れてもらいます（`create_edge_function_secret`）。LINE版の端末のキー `uchinoko-biyori:line-owner`・`uchinoko-biyori:line-guest`・`uchinoko-biyori:line-left` も消す処理は書きません（やめた人の端末の子は、`line-left` で ゲストにする。`line-guest` は 5ひきまで ためる形。`line-unsent` は おくっている とちゅうの しるしなので 空にしてよい）。サーバーは DB に `app` の表だけ さわれる役 `uchinoko_api` で つなぎます（Secrets の `APP_DB_PASSWORD`。ないときは 持ち主）。おせわ・取りこみには 画面が 番号 `rid` をつけ、サーバーは 同じ番号を 2回 数えません。1人1日の回数（AI・カード）は 会員ではなく その日だけの しるしで数えます（`docs/PROJECT.md` の10章「かたまり C」）。やめる人のデータはサーバーから すぐに消し、LINE の deauthorize で許可も取り消します（チャネルシークレットは内部チャネルごとに Secrets の `LINE_CHANNEL_SECRET_<チャネルID>`。開発用は `LINE_CHANNEL_SECRET` でもよい）。LIFF ID と チャネルID は 開発用・審査用・本番用で べつ（`docs/PROJECT.md` の10章「内部チャネル」）。サーバーの URL を変えるときは `LINE_CFG.api` と `line_head.html` の CSP（`connect-src`）をそろえます。
 - **ポップアップ。** 画面全体を暗くして中央に出します（`Modal.show`）。同時に複数あるときは順番に出ます。
 - **ポリシーと規約。** 取る情報・送り先・保存期間・使う外部サービス・回数の上限などを変えたら、`src/legal/privacy.html`（と `terms.html`）も同じコミットで直し、制定日の下に改定日を足します。認証されたあとに ポリシー・規約の URL やアイコンを変えると再審査になります（`docs/PROJECT.md` の10章）。

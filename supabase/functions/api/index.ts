@@ -44,6 +44,16 @@
  * - うちのこカードの画像は Storage（SUPABASE_URL）に、Edge Function の秘密の鍵（SUPABASE_SECRET_KEYS、なければ SUPABASE_SERVICE_ROLE_KEY）で置く・消す。
  *   画像の中身はログに出さない。PNG は形を確かめ、IHDR・PLTE・tRNS・IDAT・IEND のほか（文字やメタデータ）は すてて置く。
  * - デプロイは verify_jwt: false（自前のセッションで確かめるため）。
+ * - おせわ（/act）と 取りこみ（/import）は、画面が つけた番号（rid）を セーブの srv.rq に のこし、とどかなくて おくりなおした
+ *   同じ番号は 2回 数えない（前の答えを かえす。診断 3-3）。
+ * - 会員ごとの 回数の制限：/act と /save の 書きこみは 10秒に ACT_PER_WINDOW 回・1日 ACT_PER_DAY 回まで（srv.rt）、
+ *   /login は 1分に LOGIN_PER_MIN 回まで。同じ IDトークンは しばらく LINE に きかない（診断 1-5）。
+ * - AIの読みとり・カードの「1人1日」は、会員ではなく その日だけの しるし（種類:日付:sub の SHA-256）で数える（app.day_quota。
+ *   やめて また はじめても その日の上限は もどらない。2日で消す。診断 1-6）。
+ * - エラーの数を app.error_counts に 日付・種類ごとに数え、/health が この3日の合計を返す（診断 5-2）。
+ * - だれかの ログインのとき 1日1回、Storage の cards と 表を くらべて、表に ない「まいご」の画像を消す（診断 1-8）。
+ * - DB へは app の表だけ さわれる役 uchinoko_api で つなぐ（Secrets の APP_DB_PASSWORD があるとき。ないとき・つなげないときは
+ *   SUPABASE_DB_URL＝持ち主。診断 1-10）。
  */
 import postgres from 'npm:postgres@3.4.5';
 import { cleanText, ensureState, readMoveCode, MOVE_MAX, dayKey, Rules, newState, normalizeLook, buildPrompt, parseAI } from 'uchinoko-game';
@@ -91,8 +101,58 @@ const STROKE_MAX = 12;
 const KEEP_DAYS = Math.max(30, intEnv('MEMBER_KEEP_DAYS', 730, 3650));
 /* 上書きの前の セーブの ひかえ（1人1つ）を とっておく日数（プライバシーポリシーの「30日」） */
 const BACKUP_DAYS = Math.max(7, intEnv('SAVE_BACKUP_DAYS', 30, 365));
+/* 会員ごとの 回数の制限（診断 1-5）。ふつうの使い方では とどかない大きさ。Secrets で変えられる（よぶたびに読む） */
+const ACT_WINDOW_MS = 10_000;
+const actPerWindow = () => Math.max(5, intEnv('ACT_PER_WINDOW', 20, 10_000));   /* /act と /save の 書きこみ：10秒に */
+const actPerDay = () => Math.max(500, intEnv('ACT_PER_DAY', 3000, 1_000_000));  /* 1日に（日本時間） */
+const loginPerMin = () => Math.max(3, intEnv('LOGIN_PER_MIN', 6, 10_000));       /* /login：1人 1分に */
+/* 取りこみで 運べる 記念日の しるし・見た季節イベントの数（1つ1つは 知っている形だけ。何年 使っても とどかない大きさ） */
+const MILESTONES_MAX = 400;
+const SEEN_MAX = 2000;
+/* おせわの番号（画面が つける。とどかなくて おくりなおしたときに 2回 数えないため。診断 3-3） */
+const RID_RE = /^[A-Za-z0-9_-]{8,40}$/;
+/* その日の回数（app.day_quota）を とっておく日数：きょうと きのう（プライバシーポリシーの「2日」） */
+const QUOTA_DAYS = 2;
+/* エラーの数（app.error_counts）を とっておく日数・/health で 合計する日数 */
+const ERROR_KEEP_DAYS = 60;
+const ERROR_SUM_DAYS = 3;
 
-const sql = postgres(env('SUPABASE_DB_URL'), { prepare:false, max:3, idle_timeout:20, connect_timeout:10 });
+/* ----- DB（診断 1-10）-----
+   app の表だけ さわれる役 uchinoko_api で つなぐ。パスワードは Secrets の APP_DB_PASSWORD（オーナーが入れる。
+   SUPABASE_DB_URL の ユーザーと パスワードだけ 入れかえる）。ない・まちがっている（28…）ときは、いままでの SUPABASE_DB_URL（持ち主）で つなぐ */
+const DB_OPT = { prepare:false, max:3, idle_timeout:20, connect_timeout:10 } as const;
+function appDbUrl(): string | null {
+  const pw = env('APP_DB_PASSWORD'), base = env('SUPABASE_DB_URL');
+  if (!pw || !base) return null;
+  try {
+    const u = new URL(base);
+    const m = /^postgres(\.[\w-]+)?$/.exec(decodeURIComponent(u.username));
+    if (!m || !u.host) return null;
+    u.username = 'uchinoko_api' + (m[1] || '');
+    u.password = pw;
+    return u.href;
+  } catch { return null; }
+}
+async function openDb(): Promise<{ sql: postgres.Sql; note: string }> {
+  const url = appDbUrl();
+  if (url){
+    const s = postgres(url, DB_OPT);
+    try { await s`select 1`; return { sql:s, note:'' }; }
+    catch (e) {
+      const code = String((e as { code?: unknown })?.code ?? ''), msg = e instanceof Error ? e.message : '';
+      /* パスワード・役の まちがいの ときだけ 持ち主に もどす（DB が ねている・とどかない ときは この役のまま。つぎの問い合わせで また つなぐ） */
+      if (/^28/.test(code) || /password|authentication|tenant or user/i.test(msg)){
+        console.error('db_role: app role refused, using the owner');
+        try { await s.end({ timeout:1 }); } catch { /* そのまま */ }
+        return { sql:postgres(env('SUPABASE_DB_URL'), DB_OPT), note:'db_role' };
+      }
+      return { sql:s, note:'' };
+    }
+  }
+  return { sql:postgres(env('SUPABASE_DB_URL'), DB_OPT), note:'' };
+}
+const db = await openDb();
+const sql = db.sql;
 
 class HttpError extends Error {
   constructor(public status: number, public code: string, public extra: Record<string, unknown> = {}){ super(code); }
@@ -115,11 +175,46 @@ function json(body: unknown, status: number, origin: string | null): Response {
   });
 }
 
+/* ----- エラーの数（診断 5-2）-----
+   ログ（無料プランは1日分）に 出すのと いっしょに、app.error_counts に 日付・種類ごとに 数える（中身は のこさない）。
+   数えられなくても 止めない。1つずつ順に（ためしの DB は 同時の問い合わせが まざるため、まってから つづける）。
+   トランザクションの中からは その tx を わたす（べつの つなぎで 書くと、ためしの DB では まちあって 止まる） */
+async function oops(kind: string, detail = '', q: postgres.Sql | postgres.TransactionSql = sql): Promise<void> {
+  console.error(kind + (detail ? ': ' + detail : ''));
+  if (!/^[a-z0-9_]{1,40}$/.test(kind)) return;
+  try {
+    await q`insert into app.error_counts (day, kind, n) values (${dayKey()}::date, ${kind}, 1)
+      on conflict (day, kind) do update set n = app.error_counts.n + 1`;
+  } catch { /* 表が ない・DB に とどかない */ }
+}
+async function errorTotal(): Promise<number | null> {
+  try {
+    const [r] = await sql`select coalesce(sum(n), 0)::int as n from app.error_counts where day > ${dayKey()}::date - ${ERROR_SUM_DAYS}::int`;
+    return Number(r.n);
+  } catch { return null; }
+}
+if (db.note) await oops(db.note);
+
+/* 体は 上限まで 読んだら やめる（content-length の ない 送り方でも、ぜんぶ読んでから 大きさを見ない。診断 1-9） */
 async function readBody(req: Request, max: number): Promise<Record<string, unknown>> {
   const len = Number(req.headers.get('content-length') || 0);
   if (len > max) throw new HttpError(413, 'toolarge');
-  const text = await req.text();
-  if (text.length > max) throw new HttpError(413, 'toolarge');
+  if (!req.body) throw new HttpError(400, 'badjson');
+  const reader = req.body.getReader();
+  const parts: Uint8Array[] = [];
+  let size = 0;
+  for (;;){
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max){ try { await reader.cancel(); } catch { /* そのまま */ } throw new HttpError(413, 'toolarge'); }
+    parts.push(value);
+  }
+  const buf = new Uint8Array(size);
+  let at = 0;
+  for (const p of parts){ buf.set(p, at); at += p.byteLength; }
+  let text = '';
+  try { text = new TextDecoder('utf-8', { fatal:true }).decode(buf); } catch { throw new HttpError(400, 'badjson'); }
   let v: unknown = null;
   try { v = JSON.parse(text); } catch { throw new HttpError(400, 'badjson'); }
   if (!v || typeof v !== 'object' || Array.isArray(v)) throw new HttpError(400, 'badjson');
@@ -140,11 +235,28 @@ function tokenAud(idToken: string): string | null {
   } catch { return null; }
 }
 
-/* LINE の IDトークンを LINE のサーバーで検証して sub を返す。aud はどのチャネルで確かめるかを選ぶためだけに読む */
+/* 同じ IDトークンで くりかえし ログインされても、LINE に きくのは 1回（この関数の うごいている あいだ・トークンの期限まで）。
+   1つのトークンで 1分に LOGIN_PER_MIN 回より 多いと、LINE に きかずに ことわる（診断 1-5。中身は メモリだけ、トークンは ハッシュ） */
+const seenTokens = new Map<string, { sub: string; exp: number; t: number; n: number }>();
 async function verifyLine(idToken: unknown): Promise<string> {
   if (typeof idToken !== 'string' || idToken.length > 4096 || !/^[\w-]+\.[\w-]+\.[\w-]*$/.test(idToken)) throw new HttpError(401, 'badtoken');
   const aud = tokenAud(idToken);
   if (!aud || !CHANNELS.includes(aud)) throw new HttpError(401, 'badtoken');
+  const key = await sha256hex(idToken);
+  const now = Date.now();
+  const seen = seenTokens.get(key);
+  if (seen && seen.exp > now){
+    if (now - seen.t > 60_000){ seen.t = now; seen.n = 0; }
+    if (++seen.n > loginPerMin()) throw new HttpError(429, 'slow');
+    return seen.sub;
+  }
+  const v = await verifyAtLine(idToken, aud);
+  if (seenTokens.size >= 500) for (const k of [...seenTokens.keys()].slice(0, 100)) seenTokens.delete(k);
+  seenTokens.set(key, { sub:v.sub, exp:Math.min(now + 30 * 60e3, v.exp), t:now, n:1 });
+  return v.sub;
+}
+/* LINE の IDトークンを LINE のサーバーで検証して sub と期限を返す。aud はどのチャネルで確かめるかを選ぶためだけに読む */
+async function verifyAtLine(idToken: string, aud: string): Promise<{ sub: string; exp: number }> {
   let res: Response;
   try {
     res = await fetch(LINE_VERIFY, {
@@ -162,7 +274,7 @@ async function verifyLine(idToken: unknown): Promise<string> {
   if (v.iss !== 'https://access.line.me' || v.aud !== aud || typeof sub !== 'string' || !sub || sub.length > 64 || !(Number(v.exp) * 1000 > Date.now())) {
     throw new HttpError(401, 'badtoken');
   }
-  return sub;
+  return { sub, exp:Number(v.exp) * 1000 };
 }
 
 async function sessionMember(req: Request): Promise<string> {
@@ -209,6 +321,9 @@ async function login(req: Request) {
       member = m.id as string;
       await tx`insert into app.line_accounts (sub, member_id) values (${sub}, ${member})`;
     } else {
+      /* 1人 1分に LOGIN_PER_MIN 回まで（ふつうは ひらくたびに 1回。診断 1-5） */
+      const [rc] = await tx`select count(*)::int as n from app.sessions where member_id = ${member} and created_at > now() - interval '1 minute'`;
+      if (Number(rc.n) >= loginPerMin()) throw new HttpError(429, 'slow');
       await tx`update app.members set last_seen_at = now() where id = ${member}`;
     }
     await tx`delete from app.sessions where expires_at < now()`;
@@ -220,8 +335,9 @@ async function login(req: Request) {
     const [sv] = await tx<SaveRow[]>`select data, rev::int as rev, updated_at from app.saves where member_id = ${member}`;
     return { member, expiresAt:new Date(s.expires_at).getTime(), importable:!mem.imported_at, save:saveOut(sv) };
   });
-  /* 1年 使わない・会員が消えた カードの画像と、30日たった セーブの ひかえを消す（2年の削除と同じく、だれかの ログインのとき） */
-  await later((async () => { await sweepCards(); await sweepBackups(); })());   /* 1つずつ順に */
+  /* 1年 使わない・会員が消えた カードの画像と、30日たった セーブの ひかえを消す（2年の削除と同じく、だれかの ログインのとき）。
+     1日1回：きのうより前の その日の回数・60日より前の エラーの数・まいごの カードの画像 */
+  await later((async () => { await sweepCards(); await sweepBackups(); if (await chore('daily', 20 * 3600e3)) await sweepDaily(); })());   /* 1つずつ順に */
   return { token, expiresAt:out.expiresAt, member:{ id:out.member, importable:out.importable }, save:out.save,
     ai:await aiStatus(out.member), card:await cardStatus(out.member), now:Date.now() };
 }
@@ -242,15 +358,48 @@ function cleanPet(raw: unknown): Pet {
   return { name, species:look.species, breedId:look.breedId, look, colorName:typeof p.colorName === 'string' ? cleanText(p.colorName, 14) : '' };
 }
 
-/* サーバーだけが使う控え（画面には関係ない）：なでなでのなかよしの残り、前のおせわの時刻 */
-type Srv = { pb: { left: number; t: number }; cd: number };
+/* サーバーだけが使う控え（画面には関係ない）：なでなでのなかよしの残り（pb）、前のおせわの時刻（cd）、
+   さいごに うけとった おせわの番号と その答え（rq。診断 3-3）、書きこみの回数（rt：10秒の まど w・n と その日 d・dn。診断 1-5） */
+type Rq = { id: string; r: Record<string, unknown> };
+type Rt = { w: number; n: number; d: string; dn: number };
+type Srv = { pb: { left: number; t: number }; cd: number; rq?: Rq; rt: Rt };
 function srvOf(st: Record<string, unknown>, t: number): Srv {
   const o = (st.srv && typeof st.srv === 'object' ? st.srv : {}) as Record<string, unknown>;
   const pb = (o.pb && typeof o.pb === 'object' ? o.pb : {}) as Record<string, unknown>;
+  const rt = (o.rt && typeof o.rt === 'object' ? o.rt : {}) as Record<string, unknown>;
+  const rq = (o.rq && typeof o.rq === 'object' ? o.rq : null) as Record<string, unknown> | null;
   const n = (v: unknown, d: number, lo: number, hi: number) => { const x = Number(v); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d; };
-  const srv = { pb:{ left:n(pb.left, STROKE_MAX, 0, STROKE_MAX), t:n(pb.t, t, 0, t) }, cd:n(o.cd, 0, 0, t) };
+  const srv: Srv = {
+    pb:{ left:n(pb.left, STROKE_MAX, 0, STROKE_MAX), t:n(pb.t, t, 0, t) }, cd:n(o.cd, 0, 0, t),
+    rt:{ w:n(rt.w, 0, 0, t), n:n(rt.n, 0, 0, 1e9), d:typeof rt.d === 'string' ? rt.d : '', dn:n(rt.dn, 0, 0, 1e9) },
+  };
+  if (rq && typeof rq.id === 'string' && RID_RE.test(rq.id) && rq.r && typeof rq.r === 'object') srv.rq = { id:rq.id, r:rq.r as Record<string, unknown> };
   st.srv = srv;
   return srv;
+}
+/* おせわの番号（なければ null） */
+const ridOf = (body: Record<string, unknown>) => typeof body.rid === 'string' && RID_RE.test(body.rid) ? body.rid : null;
+/* セーブが その番号の おせわを もう うけとっているか */
+function ridDone(data: unknown, rid: string | null): boolean {
+  if (!rid || !data || typeof data !== 'object') return false;
+  const srv = (data as Record<string, unknown>).srv as Record<string, unknown> | undefined;
+  const rq = srv && typeof srv === 'object' ? srv.rq as Record<string, unknown> | undefined : undefined;
+  return !!rq && rq.id === rid;
+}
+/* 答えを とっておく形（セーブは のぞく。大きすぎるときは 結果だけ） */
+function answerOf(r: Record<string, unknown>): Record<string, unknown> {
+  const o: Record<string, unknown> = { ...r };
+  delete o.save; delete o.now;
+  return JSON.stringify(o).length <= 6000 ? o : { ok:r.ok, why:r.why, ev:[] };
+}
+/* 書きこみの回数：10秒に ACT_PER_WINDOW 回・1日 ACT_PER_DAY 回まで。こえたら true（このときは 書かない） */
+function overRate(srv: Srv, t: number): boolean {
+  const rt = srv.rt, day = dayKey();
+  if (rt.d !== day){ rt.d = day; rt.dn = 0; }
+  if (t - rt.w >= ACT_WINDOW_MS || t < rt.w){ rt.w = t; rt.n = 0; }
+  if (rt.n >= actPerWindow() || rt.dn >= actPerDay()) return true;
+  rt.n++; rt.dn++;
+  return false;
 }
 
 async function writeSave(tx: postgres.TransactionSql, member: string, st: Record<string, unknown>) {
@@ -266,7 +415,8 @@ async function writeSave(tx: postgres.TransactionSql, member: string, st: Record
 async function act(req: Request, member: string) {
   const body = await readBody(req, BODY_MAX.act);
   const type = String(body.type || '');
-  if (type === 'adopt') return await adopt(member, cleanPet(body.pet));
+  const rid = ridOf(body);
+  if (type === 'adopt') return await adopt(member, cleanPet(body.pet), rid);
   return await sql.begin(async tx => {
     const [sv] = await tx<SaveRow[]>`select data, rev::int as rev, updated_at from app.saves where member_id = ${member} for update`;
     if (!sv) throw new HttpError(409, 'nosave');
@@ -274,7 +424,10 @@ async function act(req: Request, member: string) {
     ensureState(st);
     const t = Date.now();
     const srv = srvOf(st, t);
+    /* 同じ番号を もう うけとっていたら（返事だけ とどかなかった）、数えなおさずに 前の答えと いまの セーブを返す */
+    if (rid && srv.rq && srv.rq.id === rid) return { ...srv.rq.r, dup:true, save:saveOut(sv), now:t };
     if (CARE.has(type) && t - srv.cd < CARE_GAP_MS) return { ok:false, why:'busy', ev:[], save:saveOut(sv), now:t };
+    if (overRate(srv, t)) return { ok:false, why:'busy', ev:[], save:saveOut(sv), now:t };
     const away = Math.max(0, t - Number(st.last || t));
     const p: Record<string, unknown> = {};
     for (const k of ['id', 'n', 'slot', 'cat', 'on']) if (k in body) p[k] = body[k];
@@ -282,6 +435,7 @@ async function act(req: Request, member: string) {
     if (r.why === 'unknown') throw new HttpError(400, 'badtype');
     if (!r.ok && type !== 'open') return { ...r, save:saveOut(sv), now:t };
     if (r.ok && CARE.has(type)) srv.cd = t;
+    if (rid) srv.rq = { id:rid, r:answerOf(r) };
     return { ...r, save:await writeSave(tx, member, st), now:t };
   });
 }
@@ -295,29 +449,41 @@ async function keepBackup(tx: postgres.TransactionSql, member: string, why: 'ado
         select member_id, data, rev, ${why} from app.saves where member_id = ${member}
         on conflict (member_id) do update set data = excluded.data, rev = excluded.rev, reason = excluded.reason, created_at = now()`;
     });
-  } catch { console.error('backup: table unavailable'); }
+  } catch { await oops('backup', 'table unavailable', tx); }
 }
 async function sweepBackups() {
   try { await sql`delete from app.save_backups where created_at < now() - make_interval(days => ${BACKUP_DAYS})`; }
-  catch { console.error('backup: sweep failed'); }
+  catch { await oops('sweep', 'backups'); }
 }
 
-/* 新しい子をむかえる：名前・みためから、まっさらのセーブを作る（数字や記録は画面から受けとらない）。前の子の セーブは ひかえに */
-async function adopt(member: string, pet: Pet) {
+/* 新しい子をむかえる：名前・みためから、まっさらのセーブを作る（数字や記録は画面から受けとらない）。前の子の セーブは ひかえに。
+   同じ番号を もう うけとっていたら、作りなおさない（ひかえも 上書きしない） */
+async function adopt(member: string, pet: Pet, rid: string | null) {
   const t = Date.now();
   const st = newState({ ...pet, photo:null, wear:{ head:null, face:null, neck:null } }, t) as Record<string, unknown>;
   ensureState(st);
   const out = await sql.begin(async tx => {
-    await tx`select 1 from app.saves where member_id = ${member} for update`;
+    const [cur] = await tx<SaveRow[]>`select data, rev::int as rev, updated_at from app.saves where member_id = ${member} for update`;
+    if (cur && ridDone(cur.data, rid)) return { dup:cur };
+    /* 回数の制限は 前の子から 引きつぐ（新しい子を くりかえし 作っても まどは もどらない） */
+    const srv = srvOf(st, t);
+    if (cur){
+      const old = srvOf(cur.data as Record<string, unknown>, t);
+      srv.rt = old.rt;
+      if (overRate(srv, t)) throw new HttpError(429, 'slow');
+    }
+    if (rid) srv.rq = { id:rid, r:{ ok:true, ev:[] } };
     await keepBackup(tx, member, 'adopt');
-    return await tx<SaveRow[]>`insert into app.saves (member_id, data) values (${member}, ${sql.json(st as Json)})
+    const [w] = await tx<SaveRow[]>`insert into app.saves (member_id, data) values (${member}, ${sql.json(st as Json)})
       on conflict (member_id) do update set data = excluded.data, rev = app.saves.rev + 1, updated_at = now()
       returning data, rev::int as rev, updated_at`;
+    return { row:w };
   });
-  return { ok:true, ev:[], save:saveOut(out[0]), now:t };
+  if ('dup' in out) return { ok:true, ev:[], dup:true, save:saveOut(out.dup), now:t };
+  return { ok:true, ev:[], save:saveOut(out.row), now:t };
 }
 
-/* 名前・みためを変える */
+/* 名前・みためを変える（書きこみの回数は おせわと いっしょに数える。こえたら 429） */
 async function putSave(req: Request, member: string) {
   const body = await readBody(req, BODY_MAX.save);
   const pet = cleanPet(body.pet);
@@ -326,22 +492,42 @@ async function putSave(req: Request, member: string) {
     if (!sv) throw new HttpError(409, 'nosave');
     const st = sv.data as Record<string, unknown>;
     ensureState(st);
+    if (overRate(srvOf(st, Date.now()), Date.now())) throw new HttpError(429, 'slow');
     Object.assign(st.pet as Record<string, unknown>, pet);
     return { save:await writeSave(tx, member, st), now:Date.now() };
   });
 }
 
+/* 取りこみで 運ぶ しるしの数を おさえる（1つ1つは carryExtras が 知っている形だけに している。診断 1-5） */
+function capKeys(o: unknown, max: number, newestFirst = false) {
+  if (!o || typeof o !== 'object') return;
+  const rec = o as Record<string, unknown>;
+  let keys = Object.keys(rec);
+  if (keys.length <= max) return;
+  if (newestFirst) keys = keys.sort((a, b) => Number(rec[b]) - Number(rec[a]));
+  for (const k of keys.slice(max)) delete rec[k];
+}
+
 async function importCode(req: Request, member: string) {
   const body = await readBody(req, BODY_MAX.import);
   if (typeof body.code !== 'string') throw new HttpError(400, 'badcode', { reason:'empty' });
+  const rid = ridOf(body);
   const r = readMoveCode(body.code);
   if (!r.st) throw new HttpError(400, 'badcode', { reason:r.reason });
   const data = cleanSave(r.st) as Record<string, unknown>;
+  capKeys(data.milestones, MILESTONES_MAX);
+  capKeys(data.events && typeof data.events === 'object' ? (data.events as Record<string, unknown>).seen : null, SEEN_MAX, true);
   delete data.srv;
+  if (rid) data.srv = { rq:{ id:rid, r:{ ok:true } } };
   const out = await sql.begin(async tx => {
     const [mem] = await tx`select imported_at from app.members where id = ${member} for update`;
     if (!mem) throw new HttpError(401, 'nosession');
-    if (mem.imported_at) throw new HttpError(409, 'already');
+    if (mem.imported_at){
+      /* 同じ番号の 取りこみが もう 入っていたら（返事だけ とどかなかった）、「1回だけ」ではなく 入った子を返す */
+      const [cur] = await tx<SaveRow[]>`select data, rev::int as rev, updated_at from app.saves where member_id = ${member}`;
+      if (cur && ridDone(cur.data, rid)) return cur;
+      throw new HttpError(409, 'already');
+    }
     await keepBackup(tx, member, 'import');   /* いまの子（あれば）は ひかえに */
     const [sv] = await tx<SaveRow[]>`insert into app.saves (member_id, data) values (${member}, ${sql.json(data as Json)})
       on conflict (member_id) do update set data = excluded.data, rev = app.saves.rev + 1, updated_at = now()
@@ -352,16 +538,38 @@ async function importCode(req: Request, member: string) {
   return { save:saveOut(out), importable:false };
 }
 
+/* ----- その日の回数（AIの読みとり・うちのこカード。診断 1-6）-----
+   会員ではなく、その日だけの しるし（「種類:日付:LINE の sub」の SHA-256）で数える。会員の行と つながらないので、
+   やめて また はじめても その日の上限は もどらない。日ごとに かわり、もとの sub には もどせない。QUOTA_DAYS 日で消す */
+type Quota = 'ai' | 'card';
+async function quotaKey(q: postgres.Sql | postgres.TransactionSql, member: string, kind: Quota, day: string): Promise<string> {
+  const [a] = await q`select sub from app.line_accounts where member_id = ${member}`;
+  return await sha256hex(kind + ':' + day + ':' + (a ? String(a.sub) : 'member:' + member));
+}
+async function quotaUsed(q: postgres.Sql | postgres.TransactionSql, kind: Quota, day: string, key: string): Promise<number> {
+  const [r] = await q`select n from app.day_quota where day = ${day}::date and kind = ${kind} and who = decode(${key}, 'hex')`;
+  return r ? Number(r.n) : 0;
+}
+async function quotaAdd(q: postgres.Sql | postgres.TransactionSql, kind: Quota, day: string, key: string, by: 1 | -1) {
+  if (by > 0){
+    await q`insert into app.day_quota (day, kind, who, n) values (${day}::date, ${kind}, decode(${key}, 'hex'), 1)
+      on conflict (day, kind, who) do update set n = app.day_quota.n + 1`;
+  } else {
+    await q`update app.day_quota set n = greatest(n - 1, 0) where day = ${day}::date and kind = ${kind} and who = decode(${key}, 'hex')`;
+  }
+}
+
 /* ----- AIの読みとり ----- */
 type AiStatus = { on: boolean; left: number; perDay: number };
 async function aiStatus(member: string): Promise<AiStatus> {
   if (!AI_KEY) return { on:false, left:0, perDay:AI_PER_DAY };
   try {
-    const [r] = await sql`select n from app.ai_usage where day = ${dayKey()}::date and member_id = ${member}`;
-    return { on:true, left:Math.max(0, AI_PER_DAY - (r ? Number(r.n) : 0)), perDay:AI_PER_DAY };
+    const day = dayKey();
+    const used = await quotaUsed(sql, 'ai', day, await quotaKey(sql, member, 'ai', day));
+    return { on:true, left:Math.max(0, AI_PER_DAY - used), perDay:AI_PER_DAY };
   } catch {
     /* 回数の表が読めないときは、読みとりを休む（ログインやおせわは止めない） */
-    console.error('ai: usage table unavailable');
+    await oops('ai_table', 'usage table unavailable');
     return { on:false, left:0, perDay:AI_PER_DAY };
   }
 }
@@ -379,22 +587,19 @@ function jpegData(raw: unknown): string {
 }
 
 /* 1回分をとっておく（とれたら null、上限なら 'limit'（1人）・'busy'（全員））。1日ごとの数は、日付のロックで順番に数える */
-async function aiReserve(member: string, day: string): Promise<'limit' | 'busy' | null> {
+async function aiReserve(key: string, day: string): Promise<'limit' | 'busy' | null> {
   return await sql.begin(async tx => {
     await tx`select pg_advisory_xact_lock(hashtextextended(${'ai:' + day}, 0))`;
-    const [mine] = await tx`select n from app.ai_usage where day = ${day}::date and member_id = ${member}`;
-    if (mine && Number(mine.n) >= AI_PER_DAY) return 'limit';
-    const [all] = await tx`select coalesce(sum(n), 0)::int as n from app.ai_usage where day = ${day}::date`;
+    if (await quotaUsed(tx, 'ai', day, key) >= AI_PER_DAY) return 'limit';
+    const [all] = await tx`select coalesce(sum(n), 0)::int as n from app.day_quota where day = ${day}::date and kind = 'ai'`;
     if (Number(all.n) >= AI_ALL_PER_DAY) return 'busy';
-    await tx`insert into app.ai_usage (day, member_id, n) values (${day}::date, ${member}, 1)
-      on conflict (day, member_id) do update set n = app.ai_usage.n + 1`;
-    await tx`delete from app.ai_usage where day < ${day}::date - 7`;
+    await quotaAdd(tx, 'ai', day, key, 1);
     return null;
   });
 }
 /* AIに届かなかった（料金がかからなかった）ときは、1回分を返す */
-async function aiRefund(member: string, day: string) {
-  await sql`update app.ai_usage set n = greatest(n - 1, 0) where day = ${day}::date and member_id = ${member}`;
+async function aiRefund(key: string, day: string) {
+  try { await quotaAdd(sql, 'ai', day, key, -1); } catch { await oops('ai_table', 'refund failed'); }
 }
 
 /* 返事の文から JSON を1つ取り出す（前後の文やコードのかこみは無視） */
@@ -409,9 +614,9 @@ async function aiRead(req: Request, member: string) {
   const data = jpegData(body.image);
   if (!AI_KEY) return { ok:false, why:'off', ai:await aiStatus(member) };
   const day = dayKey();
-  let held: 'limit' | 'busy' | null;
-  try { held = await aiReserve(member, day); }
-  catch { console.error('ai: usage table unavailable'); return { ok:false, why:'off', ai:{ on:false, left:0, perDay:AI_PER_DAY } }; }
+  let held: 'limit' | 'busy' | null, key = '';
+  try { key = await quotaKey(sql, member, 'ai', day); held = await aiReserve(key, day); }
+  catch { await oops('ai_table', 'usage table unavailable'); return { ok:false, why:'off', ai:{ on:false, left:0, perDay:AI_PER_DAY } }; }
   if (held) return { ok:false, why:held, ai:await aiStatus(member) };
   let res: Response;
   try {
@@ -431,16 +636,16 @@ async function aiRead(req: Request, member: string) {
       signal:AbortSignal.timeout(AI_TIMEOUT_MS),
     });
   } catch {
-    await aiRefund(member, day);
-    console.error('ai: no reply');
+    await aiRefund(key, day);
+    await oops('ai_reply', 'no reply');
     return { ok:false, why:'unavailable', ai:await aiStatus(member) };
   }
   let v: Record<string, unknown> = {};
   try { v = await res.json(); } catch { /* 下で弾く */ }
   if (!res.ok){
-    await aiRefund(member, day);
+    await aiRefund(key, day);
     const kind = v && typeof v.error === 'object' && v.error ? String((v.error as Record<string, unknown>).type || '').slice(0, 40) : '';
-    console.error('ai: http ' + res.status + (kind ? ' ' + kind : ''));
+    await oops('ai_http', res.status + (kind ? ' ' + kind : ''));
     return { ok:false, why:'unavailable', ai:await aiStatus(member) };
   }
   const ai = await aiStatus(member);
@@ -478,10 +683,11 @@ type CardStatus = { on: boolean; left: number; perDay: number };
 async function cardStatus(member: string): Promise<CardStatus> {
   if (!storageAuth()) return { on:false, left:0, perDay:CARD_PER_DAY };
   try {
-    const [r] = await sql`select count(*)::int as n from app.cards where member_id = ${member} and day = ${dayKey()}::date`;
-    return { on:true, left:Math.max(0, CARD_PER_DAY - Number(r.n)), perDay:CARD_PER_DAY };
+    const day = dayKey();
+    const used = await quotaUsed(sql, 'card', day, await quotaKey(sql, member, 'card', day));
+    return { on:true, left:Math.max(0, CARD_PER_DAY - used), perDay:CARD_PER_DAY };
   } catch {
-    console.error('card: table unavailable');
+    await oops('card_table', 'table unavailable');
     return { on:false, left:0, perDay:CARD_PER_DAY };
   }
 }
@@ -535,10 +741,10 @@ async function dropCardObjects(names: string[]): Promise<boolean> {
       signal:AbortSignal.timeout(15_000),
     });
     await res.body?.cancel();
-    if (!res.ok){ console.error('card: storage delete ' + res.status); return false; }
+    if (!res.ok){ await oops('card_storage', 'delete ' + res.status); return false; }
     return true;
   } catch {
-    console.error('card: storage unavailable');
+    await oops('card_storage', 'unavailable');
     return false;
   }
 }
@@ -552,9 +758,57 @@ async function sweepCards(names?: string[]): Promise<'none' | 'done' | 'later'> 
     await sql`delete from app.cards where name in ${sql(list)}`;
     return 'done';
   } catch {
-    console.error('card: sweep failed');
+    await oops('sweep', 'cards');
     return 'later';
   }
+}
+/* ときどきの 掃除を してよいか（さいごから everyMs たっていたら、いまを 書いて true。1日1回などに するため） */
+async function chore(name: string, everyMs: number): Promise<boolean> {
+  try {
+    const [r] = await sql`insert into app.chores (name, done_at) values (${name}, now())
+      on conflict (name) do update set done_at = now() where app.chores.done_at < now() - make_interval(secs => ${Math.round(everyMs / 1000)})
+      returning name`;
+    return !!r;
+  } catch { return false; }
+}
+/* 1日1回の 掃除：きのうより前の その日の回数、ERROR_KEEP_DAYS 日より前の エラーの数、まいごの カードの画像 */
+async function sweepDaily() {
+  const day = dayKey();
+  try { await sql`delete from app.day_quota where day <= ${day}::date - ${QUOTA_DAYS}::int`; } catch { await oops('sweep', 'quota'); }
+  try { await sql`delete from app.error_counts where day <= ${day}::date - ${ERROR_KEEP_DAYS}::int`; } catch { /* 数えられなくても よい */ }
+  await sweepOrphans();
+}
+/* まいごの カードの画像（診断 1-8）：Storage の cards に あるのに 表に 行が ない画像（カードを置くのと やめるのが 同時だった、
+   時間切れのあとに 置かれた など）。置いている さいちゅうの ものを 消さないように、1時間より前の ものだけ。1回 200まいまで。消した数を返す */
+async function sweepOrphans(): Promise<number> {
+  const auth = storageAuth();
+  if (!auth) return 0;
+  const found: string[] = [];
+  try {
+    for (let offset = 0; offset <= CARD_ALL_MAX * 2; offset += 1000){
+      const res = await fetch(storageBase() + '/object/list/' + CARD_BUCKET, {
+        method:'POST',
+        headers:{ ...auth, 'content-type':'application/json' },
+        body:JSON.stringify({ prefix:'', limit:1000, offset, sortBy:{ column:'name', order:'asc' } }),
+        signal:AbortSignal.timeout(15_000),
+      });
+      if (!res.ok){ await res.body?.cancel(); await oops('card_orphans', 'list ' + res.status); return 0; }
+      const list = await res.json() as unknown;
+      if (!Array.isArray(list)) break;
+      for (const o of list as Record<string, unknown>[]){
+        const t = Date.parse(String(o?.created_at ?? ''));
+        if (o && typeof o.name === 'string' && /^[A-Za-z0-9_-]{32}\.png$/.test(o.name) && t && Date.now() - t > 3600e3) found.push(o.name);
+      }
+      if (list.length < 1000) break;
+    }
+  } catch { await oops('card_orphans', 'list unavailable'); return 0; }
+  if (!found.length) return 0;
+  try {
+    const known = new Set((await sql`select name from app.cards where name in ${sql(found)}`).map(r => String(r.name)));
+    const lost = found.filter(n => !known.has(n)).slice(0, 200);
+    if (!lost.length) return 0;
+    return await dropCardObjects(lost) ? lost.length : 0;
+  } catch { await oops('card_orphans', 'table'); return 0; }
 }
 /* 返事のあとも つづける（Supabase の EdgeRuntime.waitUntil）。ためしの環境（ない）では まつ */
 function later(p: Promise<unknown>): Promise<unknown> {
@@ -571,8 +825,9 @@ async function makeCard(req: Request, member: string) {
   const sha = hexOf(await crypto.subtle.digest('SHA-256', png.bytes));
   const day = dayKey();
   const name = b64url(crypto.getRandomValues(new Uint8Array(24))) + '.png';
-  let got: { reuse?: string; limit?: boolean; busy?: boolean };
+  let got: { reuse?: string; limit?: boolean; busy?: boolean; cap?: boolean }, key = '';
   try {
+    key = await quotaKey(sql, member, 'card', day);
     got = await sql.begin(async tx => {
       /* 全員の1日の枚数も 数えるので、日付で ロックして 1まいずつ順に */
       await tx`select pg_advisory_xact_lock(hashtextextended(${'card:' + day}, 0))`;
@@ -581,20 +836,22 @@ async function makeCard(req: Request, member: string) {
       /* 同じ絵は つくりなおさない（枚数にも数えない）。使った日時を新しくして、そこから1年 */
       const [old] = await tx`update app.cards set used_at = now() where member_id = ${member} and sha = decode(${sha}, 'hex') returning name`;
       if (old) return { reuse:String(old.name) };
-      const [c] = await tx`select count(*) filter (where member_id = ${member})::int as mine, count(*)::int as everyone
-        from app.cards where day = ${day}::date`;
-      if (Number(c.mine) >= CARD_PER_DAY) return { limit:true };
+      /* 1人1日は その日だけの しるしで数える（やめて また はじめても もどらない。診断 1-6）。全員の1日・ぜんぶは 表の行で */
+      if (await quotaUsed(tx, 'card', day, key) >= CARD_PER_DAY) return { limit:true };
+      const [c] = await tx`select count(*)::int as everyone from app.cards where day = ${day}::date`;
       if (Number(c.everyone) >= CARD_ALL_PER_DAY) return { busy:true };
       const [all] = await tx`select count(*)::int as n from app.cards`;
-      if (Number(all.n) >= CARD_ALL_MAX){ console.error('card: storage cap reached'); return { busy:true }; }
+      if (Number(all.n) >= CARD_ALL_MAX) return { busy:true, cap:true };
       await tx`insert into app.cards (name, member_id, sha, day) values (${name}, ${member}, decode(${sha}, 'hex'), ${day}::date)`;
+      await quotaAdd(tx, 'card', day, key, 1);
       return {};
     });
   } catch (e) {
     if (e instanceof HttpError) throw e;
-    console.error('card: table unavailable');
+    await oops('card_table', 'table unavailable');
     return { ok:false, why:'off', card:{ on:false, left:0, perDay:CARD_PER_DAY } };
   }
+  if (got.cap) await oops('card_cap', 'storage cap reached');
   if (got.limit) return { ok:false, why:'limit', card:await cardStatus(member) };
   if (got.busy) return { ok:false, why:'busy', card:await cardStatus(member) };
   if (got.reuse) return { ok:true, url:cardUrl(got.reuse), w:png.w, h:png.h, card:await cardStatus(member) };
@@ -608,11 +865,12 @@ async function makeCard(req: Request, member: string) {
     });
     await res.body?.cancel();
     put = res.ok;
-    if (!put) console.error('card: storage ' + res.status);
-  } catch { console.error('card: storage unavailable'); }
+    if (!put) await oops('card_storage', 'put ' + res.status);
+  } catch { await oops('card_storage', 'unavailable'); }
   if (!put){
     /* 置けなかったら、枚数を返す */
     await sql`delete from app.cards where name = ${name}`;
+    await quotaAdd(sql, 'card', day, key, -1);
     return { ok:false, why:'unavailable', card:await cardStatus(member) };
   }
   /* 1人が とっておけるのは 新しい CARD_KEEP_PER_MEMBER 枚まで。こえた古いものは 画像ごと消す（返事のあとに うしろで） */
@@ -620,7 +878,7 @@ async function makeCard(req: Request, member: string) {
     const extra = (await sql`select name from app.cards where member_id = ${member}
       order by used_at desc, created_at desc offset ${CARD_KEEP_PER_MEMBER}`).map(r => String(r.name));
     if (extra.length) await later(sweepCards(extra));
-  } catch { console.error('card: trim failed'); }
+  } catch { await oops('card_table', 'trim failed'); }
   return { ok:true, url:cardUrl(name), w:png.w, h:png.h, card:await cardStatus(member) };
 }
 
@@ -639,10 +897,10 @@ async function deauthorize(userAccessToken: string | null): Promise<string> {
     let vv: Record<string, unknown> = {};
     try { vv = await v.json(); } catch { /* 下で弾く */ }
     const ch = String(vv.client_id ?? '');
-    if (!v.ok || !(Number(vv.expires_in) > 0)){ console.error('leave: verify ' + v.status); return v.ok ? 'already' : 'failed'; }
+    if (!v.ok || !(Number(vv.expires_in) > 0)){ if (!v.ok) await oops('leave_line', 'verify ' + v.status); return v.ok ? 'already' : 'failed'; }
     if (!CHANNELS.includes(ch)){ console.error('leave: token of another channel'); return 'failed'; }
     const secret = channelSecret(ch);
-    if (!secret){ console.error('leave: no channel secret ' + ch); return 'nosecret'; }
+    if (!secret){ await oops('leave_secret', 'no channel secret ' + ch); return 'nosecret'; }
     const t = await fetch(LINE_TOKEN, {
       method:'POST',
       headers:{ 'Content-Type':'application/x-www-form-urlencoded' },
@@ -651,7 +909,7 @@ async function deauthorize(userAccessToken: string | null): Promise<string> {
     });
     let tv: Record<string, unknown> = {};
     try { tv = await t.json(); } catch { /* 下で弾く */ }
-    if (!t.ok || typeof tv.access_token !== 'string'){ console.error('leave: channel token ' + t.status); return 'failed'; }
+    if (!t.ok || typeof tv.access_token !== 'string'){ await oops('leave_line', 'channel token ' + t.status); return 'failed'; }
     const r = await fetch(LINE_DEAUTH, {
       method:'POST',
       headers:{ 'Authorization':'Bearer ' + tv.access_token, 'Content-Type':'application/json' },
@@ -660,10 +918,10 @@ async function deauthorize(userAccessToken: string | null): Promise<string> {
     });
     if (r.status === 204 || r.ok) return 'done';
     if (r.status === 400) return 'already';
-    console.error('leave: deauthorize ' + r.status);
+    await oops('leave_line', 'deauthorize ' + r.status);
     return 'failed';
   } catch {
-    console.error('leave: line unavailable');
+    await oops('leave_line', 'line unavailable');
     return 'failed';
   }
 }
@@ -674,19 +932,21 @@ async function leave(req: Request, member: string) {
   const at = typeof body.accessToken === 'string' && /^[\w.~+/=-]{10,4096}$/.test(body.accessToken) ? body.accessToken : null;
   let cards: string[] = [];
   try { cards = (await sql`select name from app.cards where member_id = ${member}`).map(r => String(r.name)); }
-  catch { console.error('card: table unavailable'); }   /* カードの表が読めなくても、やめる人のデータは消す */
+  catch { await oops('card_table', 'table unavailable'); }   /* カードの表が読めなくても、やめる人のデータは消す */
   /* 会員の行を消すと、LINEのひもづけ・セッション・セーブ・AIの回数も いっしょに消える（on delete cascade）。
      カードの行は member_id が null になり、ここで Storage の画像ごと消す（届かなければ、あとの掃除で消す） */
   const [gone] = await sql`delete from app.members where id = ${member} returning id`;
   if (!gone) throw new HttpError(401, 'nosession');
-  const [deauth, card] = await Promise.all([deauthorize(at), sweepCards(cards)]);
+  const deauth = await deauthorize(at);   /* 1つずつ順に（エラーの数も DB に書くため） */
+  const card = await sweepCards(cards);
   return { ok:true, deauth, cards:card };
 }
 
 async function route(req: Request): Promise<unknown> {
   const path = new URL(req.url).pathname.replace(/^.*?\/api(?=\/|$)/, '') || '/';
   const m = req.method;
-  if (path === '/health' && m === 'GET') return { ok:true, now:Date.now(), day:dayKey(), cards:!!storageAuth() };
+  /* errors：この ERROR_SUM_DAYS 日の サーバーの エラーの数（数えられないときは null。診断 5-2） */
+  if (path === '/health' && m === 'GET') return { ok:true, now:Date.now(), day:dayKey(), cards:!!storageAuth(), errors:await errorTotal() };
   if (path === '/login' && m === 'POST') return await login(req);
   if (path === '/save' && m === 'GET') return await getSave(await sessionMember(req));
   if (path === '/save' && m === 'POST') return await putSave(req, await sessionMember(req));
@@ -707,7 +967,7 @@ Deno.serve(async (req: Request) => {
     return json(await route(req), 200, origin);
   } catch (e) {
     if (e instanceof HttpError) return json({ error:e.code, ...e.extra }, e.status, origin);
-    console.error('api error:', e instanceof Error ? e.name + ': ' + e.message.slice(0, 200) : 'unknown');
+    await oops('server', e instanceof Error ? e.name + ': ' + e.message.slice(0, 200) : 'unknown');
     return json({ error:'server' }, 500, origin);
   }
 });

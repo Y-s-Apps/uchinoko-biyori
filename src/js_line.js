@@ -46,6 +46,18 @@ const LINE_OWNER_KEY = 'uchinoko-biyori:line-owner';  /* この端末のセー�
 const LINE_GUEST_KEY = 'uchinoko-biyori:line-guest';  /* LINEの子と入れかわった、この端末にいた子（消さずにとっておく） */
 const LINE_LEFT_KEY = 'uchinoko-biyori:line-left';    /* やめた（LINEの データを けした）会員ID。line-owner が これと同じなら、この端末の子は ゲスト */
 const LINE_REOPEN_KEY = 'uchinoko-biyori:line-reopen';  /* さいごに LIFF URL から ひらきなおした時刻（くりかえさないため） */
+/* この端末で うまれて サーバーへ おくっている とちゅうの子（{ m:会員ID, c:created, k:'adopt'|'import' }。とどいたら 空に）。
+   とどかないまま とじたら、つぎに ひらいたとき「とどいていませんでした」と きく（診断 3-8） */
+const LINE_UNSENT_KEY = 'uchinoko-biyori:line-unsent';
+/* この端末に とっておく子（line-guest）は 5ひきまで（前は 1ぴきで 上書きしていた。診断 3-2） */
+const LINE_KEEP_MAX = 5;
+/* おせわ・取りこみの番号（とどかなくて おくりなおしたとき、サーバーが 2回 数えないため。診断 3-3） */
+function lineRid(){
+  try {
+    const b = crypto.getRandomValues(new Uint8Array(16));
+    return btoa(String.fromCharCode.apply(null, b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  } catch(e){ return (Date.now().toString(36) + Math.random().toString(36).slice(2) + 'rid0000').slice(0, 20); }
+}
 /* サーバーが IDトークンを ことわった合図（切れている・たしかめられない・とれない） */
 const LINE_TOKEN_ERR = new Set(['expired', 'badtoken', 'notoken']);
 /* 合図の なかま：プロフィールの1行は 英語の合図を出さずに、やさしい ことばにする（合図は data-why に のこす） */
@@ -235,6 +247,8 @@ const LineApp = {
         ? 'えらんだ写真は、AIで 読みとるか きいてから つかいます。AIを使わないときは、この端末の中で 毛の色を ひろうだけで、どこにも 送りません。お部屋には 小さな サムネイルを 飾ります。'
         : obNote.dataset.orig;
     }
+    /* 引っこしのシート：この端末に とっておいた子（3-2） */
+    if (sh && sh.querySelector('#mvIn')) LineKeep.paint(sh);
     /* 引っこしのシート（#mvInBox）と、はじめての画面の「引っこしコードで受け取る」（#imGo） */
     for (const anchor of [sh && sh.querySelector('#mvIn'), document.querySelector('#ob #imCode')]){
       if (!anchor) continue;
@@ -320,10 +334,12 @@ function lineServerClock(serverNow){
   };
 }
 
-/* セーブの中身を、引っこしコードと同じ形にする（写真の控えは入れない。サーバーは写真を受け取らない） */
-function lineEncodeCode(st){
+/* セーブの中身を、引っこしコードと同じ形にする（サーバーへ おくるときは 写真の控えを入れない。サーバーは写真を受け取らない。
+   photo：とっておいた子の コードを コピーするとき＝ふつうの 引っこしコードと同じく 写真の控えも） */
+function lineEncodeCode(st, photo = false){
   const o = JSON.parse(JSON.stringify(st));
-  if (o.pet) o.pet.photo = null;
+  if (o.pet && !photo) o.pet.photo = null;
+  delete o.srv;
   const bytes = new TextEncoder().encode(JSON.stringify(o));
   let bin = '';
   for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
@@ -378,18 +394,22 @@ const LineSync = {
     const p = this.pendingCode;
     if (p && p.st === S){
       /* 引っこしコードで受け取った子は、取りこみ口（1回だけ）から入れる */
+      this.markUnsent(S, 'import');
       const r = await this.send('POST', '/import', { code:p.text });
       this.pendingCode = null;
       LineServer.importable = false;
       this.apply(r.save, { photo:S.pet.photo });
+      this.markUnsent(null);
       return 'import';
     }
     if (this.fresh && this.fresh === S){
       /* この端末でむかえた新しい子：サーバーが まっさらの子を作る（名前・みためだけ送る） */
       const photo = S.pet.photo;
+      this.markUnsent(S, 'adopt');
       const r = await this.send('POST', '/act', { type:'adopt', pet:linePet(S) });
       this.fresh = null;
       this.apply(r.save, { photo });
+      this.markUnsent(null);
       return 'adopt';
     }
     return null;
@@ -398,11 +418,14 @@ const LineSync = {
   pendingRefused(e){
     if (!e || (e.code !== 'already' && e.code !== 'badcode')) return false;
     this.pendingCode = null;
+    this.markUnsent(null);
     if (e.code === 'already') LineServer.importable = false;
     this.reload(e.code === 'already' ? '引っこしコードで 受け取れるのは 1回だけでした。LINEに ほぞんしている子に もどります' : 'コードを サーバーで 読めませんでした。LINEに ほぞんしている子に もどります');
     return true;
   },
   async send(method, path, body){
+    /* おせわと 取りこみには 番号をつける（おくりなおしても 同じ番号） */
+    if (method === 'POST' && (path === '/act' || path === '/import') && body && typeof body === 'object' && !body.rid) body = Object.assign({ rid:lineRid() }, body);
     try { return await LineServer.call(method, path, body); }
     catch(e){
       if (e.code !== 'unavailable') throw e;
@@ -498,11 +521,18 @@ const LineSync = {
         this.know(remote);
         Persist.flush();                                        /* この端末で むかえた子が まだ とどいていない：先に送る */
       }
-      else if (S && this.samePet(S, remote)) this.apply(save);   /* 同じ子：サーバーのほうにそろえる（写真の控えはのこす） */
+      else if (S && this.samePet(S, remote)){
+        this.apply(save);                                       /* 同じ子：サーバーのほうにそろえる（写真の控えはのこす） */
+        const u = this.unsent();
+        if (u && u.c === Number(remote.created)) this.markUnsent(null);   /* おくった子は とどいていた（返事だけ なかった） */
+        else if (u && mine) this.offerUnsent(null);             /* 前に「おくる」が とどかなかった子を また きく */
+      }
       else {
-        if (S && !mine) this.stash(S);                          /* この端末の子は、このLINEの子ではない：とっておく */
+        const lost = S && mine && this.unsentIs(S) ? S : null;  /* この端末で うまれて、とどかないまま とじた子（3-8） */
+        if (S && (!mine || lost)) this.stash(S);                /* この端末の子は、このLINEの子ではない：とっておく */
         this.adopt(save);
-        if (S && !mine) this.offerGuest();
+        if (lost) this.offerUnsent(lost);
+        else if (S && !mine) this.offerGuest();
       }
     } else {
       this.created = this.idSent = null;
@@ -563,24 +593,104 @@ const LineSync = {
       }
     });
   },
-  stash(st){ try { localStorage.setItem(LINE_GUEST_KEY, JSON.stringify(st)); } catch(e){} },
-  stashed(){
+  /* この端末に とっておいた子（line-guest）。前は セーブ1つ、いまは { v:2, kids:[{ at, b, st }] }（新しい じゅん。b：LINEへ つれていった）。
+     どちらの形も読める。消さずに ふやす（5ひきまで。こえたら LINE へ つれていった子 → 古い子 から）。セーブは ensureState を通して かえす */
+  keepList(){
+    let raw = null;
+    try { raw = JSON.parse(localStorage.getItem(LINE_GUEST_KEY) || 'null'); } catch(e){ return []; }
+    const kids = raw && Array.isArray(raw.kids) ? raw.kids : raw && raw.pet ? [{ at:0, b:0, st:raw }] : [];
+    const out = [];
+    for (const k of kids){
+      const st = k && k.st && typeof k.st === 'object' && k.st.pet && typeof k.st.pet === 'object' ? k.st : null;
+      if (!st) continue;
+      try { out.push({ at:Number(k.at) || 0, b:k.b ? 1 : 0, st:ensureState(JSON.parse(JSON.stringify(st))) }); } catch(e){}
+    }
+    return out;
+  },
+  keepSave(list){
+    for (const n of [LINE_KEEP_MAX, 3, 1]){
+      try { localStorage.setItem(LINE_GUEST_KEY, JSON.stringify({ v:2, kids:list.slice(0, n) })); return true; } catch(e){}
+    }
+    return false;
+  },
+  stash(st){
+    if (!st || !st.pet) return;
+    const list = this.keepList().filter(k => !this.samePet(k.st, st));
+    list.unshift({ at:Date.now(), b:0, st:JSON.parse(JSON.stringify(st)) });
+    while (list.length > LINE_KEEP_MAX){
+      const i = list.map(k => k.b).lastIndexOf(1);
+      list.splice(i > 0 ? i : list.length - 1, 1);
+    }
+    this.keepSave(list);
+  },
+  /* LINEへ つれていった子は、とっておいた子の 一覧に 出さない（セーブは のこす） */
+  keepBrought(st){
+    const list = this.keepList();
+    let hit = false;
+    for (const k of list) if (this.samePet(k.st, st)){ k.b = 1; hit = true; }
+    if (hit) this.keepSave(list);
+  },
+  /* とっておいた子のうち、いちばん新しい子（LINEへ つれていった子は のぞく） */
+  stashed(){ const k = this.keepList().find(x => !x.b); return k ? k.st : null; },
+  /* とどいていない子の しるし */
+  unsent(){
     try {
-      const g = Persist.readSave(localStorage.getItem(LINE_GUEST_KEY));
-      return g ? ensureState(g) : null;
+      const u = JSON.parse(localStorage.getItem(LINE_UNSENT_KEY) || 'null');
+      return u && typeof u === 'object' && u.m === LineServer.member && Number(u.c) > 0 && (u.k === 'adopt' || u.k === 'import') ? { m:u.m, c:Number(u.c), k:u.k } : null;
     } catch(e){ return null; }
+  },
+  unsentIs(st){ const u = this.unsent(); return !!(u && st && Number(st.created) === u.c); },
+  markUnsent(st, kind){
+    try { localStorage.setItem(LINE_UNSENT_KEY, st && LineServer.member ? JSON.stringify({ m:LineServer.member, c:Number(st.created) || 0, k:kind }) : ''); } catch(e){}
   },
   guestHtml(g, body){
     const wear = wearFrom(g.pet);
     for (const k of ['head','face','neck']) if (!hasId(WEAR_BY_ID, wear[k])) wear[k] = hasId(WEAR_RENAMED, wear[k]) ? WEAR_RENAMED[wear[k]] : null;
     return `<div class="mpet ex-happy">${renderPet(g.pet.look, { wear })}</div>${body}`;
   },
-  /* この端末の子を、取りこみ口（1回だけ）からつれてくる */
-  async bring(g){
+  /* この端末の子を、取りこみ口（1回だけ）からつれてくる。いれかわる LINEの子は この端末に とっておく（診断 3-2） */
+  async bring(g, msg){
     const r = await this.queue(() => this.send('POST', '/import', { code:lineEncodeCode(g) }));
     LineServer.importable = false;
+    if (S && !this.samePet(S, g)) this.stash(S);
     this.adopt(r.save, g);
-    toast(`${g.pet.name}を つれてきたよ`);
+    this.keepBrought(g);
+    toast(msg || `${g.pet.name}を つれてきたよ`);
+  },
+  /* この端末で うまれて サーバーに とどかないまま とじた子（3-8）：LINEの子（S）に もどったところで、どうするか きく。
+     g が null のときは、前に「おくる」が とどかなかった子を とっておいた子から さがす */
+  async offerUnsent(g){
+    const u = this.unsent();
+    if (!g) g = (this.keepList().find(k => u && Number(k.st.created) === u.c) || {}).st || null;
+    if (!u || !g || !S || this.samePet(g, S)){ this.markUnsent(null); return; }
+    const canSend = u.k === 'adopt' || LineServer.importable;
+    const gn = esc(g.pet.name), sn = esc(S.pet.name), lv = levelInfo(S.stats.love).lv;
+    /* 名前が ながいと ボタンの中で 名前の まんなかで 切れるので、ボタンを たてに ならべる */
+    const long = Math.max(Array.from(g.pet.name).length, Array.from(S.pet.name).length) > 6;
+    const v = await Modal.show({
+      label:'LINEに とどいていませんでした', cls:'unsent' + (long ? ' stack' : ''),
+      html:() => this.guestHtml(g, `<h3>${gn}は<br>LINEに とどいていませんでした</h3>
+        <p>まえに ひらいたとき、サーバーに とどかないまま とじたようです。LINEには いま ${sn}（なかよしLv ${lv}）が ほぞんされています。</p>
+        ${canSend ? `<div class="btnrow"><button class="btn" type="button" data-close="back">${sn}に もどる</button><button class="btn primary" type="button" data-close="send">${gn}を おくる</button></div>
+        <p class="note">「${sn}に もどる」に すると、${gn}は この端末に とっておきます（引っこし・バックアップ から）。${u.k === 'import' ? 'おくると、引っこし（1回だけ）を つかいます。' : ''}</p>`
+        : `<p class="note">${gn}は この端末に とっておきます（引っこし・バックアップ から）。</p><button class="btn primary" type="button" data-close>わかった</button>`}`),
+    });
+    if (v !== 'send' || !canSend){ this.markUnsent(null); return; }
+    try {
+      if (u.k === 'import') await this.bring(g, `${g.pet.name}を LINEに おくったよ`);
+      else {
+        const r = await this.queue(() => this.send('POST', '/act', { type:'adopt', pet:linePet(g) }));
+        if (S && !this.samePet(S, g)) this.stash(S);   /* いれかわる LINEの子は この端末に とっておく */
+        this.adopt(r.save);
+        if (g.pet.photo && S){ S.pet.photo = safePhoto(g.pet.photo); Persist.saveLocal(); Game.refresh(); }
+        this.keepBrought(g);
+        toast(`${g.pet.name}を LINEに おくったよ`);
+      }
+      this.markUnsent(null);
+    } catch(e){
+      if (this.refusal(e)){ this.markUnsent(null); if (e.code === 'already') LineServer.importable = false; }
+      toast(e && e.code === 'already' ? 'つれてこられるのは 1回だけでした' : this.refusal(e) ? `いまは ${g.pet.name}を おくれませんでした` : 'いまは おくれませんでした。つぎに ひらいたとき また きくね');
+    }
   },
   async offerGuest(){
     if (!LineServer.importable) return;
@@ -649,6 +759,83 @@ const LineSync = {
       this.attach(r.save);
     } catch(e){ this.fail(e); }
     if (msg) toast(msg);
+  },
+};
+
+/* ----- この端末に とっておいた子（引っこし・バックアップ の シート。診断 3-2） -----
+   LINEの子と いれかわったときに とっておいた子（line-guest）を 出す。コードを コピーでき、LINEの中で つながっていて
+   取りこみ（1回）が のこっていれば「LINEに つれてくる」も。いまの子と LINEへ つれていった子は 出さない */
+const LineKeep = {
+  kids(){ return LineSync.keepList().filter(k => !k.b && !(S && LineSync.samePet(k.st, S))); },
+  canBring(){ return LineSync.state === 'on' && !!LineServer.member && LineServer.importable && LineSync.created != null; },
+  paint(sh){
+    const anchor = sh.querySelector('#mvIn');
+    if (!anchor) return;
+    const kids = this.kids();
+    const card = sh.querySelector('.keepcard');
+    const key = JSON.stringify([kids.map(k => [k.st.created, k.st.updated]), this.canBring(), LineSync.state, LineServer.importable]);
+    if (card && card.dataset.k === key) return;
+    if (!kids.length){ if (card) card.remove(); return; }
+    const bring = this.canBring();
+    const el = card || document.createElement('div');
+    el.className = 'card movecard keepcard';
+    el.dataset.k = key;
+    el.innerHTML = `<h3>この端末に とっておいた子</h3>
+      <p class="note">LINEの子と いれかわったときに、この端末に とっておいた子です。</p>
+      ${kids.map((k, i) => `<div class="keepkid">
+        <div class="keeprow"><div class="keepart ex-happy" aria-hidden="true">${renderPet(k.st.pet.look, { wear:this.wear(k.st) })}</div>
+          <div class="keepinfo"><b>${esc(k.st.pet.name)}</b><span>なかよしLv ${levelInfo(k.st.stats.love).lv}</span></div></div>
+        <div class="btnrow"><button class="btn" type="button" data-kcopy="${i}">コードをコピー</button>${bring ? `<button class="btn primary" type="button" data-kbring="${i}">LINEに つれてくる</button>` : ''}</div>
+        <p class="note keepmsg" role="status" hidden></p>
+      </div>`).join('')}
+      <p class="note">${bring ? 'LINEに つれてこられるのは 1回だけです（引っこしコードと あわせて）。'
+        : LineSync.state === 'on' && LineServer.member && !LineServer.importable ? 'LINEへの 引っこし（1回）は もう つかいました。コードを コピーすると、ホーム画面の アプリなどで あそべます。'
+        : 'コードを コピーすると、ホーム画面の アプリなどで あそべます。'}</p>`;
+    el.querySelectorAll('[data-kcopy]').forEach(b => b.addEventListener('click', () => this.copy(el, kids[Number(b.dataset.kcopy)].st, b)));
+    el.querySelectorAll('[data-kbring]').forEach(b => b.addEventListener('click', () => this.bring(kids[Number(b.dataset.kbring)].st)));
+    if (!card){
+      const take = anchor.closest('.movecard');
+      if (take) take.insertAdjacentElement('beforebegin', el); else anchor.insertAdjacentElement('beforebegin', el);
+    }
+  },
+  wear(st){
+    const wear = wearFrom(st.pet);
+    for (const k of ['head','face','neck']) if (!hasId(WEAR_BY_ID, wear[k])) wear[k] = hasId(WEAR_RENAMED, wear[k]) ? WEAR_RENAMED[wear[k]] : null;
+    return wear;
+  },
+  async copy(el, st, btn){
+    const kid = btn.closest('.keepkid');
+    const msg = kid.querySelector('.keepmsg');
+    let ta = kid.querySelector('textarea');
+    const code = lineEncodeCode(st, true);
+    if (!ta){
+      ta = document.createElement('textarea');
+      ta.className = 'codebox'; ta.rows = 3; ta.readOnly = true; ta.hidden = true;
+      for (const [k, v] of [['autocapitalize', 'off'], ['autocorrect', 'off'], ['autocomplete', 'off'], ['spellcheck', 'false'], ['aria-label', '引っこしコード']]) ta.setAttribute(k, v);
+      msg.insertAdjacentElement('beforebegin', ta);
+    }
+    ta.value = code;
+    const r = await copyText(ta);
+    msg.hidden = false;
+    if (r === 'copied'){ ta.hidden = true; msg.textContent = `コピーしました（${code.length.toLocaleString('ja-JP')}文字）。つれていく 先で 貼りつけてね。`; }
+    else { ta.hidden = false; try { ta.focus(); ta.select(); } catch(e){} msg.textContent = 'コードを ぜんぶ 選びました。表示された メニューの「コピー」を 押してね。'; }
+  },
+  async bring(g){
+    if (!this.canBring() || !S || Act.waiting()) return;
+    closeSheet();
+    const lv = levelInfo(S.stats.love).lv;
+    const v = await Modal.show({
+      label:'LINEに つれてくる',
+      html:() => LineSync.guestHtml(g, `<h3>${esc(g.pet.name)}を<br>LINEに つれてくる？</h3>
+        <p>いまの ${esc(S.pet.name)}（なかよしLv ${lv}）と いれかわります。つれてこられるのは 1回だけです（引っこしコードと あわせて）。</p>
+        <div class="btnrow"><button class="btn" type="button" data-close>やめておく</button><button class="btn primary" type="button" data-close="take">つれてくる</button></div>`),
+    });
+    if (v !== 'take') return;
+    try { await LineSync.bring(g); }
+    catch(e){
+      if (e.code === 'already') LineServer.importable = false;
+      toast(e.code === 'already' ? 'つれてこられるのは 1回だけでした' : 'いまは つれてこられませんでした。すこし あとで ためしてね');
+    }
   },
 };
 
