@@ -2,54 +2,56 @@
 
 このファイルは、チャットのいちばん最後に毎回まるごと書き直します。次のチャットは、ここを読めば続きから始められます。オーナーは、更新のたびにプロジェクトナレッジのGitHubを「同期」し、作業ごとに新しいチャットへ移ります（`CLAUDE.md` の作業の流れ 7）。
 
-- 最終更新：2026-11-14（9回目：約束①の直し かたまり A）
+- 最終更新：2026-11-14（10回目：約束①の直し かたまり B）
 - リポジトリ：`Y-s-Apps/uchinoko-biyori`（組織 Y-s-Apps）。ホーム画面版：https://y-s-apps.github.io/uchinoko-biyori/
-- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-cda9a57d42`**（2026-11-14、名前の文字の直し＝診断 1-4。pg_net で 公開中の `index.html`・`sw.js` の md5 が 手元と同じ＝`dcb13320…`・`336dab9f…`）
-- Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン23**（`46ac491` の中身。`capabilities` は 引きついだ）。公開するときは `src/out/uchinoko-claude.html` の前に いまの版と同じ1行目（`<!doctype html><html><head><meta charset=utf8>…<body>`）を、うしろに `</body></html>` を つけて `publish_files`（このチャットでは `/home/claude/work/claude-page/index.html` に作った）
-- LINE版の画面：Cloudflare Pages（main の push で自動ビルド。`46ac491` で pg_net で `/`・`/dev/`・`/review/` の md5 が 手元の `src/out/line/index.html` と同じ＝`54a63a5f…`）
+- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-eb072f3057`**（2026-11-14、かたまり B＝`3933abe`。pg_net で 公開中の `index.html`・`sw.js` の md5 が 手元と同じ＝`78062f5a…`・`0662bf7e…`）
+- Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン24**（`3933abe` の中身。`capabilities` は 引きついだ）。公開するときは `src/out/uchinoko-claude.html` の前に いまの版と同じ1行目（`<!doctype html><html><head><meta charset=utf8><meta name=viewport …><style>…</style></head><body>` ＋改行）を、うしろに `</body></html>` ＋改行 を つけて `publish_files`（この形で バージョン23 の sha256 と ぴったり同じに なるのを 確かめた。このチャットでは `/home/claude/work/claude-page/index.html` に作った）
+- LINE版の画面：Cloudflare Pages（main の push で自動ビルド。`3933abe` で pg_net で `/`・`/dev/`・`/review/` の md5 が 手元の `src/out/line/index.html` と同じ＝`5cb38aa4…`）
   - 本番用 https://uchinoko-biyori.pages.dev/ 、審査用 https://uchinoko-biyori.pages.dev/review/ 、開発用 https://uchinoko-biyori.pages.dev/dev/ （同じページ。ひらいた場所で LIFF ID をえらぶ）
   - LIFF URL：開発用 https://miniapp.line.me/2012410263-cuCI7vQS ／審査用 https://miniapp.line.me/2012410264-JD4WhzAb （審査担当者だけ）／本番用 https://miniapp.line.me/2012410265-PutgsCLS （未認証なので URL を知っている人は開ける）
   - チャネルID：開発用 `2012410263`・審査用 `2012410264`・本番用 `2012410265`
-  - プライバシーポリシー https://uchinoko-biyori.pages.dev/privacy.html 、利用規約 https://uchinoko-biyori.pages.dev/terms.html （どちらも **2026-11-14 改定**：カードの上限、上書きの前のセーブの控え、規約 第5条「置けるのは 本サービスが作った子のイラストだけ」）、お問い合わせフォーム https://forms.gle/aywxktpPZettxFSS7
-- LINE版のサーバー：Supabase のプロジェクト「uchinoko-biyori」（`ftakgswltcavwixqxpzi`、東京、組織 `Yuthy's` の無料プラン）。Edge Function `api` は **MCP の version 17**（`46ac491` の `index.ts`）。`deno.json` は `game.js` を コミット **`e41ee2d`** に固定（`--check` で同じ）
-- 表：`app` スキーマに members・line_accounts・sessions・saves・ai_usage・cards・**save_backups**（2026-11-14 に `apply_migration`。`get_advisors` は INFO の「RLS 有効でポリシーなし」だけ）
-- Storage：バケット `cards`（公開・PNG だけ・**1MB まで**〈2026-11-14 に 2MB から〉、ポリシーなし）
-- サーバーを起こす：GitHub Actions「サーバーを起こす」（`.github/workflows/keepalive.yml`、active）。cron `23 18 */3 * *`＝日本時間 3:23 ごろ。手で動かした回（2026-11-13 11:06）は成功。**予定の実行は まだ確かめていない**（このチャットの 2:47 の時点で、はじめての予定 2026-11-14 3:23 は まだ来ていなかった）
+  - プライバシーポリシー https://uchinoko-biyori.pages.dev/privacy.html 、利用規約 https://uchinoko-biyori.pages.dev/terms.html （どちらも 2026-11-14 改定。かたまり B では 変えていない）、お問い合わせフォーム https://forms.gle/aywxktpPZettxFSS7
+- LINE版のサーバー：Supabase のプロジェクト「uchinoko-biyori」（`ftakgswltcavwixqxpzi`、東京、組織 `Yuthy's` の無料プラン）。Edge Function `api` は **MCP の version 18**（`index.ts` は かたまり A の `46ac491` から かわらない）。`deno.json` は `game.js` を コミット **`3933abe`** に固定（`--check` で同じ）
+- 表：`app` スキーマに members・line_accounts・sessions・saves・ai_usage・cards・save_backups（かたまり B では 変えていない）
+- Storage：バケット `cards`（公開・PNG だけ・1MB まで、ポリシーなし）
+- サーバーを起こす：GitHub Actions「サーバーを起こす」（`.github/workflows/keepalive.yml`、active）。cron `23 18 */3 * *`＝日本時間 3:23 ごろ。手で動かした回（2026-11-13 11:06）は成功。**はじめての予定の実行（2026-11-14 3:23）は、3:56 の時点で まだ 動いていなかった**（GitHub の予定は おくれることが よくある。下の 保留1）
 - Secrets：`ANTHROPIC_API_KEY`・`LINE_CHANNEL_SECRET`（開発用）・`LINE_CHANNEL_SECRET_2012410264`（審査用）・`LINE_CHANNEL_SECRET_2012410265`（本番用）
-- 本物の DB：会員・カード・ひかえ は 2026-11-14 2:40ごろ **0件**（このチャットでは 本物の DB に ためしの会員を 書いていない。マイグレーションと pg_net の確かめだけ）
+- 本物の DB：このチャットでは 本物の DB に 書いていない（pg_net の確かめだけ。会員・カード・ひかえは 前のチャットで 0件）
 - LINE Developers：Scope は `openid` だけ。「シェアターゲットピッカー」は 有効（2026-11-13）。認証審査は まだ申請しない（未認証でリリース → 個人事業主 → 申請）
-- **診断レポート（約束①）：https://claude.ai/artifact/8kuQtwwyAD9RJ42PPy7GU6 （Claude Docs。段階0〜6、42こ。番号 1-1〜5-11 で よぶ。表の「リリースの前」の欄に「→ 済み（コミット）」を書きたしている）**
+- **診断レポート（約束①）：https://claude.ai/artifact/8kuQtwwyAD9RJ42PPy7GU6 （Claude Docs。段階0〜6、42こ。番号 1-1〜5-11 で よぶ。表の「リリースの前」の欄に「→ 済み（コミット）」を書きたしている。いまの rev 32）**
 - LINE版の計画書：https://claude.ai/artifact/AgKkCkHCsWAywKGV6VFxwK （Claude Docs）
 - オーナーの事情（約束②で使う）：claude.ai の このプロジェクトの資料 `claude/owner-notes.md`（非公開。公開リポジトリには書かない）
 
-## 直近のチャットでやったこと（2026-11-14、9回目：かたまり A）
+## 直近のチャットでやったこと（2026-11-14、10回目：かたまり B）
 
-かたまり A（診断レポートの「直す順番の案 A」）の 7つを、この順で ぜんぶ済ませた。くわしくは `docs/PROJECT.md` 10章「しくみ（約束①の直し かたまり A：2026-11-14）」。
+かたまり B（だいずのアプリも変わるもの）の 12こと 5-10 の のこりを、1回の push（`3933abe`）と 1回の デプロイで 済ませた。くわしくは `docs/PROJECT.md` 10章「しくみ（約束①の直し かたまり B）」と 7章（色と大きさ・右上の ボタン・busy）。
 
-| 順 | 番号 | 直したこと | コミット |
-| --- | --- | --- | --- |
-| 1 | 3-1・4-3 | LINE版：IDトークンが切れて `/login` が ことわられたら、`liff.logout()` で とっておきを けして LIFF URL（`miniapp.line.me/<LIFF ID>`）から 1回だけ ひらきなおす（10分に1回まで、「もういちど つなぐ」でも）。プロフィールの1行の 英語の合図を やさしい ことばに（見本を見て オーナー決定。合図は `data-why`） | `6e9dde9` |
-| 2 | 1-4 | 名前・毛色の名前・AIの ひとこと・アルバムの文を `cleanText()` で 文字（コードポイント）で切り、制御文字と かたわれの絵文字を取りのぞく（3つの版・`ensureState`・サーバーの `cleanPet`・`game.js`）。ホーム画面版も更新（動きは同じ：`compare_home.py`） | `cb6c58d` |
-| 3 | 3-2 | LINE版：「つれてくる」が 通信で しっぱいしたら「◯◯を つれてこられませんでした」［あとで］［もういちど ためす］（見本を見て オーナー決定）。あとでは この回 この端末で あそべて、つぎに ひらくと また きく | `44a6ccf` |
-| 4・5 | 1-2・1-3・5-1 | サーバー：カードは 1人 新しい30まい・全員で1日100まい・ぜんぶで3000まい、PNG は 600KB まで（はかった 0.14〜0.2MB の3倍。画面の `cardMax` も そろえる）。`adopt` と `/import` の前の セーブを `app.save_backups` に 1人1つ・30日。ポリシーと規約を改定 | `42418fa`（デプロイ `46ac491`） |
-| 6 | 1-1・5-4 | カードの通報が来たときに消す手順（PROJECT.md 10章）。規約 第5条に「置けるのは 本サービスが作った子のイラストだけ」 | `2060cc2` |
-| 7 | 5-5 | 公開リポジトリの オーナーの事情の行を はずし、プロジェクトの資料 `claude/owner-notes.md` へ（オーナー決定。前の版は git の履歴に のこる） | `e41ee2d` |
+| 番号 | 直したこと |
+| --- | --- |
+| 2-1＋1-7 | `ensureState()` が ペットの 種類（dog・cat）・品種・みため・きせかえ・名前も そろえる。知っている ID は `hasId()`（`js_pet.js`。`Object.hasOwn` と同じ意味で 古い iPhone でも動く）。ふつうの セーブの ペットは かわらない |
+| 3-4 | 時計が 前の日に もどった日も れんぞくは そのまま（1〜2日 先なら `streak.last` も そのまま＝同じ日を 2回 数えない。もっと先なら きょうから つづける）。`streakInfo` も |
+| 3-5 | 2月29日に むかえた子は、うるう年で ない年は 2月28日が 記念日 |
+| 3-6 | 引っこしコードで `streak.saved` も運び、運んだ先で おたすけと いつもの3つを かなえると つながる（どちらが 先でも）。**公開の日の「ピンチの日に 引っこさない」は いらなくなった** |
+| 2-4 | `sw.js` は 自分のキャッシュ（`caches.open(CACHE)`）だけ さがす |
+| 3-7 | Claude版：はじめての端末では クラウドの子が 先（「クラウドの セーブを たしかめています…」、押したら 8秒まで まつ、とちゅうで 届いたら はじめての画面を とじる。トースト「クラウドに いた ◯◯と あえたよ」）。Claude版を バージョン24 に |
+| 4-1・4-4 | うすい文字を こく（`--ink-soft` 1段、`--berry-ink`・`--warn-ink`・`--badge`・`--badge-done`）、えらべない タイルは 絵だけ うすく、10px・9px → 11px。**はかる道具で 見つかった ミントの ボタンの 白い文字（2.7）も 文字を こい みどり（`--on-mint`）に**（見本4、案P2）。ポップアップの 見出し・NEW も |
+| 4-2 | シートの「とじる」は 見た目 36px のまま、さわれる所 44px（案B） |
+| 4-5 | むかえた日だけ、右上の 3つの ボタンの下に 名前（案A。だいずの画面は かわらない） |
+| 3-9 | LINE版：サーバーが busy で ことわったら トースト「いまのは かぞえられなかったよ。（改行）すこし まってね」（案B。トーストは `\n` で 改行できる） |
 
-- サーバー（1-4・1-2・1-3）は 1回に まとめて デプロイ（`build_server.py` → `line_e2e.py` → push → `--pin e41ee2d…` → `api` version 17 → `--check` → pg_net で `/health` 200・401 → `deno.json` を push）。
-- 確かめの場面（5-10）：`line_e2e.py` に 2c・2d（3-2）・16（3-1：切れた → logout → LIFF URL → つながる、くりかえさない、ひらいたまま セッションが切れても もどる）。`api_test.ts` に names（1-4）・backup（1-3）・card caps（1-2）。`build_server.py` の確かめに `cleanText`。`linebreak.py --line` に つながれない理由と `line_bring_failed`。
-- 動かしたもの：`line_e2e.py`（ルール・サーバー・画面 ぜんぶ通った）、`compare_home.py`（おなじ）、`smoke.py`・`smoke.py --line --android-inset 48`（エラー0）、`linebreak.py`（ホーム画面版196・LINE版231場面、375・390px で0件）。
-- 通知の案を 資料で確かめて出し、オーナーが決めた（下の 保留3）。
-- Claude版を バージョン23 に（名前の文字の直し）。
+- 色・大きさ・ことばは 見本（見本1〜4）を見せて、オーナーが ぜんぶ おすすめの案に 決めた（2026-11-14）。
+- 確かめの場面（5-10）：`rules_test.mjs` に こわれたセーブ・時計が もどった日・2月29日・ピンチの日の 引っこし。`smoke.py` に 見た目の 数（色の差・11px・とじるの大きさ。`--dark` も）・右上の ボタンの名前・オフラインで 自分のキャッシュ（前の `sw.js` だと「ほかのアプリ」が ひらくのを 確かめた）・`--claude`（クラウドの子の まね 5場面）。`line_e2e.py` の 7 に busy。`linebreak.py` は トーストの `\n` を 改行に。
+- 動かしたもの：`line_e2e.py`（ルール・サーバー・画面 ぜんぶ通った）、`compare_home.py`（おなじ）、`smoke.py`（ふつう・`--dark`・`--fresh`・`--fresh --dark`・`--line --android-inset 48`・`--line --dark`・`--claude`、ぜんぶ エラー0）、`linebreak.py`（ホーム画面版198・LINE版233・Claude版198場面、375・390px で0件）。
+- 診断レポートの表に 13か所「→ 済み（3933abe…）」を 書きたした（2-1・1-7・2-4・3-4・3-5・3-6・3-7・3-9・4-1・4-2・4-4・4-5・5-10）。
 
 ## 保留・オーナーの判断待ち（つぎのチャットのはじめに）
 
-1. **「サーバーを起こす」の予定の実行が動いたか**（2026-11-14 3:23 ごろ より あと）：`gh api 'repos/Y-s-Apps/uchinoko-biyori/actions/workflows/keepalive.yml/runs?per_page=5'` で `event` が `schedule` の回を見る。成功なら ログに `health: 200` と `db: 401 {"error":"nosession"}`。失敗なら `get_project`（止まっていたら `restore_project`）。
-2. **約束①の直し（リリースの前に 42こ ぜんぶ）。かたまり A は済み。つぎは かたまり B：**
-   - **かたまり B（だいずのアプリも変わるもの。まとめて1回、`compare_home.py`。色と大きさは 絵の見本を見せてから）：** 2-1＋1-7（`ensureState` で ペットを そろえる、ID の確かめを `Object.hasOwn` に）、3-4（時計が もどった日の れんぞく）、3-5（2/29 の記念日）、3-6（`streak.saved` を運ぶ）、4-1（うすい文字）、4-2（とじるボタン 44px）、4-4（10px → 11px）、2-4（`sw.js` は 自分のキャッシュだけ さがす）、3-7（Claude版：クラウドの子が届いたら はじめての画面を とじる。Claude版も公開しなおす）、3-9（`busy` に ひとこと）、4-5（右上のボタンの ひとこと。見本を見せてから）。5-10 の のこり（2-1・3-4・3-5 の 確かめの場面）も。`ensureState`・`carryExtras`・`js_rules.js` を変えたら サーバーも作り直して デプロイ。
+1. **「サーバーを起こす」の予定の実行が動いたか**（2026-11-14 3:23 の予定は 3:56 の時点で まだ。つぎの予定は 11-17 3:23）：`gh api 'repos/Y-s-Apps/uchinoko-biyori/actions/workflows/keepalive.yml/runs?per_page=5'` で `event` が `schedule` の回を見る。成功なら ログに `health: 200` と `db: 401 {"error":"nosession"}`。11-14 の回が なく、11-17 の回も 動かなければ、GitHub の予定が 止まっている かもしれない（Actions の画面で 有効か・手で動かせるか 見る。DB が 1週間 しずかだと Supabase が 止まるので、そのときは `get_project` → 止まっていたら `restore_project`）。
+2. **約束①の直し（リリースの前に 42こ ぜんぶ）。かたまり A・B は済み。つぎは かたまり C：**
    - **かたまり C（LINE版とサーバー）：** 3-2 の「とっておいた子」を取り出す画面、3-8（前の子に もどったら知らせる）、3-3（おせわに番号をつけて 2回 数えない）、1-5（会員ごとの 回数の制限、`milestones`・`events.seen` の数の上限）、1-6（やめて また はじめたときの 1日の上限。ポリシーも）、1-8（まいごの画像を消す道具）、1-9（`readBody` を 上限まで読んだら やめる）、1-10（`app` だけ さわれる役。むずかしければ オーナーに相談）、2-2（`_headers`。枠の制限は 実機で確かめてから）、5-2（エラーの数を数える）、5-3（`/act` の返事を小さく。大きな変更なので 案を出して オーナーに聞く）。
    - **かたまり D（書類）：** 1-12／5-11（PROJECT.md 10章の 古い説明）、5-6（ポリシー 1. に「会員を作った日時」、アプリの中の お知らせの しくみ）、5-8（カードの ボタンの色の決まりを LINE の資料で確かめる）、1-11（全員の AI の上限を 150回にするか オーナーに聞く）。
-   - **コードでは 直せないもの：** 5-7（法律の判断＝専門家に確かめる。約束②の別プロジェクトへ）。5-1 は 1-3（セーブの ひかえ）で そなえた（だいずは 引っこしコードの保存も）。**「このままでよい」と書いたもの：** 2-3（LIFF SDK は固定しない＝決まり）、4-6（ダークでも おへやは明るい）、5-9（ページの大きさ）。直さない理由は 2026-11-14 に オーナーへ伝えた。
-   - 1つ片づけるたびに、診断レポートの表の「リリースの前」の欄に「→ 済み（コミット）」と書きたす（Claude Docs の `update`、セルの中の `find`）。ぜんぶ片づいたら、`CLAUDE.md` の約束① と PROJECT.md 10章に 書く（約束①の「済み」は Fable の さいごのチェックの あと）。
+   - **コードでは 直せないもの：** 5-7（法律の判断＝専門家に確かめる。約束②の別プロジェクトへ）。5-1 は 1-3（セーブの ひかえ）で そなえた。**「このままでよい」と書いたもの：** 2-3、4-6、5-9。
+   - 1つ片づけるたびに、診断レポートの表の「リリースの前」の欄に「→ 済み（コミット）」と書きたす（Claude Docs の `update`、セルの中の `find`。表の id は 1-x＝`mjmrg2w6vyg.1104`、2-x＝`.5625`、3-x＝`.8484`、4-x＝`.12109`、5-x＝`.14473`。列は 6、行は 番号の じゅん〈0 は 見出し〉）。ぜんぶ片づいたら、`CLAUDE.md` の約束① と PROJECT.md 10章に 書く（約束①の「済み」は Fable の さいごのチェックの あと）。
 3. **通知（2026-11-14 オーナー決定。42この直しの あとに作る）：** LINE版は **LINE公式アカウント（Messaging API）**で 夜に、きょうの おねがいが のこっている人だけ（オン・オフつき）。**3つの版に 画面の中の お知らせ**（ひらいているとき、夜に のこっていたら ひとこと）。ホーム画面版の Web Push・LINE の サービスメッセージは 見送り。くわしくは PROJECT.md 10章「決めたこと（2026-11-14、通知）」。
    - 作るときに決めること（見本を見せて）：時刻（例 21時）、条件、オン・オフの はじめ、文言、公式アカウントの 名前・アイコン・あいさつ、送る しくみ（Supabase Cron＋Edge Function）、ポリシー・規約。
    - オーナーに おねがいすること：公式アカウントを ミニアプリと **同じプロバイダー**に作る → Messaging API を有効にする（プロバイダーは あとから 変えられない）→ チャネルアクセストークンを Supabase の Secrets に入れる（チャットに貼らない）。
@@ -60,24 +62,26 @@
 
 ## 次にやること
 
-- 上の保留（予定の実行の確認 → かたまり B → C → D → 通知 → Fable の さいごのチェック → リリース → 約束② → 個人事業主 → 認証審査の申請）。
+- 上の保留（予定の実行の確認 → かたまり C → D → 通知 → Fable の さいごのチェック → リリース → 約束② → 個人事業主 → 認証審査の申請）。
 - 認証審査を申請したら：審査は1〜2週間、「審査中」は取り消しも変更も できない（画面とサーバーも変えない）。認証されたら：「検索可能にする」は 承認から30日以内に押す。
 - **公開の日：** オーナーの iPhone の LINE には ためしの子「こむぎ」が ゲストとして のこっているので、本番用の LIFF URL を LINE で ひらいて「こむぎを LINEに つれてくる？」が出たら**「やめておく」**→ はじめての画面の「引っこしコード」で だいずを取りこむ（取りこみは1人1回）。ホーム画面版で「引っこし・バックアップ」→「ファイルで保存」の控えも とっておく。開発用・審査用・本番用は 同じサーバーと DB。ためしで作った会員・カードの画像は、公開の前に けす（`app.cards`・`app.save_backups` と Storage の `cards` が0件か確かめる）。公開の日に、本番用で「うちのこカードを おくる」が出るかも だいずで見る。
-  - **だいずが ピンチ（おたすけ まち）の日には 引っこさない**（まっている れんぞくが運ばれず 1 になる＝診断 3-6。かたまり B で直す予定）。ピンチなら おたすけを かなえてから。
+  - ピンチ（おたすけ まち）の日に 引っこしても、まっている れんぞくは 運ばれるように なった（3-6、`3933abe`）。念のため、ピンチなら おたすけを かなえてから 引っこしても よい。
   - だいずは LINE版へ引っこすと、おたすけが 1日おき → 7日に1回 になる（オーナー了承）。
   - リリースから1週間は、チャットの はじめに サーバーのログ（無料プランは1日分）を見る（診断 5-2）。
-  - **実機で見る：** LINE での見え方・動き、ひらいたまま つぎの日に もどったとき（3-1：LIFF URL から ひらきなおして つながるか。ページが うつらないときは「LINEの ログインの じかんが きれました…」の1行が出るか）、カードの PNG の大きさ（Storage で。600KB を こえると 576×768 で作りなおす）。
+  - **実機で見る：** LINE での見え方・動き、ひらいたまま つぎの日に もどったとき（3-1：LIFF URL から ひらきなおして つながるか。ページが うつらないときは「LINEの ログインの じかんが きれました…」の1行が出るか）、カードの PNG の大きさ（Storage で。600KB を こえると 576×768 で作りなおす）、こい みどりの ボタンの文字・バッジの色（かたまり B）。
   - できれば、テスターでない人（家族など）の LINE で 本番用の LIFF URL が ひらけるか 見てもらう。
 
 ## 気をつけること
 
-- **改行と見た目：** 画面ぜんたいが `keep-all＋anywhere`。新しい文にも 文節の スペースを入れ、`tools/linebreak.py`（`--line`）で 0件か、スマホ幅のスクリーンショットで 目で確かめてから push。せまいところの名前は `softName()`、カタカナの長い名前を足したら `SOFT_WORDS`。`linebreak.py` の フォントは `cd tools/fonts && npm install`。`linebreak.py` は 1回 5〜6分（`--line`）かかり、出力は さいごに まとめて出る。
-- **名前などの短い文字は `cleanText(v, max)`**（文字で切る。`slice` で切らない。サーバーの jsonb が かたわれの絵文字と `\u0000` を ことわる）。
-- いま育てている子は「だいず」（クリームのポメラニアン、ホーム画面版）。セーブをこわす変更はしない。LINE版だけの変更では、ビルドの前後でホーム画面版の `index.html`・`sw.js` が同じか確かめる（`md5sum`。いまは `dcb13320…`・`336dab9f…`）。
-- 正規表現に 日本語の文字を そのまま書かない（`ぁ` のように）。Claude版を 文字コードなしで ひらくと、正規表現が こわれて スクリプトが まるごと止まる。正規表現の うしろ読み（`(?<!…)`）も 古い iPhone で 止まるので 使わない。
+- **色：** 文字と地の色の差は ふつう 4.5・大きい 3 より大きく。`tools/smoke.py` と `--dark` が 数えて、足りないと エラーに する（ロゴ `.brand` は のぞく）。小さい ピンクの文字は `--berry-ink`、ミントの ボタンの文字は `--on-mint`、バッジは `--badge`。文字は 11px 以上。新しい ポップアップや シートを 足したら、smoke.py の場面にも 入るか 見る（いまは おみやげの ポップアップ・シート9つ・はじめての画面）。
+- **改行と見た目：** 画面ぜんたいが `keep-all＋anywhere`。新しい文にも 文節の スペースを入れ、`tools/linebreak.py`（`--line`）で 0件か、スマホ幅のスクリーンショットで 目で確かめてから push。トーストで 切れ目を決めたいときは `\n`（`white-space:pre-line`）。せまいところの名前は `softName()`、カタカナの長い名前を足したら `SOFT_WORDS`。`linebreak.py` の フォントは `cd tools/fonts && npm install`。`linebreak.py` は 1回 5〜6分（`--line`）かかり、出力は さいごに まとめて出る。
+- **名前などの短い文字は `cleanText(v, max)`**（文字で切る。`slice` で切らない）。**表の ID を見るときは `hasId(表, id)`**（`表[id]` の「あるか」だけに しない）。
+- いま育てている子は「だいず」（クリームのポメラニアン、ホーム画面版）。セーブをこわす変更はしない。LINE版だけの変更では、ビルドの前後でホーム画面版の `index.html`・`sw.js` が同じか確かめる（`md5sum`。いまは `78062f5a…`・`0662bf7e…`）。
+- 正規表現に 日本語の文字を そのまま書かない（`ぁ` のように）。Claude版を 文字コードなしで ひらくと、正規表現が こわれて スクリプトが まるごと止まる。正規表現の うしろ読み（`(?<!…)`）も 古い iPhone で 止まるので 使わない（`Object.hasOwn` も 古い iPhone に ないので `hasId`）。
 - `js_line.js` は `js_onboard.js` の boot の**あと**に読まれる。`renderHeader` などを包むときは、包んだあとに いまの画面にも1回あてる。
-- **ためしの DB（PGlite）は、1つの関数の中で DB の問い合わせを `Promise.all` で同時に出すと 返事が まざる**（2026-11-14 に カードの掃除が 0件になった）。サーバーでは DB の問い合わせは 1つずつ順に。
-- **うちのこカードのメッセージは LINE の「カスタムシェアメッセージ」の決まり**（標準タイプ。バブル1つ、アクションは ボタンと下の行だけ、決まりに書いていない プロパティは 変えない、下の行の矢印の画像は 変えない）。本文を変えるときは https://developers.line.biz/ja/docs/line-mini-app/develop/share-messages/ を見なおす。ボタンと矢印は 本番用の LIFF URL。
+- Claude版の `Persist.connect` は `window.claude` が ないと すぐ もどる（ホーム画面版・LINE版は 動きが かわらない）。`Onboard.commit` と 引っこしの `take` は async（クラウドを まつため）。
+- **ためしの DB（PGlite）は、1つの関数の中で DB の問い合わせを `Promise.all` で同時に出すと 返事が まざる**。サーバーでは DB の問い合わせは 1つずつ順に。
+- **うちのこカードのメッセージは LINE の「カスタムシェアメッセージ」の決まり**（標準タイプ。バブル1つ、アクションは ボタンと下の行だけ、決まりに書いていない プロパティは 変えない、下の行の矢印の画像は 変えない）。本文を変えるときは https://developers.line.biz/ja/docs/line-mini-app/develop/share-messages/ を見なおす。ボタンと矢印は 本番用の LIFF URL。カードの ボタンの色（`#4FAE9A`）は LINE が かく ので、かたまり B の `--on-mint` とは べつ（5-8 で 決まりを 確かめる）。
 - カードの絵の中では ページの CSS が効かない（表情は SVG の中の `<style>`）。サーバーの画像は 画面に出していない（CSP の `img-src` に supabase.co は ない。出すなら足す）。
 - 補足資料の文（PROJECT.md 10章）に出てくる 画面の文言（「写真からむかえる」…「うちのこカードを おくる」「おくる」「LINEの データを けす」）を変えたら、補足資料も直す。
 - **（あとで）認証審査を申請したら、審査中は LINE版の画面とサーバーを変えない**。
@@ -85,14 +89,14 @@
 - Scope は `openid` だけ。`shareTargetPicker` は Scope が いらない。
 - 認証されたあとに 本番用の エンドポイントURL・ポリシーと規約の URL・アイコン・チャネル名・説明・多言語対応・Scope・友だち追加オプション・リンクされたLINE公式アカウント・シェアターゲットピッカーを変えると再審査。
 - ポリシーに書いたこと（取る情報・送り先・保存期間・外部サービス・回数の上限）を変えたら、`src/legal/` も同じコミットで直す。
-- ルールの時刻・日付・偶然は `Clock` だけ。ルールや `buildPrompt`/`parseAI`・`cleanText`・`ensureState` を変えたらサーバーも作り直す（`build_server.py` → push → `--pin` → デプロイ）。`game.js` が変わらないときは、`deno.json` の固定はそのままでよい（`--check`）。
+- ルールの時刻・日付・偶然は `Clock` だけ。ルールや `buildPrompt`/`parseAI`・`cleanText`・`ensureState`・`hasId`（`js_pet.js`）を変えたらサーバーも作り直す（`build_server.py` → push → `--pin` → デプロイ）。`game.js` が変わらないときは、`deno.json` の固定はそのままでよい（`--check`）。
 - LINE版のサーバーは、おせわの数字を画面から受けとらない。写真・AIの返事・トークン・カードの画像の中身はログに出さない。
 - LINE版の画面で、サーバーへ送るものは `LineSync.queue` で1つずつ（queue の中から queue を使う処理を またない）。カードの `POST /card` は queue に入れない（`LineServer.call` を直接）。
 - 端末のキー `line-owner`・`line-guest`・`line-left` は消さない（`line-reopen` は ひらきなおしの時刻だけ）。
-- `index.html` は CSP のハッシュつきなので、手で直さず `sh src/build.sh` で作る。
+- `index.html` は CSP のハッシュつきなので、手で直さず `sh src/build.sh` で作る。ページは https のときだけ Service Worker を入れる（`smoke.py` は http なので 手で入れて 確かめる）。
 - 組織 Y-s-Apps のほかの Pages サイトとは、セーブとキャッシュを共有する。LINE版は `y-s-apps.github.io` に置かない。
 - LIFF SDK は v2.20.0〜v2.31.0 に脆弱性があり、2026-11-24ごろ利用制限の予定。エッジパスのまま使う。
-- このセッションの外への通信は、パッケージの置き場と GitHub だけ（Playwright の WebKit も 入れられない）。本物のサーバーと画面は `execute_sql` から pg_net（`net.http_get` / `net.http_post`、返事は `net._http_response`。PNG を読むときは `content` を文字にしない）で確かめる。Cloudflare の ポリシー・規約の ページは 手元と md5 が ちがう（配信で 少し足される）ので、中身の文で確かめる。
+- このセッションの外への通信は、パッケージの置き場と GitHub だけ（Playwright の WebKit も 入れられない）。本物のサーバーと画面は `execute_sql` から pg_net（`net.http_get` / `net.http_post`、返事は `net._http_response`。`md5(convert_to(content,'UTF8'))` で 手元と くらべる。PNG を読むときは `content` を文字にしない）で確かめる。Cloudflare の ポリシー・規約の ページは 手元と md5 が ちがう（配信で 少し足される）ので、中身の文で確かめる。
 - **Supabase の `apply_migration` と `deploy_edge_function` は、作業環境の確認で止められることがある**。止められたら、オーナーに理由と中身を伝えて「もう一度ためしてよいか」を聞く。
 - Edge Function のデプロイは `index.ts` を丸ごと送るので、送ったあと `get_edge_function` で中身を見て、手元と同じか確かめる。
 - ブラウザ：アプリ内ブラウザは LINE Developers に ログインしていない。LINE Developers・Supabase の設定を変えるのは オーナーの許可をもらってから。**シークレットが出るページ（「チャネル基本設定」）は本文ごと読まない・画面全体を写さない**。

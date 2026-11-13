@@ -593,6 +593,7 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 - **Service Worker（2-4）：** 自分のキャッシュだけ さがす（6章）。
 - **Claude版の はじめての端末（3-7）：** クラウドの子が 先（6章「Claude版」）。`Persist.connect` → `connectCloud`、`Persist.settle`、`Onboard.checkLine`・`waitCloud`。ホーム画面版・LINE版は `window.claude` が ないので 動きは かわらない。
 - **色と大きさ（4-1・4-2・4-4）・右上の ボタン（4-5）・busy の ひとこと（3-9）：** 7章（見本を見て オーナー決定）。はかる道具を作ったら、診断に なかった うすい所（ミントの ボタンの 白い文字 2.7・ダーク 1.9、ポップアップの 見出し、NEW）も 見つかったので、いっしょに直した（見本4、オーナー決定 案P2）。
+- **本物（2026-11-14）：** `3933abe` を push（ホーム画面版の キャッシュ名 `uchinoko-eb072f3057`）→ `deno.json` を `3933abe` の `game.js` に固定 → Edge Function `api` を MCP の **version 18** に（`index.ts` は かわらない）→ `--check` 同じ → pg_net で `/health` 200（`cards:true`）・でたらめのセッション 401・こわれた IDトークン 401。公開中の `index.html`・`sw.js`・LINE版の3か所の md5 が 手元と同じ。Claude版を **バージョン24** に（`capabilities` は 引きついだ）。
 - **確かめの場面（5-10）：** `tools/rules_test.mjs` に こわれたセーブ（2-1・1-7）・時計が もどった日（3-4）・2月29日（3-5）・ピンチの日の 引っこし（3-6）。`tools/smoke.py` に 見た目の 数（4-1・4-2・4-4。`--dark` も）・右上の ボタンの名前（4-5）・オフラインで 自分のキャッシュ（2-4。前の `sw.js` だと「ほかのアプリ」が ひらくのを 確かめた）・`--claude`（3-7：届く前に 押した・とちゅうで 届いた・クラウドに 子が いない・8秒より おそい・この端末に セーブが ある）。`tools/line_e2e.py` の 7 に busy（3-9。`e2e_server.ts` の `/__debug/patch` に `busy`）。`tools/linebreak.py` は トーストの `\n` を 改行に。
 
 ### サーバーのきまり
