@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-N1787tr6n4nljIK4tCtjcQp5SAGHRn49V21aLH915Xw='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-5zhVtNe79+WNq1olJWFo3e9Q8TjOMiZofSb+0ga+zd4='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="写真の犬や猫をそっくりなペットにして、ごはん・おやつ・なでなででのんびり育てるアプリ">
@@ -62,6 +62,9 @@ button,.act,.tile,.chip,.sw,label{touch-action:manipulation}
 }
 html,body{height:100%}
 body{background:var(--ground);color:var(--ink);font-family:var(--f-body);font-weight:500;font-size:15px;line-height:1.6;-webkit-tap-highlight-color:transparent}
+/* 改行：日本語の文が ことばの まんなかで 切れないように、文節の あいだの スペースと 句読点で 切る（とても長くて 1行に入らないときだけ どこでも切る）。
+   文には スペースを入れる。切れ目を決めたいところは <br> */
+body{word-break:keep-all;overflow-wrap:anywhere}
 button{font:inherit;color:inherit}
 :focus-visible{outline:3px solid var(--mint);outline-offset:2px}
 
@@ -236,7 +239,7 @@ button{font:inherit;color:inherit}
 .treatpop{position:absolute;width:13%;aspect-ratio:1;transform:translate(-50%,-50%);z-index:420;pointer-events:none;animation:bob .7s ease-in-out infinite alternate;transition:top .45s ease-in,left .45s ease-in,opacity .3s}
 .treatpop svg{width:100%;height:100%;display:block;filter:drop-shadow(0 3px 0 rgba(0,0,0,.12))}
 @keyframes bob{to{margin-top:-6px}}
-.toast{position:absolute;left:50%;top:12px;z-index:500;opacity:0;max-width:86%;transform:translate(-50%,-160%);background:#FFFFFF;color:#3A3147;font-weight:700;font-size:13px;padding:8px 14px;border-radius:999px;box-shadow:0 4px 0 rgba(58,49,71,.12);transition:transform .35s cubic-bezier(.3,1.4,.5,1);text-align:center}
+.toast{position:absolute;left:50%;top:12px;z-index:500;opacity:0;width:max-content;max-width:86%;box-sizing:border-box;transform:translate(-50%,-160%);background:#FFFFFF;color:#3A3147;font-weight:700;font-size:13px;padding:8px 14px;border-radius:999px;box-shadow:0 4px 0 rgba(58,49,71,.12);transition:transform .35s cubic-bezier(.3,1.4,.5,1);text-align:center}
 .toast.show{transform:translate(-50%,0);opacity:1}
 .hint{position:absolute;left:50%;bottom:10px;z-index:450;transform:translateX(-50%);background:rgba(255,255,255,.88);color:#3A3147;font-size:12px;font-weight:700;padding:5px 12px;border-radius:999px;white-space:nowrap;pointer-events:none;transition:opacity .5s}
 
@@ -255,6 +258,7 @@ button{font:inherit;color:inherit}
 .levelup .btnrow{justify-content:center;flex-wrap:nowrap}
 .levelup .btnrow .btn{flex:1 1 0;min-width:0}
 .levelup .giftline{display:flex;align-items:center;justify-content:center;gap:6px;color:var(--ink)}
+.levelup .giftline .mini{display:inline-block;vertical-align:-6px}
 .levelup .gainline{color:var(--berry);font-weight:900;font-size:16px;margin-top:-4px}
 .mini{width:24px;height:24px;flex:none;display:block}
 .mini.dim{opacity:.35;filter:grayscale(1)}
@@ -1993,7 +1997,7 @@ const Persist = {
     Modal.show({
       label:'ほぞんできませんでした',
       html:() => `${petCard('', 'ex-sad')}<h3>この端末に<br>ほぞんできませんでした</h3>
-        <p>端末の空きが すくないのかもしれません。${esc(S.pet.name)}を なくさないように、「引っこし・バックアップ」で コードをコピーするか、ファイルで保存しておいてね。</p>
+        <p>端末の空きが すくないのかも しれません。${esc(S.pet.name)}を なくさないように、「引っこし・バックアップ」で コードを コピーするか、ファイルで 保存しておいてね。</p>
         <div class="btnrow"><button class="btn" type="button" data-close>とじる</button><button class="btn primary" type="button" data-close="move">バックアップ</button></div>`,
     }).then(v => { if (v === 'move') openMove(); });
   },
@@ -2085,6 +2089,17 @@ function heartAt(x, y){ fx('heart', x, y, HEART, { '--dx': (Math.random() * 40 -
 function hearts(n){
   const h = Pet.headPoint();
   for (let i = 0; i < n; i++) setTimeout(() => heartAt(h.x + (Math.random() * 60 - 30), h.y + (Math.random() * 20 - 10)), i * 140);
+}
+/* 名前（種類・おやつ・きせかえ など）を、タイルのような せまいところで ことばの まんなかで 切らないように：
+   切ってよいところに <wbr>（ひらがなから カタカナへ かわるところ・「の」のあと・「ちいさな」などの あと・カタカナの ことばの つなぎめ）。HTML を返す */
+const SOFT_WORDS = ['ダックスフンド','シュナウザー','テリア','ブルドッグ','レトリーバー','コーギー','ハスキー','ラッセル','フォールド',
+  'ショートヘア','フォレスト','キャット','ケーキ','ささみ'];
+function softName(s){
+  /* 正規表現の中の文字は \u で書く（ひらがな ぁ-ゖ・カタカナ ァ-ヺ・漢字・の・な） */
+  let t = esc(s).replace(/([\u3041-\u3096])([\u30A1-\u30FA])/g, '$1<wbr>$2').replace(/([^\s<>]{2})\u306E(?=[^\s<>]{2})/g, '$1\u306E<wbr>')
+    .replace(/([\u3041-\u3096]{2}\u306A)(?=[\u4E00-\u9FFF])/g, '$1<wbr>');
+  for (const w of SOFT_WORDS) t = t.split(w).join('<wbr>' + w);
+  return t.replace(/(<wbr>)+/g, '<wbr>').replace(/^<wbr>/, '');
 }
 let toastT = null;
 function toast(msg){
@@ -2292,7 +2307,7 @@ function careRefused(r){
   const cat = S && S.pet.species === 'cat';
   switch (r && r.why){
     case 'offline': Act.waiting(); break;
-    case 'limit': toast('おやつは少し時間をあけてね'); break;
+    case 'limit': toast('おやつは 少し 時間を あけてね'); break;
     case 'full': Pet.wake(); Pet.tilt(); Pet.say(cat ? 'おなかいっぱいにゃ…' : 'おなかいっぱい！'); break;
     case 'hungry': Pet.wake(); Pet.flash('sad', 2000); Pet.say('おなかがすいて できないよ…'); break;
     case 'locked': toast('まだ えらべないよ'); break;
@@ -2304,7 +2319,7 @@ function playEvents(ev){
     switch (e.k){
       case 'lv': setTimeout(() => celebrate(e.lv, e.before), 900); break;
       case 'req':
-        toast('おねがいをかなえた！ ♥+4');
+        toast('おねがいを かなえた！ ♥+4');
         setTimeout(() => { if (!Pet.sleeping){ Pet.say('ありがとう！ うれしい！'); Pet.wag(1500); } hearts(3); }, 300);
         break;
       case 'all': allDoneModal(e); break;
@@ -2315,7 +2330,7 @@ function playEvents(ev){
           setTimeout(() => { if (!Pet.sleeping) Pet.say('あとは きょうのおねがいを ぜんぶ かなえよう！', 2600); }, 300);
         }
         break;
-      case 'days': toast(`${S.pet.name}がうちにきて ${e.n}日！`); break;
+      case 'days': toast(`${S.pet.name}が うちにきて ${e.n}日！`); break;
       case 'anniv': annivModal(e); break;
       case 'event': eventModal(e); break;
       case 'souv': souvenirModal(e); break;
@@ -2539,7 +2554,7 @@ function celebrate(lv, before){
   Modal.show({
     label:'なかよしレベルアップ', confetti:true,
     html:() => `<div class="mpet ex-happy wag-fast">${renderPet(S.pet.look, { wear:petWear() })}</div>
-    <h3>${lv >= MAX_LV ? 'なかよしMAX！' : 'なかよしLv ' + lv}</h3><p>${esc(S.pet.name)}とさらになかよくなりました${newTitle ? `<br>あたらしい関係「${esc(titleFor(lv))}」` : ''}</p>
+    <h3>${lv >= MAX_LV ? 'なかよしMAX！' : 'なかよしLv ' + lv}</h3><p>${esc(S.pet.name)}と さらに なかよく なりました${newTitle ? `<br>あたらしい関係「${esc(titleFor(lv))}」` : ''}</p>
     ${items.length ? `<ul>${items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>` : ''}
     ${nx ? nextupHtml(nx) : ''}
     <button class="btn primary" type="button" data-close>やったね</button>`,
@@ -2572,13 +2587,13 @@ function openTreats(){
   const ev = activeEvent();
   const list = ev ? [eventTreat(ev)].concat(base) : base;
   const open = base.filter(t => t.lv <= lv).length;
-  const html = `<p class="sheet-sub">${open} / ${base.length} しゅるい　レベルの高いおやつほど、なかよし度が大きく上がります</p>
+  const html = `<p class="sheet-sub">${open} / ${base.length} しゅるい　レベルの 高い おやつほど、なかよし度が 大きく 上がります</p>
     <div class="tiles">${list.map(t => {
     const locked = lv < t.lv;
     return `<button class="tile treat" type="button" data-t="${t.id}" ${locked ? 'aria-disabled="true"' : ''}>
-      <svg viewBox="0 0 48 48" aria-hidden="true">${treatIcon(t)}</svg><span class="tname">${esc(t.ja)}</span>
+      <svg viewBox="0 0 48 48" aria-hidden="true">${treatIcon(t)}</svg><span class="tname">${softName(t.ja)}</span>
       ${locked ? `<span class="lockpill">Lv${t.lv}で解放</span>` : `<span class="gain"><b>♥+${t.love}</b> ごきげん+${t.mood}</span>`}${t.ev ? `<span class="evpill">${esc(t.evJa)}限定</span>` : ''}</button>`;
-  }).join('')}</div><p class="note">おやつは30分に5回まで。ごはんの代わりにはなりません。</p>`;
+  }).join('')}</div><p class="note">おやつは 30分に 5回まで。ごはんの 代わりには なりません。</p>`;
   openSheet('どのおやつをあげる？', html, sh => {
     sh.querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => {
       if (b.getAttribute('aria-disabled') === 'true') return;
@@ -2604,8 +2619,8 @@ function openDress(){
       const locked = it.id && !wearOwned(it, lv);
       const trial = Object.assign({}, W, { [dressSlot]:it.id });
       return `<button class="tile" type="button" data-w="${it.id || ''}" aria-pressed="${(W[dressSlot] || null) === it.id}" ${locked ? 'aria-disabled="true"' : ''}>
-        ${renderPet(S.pet.look, { wear:trial })}<span class="tname">${esc(it.ja)}</span>${locked ? `<span class="lockpill">Lv${it.lv}で解放</span>` : ''}${it.ev ? '<span class="evpill">季節の限定</span>' : ''}</button>`;
-    }).join('')}</div><p class="note">あたま・かお・くびを1つずつ組み合わせられます。季節のイベントでは、限定のきせかえがもらえます。</p>`;
+        ${renderPet(S.pet.look, { wear:trial })}<span class="tname">${softName(it.ja)}</span>${locked ? `<span class="lockpill">Lv${it.lv}で解放</span>` : ''}${it.ev ? '<span class="evpill">季節の限定</span>' : ''}</button>`;
+    }).join('')}</div><p class="note">あたま・かお・くびを 1つずつ 組み合わせられます。季節の イベントでは、限定の きせかえが もらえます。</p>`;
   };
   openSheet('きせかえ・もようがえ', `${tabs()}<div id="dressTiles">${tiles()}</div>`, sh => {
     const box = sh.querySelector('#dressTiles');
@@ -2643,14 +2658,14 @@ function openMenu(){
       <div><b>${c.meals}</b>ごはん</div><div><b>${c.treats}</b>おやつ</div><div><b>${c.pets}</b>なでなで</div><div><b>${c.plays}</b>あそび</div>
       <div><b>${(TRICKS[p.species] || []).filter(t => S.tricks[t.id] && S.tricks[t.id].ok).length}</b>げい</div><div><b>${SOUVENIRS.filter(x => S.souv.have[x.id]).length}</b>おみやげ</div><div><b>${S.stamps.length}</b>スタンプ</div><div><b>${Math.max(1, daysBetween(S.created || now(), now()) + 1)}</b>日</div>
     </div>
-    ${(() => { const nx = nextReward(L.lv); return nx ? nextupHtml(nx) : '<p class="nextup">すべてのごほうびを集めました</p>'; })()}
+    ${(() => { const nx = nextReward(L.lv); return nx ? nextupHtml(nx) : '<p class="nextup">すべての ごほうびを 集めました</p>'; })()}
     <div class="btnstack" id="menuBtns">
       <button class="btn" type="button" id="mAlbum">おもいでアルバム</button>
       <button class="btn" type="button" id="mEdit">名前・みためを変える</button>
       <button class="btn" type="button" id="mMove">引っこし・バックアップ</button>
       <button class="btn warn" type="button" id="mNew">新しい子をむかえる</button>
     </div>
-    <p class="note">${Persist.mode === 'cloud' ? 'あなたのアカウントに保存しています。ほかの端末で開いても同じ子に会えます。' : HOME ? 'この端末に保存しています。ときどき引っこしコードをコピーしておくと、バックアップになります。' : 'このブラウザに保存しています。'}</p>`;
+    <p class="note">${Persist.mode === 'cloud' ? 'あなたの アカウントに 保存しています。ほかの 端末で 開いても 同じ子に 会えます。' : HOME ? 'この端末に 保存しています。ときどき 引っこしコードを コピーしておくと、バックアップに なります。' : 'この ブラウザに 保存しています。'}</p>`;
   openSheet('プロフィール', html, sh => {
     sh.querySelector('#mEdit').addEventListener('click', () => { if (Act.waiting()) return; closeSheet(); Onboard.openEdit(); });
     sh.querySelector('#mMove').addEventListener('click', () => openMove());
@@ -2658,7 +2673,7 @@ function openMenu(){
     sh.querySelector('#mNew').addEventListener('click', () => {
       if (Act.waiting()) return;
       const box = sh.querySelector('#menuBtns');
-      box.innerHTML = `<div class="confirm"><p>新しい子をむかえると、${esc(p.name)}のなかよし度や記録は新しい子のものに置きかわります。</p>
+      box.innerHTML = `<div class="confirm"><p>新しい子を むかえると、${esc(p.name)}の なかよし度や 記録は 新しい子の ものに 置きかわります。</p>
         <div class="row"><button class="btn" type="button" id="mNo">やめる</button><button class="btn warn" type="button" id="mYes">むかえる</button></div></div>`;
       box.querySelector('#mNo').addEventListener('click', () => { closeSheet(); });
       box.querySelector('#mYes').addEventListener('click', () => { closeSheet(); Onboard.openNew(true); });
@@ -2695,11 +2710,11 @@ function readMoveCode(text){
 function decodeMoveCode(text){ return readMoveCode(text).st || null; }
 function moveErrorText(r){
   const n = v => Number(v || 0).toLocaleString('ja-JP');
-  if (r.reason === 'empty') return 'コードが空っぽです。コピーしたコードを貼りつけてから押してね。';
-  if (r.reason === 'noprefix') return `「UCHINOKO」ではじまるコードが見つかりませんでした（貼りつけた文字数：${n(r.got)}）。コピーがうまくいっていないかもしれません。「ファイルで保存」の方法もためしてみてね。`;
-  if (r.reason === 'big') return `コードが大きすぎて読めませんでした（${n(r.got)}文字）。うちのこ日和の引っこしコードか、たしかめてね。`;
-  if (r.reason === 'short') return `コードが途中で切れています（${n(r.need)}文字のうち${n(r.got)}文字）。もう一度まるごとコピーするか、「ファイルで保存」の方法をためしてみてね。`;
-  return `コードを読みとれませんでした（${n(r.got)}文字）。もう一度コピーし直してみてね。`;
+  if (r.reason === 'empty') return 'コードが 空っぽです。コピーした コードを 貼りつけてから 押してね。';
+  if (r.reason === 'noprefix') return `「UCHINOKO」で はじまる コードが 見つかりませんでした（貼りつけた 文字数：${n(r.got)}）。コピーが うまく いっていないかも しれません。「ファイルで保存」の 方法も ためしてみてね。`;
+  if (r.reason === 'big') return `コードが 大きすぎて 読めませんでした（${n(r.got)}文字）。うちのこ日和の 引っこしコードか、たしかめてね。`;
+  if (r.reason === 'short') return `コードが 途中で 切れています（${n(r.need)}文字のうち ${n(r.got)}文字）。もう一度 まるごと コピーするか、「ファイルで保存」の 方法を ためしてみてね。`;
+  return `コードを 読みとれませんでした（${n(r.got)}文字）。もう一度 コピーし直してみてね。`;
 }
 function decodeMovePayload(b64){
   try {
@@ -2763,11 +2778,11 @@ function openMove(){
   if (!S) return;
   const code = encodeMoveCode();
   const len = code.length.toLocaleString('ja-JP');
-  const html = `<p class="sheet-sub">${esc(S.pet.name)}を、ほかの場所（ホーム画面のアプリや別の端末）へつれていけます。</p>
+  const html = `<p class="sheet-sub">${esc(S.pet.name)}を、ほかの 場所（ホーム画面の アプリや 別の 端末）へ つれていけます。</p>
     <div class="card movecard"><h3>この子をつれていく</h3>
       <textarea class="codebox" id="mvOut" rows="4" ${CODE_ATTRS} aria-label="引っこしコード">${esc(code)}</textarea>
       <div class="btnrow"><button class="btn primary" type="button" id="mvCopy">コードをコピー</button><button class="btn" type="button" id="mvSave">ファイルで保存</button></div>
-      <p class="note" id="mvMsg" role="status">コードは${len}文字あります。つれていく先の「引っこしコードで受け取る」で、貼りつけるか、保存したファイルをえらんでね。</p>
+      <p class="note" id="mvMsg" role="status">コードは ${len}文字 あります。つれていく 先の「引っこしコードで受け取る」で、貼りつけるか、保存した ファイルを えらんでね。</p>
     </div>
     <div class="card movecard"><h3>コードで受け取る</h3>
       <textarea class="codebox" id="mvIn" rows="3" ${CODE_ATTRS} placeholder="UCHINOKO ではじまるコード" aria-label="受け取る引っこしコード"></textarea>
@@ -2778,13 +2793,13 @@ function openMove(){
     sh.querySelector('#mvCopy').addEventListener('click', async () => {
       const r = await copyText(out);
       msg.textContent = r === 'copied'
-        ? `コピーしました（${len}文字）。つれていく先で貼りつけてね。`
-        : 'コードをぜんぶ選びました。表示されたメニューの「コピー」を押してね。メニューが出ないときは「ファイルで保存」がかんたんです。';
+        ? `コピーしました（${len}文字）。つれていく 先で 貼りつけてね。`
+        : 'コードを ぜんぶ 選びました。表示された メニューの「コピー」を 押してね。メニューが 出ないときは「ファイルで保存」が かんたんです。';
     });
     sh.querySelector('#mvSave').addEventListener('click', async () => {
       const r = await saveMoveFile(code);
-      msg.textContent = r === 'saved' ? `「${MOVE_FILE}」を保存しました。つれていく先で「ファイルからえらぶ」でえらんでね。`
-        : r === 'declined' ? '保存をとりやめました。' : 'ここではファイルの保存ができませんでした。コードのコピーをためしてね。';
+      msg.textContent = r === 'saved' ? `「${MOVE_FILE}」を 保存しました。つれていく 先で「ファイルからえらぶ」で えらんでね。`
+        : r === 'declined' ? '保存を とりやめました。' : 'ここでは ファイルの 保存が できませんでした。コードの コピーを ためしてね。';
     });
     const take = (text, pre) => {
       if (Act.waiting()) return;
@@ -2794,7 +2809,7 @@ function openMove(){
       if (!r.st){ box.insertAdjacentHTML('beforebegin', `<p class="oberr mverr" role="alert" style="margin:0">${esc(moveErrorText(r))}</p>`); return; }
       const st = r.st;
       box.classList.remove('btnrow');
-      box.innerHTML = `<div class="confirm"><p>いまの${esc(S.pet.name)}は、コードの${esc(st.pet.name)}（なかよしLv ${levelInfo(st.stats.love).lv}）に置きかわります。</p>
+      box.innerHTML = `<div class="confirm"><p>いまの ${esc(S.pet.name)}は、コードの ${esc(st.pet.name)}（なかよしLv ${levelInfo(st.stats.love).lv}）に 置きかわります。</p>
         <div class="row"><button class="btn" type="button" id="mvNo">やめる</button><button class="btn warn" type="button" id="mvYes">受け取る</button></div></div>`;
       box.querySelector('#mvNo').addEventListener('click', () => closeSheet());
       box.querySelector('#mvYes').addEventListener('click', () => { S = st; closeSheet(); Persist.schedule(); Game.start('ただいま！'); });
@@ -3051,12 +3066,12 @@ function allTreats(){
 /* ===== きょうのおねがい ===== */
 function reqText(r){
   switch (r.type){
-    case 'meal': return `ごはんを${r.n}回たべたい`;
-    case 'treat': return r.n > 1 ? `おやつを${r.n}こ ほしい` : 'おやつが ほしい';
+    case 'meal': return `ごはんを ${r.n}回 たべたい`;
+    case 'treat': return r.n > 1 ? `おやつを ${r.n}こ ほしい` : 'おやつが ほしい';
     case 'treatId': { const t = allTreats().find(x => x.id === r.id); return `「${t ? t.ja : 'おやつ'}」が たべたい`; }
-    case 'play': return isCat() ? `毛糸玉で${r.n}回 あそびたい` : `ボールで${r.n}回 あそびたい`;
-    case 'pet': return `${r.n}回 なでなでしてほしい`;
-    case 'trick': return `げいを${r.n}回 見せたい`;
+    case 'play': return isCat() ? `毛糸玉で ${r.n}回 あそびたい` : `ボールで ${r.n}回 あそびたい`;
+    case 'pet': return `${r.n}回 なでなで してほしい`;
+    case 'trick': return `げいを ${r.n}回 見せたい`;
     case 'dress': return 'きせかえ してほしい';
     case 'room': return 'もようがえ してみたい';
   }
@@ -3082,7 +3097,7 @@ function brokeModal(e){
   Modal.show({
     label:'れんぞく記録',
     html:() => `${petCard('', 'ex-sad')}<h3>れんぞく記録が<br>とぎれちゃった…</h3>
-      <p>きのうは おやすみだったね。<br>おたすけのおねがいは ${RESCUE_EVERY}日に1回までなので、こんかいは つなげません。<br>つぎに つかえるのは <b>${mdOfKey(e.next)}</b>から。</p>
+      <p>きのうは おやすみだったね。<br>おたすけの おねがいは ${RESCUE_EVERY}日に 1回までなので、こんかいは つなげません。<br>つぎに つかえるのは <b>${mdOfKey(e.next)}</b>から。</p>
       <p class="quote">「また きょうから がんばろうね」</p>
       <button class="btn primary" type="button" data-close>うん</button>`,
   });
@@ -3091,9 +3106,9 @@ function pinchModal(e){
   Modal.show({
     label:'れんぞく記録のピンチ',
     html:() => `${petCard('', 'ex-sad')}<h3>れんぞく記録が ピンチ！</h3>
-      <p>きのうは おやすみだったね。<br>きょうのうちに いつもの おねがい3つと、この おたすけのおねがいを かなえると、れんぞく<b>${e.n}日</b>の記録が つづくよ。</p>
+      <p>きのうは おやすみだったね。<br>きょうの うちに いつもの おねがい3つと、この おたすけの おねがいを かなえると、れんぞく <b>${e.n}日</b>の 記録が つづくよ。</p>
       <p class="rescueline">${mini('rescue')}<span><small>おたすけのおねがい</small>${esc(reqText(S.daily.rescue))}</span></p>
-      <p class="note" style="margin:0 0 12px">おたすけは ${RESCUE_EVERY}日に1回まで。2日いじょう あいたときは つなげません。</p>
+      <p class="note" style="margin:0 0 12px">おたすけは ${RESCUE_EVERY}日に 1回まで。2日いじょう あいたときは つなげません。</p>
       <div class="btnrow"><button class="btn" type="button" data-close="later">あとで</button><button class="btn primary" type="button" data-close="open">おねがいを見る</button></div>`,
   }).then(v => { if (v === 'open') openRequests(); });
 }
@@ -3110,7 +3125,7 @@ function allDoneModal(e){
     label:'きょうのおねがい コンプリート', confetti:true,
     html:() => `${petCard()}<h3>きょうのおねがい<br>ぜんぶかなえた！</h3>
       <div class="stampbig">${mini('stamp')}</div>
-      <p>ごほうび ♥+10<br>${e.bridged ? `おたすけスタンプで つながって<br>れんぞく <b>${S.streak.n}日</b>！` : e.waiting ? `あとは おたすけのおねがい<br>「${esc(reqText(S.daily.rescue))}」で<br>れんぞく <b>${(S.streak.saved ? S.streak.saved.n : 0) + 1}日</b>に つながるよ！` : S.streak.n > 1 ? `れんぞく <b>${S.streak.n}日</b>！` : 'スタンプカードに スタンプをおしたよ'}</p>
+      <p>ごほうび ♥+10<br>${e.bridged ? `おたすけスタンプで つながって<br>れんぞく <b>${S.streak.n}日</b>！` : e.waiting ? `あとは おたすけの おねがい<br>「${esc(reqText(S.daily.rescue))}」で<br>れんぞく <b>${(S.streak.saved ? S.streak.saved.n : 0) + 1}日</b>に つながるよ！` : S.streak.n > 1 ? `れんぞく <b>${S.streak.n}日</b>！` : 'スタンプカードに スタンプを おしたよ'}</p>
       <button class="btn primary" type="button" data-close>やったね</button>`,
   }), 1200);
 }
@@ -3121,7 +3136,7 @@ function openRequests(){
   const si = streakInfo();
   const R = D.rescue && (si.pinch || D.rescue.done) ? D.rescue : null;
   const rescueCard = R ? `<div class="rescuebox">
-      <p><b>れんぞく記録が ピンチ！</b>きのうは おやすみだったね。きょうのうちに いつもの3つと、この おたすけのおねがいを ぜんぶかなえると、れんぞく${si.n}日の記録が つづくよ。（おたすけは ${RESCUE_EVERY}日に1回まで）</p>
+      <p><b>れんぞく記録が ピンチ！</b>きのうは おやすみだったね。きょうの うちに いつもの 3つと、この おたすけの おねがいを ぜんぶ かなえると、れんぞく ${si.n}日の 記録が つづくよ。（おたすけは ${RESCUE_EVERY}日に 1回まで）</p>
       <div class="req rescue ${R.done ? 'done' : ''}"><div class="req-ic">${mini('rescue')}</div>
         <div class="req-body"><span class="evpill">おたすけ</span><b>${esc(reqText(R))}</b><div class="bar"><i style="width:${Math.round(R.got / R.n * 100)}%"></i></div></div>
         <div class="req-st">${R.done ? '<span class="okpill">かなえた</span>' : `<span class="cnt">${R.got}/${R.n}</span><small>♥+5</small>`}</div></div>
@@ -3132,9 +3147,9 @@ function openRequests(){
         <div class="bar"><i style="width:${Math.round(r.got / r.n * 100)}%"></i></div></div>
       <div class="req-st">${r.done ? '<span class="okpill">かなえた</span>' : `<span class="cnt">${r.got}/${r.n}</span><small>♥+4</small>`}</div>
     </div>`).join('');
-  const html = `<p class="sheet-sub">${esc(S.pet.name)}からの、きょうのおねがいです。毎日0時に新しくなります。</p>
+  const html = `<p class="sheet-sub">${esc(S.pet.name)}からの、きょうの おねがいです。毎日 0時に 新しく なります。</p>
     ${rescueCard}<div class="reqs" style="--c:var(--berry)">${cards}</div>
-    <div class="reqfoot"><span>${D.all ? '<b>きょうは ぜんぶかなえました！</b>' : 'ぜんぶかなえると <b>♥+10</b> とスタンプ'}</span><span>れんぞく ${si.n}日${si.pinch ? ' <span class="pinchpill">ピンチ</span>' : ''}</span></div>
+    <div class="reqfoot"><span>${D.all ? '<b>きょうは ぜんぶ かなえました！</b>' : 'ぜんぶ かなえると <b>♥+10</b> と スタンプ'}</span><span>れんぞく ${si.n}日${si.pinch ? ' <span class="pinchpill">ピンチ</span>' : ''}</span></div>
     <button class="btn" type="button" id="toStamps">スタンプカードを見る</button>`;
   openSheet('きょうのおねがい', html, sh => {
     sh.querySelector('#toStamps').addEventListener('click', () => openAlbum('stamp'));
@@ -3149,7 +3164,7 @@ function souvenirModal(e){
     label:'おるすばんのおみやげ',
     html:() => `<div class="souvwrap">${petCard()}<div class="souvitem"><svg viewBox="0 0 48 48" aria-hidden="true">${souvenirIcon(pickS.icon)}</svg>${e.isNew ? '<span class="newpill">NEW</span>' : ''}</div></div>
       <h3>おるすばん ありがとう！</h3>
-      <p>${esc(S.pet.name)}が ${isCat() ? 'ねこのパトロール' : 'おさんぽ'}で<br><b>「${esc(pickS.ja)}」</b>を見つけてきたよ</p>
+      <p>${esc(S.pet.name)}が ${isCat() ? 'ねこの パトロール' : 'おさんぽ'}で<br><b>「${esc(pickS.ja)}」</b>を 見つけてきたよ</p>
       <p class="quote">「${esc(pickS.line)}」</p>
       <p class="gainline">♥+${e.bonus}</p>
       <button class="btn primary" type="button" data-close>ありがとう</button>`,
@@ -3166,8 +3181,8 @@ function eventModal(e){
     label:ev.ja, confetti:true,
     html:`${petCard(trial)}<h3>${esc(ev.ja)}が はじまったよ！</h3>
       <p class="quote">「${esc(ev.hello)}」</p>
-      <p>期間中は おへやが かざりつけされて、限定のおやつ<b>「${esc(ev.treat.ja)}」</b>が あげられます。</p>
-      ${e.had ? '' : `<p class="giftline">${mini('gift')} プレゼント<b>「${esc(w.ja)}」</b></p>`}
+      <p>期間中は おへやが かざりつけされて、限定の おやつ <b>「${esc(ev.treat.ja)}」</b>が あげられます。</p>
+      ${e.had ? '' : `<p class="giftline"><span>${mini('gift')} プレゼント <b>「${esc(w.ja)}」</b></span></p>`}
       <div class="btnrow"><button class="btn" type="button" data-close="later">あとで</button><button class="btn primary" type="button" data-close="wear">つけてみる</button></div>`,
   }).then(async v => {
     if (v !== 'wear' || Act.waiting()) return;
@@ -3179,7 +3194,7 @@ function eventModal(e){
 }
 function annivModal(e){
   Modal.show({ label:'うちのこ記念日', confetti:true,
-    html:`${petCard()}<h3>うちのこ記念日！</h3><p>${esc(S.pet.name)}がうちにきて、きょうで<b>${e.years}年</b>。<br>いつも ありがとう。</p><button class="btn primary" type="button" data-close>おめでとう</button>` });
+    html:`${petCard()}<h3>うちのこ記念日！</h3><p>${esc(S.pet.name)}が うちにきて、きょうで <b>${e.years}年</b>。<br>いつも ありがとう。</p><button class="btn primary" type="button" data-close>おめでとう</button>` });
 }
 
 /* ===== room: decoration, window view, seasonal decor ===== */
@@ -3287,7 +3302,7 @@ function roomTabHtml(){
   const chips = DECOR_CATS.map(([k, ja]) => `<button class="chip" type="button" data-rc="${k}" aria-pressed="${k === roomCat}">${ja}</button>`).join('');
   const tiles = DECOR[roomCat].map(d => {
     const locked = lv < d.lv;
-    return `<button class="tile rtile" type="button" data-rd="${d.id}" aria-pressed="${S.room[roomCat] === d.id}" ${locked ? 'aria-disabled="true"' : ''}>${roomSwatch(roomCat, d)}<span class="tname">${esc(d.ja)}</span>${locked ? `<span class="lockpill">Lv${d.lv}で解放</span>` : ''}</button>`;
+    return `<button class="tile rtile" type="button" data-rd="${d.id}" aria-pressed="${S.room[roomCat] === d.id}" ${locked ? 'aria-disabled="true"' : ''}>${roomSwatch(roomCat, d)}<span class="tname">${softName(d.ja)}</span>${locked ? `<span class="lockpill">Lv${d.lv}で解放</span>` : ''}</button>`;
   }).join('');
   const ev = activeEvent();
   return `<div class="chips rchips">${chips}</div><div class="tiles">${tiles}</div>
@@ -3326,10 +3341,10 @@ function openTricks(){
     const st = S.tricks[t.id] || { p:0, ok:false }, locked = lv < t.lv;
     const dots = Array.from({ length:t.need }, (_, i) => `<i class="${i < st.p ? 'on' : ''}"></i>`).join('');
     return `<button class="tile trick ${st.ok ? 'learned' : ''}" type="button" data-tk="${t.id}" ${locked ? 'aria-disabled="true"' : ''}>
-      <span class="tk-star">${mini('trick', st.ok ? '' : 'dim')}</span><span class="tname">${esc(t.ja)}</span>
+      <span class="tk-star">${mini('trick', st.ok ? '' : 'dim')}</span><span class="tname">${softName(t.ja)}</span>
       ${locked ? `<span class="lockpill">Lv${t.lv}で解放</span>` : st.ok ? '<span class="okpill">できる！</span>' : `<span class="tk-dots" aria-label="れんしゅう ${st.p}/${t.need}">${dots}</span>`}</button>`;
   }).join('');
-  openSheet('げい', `<p class="sheet-sub">おぼえた げい ${learned} / ${list.length}　れんしゅうして、できるようになったら いつでも見せてくれます。</p><div class="tiles">${tiles}</div><p class="note">ごきげんがいいと、れんしゅうが うまくいきやすいよ。</p>`, sh => {
+  openSheet('げい', `<p class="sheet-sub">おぼえた げい ${learned} / ${list.length}　れんしゅうして、できるように なったら いつでも 見せてくれます。</p><div class="tiles">${tiles}</div><p class="note">ごきげんが いいと、れんしゅうが うまく いきやすいよ。</p>`, sh => {
     sh.querySelectorAll('[data-tk]').forEach(b => b.addEventListener('click', () => {
       if (b.getAttribute('aria-disabled') === 'true') return;
       doTrick(list.find(t => t.id === b.dataset.tk));
@@ -3359,7 +3374,7 @@ async function doTrick(tk){
     if (r.learned){
       Pet.say('できるように なったよ！');
       Modal.show({ label:'げいをおぼえた', confetti:true,
-        html:`${petCard()}<h3>げい「${esc(tk.ja)}」を<br>おぼえた！</h3><p>これからは いつでも見せてくれます。<br>♥+5</p><button class="btn primary" type="button" data-close>すごいね！</button>` });
+        html:`${petCard()}<h3>げい「${esc(tk.ja)}」を<br>おぼえた！</h3><p>これからは いつでも 見せてくれます。<br>♥+5</p><button class="btn primary" type="button" data-close>すごいね！</button>` });
     } else if (!r.known) Pet.say(`できた！（${r.p}/${r.need}）`);
     else Pet.say(pick(['どう？','じょうずでしょ！','えへへ','もっと見る？']));
   } else {
@@ -3381,12 +3396,12 @@ function albumHtml(){
   let body = '';
   if (albumTab === 'diary'){
     body = S.album.length ? `<ol class="diary">${S.album.map(a => `<li><span class="d-date">${fmtMD(a.t)}<small>${new Date(a.t).getFullYear()}</small></span><span class="d-ic">${iconFor(a.ic)}</span><span class="d-txt"><b>${esc(a.ti)}</b>${a.su ? `<small>${esc(a.su)}</small>` : ''}</span></li>`).join('')}</ol>`
-      : '<p class="empty">まだ記録がありません。いっしょに すごすと、ここに思い出がたまっていきます。</p>';
+      : '<p class="empty">まだ 記録が ありません。いっしょに すごすと、ここに 思い出が たまっていきます。</p>';
   } else if (albumTab === 'souv'){
     const got = SOUVENIRS.filter(s => S.souv.have[s.id]).length;
     body = `<p class="sheet-sub">あつめた おみやげ ${got} / ${SOUVENIRS.length}　しばらく あけてから ひらくと、おみやげを もってきてくれます。</p><div class="tiles svtiles">${SOUVENIRS.slice().sort((a, b) => (S.souv.have[b.id] ? 1 : 0) - (S.souv.have[a.id] ? 1 : 0)).map(s => {
       const n = S.souv.have[s.id];
-      return n ? `<div class="tile sv"><svg viewBox="0 0 48 48" aria-hidden="true">${souvenirIcon(s.icon)}</svg><span class="tname">${esc(s.ja)}</span><small>×${n}</small></div>`
+      return n ? `<div class="tile sv"><svg viewBox="0 0 48 48" aria-hidden="true">${souvenirIcon(s.icon)}</svg><span class="tname">${softName(s.ja)}</span><small>×${n}</small></div>`
         : `<div class="tile sv unknown"><svg viewBox="0 0 48 48" aria-hidden="true">${souvenirIcon(s.icon)}</svg><span class="tname">？？？</span><small>${s.seasons.split(' ').map(x => SEASON_JA[x]).join('・')}</small></div>`;
     }).join('')}</div>`;
   } else {
@@ -3405,7 +3420,7 @@ function albumHtml(){
     body = `<div class="cal-head"><button class="closebtn" type="button" data-mon="-1" aria-label="前の月">‹</button><b>${y}年${m + 1}月</b><button class="closebtn" type="button" data-mon="1" aria-label="次の月">›</button></div>
       <div class="cal"><b>日</b><b>月</b><b>火</b><b>水</b><b>木</b><b>金</b><b>土</b>${cells}</div>
       <div class="counts cal-stats"><div><b>${cur}</b>れんぞく${si.pinch ? '<span class="pinchpill">ピンチ</span>' : ''}</div><div><b>${S.streak.best || 0}</b>さいこう</div><div><b>${S.stamps.length}</b>ぜんぶ</div><div><b>${S.stamps.filter(k => k.startsWith(`${y}-${String(m + 1).padStart(2, '0')}`)).length}</b>${m + 1}月</div></div>
-      <p class="note">きょうのおねがいを ぜんぶかなえた日に、スタンプがつきます。1日だけ おやすみした日は、つぎの日に おたすけのおねがいを かなえると<span class="rs-legend">${mini('rescue')}</span>おたすけスタンプで つながります（${RESCUE_EVERY}日に1回まで。2日いじょう あくと つなげません）。${!rescueReady() ? `つぎに おたすけが つかえるのは <b>${mdOfKey(nextRescueDay())}</b>から。` : ''}</p>`;
+      <p class="note">きょうの おねがいを ぜんぶ かなえた日に、スタンプが つきます。1日だけ おやすみした日は、つぎの日に おたすけの おねがいを かなえると <span class="rs-legend">${mini('rescue')}</span>おたすけスタンプで つながります（${RESCUE_EVERY}日に 1回まで。2日いじょう あくと つなげません）。${!rescueReady() ? `つぎに おたすけが つかえるのは <b>${mdOfKey(nextRescueDay())}</b>から。` : ''}</p>`;
   }
   return `<div class="seg" role="tablist">${tabs}</div>${body}`;
 }
@@ -3614,8 +3629,8 @@ const Onboard = {
     this.box.innerHTML = `<div class="ob-step">
       <h1 class="brand">うちのこ<span>日和</span></h1>
       <p class="lead">${HOME
-        ? '犬か猫の写真を1枚えらぶと、その子の毛の色でペットがお部屋にやってきます。種類と色を近づけたら、ごはんをあげて、なでて、いっしょにのんびり過ごしましょう。年をとったり、いなくなったりはしません。'
-        : '犬か猫の写真を1枚えらぶと、その子そっくりのペットがお部屋にやってきます。ごはんをあげて、なでて、いっしょにのんびり過ごしましょう。年をとったり、いなくなったりはしません。'}</p>
+        ? '犬か猫の 写真を 1枚 えらぶと、その子の 毛の色で ペットが お部屋に やってきます。種類と 色を 近づけたら、ごはんを あげて、なでて、いっしょに のんびり 過ごしましょう。年を とったり、いなくなったりは しません。'
+        : '犬か猫の 写真を 1枚 えらぶと、その子 そっくりの ペットが お部屋に やってきます。ごはんを あげて、なでて、いっしょに のんびり 過ごしましょう。年を とったり、いなくなったりは しません。'}</p>
       <div class="miniroom" aria-hidden="true"><div class="a" style="position:absolute;left:4%;bottom:4%;width:46%">${renderPet(SAMPLE_A, { acc:'ribbon' })}</div><div class="b" style="position:absolute;right:4%;bottom:4%;width:46%">${renderPet(SAMPLE_B, { acc:'bell' })}</div></div>
       ${err ? `<div class="oberr" role="alert">${esc(err)}</div>` : ''}
       <label class="upload">${CAMERA}写真からむかえる<input type="file" accept="image/*" id="obFile" aria-label="犬か猫の写真をえらぶ"></label>
@@ -3623,8 +3638,8 @@ const Onboard = {
       <button class="linkbtn" type="button" id="obImport">引っこしコードで受け取る</button>
       ${this.canCancel ? '<button class="linkbtn" type="button" id="obBack">もどる</button>' : ''}
       <p class="note">${HOME
-        ? '写真は毛の色をひろうためだけに、この端末の中で使います。どこにも送られません。お部屋には小さなサムネイルを飾ります。'
-        : '写真は種類と毛の色を読みとるためにClaudeへ送られます。読みとりにはあなたのClaudeの利用枠を少し使います。お部屋には小さなサムネイルだけを飾ります。'}</p>
+        ? '写真は 毛の色を ひろうためだけに、この端末の中で 使います。どこにも 送られません。お部屋には 小さな サムネイルを 飾ります。'
+        : '写真は 種類と 毛の色を 読みとるために Claudeへ 送られます。読みとりには あなたの Claudeの 利用枠を 少し 使います。お部屋には 小さな サムネイルだけを 飾ります。'}</p>
     </div>`;
     this.box.querySelectorAll('.miniroom .pet-svg').forEach(s => { s.style.width = '100%'; s.style.height = 'auto'; });
     $('#obFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) this.analyze(f); });
@@ -3637,7 +3652,7 @@ const Onboard = {
     this.show();
     this.box.innerHTML = `<div class="ob-step">
       <h2 class="brand" style="font-size:24px">引っこしコードで受け取る</h2>
-      <p class="lead">前の場所でコピーした引っこしコードを貼りつけるか、保存したファイル（${MOVE_FILE}）をえらんでください。なかよし度やきせかえも、そのまま引きつぎます。</p>
+      <p class="lead">前の場所で コピーした 引っこしコードを 貼りつけるか、保存した ファイル（${MOVE_FILE}）を えらんでください。なかよし度や きせかえも、そのまま 引きつぎます。</p>
       ${err ? `<div class="oberr" role="alert">${esc(err)}</div>` : ''}
       <textarea class="codebox" id="imCode" rows="6" ${CODE_ATTRS} placeholder="UCHINOKO ではじまるコード" aria-label="引っこしコード"></textarea>
       <button class="btn primary" type="button" id="imGo">貼りつけたコードで受け取る</button>
@@ -3664,7 +3679,7 @@ const Onboard = {
       <div class="scanphoto"><img src="${esc(preview)}" alt="えらんだ写真"></div>
       <p class="scanmsg" id="scanMsg" aria-live="polite">どんな子かな…</p>
       <div class="paws">${PAW}${PAW}${PAW}${PAW}</div>
-      <p class="note">はじめての読みとりでは、Claudeを使ってよいかの確認が出ます。読みとりには30秒ほどかかることがあります。</p>
+      <p class="note">はじめての 読みとりでは、Claudeを 使ってよいかの 確認が 出ます。読みとりには 30秒ほど かかることが あります。</p>
       <button class="btn" type="button" id="scanCancel" style="max-width:220px">キャンセル</button>
     </div>`;
     const msgs = ['お耳の形を見ています…','毛の色をしらべています…','しっぽをチェック中…','お顔のもようを見ています…','かわいさを確認中…'];
@@ -3677,20 +3692,20 @@ const Onboard = {
     this.busy = true;
     let img;
     try { img = await prepImage(file); }
-    catch(e){ return this.welcome('この写真は読みこめませんでした。JPEGかPNGの写真でためしてね。'); }
-    if (HOME) return this.fromPhotoOnly(img, '写真から毛の色をひろいました。犬か猫と種類をえらんで、色を近づけてね。');
+    catch(e){ return this.welcome('この写真は 読みこめませんでした。JPEGか PNGの 写真で ためしてね。'); }
+    if (HOME) return this.fromPhotoOnly(img, '写真から 毛の色を ひろいました。犬か猫と 種類を えらんで、色を 近づけてね。');
     this.scan(img.preview);
     const sampler = await getImageSampler();
     if (!this.busy) return;
-    if (!sampler) return this.fromPhotoOnly(img, 'ここでは写真の読みとりが使えないので、写真の色で仮の見た目をつくりました。種類をえらんでね。');
+    if (!sampler) return this.fromPhotoOnly(img, 'ここでは 写真の 読みとりが 使えないので、写真の色で 仮の 見た目を つくりました。種類を えらんでね。');
     this.ctl = new AbortController();
     try {
       const res = await sampler.json(buildPrompt(), { images:[img.blob], signal:this.ctl.signal });
       this.ctl = null;
       clearInterval(this.msgT);
       const out = parseAI(res);
-      if (!out) return this.fromPhotoOnly(img, 'うまく読みとれませんでした。種類と色をえらんでね。');
-      if (out.species === 'other') return this.welcome('犬か猫が写っている写真をえらんでね。顔がはっきり写っている写真がおすすめです。');
+      if (!out) return this.fromPhotoOnly(img, 'うまく 読みとれませんでした。種類と 色を えらんでね。');
+      if (out.species === 'other') return this.welcome('犬か猫が 写っている 写真を えらんでね。顔が はっきり 写っている 写真が おすすめです。');
       this.draft = { look:out.look, name:'', photo:img.thumb, preview:img.preview, colorName:out.colorName, cands:out.cands, comment:out.comment, note:'', keepColors:true, photoMain:null };
       this.edit();
     } catch(e){
@@ -3698,12 +3713,12 @@ const Onboard = {
       clearInterval(this.msgT);
       const code = e && e.code;
       if (code === 'cancelled') return this.welcome();
-      if (code === 'image_rejected' || code === 'refused') return this.welcome('この写真は読みとれませんでした。ちがう写真でためしてね。');
+      if (code === 'image_rejected' || code === 'refused') return this.welcome('この写真は 読みとれませんでした。ちがう 写真で ためしてね。');
       const msg = {
-        not_granted:'写真の読みとりが許可されなかったので、写真の色で仮の見た目をつくりました。種類をえらんでね。',
-        rate_limited:'いまは読みとりが混みあっています。写真の色で仮の見た目をつくったので、種類をえらぶか、少しあとでためしてね。',
-        session_expired:'もう一度サインインすると写真を読みとれます。いまは種類をえらんでね。',
-      }[code] || 'うまく読みとれませんでした。写真の色で仮の見た目をつくったので、種類をえらんでね。';
+        not_granted:'写真の 読みとりが 許可されなかったので、写真の色で 仮の 見た目を つくりました。種類を えらんでね。',
+        rate_limited:'いまは 読みとりが 混みあっています。写真の色で 仮の 見た目を つくったので、種類を えらぶか、少し あとで ためしてね。',
+        session_expired:'もう一度 サインインすると 写真を 読みとれます。いまは 種類を えらんでね。',
+      }[code] || 'うまく 読みとれませんでした。写真の色で 仮の 見た目を つくったので、種類を えらんでね。';
       this.fromPhotoOnly(img, msg);
     }
   },
@@ -3755,7 +3770,7 @@ const Onboard = {
     const label = breedLabel({ breedId:L.breedId, colorName:d.colorName });
     const head = this.mode === 'edit' ? `${esc(d.name)}の見た目を変えられます`
       : d.cands ? `この子は「${esc(label)}」かな？` : 'どんな子か教えてね';
-    const sub = this.mode === 'edit' ? '種類・毛の色・名前を変えても、なかよし度はそのままです。' : (d.comment || d.note || '種類をえらんで、毛の色を近づけてね。');
+    const sub = this.mode === 'edit' ? '種類・毛の色・名前を 変えても、なかよし度は そのままです。' : (d.comment || d.note || '種類を えらんで、毛の色を 近づけてね。');
     const swRow = (key, list, cur) => `<div class="swrow" role="group">${list.map(([n, h]) =>
       `<button class="sw" type="button" data-sw="${key}" data-hex="${h}" style="background:${h}" aria-label="${esc(n)}" aria-pressed="${normHex(h) === cur}"></button>`).join('')}
       <label class="swcustom" title="ほかの色"><input type="color" data-swc="${key}" value="${cur}" aria-label="ほかの色をえらぶ"></label></div>`;
@@ -3776,7 +3791,7 @@ const Onboard = {
           <div class="pickphoto" id="edPick"><img src="${esc(d.preview || d.photo)}" alt="えらんだ写真。毛のところをタップすると色をひろえます"><i id="pickDot" hidden></i></div>
           <div class="picktargets"><p class="swlabel" style="margin:0">写真からひろう</p>
             <div class="chips"><button class="chip" type="button" data-pt="main" aria-pressed="true">からだ</button><button class="chip" type="button" data-pt="sub" aria-pressed="false">口もと・おなか</button></div>
-            <p class="note" style="margin:0">写真の毛のところをタップすると、その色になります。</p></div>
+            <p class="note" style="margin:0">写真の 毛の ところを タップすると、その色に なります。</p></div>
         </div>` : ''}
         <p class="swlabel">からだ</p>${swRow('main', COAT_SW, L.colors.main)}
         <p class="swlabel">口もと・おなか</p>${swRow('sub', COAT_SW, L.colors.face)}
@@ -3870,7 +3885,7 @@ const Onboard = {
       const look = d.keepColors
         ? Object.assign({}, b.look, { species:b.sp, breedId:b.id, colors:d.look.colors, marks:d.look.marks })
         : { species:b.sp, breedId:b.id };
-      return `<button class="tile" type="button" data-g="${b.id}" aria-pressed="${b.id === d.look.breedId}">${renderPet(look)}<span>${esc(b.ja)}</span></button>`;
+      return `<button class="tile" type="button" data-g="${b.id}" aria-pressed="${b.id === d.look.breedId}">${renderPet(look)}<span>${softName(b.ja)}</span></button>`;
     }).join('');
     grid.querySelectorAll('[data-g]').forEach(b => b.addEventListener('click', () => { this.applyBreed(b.dataset.g); this.refresh(); }));
   },

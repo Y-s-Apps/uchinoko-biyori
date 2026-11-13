@@ -77,7 +77,7 @@ const Persist = {
     Modal.show({
       label:'ほぞんできませんでした',
       html:() => `${petCard('', 'ex-sad')}<h3>この端末に<br>ほぞんできませんでした</h3>
-        <p>端末の空きが すくないのかもしれません。${esc(S.pet.name)}を なくさないように、「引っこし・バックアップ」で コードをコピーするか、ファイルで保存しておいてね。</p>
+        <p>端末の空きが すくないのかも しれません。${esc(S.pet.name)}を なくさないように、「引っこし・バックアップ」で コードを コピーするか、ファイルで 保存しておいてね。</p>
         <div class="btnrow"><button class="btn" type="button" data-close>とじる</button><button class="btn primary" type="button" data-close="move">バックアップ</button></div>`,
     }).then(v => { if (v === 'move') openMove(); });
   },
@@ -169,6 +169,17 @@ function heartAt(x, y){ fx('heart', x, y, HEART, { '--dx': (Math.random() * 40 -
 function hearts(n){
   const h = Pet.headPoint();
   for (let i = 0; i < n; i++) setTimeout(() => heartAt(h.x + (Math.random() * 60 - 30), h.y + (Math.random() * 20 - 10)), i * 140);
+}
+/* 名前（種類・おやつ・きせかえ など）を、タイルのような せまいところで ことばの まんなかで 切らないように：
+   切ってよいところに <wbr>（ひらがなから カタカナへ かわるところ・「の」のあと・「ちいさな」などの あと・カタカナの ことばの つなぎめ）。HTML を返す */
+const SOFT_WORDS = ['ダックスフンド','シュナウザー','テリア','ブルドッグ','レトリーバー','コーギー','ハスキー','ラッセル','フォールド',
+  'ショートヘア','フォレスト','キャット','ケーキ','ささみ'];
+function softName(s){
+  /* 正規表現の中の文字は \u で書く（ひらがな ぁ-ゖ・カタカナ ァ-ヺ・漢字・の・な） */
+  let t = esc(s).replace(/([\u3041-\u3096])([\u30A1-\u30FA])/g, '$1<wbr>$2').replace(/([^\s<>]{2})\u306E(?=[^\s<>]{2})/g, '$1\u306E<wbr>')
+    .replace(/([\u3041-\u3096]{2}\u306A)(?=[\u4E00-\u9FFF])/g, '$1<wbr>');
+  for (const w of SOFT_WORDS) t = t.split(w).join('<wbr>' + w);
+  return t.replace(/(<wbr>)+/g, '<wbr>').replace(/^<wbr>/, '');
 }
 let toastT = null;
 function toast(msg){
@@ -376,7 +387,7 @@ function careRefused(r){
   const cat = S && S.pet.species === 'cat';
   switch (r && r.why){
     case 'offline': Act.waiting(); break;
-    case 'limit': toast('おやつは少し時間をあけてね'); break;
+    case 'limit': toast('おやつは 少し 時間を あけてね'); break;
     case 'full': Pet.wake(); Pet.tilt(); Pet.say(cat ? 'おなかいっぱいにゃ…' : 'おなかいっぱい！'); break;
     case 'hungry': Pet.wake(); Pet.flash('sad', 2000); Pet.say('おなかがすいて できないよ…'); break;
     case 'locked': toast('まだ えらべないよ'); break;
@@ -388,7 +399,7 @@ function playEvents(ev){
     switch (e.k){
       case 'lv': setTimeout(() => celebrate(e.lv, e.before), 900); break;
       case 'req':
-        toast('おねがいをかなえた！ ♥+4');
+        toast('おねがいを かなえた！ ♥+4');
         setTimeout(() => { if (!Pet.sleeping){ Pet.say('ありがとう！ うれしい！'); Pet.wag(1500); } hearts(3); }, 300);
         break;
       case 'all': allDoneModal(e); break;
@@ -399,7 +410,7 @@ function playEvents(ev){
           setTimeout(() => { if (!Pet.sleeping) Pet.say('あとは きょうのおねがいを ぜんぶ かなえよう！', 2600); }, 300);
         }
         break;
-      case 'days': toast(`${S.pet.name}がうちにきて ${e.n}日！`); break;
+      case 'days': toast(`${S.pet.name}が うちにきて ${e.n}日！`); break;
       case 'anniv': annivModal(e); break;
       case 'event': eventModal(e); break;
       case 'souv': souvenirModal(e); break;
@@ -623,7 +634,7 @@ function celebrate(lv, before){
   Modal.show({
     label:'なかよしレベルアップ', confetti:true,
     html:() => `<div class="mpet ex-happy wag-fast">${renderPet(S.pet.look, { wear:petWear() })}</div>
-    <h3>${lv >= MAX_LV ? 'なかよしMAX！' : 'なかよしLv ' + lv}</h3><p>${esc(S.pet.name)}とさらになかよくなりました${newTitle ? `<br>あたらしい関係「${esc(titleFor(lv))}」` : ''}</p>
+    <h3>${lv >= MAX_LV ? 'なかよしMAX！' : 'なかよしLv ' + lv}</h3><p>${esc(S.pet.name)}と さらに なかよく なりました${newTitle ? `<br>あたらしい関係「${esc(titleFor(lv))}」` : ''}</p>
     ${items.length ? `<ul>${items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>` : ''}
     ${nx ? nextupHtml(nx) : ''}
     <button class="btn primary" type="button" data-close>やったね</button>`,
@@ -656,13 +667,13 @@ function openTreats(){
   const ev = activeEvent();
   const list = ev ? [eventTreat(ev)].concat(base) : base;
   const open = base.filter(t => t.lv <= lv).length;
-  const html = `<p class="sheet-sub">${open} / ${base.length} しゅるい　レベルの高いおやつほど、なかよし度が大きく上がります</p>
+  const html = `<p class="sheet-sub">${open} / ${base.length} しゅるい　レベルの 高い おやつほど、なかよし度が 大きく 上がります</p>
     <div class="tiles">${list.map(t => {
     const locked = lv < t.lv;
     return `<button class="tile treat" type="button" data-t="${t.id}" ${locked ? 'aria-disabled="true"' : ''}>
-      <svg viewBox="0 0 48 48" aria-hidden="true">${treatIcon(t)}</svg><span class="tname">${esc(t.ja)}</span>
+      <svg viewBox="0 0 48 48" aria-hidden="true">${treatIcon(t)}</svg><span class="tname">${softName(t.ja)}</span>
       ${locked ? `<span class="lockpill">Lv${t.lv}で解放</span>` : `<span class="gain"><b>♥+${t.love}</b> ごきげん+${t.mood}</span>`}${t.ev ? `<span class="evpill">${esc(t.evJa)}限定</span>` : ''}</button>`;
-  }).join('')}</div><p class="note">おやつは30分に5回まで。ごはんの代わりにはなりません。</p>`;
+  }).join('')}</div><p class="note">おやつは 30分に 5回まで。ごはんの 代わりには なりません。</p>`;
   openSheet('どのおやつをあげる？', html, sh => {
     sh.querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => {
       if (b.getAttribute('aria-disabled') === 'true') return;
@@ -688,8 +699,8 @@ function openDress(){
       const locked = it.id && !wearOwned(it, lv);
       const trial = Object.assign({}, W, { [dressSlot]:it.id });
       return `<button class="tile" type="button" data-w="${it.id || ''}" aria-pressed="${(W[dressSlot] || null) === it.id}" ${locked ? 'aria-disabled="true"' : ''}>
-        ${renderPet(S.pet.look, { wear:trial })}<span class="tname">${esc(it.ja)}</span>${locked ? `<span class="lockpill">Lv${it.lv}で解放</span>` : ''}${it.ev ? '<span class="evpill">季節の限定</span>' : ''}</button>`;
-    }).join('')}</div><p class="note">あたま・かお・くびを1つずつ組み合わせられます。季節のイベントでは、限定のきせかえがもらえます。</p>`;
+        ${renderPet(S.pet.look, { wear:trial })}<span class="tname">${softName(it.ja)}</span>${locked ? `<span class="lockpill">Lv${it.lv}で解放</span>` : ''}${it.ev ? '<span class="evpill">季節の限定</span>' : ''}</button>`;
+    }).join('')}</div><p class="note">あたま・かお・くびを 1つずつ 組み合わせられます。季節の イベントでは、限定の きせかえが もらえます。</p>`;
   };
   openSheet('きせかえ・もようがえ', `${tabs()}<div id="dressTiles">${tiles()}</div>`, sh => {
     const box = sh.querySelector('#dressTiles');
@@ -727,14 +738,14 @@ function openMenu(){
       <div><b>${c.meals}</b>ごはん</div><div><b>${c.treats}</b>おやつ</div><div><b>${c.pets}</b>なでなで</div><div><b>${c.plays}</b>あそび</div>
       <div><b>${(TRICKS[p.species] || []).filter(t => S.tricks[t.id] && S.tricks[t.id].ok).length}</b>げい</div><div><b>${SOUVENIRS.filter(x => S.souv.have[x.id]).length}</b>おみやげ</div><div><b>${S.stamps.length}</b>スタンプ</div><div><b>${Math.max(1, daysBetween(S.created || now(), now()) + 1)}</b>日</div>
     </div>
-    ${(() => { const nx = nextReward(L.lv); return nx ? nextupHtml(nx) : '<p class="nextup">すべてのごほうびを集めました</p>'; })()}
+    ${(() => { const nx = nextReward(L.lv); return nx ? nextupHtml(nx) : '<p class="nextup">すべての ごほうびを 集めました</p>'; })()}
     <div class="btnstack" id="menuBtns">
       <button class="btn" type="button" id="mAlbum">おもいでアルバム</button>
       <button class="btn" type="button" id="mEdit">名前・みためを変える</button>
       <button class="btn" type="button" id="mMove">引っこし・バックアップ</button>
       <button class="btn warn" type="button" id="mNew">新しい子をむかえる</button>
     </div>
-    <p class="note">${Persist.mode === 'cloud' ? 'あなたのアカウントに保存しています。ほかの端末で開いても同じ子に会えます。' : HOME ? 'この端末に保存しています。ときどき引っこしコードをコピーしておくと、バックアップになります。' : 'このブラウザに保存しています。'}</p>`;
+    <p class="note">${Persist.mode === 'cloud' ? 'あなたの アカウントに 保存しています。ほかの 端末で 開いても 同じ子に 会えます。' : HOME ? 'この端末に 保存しています。ときどき 引っこしコードを コピーしておくと、バックアップに なります。' : 'この ブラウザに 保存しています。'}</p>`;
   openSheet('プロフィール', html, sh => {
     sh.querySelector('#mEdit').addEventListener('click', () => { if (Act.waiting()) return; closeSheet(); Onboard.openEdit(); });
     sh.querySelector('#mMove').addEventListener('click', () => openMove());
@@ -742,7 +753,7 @@ function openMenu(){
     sh.querySelector('#mNew').addEventListener('click', () => {
       if (Act.waiting()) return;
       const box = sh.querySelector('#menuBtns');
-      box.innerHTML = `<div class="confirm"><p>新しい子をむかえると、${esc(p.name)}のなかよし度や記録は新しい子のものに置きかわります。</p>
+      box.innerHTML = `<div class="confirm"><p>新しい子を むかえると、${esc(p.name)}の なかよし度や 記録は 新しい子の ものに 置きかわります。</p>
         <div class="row"><button class="btn" type="button" id="mNo">やめる</button><button class="btn warn" type="button" id="mYes">むかえる</button></div></div>`;
       box.querySelector('#mNo').addEventListener('click', () => { closeSheet(); });
       box.querySelector('#mYes').addEventListener('click', () => { closeSheet(); Onboard.openNew(true); });
@@ -779,11 +790,11 @@ function readMoveCode(text){
 function decodeMoveCode(text){ return readMoveCode(text).st || null; }
 function moveErrorText(r){
   const n = v => Number(v || 0).toLocaleString('ja-JP');
-  if (r.reason === 'empty') return 'コードが空っぽです。コピーしたコードを貼りつけてから押してね。';
-  if (r.reason === 'noprefix') return `「UCHINOKO」ではじまるコードが見つかりませんでした（貼りつけた文字数：${n(r.got)}）。コピーがうまくいっていないかもしれません。「ファイルで保存」の方法もためしてみてね。`;
-  if (r.reason === 'big') return `コードが大きすぎて読めませんでした（${n(r.got)}文字）。うちのこ日和の引っこしコードか、たしかめてね。`;
-  if (r.reason === 'short') return `コードが途中で切れています（${n(r.need)}文字のうち${n(r.got)}文字）。もう一度まるごとコピーするか、「ファイルで保存」の方法をためしてみてね。`;
-  return `コードを読みとれませんでした（${n(r.got)}文字）。もう一度コピーし直してみてね。`;
+  if (r.reason === 'empty') return 'コードが 空っぽです。コピーした コードを 貼りつけてから 押してね。';
+  if (r.reason === 'noprefix') return `「UCHINOKO」で はじまる コードが 見つかりませんでした（貼りつけた 文字数：${n(r.got)}）。コピーが うまく いっていないかも しれません。「ファイルで保存」の 方法も ためしてみてね。`;
+  if (r.reason === 'big') return `コードが 大きすぎて 読めませんでした（${n(r.got)}文字）。うちのこ日和の 引っこしコードか、たしかめてね。`;
+  if (r.reason === 'short') return `コードが 途中で 切れています（${n(r.need)}文字のうち ${n(r.got)}文字）。もう一度 まるごと コピーするか、「ファイルで保存」の 方法を ためしてみてね。`;
+  return `コードを 読みとれませんでした（${n(r.got)}文字）。もう一度 コピーし直してみてね。`;
 }
 function decodeMovePayload(b64){
   try {
@@ -847,11 +858,11 @@ function openMove(){
   if (!S) return;
   const code = encodeMoveCode();
   const len = code.length.toLocaleString('ja-JP');
-  const html = `<p class="sheet-sub">${esc(S.pet.name)}を、ほかの場所（ホーム画面のアプリや別の端末）へつれていけます。</p>
+  const html = `<p class="sheet-sub">${esc(S.pet.name)}を、ほかの 場所（ホーム画面の アプリや 別の 端末）へ つれていけます。</p>
     <div class="card movecard"><h3>この子をつれていく</h3>
       <textarea class="codebox" id="mvOut" rows="4" ${CODE_ATTRS} aria-label="引っこしコード">${esc(code)}</textarea>
       <div class="btnrow"><button class="btn primary" type="button" id="mvCopy">コードをコピー</button><button class="btn" type="button" id="mvSave">ファイルで保存</button></div>
-      <p class="note" id="mvMsg" role="status">コードは${len}文字あります。つれていく先の「引っこしコードで受け取る」で、貼りつけるか、保存したファイルをえらんでね。</p>
+      <p class="note" id="mvMsg" role="status">コードは ${len}文字 あります。つれていく 先の「引っこしコードで受け取る」で、貼りつけるか、保存した ファイルを えらんでね。</p>
     </div>
     <div class="card movecard"><h3>コードで受け取る</h3>
       <textarea class="codebox" id="mvIn" rows="3" ${CODE_ATTRS} placeholder="UCHINOKO ではじまるコード" aria-label="受け取る引っこしコード"></textarea>
@@ -862,13 +873,13 @@ function openMove(){
     sh.querySelector('#mvCopy').addEventListener('click', async () => {
       const r = await copyText(out);
       msg.textContent = r === 'copied'
-        ? `コピーしました（${len}文字）。つれていく先で貼りつけてね。`
-        : 'コードをぜんぶ選びました。表示されたメニューの「コピー」を押してね。メニューが出ないときは「ファイルで保存」がかんたんです。';
+        ? `コピーしました（${len}文字）。つれていく 先で 貼りつけてね。`
+        : 'コードを ぜんぶ 選びました。表示された メニューの「コピー」を 押してね。メニューが 出ないときは「ファイルで保存」が かんたんです。';
     });
     sh.querySelector('#mvSave').addEventListener('click', async () => {
       const r = await saveMoveFile(code);
-      msg.textContent = r === 'saved' ? `「${MOVE_FILE}」を保存しました。つれていく先で「ファイルからえらぶ」でえらんでね。`
-        : r === 'declined' ? '保存をとりやめました。' : 'ここではファイルの保存ができませんでした。コードのコピーをためしてね。';
+      msg.textContent = r === 'saved' ? `「${MOVE_FILE}」を 保存しました。つれていく 先で「ファイルからえらぶ」で えらんでね。`
+        : r === 'declined' ? '保存を とりやめました。' : 'ここでは ファイルの 保存が できませんでした。コードの コピーを ためしてね。';
     });
     const take = (text, pre) => {
       if (Act.waiting()) return;
@@ -878,7 +889,7 @@ function openMove(){
       if (!r.st){ box.insertAdjacentHTML('beforebegin', `<p class="oberr mverr" role="alert" style="margin:0">${esc(moveErrorText(r))}</p>`); return; }
       const st = r.st;
       box.classList.remove('btnrow');
-      box.innerHTML = `<div class="confirm"><p>いまの${esc(S.pet.name)}は、コードの${esc(st.pet.name)}（なかよしLv ${levelInfo(st.stats.love).lv}）に置きかわります。</p>
+      box.innerHTML = `<div class="confirm"><p>いまの ${esc(S.pet.name)}は、コードの ${esc(st.pet.name)}（なかよしLv ${levelInfo(st.stats.love).lv}）に 置きかわります。</p>
         <div class="row"><button class="btn" type="button" id="mvNo">やめる</button><button class="btn warn" type="button" id="mvYes">受け取る</button></div></div>`;
       box.querySelector('#mvNo').addEventListener('click', () => closeSheet());
       box.querySelector('#mvYes').addEventListener('click', () => { S = st; closeSheet(); Persist.schedule(); Game.start('ただいま！'); });

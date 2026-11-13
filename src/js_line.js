@@ -189,7 +189,7 @@ const LineApp = {
     if (obNote){
       if (!obNote.dataset.orig) obNote.dataset.orig = obNote.textContent;
       obNote.textContent = LineAI.ready()
-        ? 'えらんだ写真は、AIで 読みとるか きいてから つかいます。AIを使わないときは、この端末の中で 毛の色を ひろうだけで、どこにも 送りません。お部屋には 小さなサムネイルを 飾ります。'
+        ? 'えらんだ写真は、AIで 読みとるか きいてから つかいます。AIを使わないときは、この端末の中で 毛の色を ひろうだけで、どこにも 送りません。お部屋には 小さな サムネイルを 飾ります。'
         : obNote.dataset.orig;
     }
     /* 引っこしのシート（#mvInBox）と、はじめての画面の「引っこしコードで受け取る」（#imGo） */
@@ -558,7 +558,7 @@ const LineSync = {
     if (!LineServer.importable){
       await Modal.show({ label:'この端末の子',
         html:() => this.guestHtml(g, `<h3>あたらしい子を<br>むかえてね</h3>
-          <p>この端末の ${esc(g.pet.name)}（なかよしLv ${lv}）は、LINEへの引っこし（1回だけ）を もう つかったので、つれてこられません。${esc(g.pet.name)}は この端末に とっておきます。</p>
+          <p>この端末の ${esc(g.pet.name)}（なかよしLv ${lv}）は、LINEへの 引っこし（1回だけ）を もう つかったので、つれてこられません。${esc(g.pet.name)}は この端末に とっておきます。</p>
           <button class="btn primary" type="button" data-close>わかった</button>`) });
     } else {
       while (v == null){
@@ -629,7 +629,7 @@ const LineAI = {
       <button class="btn primary" type="button" id="aiGo">AIで 読みとる</button>
       <p class="note" id="aiLeft" role="status">${esc(this.leftText(LineServer.ai))}</p>
       <button class="btn" type="button" id="aiSelf">AIを使わずに、自分で えらぶ</button>
-      <p class="note">写真は この端末で 小さくしてから、うちのこ日和の サーバーを通して AI（Anthropic の Claude）に 送ります。読みとったら すぐに すてて、サーバーには のこしません。AIを使わないときは、写真は この端末の中だけで つかいます。${LineDocs.on ? '<button class="linkbtn inline" type="button" id="aiPolicy">くわしく（プライバシーポリシー）</button>' : ''}</p>
+      <p class="note">写真は この端末で 小さくしてから、うちのこ日和の サーバーを通して AI（Anthropic の Claude）に 送ります。読みとったら すぐに すてて、サーバーには のこしません。AIを 使わないときは、写真は この端末の中だけで つかいます。${LineDocs.on ? '<button class="linkbtn inline" type="button" id="aiPolicy">くわしく（プライバシーポリシー）</button>' : ''}</p>
       <button class="linkbtn" type="button" id="aiBack">べつの写真にする</button>
     </div>`;
     const go = $('#aiGo'), self = $('#aiSelf'), left = $('#aiLeft');
@@ -643,7 +643,7 @@ const LineAI = {
     show(LineServer.ai);
     this.refresh().then(a => { if (ob.box.contains(go)) show(a); });
     go.addEventListener('click', () => { if (!go.disabled) this.read(ob, img); });
-    self.addEventListener('click', () => ob.fromPhotoOnly(img, '写真から毛の色をひろいました。犬か猫と種類をえらんで、色を近づけてね。'));
+    self.addEventListener('click', () => ob.fromPhotoOnly(img, '写真から 毛の色を ひろいました。犬か猫と 種類を えらんで、色を 近づけてね。'));
     $('#aiBack').addEventListener('click', () => ob.welcome());
     if (LineDocs.on) $('#aiPolicy').addEventListener('click', () => LineDocs.open('privacy'));
   },
@@ -668,18 +668,18 @@ const LineAI = {
     const photoOnly = msg => ob.fromPhotoOnly(img, msg);
     if (r.ok){
       const out = parseAI(r.result);
-      if (!out) return photoOnly('うまく読みとれませんでした。種類と色をえらんでね。');
-      if (out.species === 'other') return ob.welcome('犬か猫が写っている写真をえらんでね。顔がはっきり写っている写真がおすすめです。');
+      if (!out) return photoOnly('うまく 読みとれませんでした。種類と 色を えらんでね。');
+      if (out.species === 'other') return ob.welcome('犬か猫が 写っている 写真を えらんでね。顔が はっきり 写っている 写真が おすすめです。');
       ob.draft = { look:out.look, name:'', photo:img.thumb, preview:img.preview, colorName:out.colorName, cands:out.cands, comment:out.comment, note:'', keepColors:true, photoMain:null };
       return ob.edit();
     }
-    if (r.why === 'refused' || r.why === 'badimage') return ob.welcome('この写真は読みとれませんでした。ちがう写真でためしてね。');
+    if (r.why === 'refused' || r.why === 'badimage') return ob.welcome('この写真は 読みとれませんでした。ちがう 写真で ためしてね。');
     const per = LineServer.ai && LineServer.ai.perDay;
     photoOnly({
       limit:`きょうの AIの読みとりは つかいきりました${per ? `（1日${per}回まで）` : ''}。写真の色で 仮の見た目を つくったので、種類を えらんでね。`,
       busy:'きょうは AIの読みとりが いっぱいに なりました。写真の色で 仮の見た目を つくったので、種類を えらんでね。',
       off:'いまは AIの読みとりを おやすみしています。写真の色で 仮の見た目を つくったので、種類を えらんでね。',
-    }[r.why] || 'うまく読みとれませんでした。写真の色で 仮の見た目を つくったので、種類を えらぶか、すこし あとで ためしてね。');
+    }[r.why] || 'うまく 読みとれませんでした。写真の色で 仮の見た目を つくったので、種類を えらぶか、すこし あとで ためしてね。');
   },
 };
 /* ----- やめる（LINEの データを けす） -----
@@ -1014,7 +1014,7 @@ Onboard.analyze = async function(file){
   this.busy = true;
   let img;
   try { img = await prepImage(file); }
-  catch(e){ return this.welcome('この写真は読みこめませんでした。JPEGかPNGの写真でためしてね。'); }
+  catch(e){ return this.welcome('この写真は 読みこめませんでした。JPEGか PNGの 写真で ためしてね。'); }
   if (!this.busy) return;
   LineAI.ask(this, img);
 };

@@ -176,12 +176,12 @@ function allTreats(){
 /* ===== きょうのおねがい ===== */
 function reqText(r){
   switch (r.type){
-    case 'meal': return `ごはんを${r.n}回たべたい`;
-    case 'treat': return r.n > 1 ? `おやつを${r.n}こ ほしい` : 'おやつが ほしい';
+    case 'meal': return `ごはんを ${r.n}回 たべたい`;
+    case 'treat': return r.n > 1 ? `おやつを ${r.n}こ ほしい` : 'おやつが ほしい';
     case 'treatId': { const t = allTreats().find(x => x.id === r.id); return `「${t ? t.ja : 'おやつ'}」が たべたい`; }
-    case 'play': return isCat() ? `毛糸玉で${r.n}回 あそびたい` : `ボールで${r.n}回 あそびたい`;
-    case 'pet': return `${r.n}回 なでなでしてほしい`;
-    case 'trick': return `げいを${r.n}回 見せたい`;
+    case 'play': return isCat() ? `毛糸玉で ${r.n}回 あそびたい` : `ボールで ${r.n}回 あそびたい`;
+    case 'pet': return `${r.n}回 なでなで してほしい`;
+    case 'trick': return `げいを ${r.n}回 見せたい`;
     case 'dress': return 'きせかえ してほしい';
     case 'room': return 'もようがえ してみたい';
   }
@@ -207,7 +207,7 @@ function brokeModal(e){
   Modal.show({
     label:'れんぞく記録',
     html:() => `${petCard('', 'ex-sad')}<h3>れんぞく記録が<br>とぎれちゃった…</h3>
-      <p>きのうは おやすみだったね。<br>おたすけのおねがいは ${RESCUE_EVERY}日に1回までなので、こんかいは つなげません。<br>つぎに つかえるのは <b>${mdOfKey(e.next)}</b>から。</p>
+      <p>きのうは おやすみだったね。<br>おたすけの おねがいは ${RESCUE_EVERY}日に 1回までなので、こんかいは つなげません。<br>つぎに つかえるのは <b>${mdOfKey(e.next)}</b>から。</p>
       <p class="quote">「また きょうから がんばろうね」</p>
       <button class="btn primary" type="button" data-close>うん</button>`,
   });
@@ -216,9 +216,9 @@ function pinchModal(e){
   Modal.show({
     label:'れんぞく記録のピンチ',
     html:() => `${petCard('', 'ex-sad')}<h3>れんぞく記録が ピンチ！</h3>
-      <p>きのうは おやすみだったね。<br>きょうのうちに いつもの おねがい3つと、この おたすけのおねがいを かなえると、れんぞく<b>${e.n}日</b>の記録が つづくよ。</p>
+      <p>きのうは おやすみだったね。<br>きょうの うちに いつもの おねがい3つと、この おたすけの おねがいを かなえると、れんぞく <b>${e.n}日</b>の 記録が つづくよ。</p>
       <p class="rescueline">${mini('rescue')}<span><small>おたすけのおねがい</small>${esc(reqText(S.daily.rescue))}</span></p>
-      <p class="note" style="margin:0 0 12px">おたすけは ${RESCUE_EVERY}日に1回まで。2日いじょう あいたときは つなげません。</p>
+      <p class="note" style="margin:0 0 12px">おたすけは ${RESCUE_EVERY}日に 1回まで。2日いじょう あいたときは つなげません。</p>
       <div class="btnrow"><button class="btn" type="button" data-close="later">あとで</button><button class="btn primary" type="button" data-close="open">おねがいを見る</button></div>`,
   }).then(v => { if (v === 'open') openRequests(); });
 }
@@ -235,7 +235,7 @@ function allDoneModal(e){
     label:'きょうのおねがい コンプリート', confetti:true,
     html:() => `${petCard()}<h3>きょうのおねがい<br>ぜんぶかなえた！</h3>
       <div class="stampbig">${mini('stamp')}</div>
-      <p>ごほうび ♥+10<br>${e.bridged ? `おたすけスタンプで つながって<br>れんぞく <b>${S.streak.n}日</b>！` : e.waiting ? `あとは おたすけのおねがい<br>「${esc(reqText(S.daily.rescue))}」で<br>れんぞく <b>${(S.streak.saved ? S.streak.saved.n : 0) + 1}日</b>に つながるよ！` : S.streak.n > 1 ? `れんぞく <b>${S.streak.n}日</b>！` : 'スタンプカードに スタンプをおしたよ'}</p>
+      <p>ごほうび ♥+10<br>${e.bridged ? `おたすけスタンプで つながって<br>れんぞく <b>${S.streak.n}日</b>！` : e.waiting ? `あとは おたすけの おねがい<br>「${esc(reqText(S.daily.rescue))}」で<br>れんぞく <b>${(S.streak.saved ? S.streak.saved.n : 0) + 1}日</b>に つながるよ！` : S.streak.n > 1 ? `れんぞく <b>${S.streak.n}日</b>！` : 'スタンプカードに スタンプを おしたよ'}</p>
       <button class="btn primary" type="button" data-close>やったね</button>`,
   }), 1200);
 }
@@ -246,7 +246,7 @@ function openRequests(){
   const si = streakInfo();
   const R = D.rescue && (si.pinch || D.rescue.done) ? D.rescue : null;
   const rescueCard = R ? `<div class="rescuebox">
-      <p><b>れんぞく記録が ピンチ！</b>きのうは おやすみだったね。きょうのうちに いつもの3つと、この おたすけのおねがいを ぜんぶかなえると、れんぞく${si.n}日の記録が つづくよ。（おたすけは ${RESCUE_EVERY}日に1回まで）</p>
+      <p><b>れんぞく記録が ピンチ！</b>きのうは おやすみだったね。きょうの うちに いつもの 3つと、この おたすけの おねがいを ぜんぶ かなえると、れんぞく ${si.n}日の 記録が つづくよ。（おたすけは ${RESCUE_EVERY}日に 1回まで）</p>
       <div class="req rescue ${R.done ? 'done' : ''}"><div class="req-ic">${mini('rescue')}</div>
         <div class="req-body"><span class="evpill">おたすけ</span><b>${esc(reqText(R))}</b><div class="bar"><i style="width:${Math.round(R.got / R.n * 100)}%"></i></div></div>
         <div class="req-st">${R.done ? '<span class="okpill">かなえた</span>' : `<span class="cnt">${R.got}/${R.n}</span><small>♥+5</small>`}</div></div>
@@ -257,9 +257,9 @@ function openRequests(){
         <div class="bar"><i style="width:${Math.round(r.got / r.n * 100)}%"></i></div></div>
       <div class="req-st">${r.done ? '<span class="okpill">かなえた</span>' : `<span class="cnt">${r.got}/${r.n}</span><small>♥+4</small>`}</div>
     </div>`).join('');
-  const html = `<p class="sheet-sub">${esc(S.pet.name)}からの、きょうのおねがいです。毎日0時に新しくなります。</p>
+  const html = `<p class="sheet-sub">${esc(S.pet.name)}からの、きょうの おねがいです。毎日 0時に 新しく なります。</p>
     ${rescueCard}<div class="reqs" style="--c:var(--berry)">${cards}</div>
-    <div class="reqfoot"><span>${D.all ? '<b>きょうは ぜんぶかなえました！</b>' : 'ぜんぶかなえると <b>♥+10</b> とスタンプ'}</span><span>れんぞく ${si.n}日${si.pinch ? ' <span class="pinchpill">ピンチ</span>' : ''}</span></div>
+    <div class="reqfoot"><span>${D.all ? '<b>きょうは ぜんぶ かなえました！</b>' : 'ぜんぶ かなえると <b>♥+10</b> と スタンプ'}</span><span>れんぞく ${si.n}日${si.pinch ? ' <span class="pinchpill">ピンチ</span>' : ''}</span></div>
     <button class="btn" type="button" id="toStamps">スタンプカードを見る</button>`;
   openSheet('きょうのおねがい', html, sh => {
     sh.querySelector('#toStamps').addEventListener('click', () => openAlbum('stamp'));
@@ -274,7 +274,7 @@ function souvenirModal(e){
     label:'おるすばんのおみやげ',
     html:() => `<div class="souvwrap">${petCard()}<div class="souvitem"><svg viewBox="0 0 48 48" aria-hidden="true">${souvenirIcon(pickS.icon)}</svg>${e.isNew ? '<span class="newpill">NEW</span>' : ''}</div></div>
       <h3>おるすばん ありがとう！</h3>
-      <p>${esc(S.pet.name)}が ${isCat() ? 'ねこのパトロール' : 'おさんぽ'}で<br><b>「${esc(pickS.ja)}」</b>を見つけてきたよ</p>
+      <p>${esc(S.pet.name)}が ${isCat() ? 'ねこの パトロール' : 'おさんぽ'}で<br><b>「${esc(pickS.ja)}」</b>を 見つけてきたよ</p>
       <p class="quote">「${esc(pickS.line)}」</p>
       <p class="gainline">♥+${e.bonus}</p>
       <button class="btn primary" type="button" data-close>ありがとう</button>`,
@@ -291,8 +291,8 @@ function eventModal(e){
     label:ev.ja, confetti:true,
     html:`${petCard(trial)}<h3>${esc(ev.ja)}が はじまったよ！</h3>
       <p class="quote">「${esc(ev.hello)}」</p>
-      <p>期間中は おへやが かざりつけされて、限定のおやつ<b>「${esc(ev.treat.ja)}」</b>が あげられます。</p>
-      ${e.had ? '' : `<p class="giftline">${mini('gift')} プレゼント<b>「${esc(w.ja)}」</b></p>`}
+      <p>期間中は おへやが かざりつけされて、限定の おやつ <b>「${esc(ev.treat.ja)}」</b>が あげられます。</p>
+      ${e.had ? '' : `<p class="giftline"><span>${mini('gift')} プレゼント <b>「${esc(w.ja)}」</b></span></p>`}
       <div class="btnrow"><button class="btn" type="button" data-close="later">あとで</button><button class="btn primary" type="button" data-close="wear">つけてみる</button></div>`,
   }).then(async v => {
     if (v !== 'wear' || Act.waiting()) return;
@@ -304,7 +304,7 @@ function eventModal(e){
 }
 function annivModal(e){
   Modal.show({ label:'うちのこ記念日', confetti:true,
-    html:`${petCard()}<h3>うちのこ記念日！</h3><p>${esc(S.pet.name)}がうちにきて、きょうで<b>${e.years}年</b>。<br>いつも ありがとう。</p><button class="btn primary" type="button" data-close>おめでとう</button>` });
+    html:`${petCard()}<h3>うちのこ記念日！</h3><p>${esc(S.pet.name)}が うちにきて、きょうで <b>${e.years}年</b>。<br>いつも ありがとう。</p><button class="btn primary" type="button" data-close>おめでとう</button>` });
 }
 
 /* ===== room: decoration, window view, seasonal decor ===== */
@@ -412,7 +412,7 @@ function roomTabHtml(){
   const chips = DECOR_CATS.map(([k, ja]) => `<button class="chip" type="button" data-rc="${k}" aria-pressed="${k === roomCat}">${ja}</button>`).join('');
   const tiles = DECOR[roomCat].map(d => {
     const locked = lv < d.lv;
-    return `<button class="tile rtile" type="button" data-rd="${d.id}" aria-pressed="${S.room[roomCat] === d.id}" ${locked ? 'aria-disabled="true"' : ''}>${roomSwatch(roomCat, d)}<span class="tname">${esc(d.ja)}</span>${locked ? `<span class="lockpill">Lv${d.lv}で解放</span>` : ''}</button>`;
+    return `<button class="tile rtile" type="button" data-rd="${d.id}" aria-pressed="${S.room[roomCat] === d.id}" ${locked ? 'aria-disabled="true"' : ''}>${roomSwatch(roomCat, d)}<span class="tname">${softName(d.ja)}</span>${locked ? `<span class="lockpill">Lv${d.lv}で解放</span>` : ''}</button>`;
   }).join('');
   const ev = activeEvent();
   return `<div class="chips rchips">${chips}</div><div class="tiles">${tiles}</div>
@@ -451,10 +451,10 @@ function openTricks(){
     const st = S.tricks[t.id] || { p:0, ok:false }, locked = lv < t.lv;
     const dots = Array.from({ length:t.need }, (_, i) => `<i class="${i < st.p ? 'on' : ''}"></i>`).join('');
     return `<button class="tile trick ${st.ok ? 'learned' : ''}" type="button" data-tk="${t.id}" ${locked ? 'aria-disabled="true"' : ''}>
-      <span class="tk-star">${mini('trick', st.ok ? '' : 'dim')}</span><span class="tname">${esc(t.ja)}</span>
+      <span class="tk-star">${mini('trick', st.ok ? '' : 'dim')}</span><span class="tname">${softName(t.ja)}</span>
       ${locked ? `<span class="lockpill">Lv${t.lv}で解放</span>` : st.ok ? '<span class="okpill">できる！</span>' : `<span class="tk-dots" aria-label="れんしゅう ${st.p}/${t.need}">${dots}</span>`}</button>`;
   }).join('');
-  openSheet('げい', `<p class="sheet-sub">おぼえた げい ${learned} / ${list.length}　れんしゅうして、できるようになったら いつでも見せてくれます。</p><div class="tiles">${tiles}</div><p class="note">ごきげんがいいと、れんしゅうが うまくいきやすいよ。</p>`, sh => {
+  openSheet('げい', `<p class="sheet-sub">おぼえた げい ${learned} / ${list.length}　れんしゅうして、できるように なったら いつでも 見せてくれます。</p><div class="tiles">${tiles}</div><p class="note">ごきげんが いいと、れんしゅうが うまく いきやすいよ。</p>`, sh => {
     sh.querySelectorAll('[data-tk]').forEach(b => b.addEventListener('click', () => {
       if (b.getAttribute('aria-disabled') === 'true') return;
       doTrick(list.find(t => t.id === b.dataset.tk));
@@ -484,7 +484,7 @@ async function doTrick(tk){
     if (r.learned){
       Pet.say('できるように なったよ！');
       Modal.show({ label:'げいをおぼえた', confetti:true,
-        html:`${petCard()}<h3>げい「${esc(tk.ja)}」を<br>おぼえた！</h3><p>これからは いつでも見せてくれます。<br>♥+5</p><button class="btn primary" type="button" data-close>すごいね！</button>` });
+        html:`${petCard()}<h3>げい「${esc(tk.ja)}」を<br>おぼえた！</h3><p>これからは いつでも 見せてくれます。<br>♥+5</p><button class="btn primary" type="button" data-close>すごいね！</button>` });
     } else if (!r.known) Pet.say(`できた！（${r.p}/${r.need}）`);
     else Pet.say(pick(['どう？','じょうずでしょ！','えへへ','もっと見る？']));
   } else {
@@ -506,12 +506,12 @@ function albumHtml(){
   let body = '';
   if (albumTab === 'diary'){
     body = S.album.length ? `<ol class="diary">${S.album.map(a => `<li><span class="d-date">${fmtMD(a.t)}<small>${new Date(a.t).getFullYear()}</small></span><span class="d-ic">${iconFor(a.ic)}</span><span class="d-txt"><b>${esc(a.ti)}</b>${a.su ? `<small>${esc(a.su)}</small>` : ''}</span></li>`).join('')}</ol>`
-      : '<p class="empty">まだ記録がありません。いっしょに すごすと、ここに思い出がたまっていきます。</p>';
+      : '<p class="empty">まだ 記録が ありません。いっしょに すごすと、ここに 思い出が たまっていきます。</p>';
   } else if (albumTab === 'souv'){
     const got = SOUVENIRS.filter(s => S.souv.have[s.id]).length;
     body = `<p class="sheet-sub">あつめた おみやげ ${got} / ${SOUVENIRS.length}　しばらく あけてから ひらくと、おみやげを もってきてくれます。</p><div class="tiles svtiles">${SOUVENIRS.slice().sort((a, b) => (S.souv.have[b.id] ? 1 : 0) - (S.souv.have[a.id] ? 1 : 0)).map(s => {
       const n = S.souv.have[s.id];
-      return n ? `<div class="tile sv"><svg viewBox="0 0 48 48" aria-hidden="true">${souvenirIcon(s.icon)}</svg><span class="tname">${esc(s.ja)}</span><small>×${n}</small></div>`
+      return n ? `<div class="tile sv"><svg viewBox="0 0 48 48" aria-hidden="true">${souvenirIcon(s.icon)}</svg><span class="tname">${softName(s.ja)}</span><small>×${n}</small></div>`
         : `<div class="tile sv unknown"><svg viewBox="0 0 48 48" aria-hidden="true">${souvenirIcon(s.icon)}</svg><span class="tname">？？？</span><small>${s.seasons.split(' ').map(x => SEASON_JA[x]).join('・')}</small></div>`;
     }).join('')}</div>`;
   } else {
@@ -530,7 +530,7 @@ function albumHtml(){
     body = `<div class="cal-head"><button class="closebtn" type="button" data-mon="-1" aria-label="前の月">‹</button><b>${y}年${m + 1}月</b><button class="closebtn" type="button" data-mon="1" aria-label="次の月">›</button></div>
       <div class="cal"><b>日</b><b>月</b><b>火</b><b>水</b><b>木</b><b>金</b><b>土</b>${cells}</div>
       <div class="counts cal-stats"><div><b>${cur}</b>れんぞく${si.pinch ? '<span class="pinchpill">ピンチ</span>' : ''}</div><div><b>${S.streak.best || 0}</b>さいこう</div><div><b>${S.stamps.length}</b>ぜんぶ</div><div><b>${S.stamps.filter(k => k.startsWith(`${y}-${String(m + 1).padStart(2, '0')}`)).length}</b>${m + 1}月</div></div>
-      <p class="note">きょうのおねがいを ぜんぶかなえた日に、スタンプがつきます。1日だけ おやすみした日は、つぎの日に おたすけのおねがいを かなえると<span class="rs-legend">${mini('rescue')}</span>おたすけスタンプで つながります（${RESCUE_EVERY}日に1回まで。2日いじょう あくと つなげません）。${!rescueReady() ? `つぎに おたすけが つかえるのは <b>${mdOfKey(nextRescueDay())}</b>から。` : ''}</p>`;
+      <p class="note">きょうの おねがいを ぜんぶ かなえた日に、スタンプが つきます。1日だけ おやすみした日は、つぎの日に おたすけの おねがいを かなえると <span class="rs-legend">${mini('rescue')}</span>おたすけスタンプで つながります（${RESCUE_EVERY}日に 1回まで。2日いじょう あくと つなげません）。${!rescueReady() ? `つぎに おたすけが つかえるのは <b>${mdOfKey(nextRescueDay())}</b>から。` : ''}</p>`;
   }
   return `<div class="seg" role="tablist">${tabs}</div>${body}`;
 }

@@ -1,0 +1,9 @@
+{
+  "name": "uchinoko-biyori-fonts",
+  "private": true,
+  "description": "確認用（tools/smoke.py・tools/linebreak.py）に、Google Fonts と同じフォントを手元から出す。cd tools/fonts && npm install",
+  "dependencies": {
+    "@fontsource/mochiy-pop-one": "5.3.0",
+    "@fontsource/zen-maru-gothic": "5.3.1"
+  }
+}

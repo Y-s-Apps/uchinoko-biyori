@@ -4,3 +4,4 @@ __pycache__/
 tools/server/node_modules/
 supabase/functions/api/deno.local.json
 supabase/functions/api/deno.lock
+tools/fonts/node_modules/

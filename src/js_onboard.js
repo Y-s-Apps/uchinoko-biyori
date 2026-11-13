@@ -160,8 +160,8 @@ const Onboard = {
     this.box.innerHTML = `<div class="ob-step">
       <h1 class="brand">うちのこ<span>日和</span></h1>
       <p class="lead">${HOME
-        ? '犬か猫の写真を1枚えらぶと、その子の毛の色でペットがお部屋にやってきます。種類と色を近づけたら、ごはんをあげて、なでて、いっしょにのんびり過ごしましょう。年をとったり、いなくなったりはしません。'
-        : '犬か猫の写真を1枚えらぶと、その子そっくりのペットがお部屋にやってきます。ごはんをあげて、なでて、いっしょにのんびり過ごしましょう。年をとったり、いなくなったりはしません。'}</p>
+        ? '犬か猫の 写真を 1枚 えらぶと、その子の 毛の色で ペットが お部屋に やってきます。種類と 色を 近づけたら、ごはんを あげて、なでて、いっしょに のんびり 過ごしましょう。年を とったり、いなくなったりは しません。'
+        : '犬か猫の 写真を 1枚 えらぶと、その子 そっくりの ペットが お部屋に やってきます。ごはんを あげて、なでて、いっしょに のんびり 過ごしましょう。年を とったり、いなくなったりは しません。'}</p>
       <div class="miniroom" aria-hidden="true"><div class="a" style="position:absolute;left:4%;bottom:4%;width:46%">${renderPet(SAMPLE_A, { acc:'ribbon' })}</div><div class="b" style="position:absolute;right:4%;bottom:4%;width:46%">${renderPet(SAMPLE_B, { acc:'bell' })}</div></div>
       ${err ? `<div class="oberr" role="alert">${esc(err)}</div>` : ''}
       <label class="upload">${CAMERA}写真からむかえる<input type="file" accept="image/*" id="obFile" aria-label="犬か猫の写真をえらぶ"></label>
@@ -169,8 +169,8 @@ const Onboard = {
       <button class="linkbtn" type="button" id="obImport">引っこしコードで受け取る</button>
       ${this.canCancel ? '<button class="linkbtn" type="button" id="obBack">もどる</button>' : ''}
       <p class="note">${HOME
-        ? '写真は毛の色をひろうためだけに、この端末の中で使います。どこにも送られません。お部屋には小さなサムネイルを飾ります。'
-        : '写真は種類と毛の色を読みとるためにClaudeへ送られます。読みとりにはあなたのClaudeの利用枠を少し使います。お部屋には小さなサムネイルだけを飾ります。'}</p>
+        ? '写真は 毛の色を ひろうためだけに、この端末の中で 使います。どこにも 送られません。お部屋には 小さな サムネイルを 飾ります。'
+        : '写真は 種類と 毛の色を 読みとるために Claudeへ 送られます。読みとりには あなたの Claudeの 利用枠を 少し 使います。お部屋には 小さな サムネイルだけを 飾ります。'}</p>
     </div>`;
     this.box.querySelectorAll('.miniroom .pet-svg').forEach(s => { s.style.width = '100%'; s.style.height = 'auto'; });
     $('#obFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) this.analyze(f); });
@@ -183,7 +183,7 @@ const Onboard = {
     this.show();
     this.box.innerHTML = `<div class="ob-step">
       <h2 class="brand" style="font-size:24px">引っこしコードで受け取る</h2>
-      <p class="lead">前の場所でコピーした引っこしコードを貼りつけるか、保存したファイル（${MOVE_FILE}）をえらんでください。なかよし度やきせかえも、そのまま引きつぎます。</p>
+      <p class="lead">前の場所で コピーした 引っこしコードを 貼りつけるか、保存した ファイル（${MOVE_FILE}）を えらんでください。なかよし度や きせかえも、そのまま 引きつぎます。</p>
       ${err ? `<div class="oberr" role="alert">${esc(err)}</div>` : ''}
       <textarea class="codebox" id="imCode" rows="6" ${CODE_ATTRS} placeholder="UCHINOKO ではじまるコード" aria-label="引っこしコード"></textarea>
       <button class="btn primary" type="button" id="imGo">貼りつけたコードで受け取る</button>
@@ -210,7 +210,7 @@ const Onboard = {
       <div class="scanphoto"><img src="${esc(preview)}" alt="えらんだ写真"></div>
       <p class="scanmsg" id="scanMsg" aria-live="polite">どんな子かな…</p>
       <div class="paws">${PAW}${PAW}${PAW}${PAW}</div>
-      <p class="note">はじめての読みとりでは、Claudeを使ってよいかの確認が出ます。読みとりには30秒ほどかかることがあります。</p>
+      <p class="note">はじめての 読みとりでは、Claudeを 使ってよいかの 確認が 出ます。読みとりには 30秒ほど かかることが あります。</p>
       <button class="btn" type="button" id="scanCancel" style="max-width:220px">キャンセル</button>
     </div>`;
     const msgs = ['お耳の形を見ています…','毛の色をしらべています…','しっぽをチェック中…','お顔のもようを見ています…','かわいさを確認中…'];
@@ -223,20 +223,20 @@ const Onboard = {
     this.busy = true;
     let img;
     try { img = await prepImage(file); }
-    catch(e){ return this.welcome('この写真は読みこめませんでした。JPEGかPNGの写真でためしてね。'); }
-    if (HOME) return this.fromPhotoOnly(img, '写真から毛の色をひろいました。犬か猫と種類をえらんで、色を近づけてね。');
+    catch(e){ return this.welcome('この写真は 読みこめませんでした。JPEGか PNGの 写真で ためしてね。'); }
+    if (HOME) return this.fromPhotoOnly(img, '写真から 毛の色を ひろいました。犬か猫と 種類を えらんで、色を 近づけてね。');
     this.scan(img.preview);
     const sampler = await getImageSampler();
     if (!this.busy) return;
-    if (!sampler) return this.fromPhotoOnly(img, 'ここでは写真の読みとりが使えないので、写真の色で仮の見た目をつくりました。種類をえらんでね。');
+    if (!sampler) return this.fromPhotoOnly(img, 'ここでは 写真の 読みとりが 使えないので、写真の色で 仮の 見た目を つくりました。種類を えらんでね。');
     this.ctl = new AbortController();
     try {
       const res = await sampler.json(buildPrompt(), { images:[img.blob], signal:this.ctl.signal });
       this.ctl = null;
       clearInterval(this.msgT);
       const out = parseAI(res);
-      if (!out) return this.fromPhotoOnly(img, 'うまく読みとれませんでした。種類と色をえらんでね。');
-      if (out.species === 'other') return this.welcome('犬か猫が写っている写真をえらんでね。顔がはっきり写っている写真がおすすめです。');
+      if (!out) return this.fromPhotoOnly(img, 'うまく 読みとれませんでした。種類と 色を えらんでね。');
+      if (out.species === 'other') return this.welcome('犬か猫が 写っている 写真を えらんでね。顔が はっきり 写っている 写真が おすすめです。');
       this.draft = { look:out.look, name:'', photo:img.thumb, preview:img.preview, colorName:out.colorName, cands:out.cands, comment:out.comment, note:'', keepColors:true, photoMain:null };
       this.edit();
     } catch(e){
@@ -244,12 +244,12 @@ const Onboard = {
       clearInterval(this.msgT);
       const code = e && e.code;
       if (code === 'cancelled') return this.welcome();
-      if (code === 'image_rejected' || code === 'refused') return this.welcome('この写真は読みとれませんでした。ちがう写真でためしてね。');
+      if (code === 'image_rejected' || code === 'refused') return this.welcome('この写真は 読みとれませんでした。ちがう 写真で ためしてね。');
       const msg = {
-        not_granted:'写真の読みとりが許可されなかったので、写真の色で仮の見た目をつくりました。種類をえらんでね。',
-        rate_limited:'いまは読みとりが混みあっています。写真の色で仮の見た目をつくったので、種類をえらぶか、少しあとでためしてね。',
-        session_expired:'もう一度サインインすると写真を読みとれます。いまは種類をえらんでね。',
-      }[code] || 'うまく読みとれませんでした。写真の色で仮の見た目をつくったので、種類をえらんでね。';
+        not_granted:'写真の 読みとりが 許可されなかったので、写真の色で 仮の 見た目を つくりました。種類を えらんでね。',
+        rate_limited:'いまは 読みとりが 混みあっています。写真の色で 仮の 見た目を つくったので、種類を えらぶか、少し あとで ためしてね。',
+        session_expired:'もう一度 サインインすると 写真を 読みとれます。いまは 種類を えらんでね。',
+      }[code] || 'うまく 読みとれませんでした。写真の色で 仮の 見た目を つくったので、種類を えらんでね。';
       this.fromPhotoOnly(img, msg);
     }
   },
@@ -301,7 +301,7 @@ const Onboard = {
     const label = breedLabel({ breedId:L.breedId, colorName:d.colorName });
     const head = this.mode === 'edit' ? `${esc(d.name)}の見た目を変えられます`
       : d.cands ? `この子は「${esc(label)}」かな？` : 'どんな子か教えてね';
-    const sub = this.mode === 'edit' ? '種類・毛の色・名前を変えても、なかよし度はそのままです。' : (d.comment || d.note || '種類をえらんで、毛の色を近づけてね。');
+    const sub = this.mode === 'edit' ? '種類・毛の色・名前を 変えても、なかよし度は そのままです。' : (d.comment || d.note || '種類を えらんで、毛の色を 近づけてね。');
     const swRow = (key, list, cur) => `<div class="swrow" role="group">${list.map(([n, h]) =>
       `<button class="sw" type="button" data-sw="${key}" data-hex="${h}" style="background:${h}" aria-label="${esc(n)}" aria-pressed="${normHex(h) === cur}"></button>`).join('')}
       <label class="swcustom" title="ほかの色"><input type="color" data-swc="${key}" value="${cur}" aria-label="ほかの色をえらぶ"></label></div>`;
@@ -322,7 +322,7 @@ const Onboard = {
           <div class="pickphoto" id="edPick"><img src="${esc(d.preview || d.photo)}" alt="えらんだ写真。毛のところをタップすると色をひろえます"><i id="pickDot" hidden></i></div>
           <div class="picktargets"><p class="swlabel" style="margin:0">写真からひろう</p>
             <div class="chips"><button class="chip" type="button" data-pt="main" aria-pressed="true">からだ</button><button class="chip" type="button" data-pt="sub" aria-pressed="false">口もと・おなか</button></div>
-            <p class="note" style="margin:0">写真の毛のところをタップすると、その色になります。</p></div>
+            <p class="note" style="margin:0">写真の 毛の ところを タップすると、その色に なります。</p></div>
         </div>` : ''}
         <p class="swlabel">からだ</p>${swRow('main', COAT_SW, L.colors.main)}
         <p class="swlabel">口もと・おなか</p>${swRow('sub', COAT_SW, L.colors.face)}
@@ -416,7 +416,7 @@ const Onboard = {
       const look = d.keepColors
         ? Object.assign({}, b.look, { species:b.sp, breedId:b.id, colors:d.look.colors, marks:d.look.marks })
         : { species:b.sp, breedId:b.id };
-      return `<button class="tile" type="button" data-g="${b.id}" aria-pressed="${b.id === d.look.breedId}">${renderPet(look)}<span>${esc(b.ja)}</span></button>`;
+      return `<button class="tile" type="button" data-g="${b.id}" aria-pressed="${b.id === d.look.breedId}">${renderPet(look)}<span>${softName(b.ja)}</span></button>`;
     }).join('');
     grid.querySelectorAll('[data-g]').forEach(b => b.addEventListener('click', () => { this.applyBreed(b.dataset.g); this.refresh(); }));
   },
