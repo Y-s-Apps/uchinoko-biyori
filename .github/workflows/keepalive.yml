@@ -1,0 +1,37 @@
+# LINE版のサーバー（Supabase「uchinoko-biyori」、無料プラン）を3日ごとに起こす。
+# 無料プランは、DB への出入りが1週間ほどないとプロジェクトが止まる（認証審査のあいだも止めないため。2026-11-13）。
+#
+# - /health：動いているか（DB は読まない）
+# - GET /save にでたらめのセッション：サーバーが DB の sessions 表を1回読んで 401（nosession）を返す＝DB の出入りになる。
+#   でたらめのトークンは毎回つくりなおし、どこにも保存しない。会員・セーブは作らないし、さわらない。
+# - アプリ・サーバーの中身は変えない。GitHub の鍵も使わない（permissions は空）。
+# - 返事がちがう（止まっている・こわれている）ときは、この仕事を失敗にする（GitHub の Actions に赤く出る）。
+# - GitHub は、60日 リポジトリに動きがないと、予定の仕事を止める。止まったら Actions の画面で もういちど有効にする。
+name: サーバーを起こす
+
+on:
+  schedule:
+    - cron: '23 18 */3 * *'   # 3日ごと、日本時間の 3:23 ごろ（月末は 31日 → 1日 と つづくことがある）
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: サーバーに たずねる
+        env:
+          API: https://ftakgswltcavwixqxpzi.supabase.co/functions/v1/api
+        run: |
+          set -eu
+          h=$(curl -sS --max-time 60 --retry 2 --retry-delay 20 -o health.json -w '%{http_code}' "$API/health")
+          echo "health: $h"
+          grep -q '"ok":true' health.json
+          [ "$h" = 200 ]
+          tok=$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')
+          s=$(curl -sS --max-time 60 --retry 2 --retry-delay 20 -o save.json -w '%{http_code}' -H "x-session: $tok" "$API/save")
+          echo "db: $s $(cat save.json)"
+          [ "$s" = 401 ]
+          grep -q '"nosession"' save.json
