@@ -264,6 +264,51 @@ async def browser_tests(srv_port):
         ok(i['onboard'] and i['guest'] and state('Utwob')['rev'] is None, 'はじめての画面になり、サーバーには まだ子がいない', {'info': i, 'state': state('Utwob')})
         all_errs += errs; await ctx.close()
 
+        print('2c. 「つれてくる」が 通信で しっぱいしても、新しい子を むりに むかえさせない（3-2）')
+        ctx, page, errs, calls = await open_page('Utwoc', local=sample('つれてく'), fail={'/import': 2})
+        m = await find_modal(page, '.levelup [data-close="take"]')
+        if m:
+            await m.click(); await page.wait_for_timeout(3500)
+        txt = await page.evaluate("(document.querySelector('.levelup .card')||{}).innerText||''")
+        i = await info(page)
+        ok('つれてこられませんでした' in txt and not i['onboard'] and i['name'] == 'つれてく' and state('Utwoc')['rev'] is None,
+           '「あとで／もういちど ためす」が出る（はじめての画面に しない・まだ 入っていない）', {'txt': txt, 'info': i})
+        await snap(page, 'bring_failed')
+        again = await page.query_selector('.levelup [data-close="take"]')
+        if again:
+            await again.click(); await page.wait_for_timeout(2200)
+        s = state('Utwoc')
+        ok(s and s['name'] == 'つれてく' and s['imported'], '「もういちど ためす」で つれてこられる', s)
+        all_errs += errs; await ctx.close()
+
+        print('2d. 「あとで」：この回は この端末で あそべて、つぎに ひらくと また きく（3-2）')
+        flaky = {'/import': 99}
+        ctx, page, errs, calls = await open_page('Utwod', local=sample('あとでの子'), fail=flaky)
+        m = await find_modal(page, '.levelup [data-close="take"]')
+        if m:
+            await m.click(); await page.wait_for_timeout(3500)
+        later = await page.query_selector('.levelup [data-close="later"]')
+        if later:
+            await later.click(); await page.wait_for_timeout(600)
+        i = await info(page)
+        ok(later is not None and i['server'] == 'failed' and i['mode'] == 'local' and not i['onboard'] and i['name'] == 'あとでの子', 'あとで → この端末の子のまま、この端末に 保存', i)
+        await page.click('#actFeed'); await page.wait_for_timeout(7000)
+        await close_popups(page)
+        i2 = await info(page)
+        ok(i2['meals'] == i['meals'] + 1 and state('Utwod')['rev'] is None, 'この端末で おせわできる（LINEには まだ 入れない）', i2)
+        await page.click('#menuBtn'); await page.wait_for_timeout(400)
+        st = await page.evaluate("(document.querySelector('#sheet .line-status')||{}).textContent||''")
+        ok('つぎに ひらいたとき' in st and 'later' not in st, 'プロフィールの1行（つぎに ひらいたとき また きく）', st)
+        flaky['/import'] = 0
+        await page.reload(); await page.wait_for_timeout(2400)
+        m = await find_modal(page, '.levelup [data-close="take"]')
+        ok(m is not None, 'つぎに ひらくと また きく', calls[-4:])
+        if m:
+            await m.click(); await page.wait_for_timeout(2200)
+        s = state('Utwod')
+        ok(s and s['name'] == 'あとでの子' and s['imported'], 'そのときは つれてこられる', s)
+        all_errs += errs; await ctx.close()
+
         print('3. ほかの端末の新しいセーブ（同じ子）')
         dbg('/__debug/bump', {'sub': 'Utwo', 'name': 'ゲストあたらしい'})
         two = state('Utwo')

@@ -206,6 +206,9 @@ def scenes(line):
         add('line_offer_guest', guest + 'LineSync.offerGuest()', '.levelup .card')
         add('line_offer_local', 'LineServer.importable=true; LineSync.stash=()=>{}; LineSync.offerLocal()', '.levelup .card')
         add('line_offer_local_used', 'LineServer.importable=false; LineSync.stash=()=>{}; LineSync.offerLocal()', '.levelup .card')
+        # 「つれてくる」が 通信で しっぱいした（診断 3-2）
+        add('line_bring_failed', "LineServer.importable=true; LineSync.stash=()=>{}; LineSync.bring=async()=>{const e=new Error('unavailable'); e.code='unavailable'; throw e;};"
+            "LineSync.offerLocal(); await new Promise(r => setTimeout(r, 400)); document.querySelector('.levelup [data-close=\"take\"]').click()", '.levelup .card', 900)
         add('line_leave_1', on + 'LineLeave.busy=false; LineLeave.start()', '.levelup .card')
         add('line_leave_2', on + "LineLeave.busy=false; LineLeave.start(); await new Promise(r => setTimeout(r, 400)); document.querySelector('.levelup [data-close=\"next\"]').click()", '.levelup .card', 700)
         add('line_leave_done', on + "LineServer.call=async()=>({deauth:'none'}); LineLeave.busy=false; LineLeave.run(esc(S.pet.name))", '.levelup .card')

@@ -618,16 +618,29 @@ const LineSync = {
             <p>LINEには まだ 子がいません。${esc(g.pet.name)}（なかよしLv ${lv}）を つれてこられるのは 1回だけです（引っこしコードと あわせて）。やめておくと、あたらしい子を むかえます。${esc(g.pet.name)}は この端末に とっておきます。</p>
             <div class="btnrow"><button class="btn" type="button" data-close="no">やめておく</button><button class="btn primary" type="button" data-close="take">つれてくる</button></div>`) });
       }
-      if (v === 'take'){
+      while (v === 'take'){
         try { return await this.bring(g); }
         catch(e){
-          if (e.code === 'already') LineServer.importable = false;
-          toast('いまは つれてこられませんでした。あたらしい子を むかえてね');
+          if (e.code === 'already'){ LineServer.importable = false; toast('つれてこられるのは 1回だけでした。あたらしい子を むかえてね'); break; }
+          if (this.refusal(e)){ toast(`${g.pet.name}は つれてこられませんでした。あたらしい子を むかえてね`); break; }
+          /* 通信の失敗：新しい子を むりに むかえさせない（この端末の子は そのまま） */
+          v = await Modal.show({ label:'つれてこられませんでした',
+            html:() => this.guestHtml(g, `<h3>${esc(g.pet.name)}を<br>つれてこられませんでした</h3>
+              <p>サーバーに とどきませんでした。${esc(g.pet.name)}は この端末に いるので、あんしんしてね。</p>
+              <div class="btnrow"><button class="btn" type="button" data-close="later">あとで</button><button class="btn primary" type="button" data-close="take">もういちど ためす</button></div>`) });
+          if (v !== 'take'){ this.later(); toast('つぎに ひらいたとき また きくね'); return; }
         }
       }
     }
     S = null;
     Onboard.openNew(false);
+  },
+  /* 「あとで」：この回は この端末の子のまま、この端末だけで あそぶ（LINEには まだ 入れない）。つぎに ひらいたとき また きく */
+  later(){
+    this.error = 'later';
+    if (Persist.ref === ServerRef){ Persist.ref = null; Persist.mode = 'local'; }
+    Act.remote = null;
+    this.setState('failed');
   },
   async reload(msg){
     try {
