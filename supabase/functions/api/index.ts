@@ -11,7 +11,8 @@
  *   POST /read    { image }          AIの読みとり：端末で小さくした写真（JPEG）を Claude に送り、種類・毛色・耳やしっぽの形を返す。
  *                                    1人1日 AI_PER_DAY 回・全員で1日 AI_ALL_PER_DAY 回まで（日本時間の日付）。写真も結果も保存しない
  *   POST /leave   { confirm:'leave', accessToken }
- *                                    やめる（退会）：この会員のデータ（会員・LINEのひもづけ・セッション・セーブ・AIの回数）を すぐに ぜんぶ消し、
+ *                                    やめる（退会）：この会員のデータ（会員・LINEのひもづけ・セッション・セーブと その ひかえ・カード）を すぐに ぜんぶ消し
+ *                                    （その日の AI・カードの回数は 会員と つながっていないので 2日 のこる）、
  *                                    LINE の deauthorize で、うちのこ日和に あたえた許可も取り消す（その内部チャネルのシークレットがあるとき）
  *   GET  /card                       うちのこカードが作れるか・きょうの のこり枚数
  *   POST /card    { image }          うちのこカードの画像（端末で作った PNG：きせかえを着た うちのこ＋季節のわく。写真・文字は入れない）を
@@ -933,7 +934,7 @@ async function leave(req: Request, member: string) {
   let cards: string[] = [];
   try { cards = (await sql`select name from app.cards where member_id = ${member}`).map(r => String(r.name)); }
   catch { await oops('card_table', 'table unavailable'); }   /* カードの表が読めなくても、やめる人のデータは消す */
-  /* 会員の行を消すと、LINEのひもづけ・セッション・セーブ・AIの回数も いっしょに消える（on delete cascade）。
+  /* 会員の行を消すと、LINEのひもづけ・セッション・セーブ・セーブの ひかえも いっしょに消える（on delete cascade。その日の AI・カードの回数は のこる）。
      カードの行は member_id が null になり、ここで Storage の画像ごと消す（届かなければ、あとの掃除で消す） */
   const [gone] = await sql`delete from app.members where id = ${member} returning id`;
   if (!gone) throw new HttpError(401, 'nosession');
