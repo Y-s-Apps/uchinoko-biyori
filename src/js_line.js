@@ -749,7 +749,33 @@ renderReqBadge = function(){ if (!lineHold) lineRenderBadge(); };
 Game.refresh = function(){
   lineHold = !!Pet.busy;
   try { lineRefresh.call(this); } finally { lineHold = false; }
+  LineFrame.paint();   /* サーバーの返事で みためが かわったとき */
 };
+
+/* 写真立て：写真の控えがない子（ほかの端末で ひらいた・LINEの保存から きた・写真なしで むかえた）は、
+   うちのこの イラスト（きせかえなし、にっこり）を かざる。写真の控えがある端末は いままでどおり写真 */
+const LineFrame = {
+  paint(){
+    const f = document.getElementById('frame');
+    if (!f || !S || !S.pet) return;
+    let art = f.querySelector('.frame-art');
+    if (S.pet.photo){ f.classList.remove('art'); if (art) art.hidden = true; return; }
+    if (!art){
+      art = document.createElement('div');
+      art.className = 'frame-art ex-happy';
+      art.setAttribute('aria-hidden', 'true');
+      f.appendChild(art);
+    }
+    const k = JSON.stringify(S.pet.look);
+    if (art.dataset.k !== k){ art.innerHTML = renderPet(S.pet.look); art.dataset.k = k; }
+    art.hidden = false;
+    f.classList.add('art');
+    f.hidden = false;
+  },
+};
+const lineRenderHeader = renderHeader;
+renderHeader = function(){ lineRenderHeader(); LineFrame.paint(); };
+if (Game.started) LineFrame.paint();   /* boot（js_onboard.js）は この前に おへやを出している */
 
 /* 画面のしくみ（js_app.js の Act）に、サーバーとつながりのことを教える */
 Act.gate = new Promise(res => { lineSettle = res; });

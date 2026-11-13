@@ -33,6 +33,12 @@ html .onboard{padding-bottom:calc(24px + max(env(safe-area-inset-bottom,0px),var
 .aiask .brand{font-size:24px;margin:4px 0 0}
 .aiask .btn{max-width:360px}
 .aiask .note{margin:-8px 0 0;max-width:360px}
+/* 写真立ての イラスト（写真の控えがない子。LINE版だけ）。写真と同じ大きさで、上半身を大きめに */
+.frame.art img{display:none}
+.frame .frame-art{position:relative;width:100%;height:100%;border-radius:3px;overflow:hidden;background:linear-gradient(#FDF6EA,#F3E6D3)}
+.frame-art .pet-svg{position:absolute;left:-14%;top:-2%;width:128%;height:128%}
+.frame-art .pet-svg g{animation:none!important}
+.frame-art .pv-shadow{display:none}
 /* プライバシーポリシー・利用規約へのリンク（LINE版だけ） */
 .line-docs{display:flex;justify-content:center;flex-wrap:wrap;gap:4px 14px;margin:6px 0 0}
 .line-docs .linkbtn{font-size:13px;font-weight:500}

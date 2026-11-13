@@ -541,6 +541,27 @@ async def browser_tests(srv_port):
             await snap(page, 'channel_' + ch)
             all_errs += errs; await ctx.close()
 
+        print('14. 写真立て（写真の控えがない子は イラスト）')
+        frame_js = '''() => { const f = document.getElementById('frame'), a = f.querySelector('.frame-art');
+            return { shown: !f.hidden && getComputedStyle(f).display !== 'none', art: !!a && !a.hidden && f.classList.contains('art'),
+                     img: getComputedStyle(document.getElementById('frameImg')).display !== 'none', svg: !!(a && a.querySelector('svg.pet-svg')),
+                     wear: !!(a && a.querySelector('.pv-neck *')), k: a ? a.dataset.k : null }; }'''
+        ctx, page, errs, calls = await open_page('Uten')   # この端末に写真の控えがない LINEの子
+        f = await page.evaluate(frame_js)
+        ok(f['shown'] and f['art'] and f['svg'] and not f['img'] and not f['wear'], 'LINEの子（写真の控えなし）は 写真立てに イラスト（きせかえなし）', f)
+        await snap(page, 'frame_art')
+        all_errs += errs; await ctx.close()
+        ctx, page, errs, calls = await open_page('Uframe', local=sample('しゃしんの子', photo=True), external=True)
+        f = await page.evaluate(frame_js)
+        ok(f['shown'] and f['img'] and not f['art'], '写真の控えがある子は いままでどおり写真', f)
+        all_errs += errs; await ctx.close()
+        ctx, page, errs, calls = await open_page('Uframe', local=sample('しゃしんなし'), external=True)
+        f = await page.evaluate(frame_js)
+        await page.evaluate("() => { S.pet.look = { species:'dog', breedId:'shiba' }; Game.refresh(); }")
+        g = await page.evaluate(frame_js)
+        ok(f['shown'] and f['art'] and g['art'] and g['k'] != f['k'] and 'shiba' in (g['k'] or ''), 'ゲストの写真なしの子も イラスト。みためが かわると かきなおす', {'before': f, 'after': g})
+        all_errs += errs; await ctx.close()
+
         await browser.close()
     httpd.shutdown()
     print(f'page errors: {len(all_errs)}')
