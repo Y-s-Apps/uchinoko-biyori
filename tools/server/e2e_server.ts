@@ -19,6 +19,12 @@ for (const f of MIG.split(',')) await admin.unsafe(await Deno.readTextFile(f));
 
 Deno.env.set('ANTHROPIC_API_KEY', 'test-key');
 Deno.env.set('LINE_CHANNEL_SECRET', 'test-secret');
+/* うちのこカードの Storage：URL は本物と同じ形（画面が URL を確かめるため）だが、ここへの fetch は ぜんぶ下で まねる（本物には届かない） */
+const SB = 'https://ftakgswltcavwixqxpzi.supabase.co';
+Deno.env.set('SUPABASE_URL', SB);
+Deno.env.set('SUPABASE_SECRET_KEYS', JSON.stringify({ default:'sb_secret_e2e' }));
+const STORE = new Map<string, Uint8Array>();
+const CARDS = { mode:'ok', puts:0, key:'' };
 const LINE = { deauth:0, token:'' };   /* やめる人の許可の取り消し（deauthorize）のまね */
 const AI = { mode:'ok', calls:0, media:'', bytes:0, w:0, h:0 };
 const AI_OK = { species:'dog', candidates:[{ id:'pomeranian', confidence:0.82 }, { id:'shiba', confidence:0.1 }], colorName:'クリーム', comment:'ふわふわの クリームいろだね',
@@ -37,6 +43,24 @@ function jpegSize(b: Uint8Array){
 const realFetch = globalThis.fetch;
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input instanceof Request ? input.url : input);
+  if (url.startsWith(SB + '/')){
+    /* Storage のまね（POST /storage/v1/object/cards/<名前>、DELETE /storage/v1/object/cards { prefixes }） */
+    const h = new Headers(init?.headers);
+    CARDS.key = h.get('apikey') || '';
+    if (CARDS.mode === 'down') return new Response('{"error":"down"}', { status:503 });
+    const path = url.slice(SB.length);
+    const m = path.match(/^\/storage\/v1\/object\/cards\/([A-Za-z0-9_-]+\.png)$/);
+    if (m && init?.method === 'POST'){
+      CARDS.puts++;
+      STORE.set(m[1], new Uint8Array(init.body as Uint8Array));
+      return new Response(JSON.stringify({ Key:'cards/' + m[1] }));
+    }
+    if (path === '/storage/v1/object/cards' && init?.method === 'DELETE'){
+      for (const n of JSON.parse(String(init.body)).prefixes as string[]) STORE.delete(n);
+      return new Response('[]');
+    }
+    return new Response('{"error":"not found"}', { status:404 });
+  }
   if (url === 'https://api.anthropic.com/v1/messages'){
     AI.calls++;
     const src = JSON.parse(String(init!.body)).messages[0].content[0].source;
@@ -94,6 +118,16 @@ serve({ port:Number(PORT), hostname:'127.0.0.1', onListen(){ console.log('e2e se
     if (req.method === 'POST') Object.assign(AI, await req.json());
     const [{ n }] = await admin`select coalesce(sum(n), 0)::int as n from app.ai_usage`;
     return j({ ...AI, used:n });
+  }
+  if (u.pathname === '/__debug/cards'){
+    /* カードの Storage のまねを変える／置いた画像と表の行を見る（PNG の たて・よこ と、文字のチャンクが のこっていないか） */
+    if (req.method === 'POST') Object.assign(CARDS, await req.json());
+    const rows = await admin`select name, member_id::text as member, day::text as day from app.cards order by created_at`;
+    const objects = [...STORE.entries()].map(([name, b]) => {
+      const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+      return { name, bytes:b.length, w:dv.getUint32(16), h:dv.getUint32(20), text:/tEXt|iTXt|zTXt/.test(new TextDecoder('latin1').decode(b)) };
+    });
+    return j({ ...CARDS, rows, objects });
   }
   if (u.pathname === '/__debug/line'){
     const [{ n }] = await admin`select count(*)::int as n from app.members`;

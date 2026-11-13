@@ -14,7 +14,9 @@
      読みとるときは、この端末で はば768pxまでの JPEG に作り直して（位置情報などは入らない）POST /read へ。
      サーバーが Claude に わたし、写真も結果も のこさない。1人1日の回数はサーバーが数える。使わないときは いままでどおり端末の中だけ。
    - やめる（LineLeave）：プロフィールの「LINEの データを けす」。2回 たしかめてから POST /leave（サーバーの データを すぐに ぜんぶ消し、
-     LINE の許可も取り消す）。この端末の子は のこして ゲストにする（line-owner は消さず、line-left に やめた会員IDを書く）。 */
+     LINE の許可も取り消す）。この端末の子は のこして ゲストにする（line-owner は消さず、line-left に やめた会員IDを書く）。
+   - うちのこカード（LineCard）：プロフィールの「うちのこカードを おくる」。この端末で カードの絵（きせかえを着た うちのこ＋おへや＋季節のわく。
+     写真と文字は入れない）を PNG にして見本を出し、「おくる」で POST /card（サーバーが Storage に1年おく。1人1日3まい）→ liff.shareTargetPicker()。 */
 const LINE_CFG = {
   sdk:'https://static.line-scdn.net/liff/edge/2/sdk.js',  /* エッジパス：v2 の最新版が自動で入る（古い版に固定しない） */
   /* LINEミニアプリの内部チャネル（本番用・審査用・開発用）ごとの LIFF ID（秘密ではない。前の数字がチャネルID）。
@@ -28,7 +30,13 @@ const LINE_CFG = {
   aiTimeout:50000,  /* AIの読みとりを待つ上限（サーバーは45秒で あきらめる） */
   aiSide:768,       /* AIに送る写真の 長いほうの辺（px） */
   aiQuality:.8,
+  /* うちのこカード：トークの「あそぶ」ボタンと下の行は、どこ（開発用・審査用）から送っても 本番用の LIFF URL。
+     下の行の アイコンは LINEミニアプリの アイコン（build.sh が src/icons/line-icon-130.png を いちばん上に置く） */
+  cardIcon:'https://uchinoko-biyori.pages.dev/line-icon.png',
+  cardTimeout:30000,
+  cardMax:1990000,  /* POST /card に送る data URL の長さの上限（サーバーは PNG 1.5MB まで） */
 };
+LINE_CFG.shareUrl = 'https://miniapp.line.me/' + LINE_CFG.liffIds.prod;
 /* この画面が どの内部チャネルのものか（ひらいた場所の さいしょのフォルダ。/dev/ と /review/ のほかは本番用） */
 const LINE_CH = (/^\/(dev|review)(?:\/|$)/.exec(location.pathname) || [0, 'prod'])[1];
 LINE_CFG.liffId = LINE_CFG.liffIds[LINE_CH] || '';
@@ -150,6 +158,16 @@ const LineApp = {
         if (!p){ p = document.createElement('p'); p.className = 'note line-status'; sh.appendChild(p); }
         p.textContent = (LINE_CH === 'dev' ? '［開発用］' : '') + text;   /* 開発用の画面だと わかるように（本番用・審査用には出さない） */
       }
+      /* うちのこカード：サーバーに つながっていて、この LINE で シェアが使えるときだけ。「引っこし・バックアップ」の上に */
+      const mv = sh.querySelector('#menuBtns #mMove');
+      let cb = sh.querySelector('#mCard');
+      if (!(mv && LineCard.available())){ if (cb) cb.remove(); }
+      else if (!cb){
+        cb = document.createElement('button');
+        cb.type = 'button'; cb.className = 'btn'; cb.id = 'mCard'; cb.textContent = 'うちのこカードを おくる';
+        cb.addEventListener('click', () => LineCard.start());
+        mv.insertAdjacentElement('beforebegin', cb);
+      }
       /* やめる：サーバーに つながっているときだけ、いちばん下に */
       let lb = sh.querySelector('.line-leave');
       if (!(p && LineSync.state === 'on' && LineServer.member)){ if (lb) lb.remove(); }
@@ -191,6 +209,7 @@ function lineErr(code, data, status){ const e = new Error(code); e.code = code; 
 const LineServer = {
   token:null, member:null, importable:false,
   ai:null,            /* AIの読みとり：{ on, left, perDay }（サーバーが数える） */
+  card:null,          /* うちのこカード：{ on, left, perDay }（サーバーが数える） */
   /* opt：{ timeout, signal }（signal で とめたら 'cancelled'） */
   async call(method, path, body, again = true, opt = {}){
     if (LineSync.state === 'left') throw lineErr('left');   /* やめたあとは、だまって つなぎなおさない（新しい会員を作らない） */
@@ -234,6 +253,7 @@ const LineServer = {
     if (!r || typeof r.token !== 'string' || !r.member || typeof r.member.id !== 'string') throw lineErr('badreply');
     this.token = r.token; this.member = r.member.id; this.importable = !!r.member.importable;
     this.ai = lineAiStatus(r.ai);
+    this.card = lineAiStatus(r.card);
     lineServerClock(r.now);
     return r;
   },
@@ -367,7 +387,7 @@ const LineSync = {
   /* やめた（サーバーの データを けした）：この端末の子は ゲストとして のこす */
   left(){
     try { if (LineServer.member) localStorage.setItem(LINE_LEFT_KEY, LineServer.member); } catch(e){}
-    LineServer.token = null; LineServer.member = null; LineServer.ai = null; LineServer.importable = false;
+    LineServer.token = null; LineServer.member = null; LineServer.ai = null; LineServer.card = null; LineServer.importable = false;
     if (Persist.ref === ServerRef){ Persist.ref = null; Persist.mode = 'local'; }
     Act.remote = null;
     this.created = this.idSent = this.rev = null;
@@ -724,6 +744,265 @@ const LineLeave = {
         ${unlinked ? '' : '<p class="note">LINEとの 連携は、LINEの「設定」の「アカウント」から はずせます。</p>'}
         <button class="btn primary" type="button" data-close>わかった</button>`,
     });
+  },
+};
+
+/* ----- うちのこカード（LINEの中で、サーバーに つながっているときだけ） -----
+   カードの絵：たて長（768×1024）。うちのこ（きせかえを着て、にっこり）＋その子の おへや（かべ・ゆか・ラグ）＋季節のわく
+   （イベント中は ガーランドと置きもの、ほかは 春・夏・秋・冬の小もの）。写真と文字は入れない（名前などは Flex Message の本文）。
+   SVG → キャンバス → PNG。画像の中では ページの CSS が効かないので、表情は SVG の中の <style> で きめる。
+   トークに送るのは LINEミニアプリの「カスタムシェアメッセージ」の標準タイプ（バブル1つ、ヒーローに絵、本文、ボタン、アイコンの行） */
+const CARD_W = 768, CARD_H = 1024, CARD_M = 52;
+const CARD_FRAME = {   /* わくの色・わくの水玉・（おへやの背景は その子の おへや） */
+  spring:{ frame:'#F6C5D1', dot:'#FBE0E7' }, summer:{ frame:'#8ED2E6', dot:'#BDE6F2' },
+  autumn:{ frame:'#EEB27C', dot:'#F6CFA8' }, winter:{ frame:'#A8C3EA', dot:'#CADAF3' },
+  newyear:{ frame:'#F2B3B0', dot:'#F8D3D1' }, valentine:{ frame:'#F5B3C6', dot:'#FAD3DE' }, sakura:{ frame:'#F6C5D1', dot:'#FBE0E7' },
+  kodomo:{ frame:'#A9C7EF', dot:'#CBDCF5' }, tsuyu:{ frame:'#B7BFEC', dot:'#D3D8F4' }, tanabata:{ frame:'#9FB0E4', dot:'#C2CDEE' },
+  tsukimi:{ frame:'#D9C68E', dot:'#E9DDB6' }, halloween:{ frame:'#B89BD9', dot:'#D2C1EA' }, christmas:{ frame:'#9CCB98', dot:'#C2E0BF' },
+};
+const CardArt = {
+  /* 季節の小もの（0,0 が まんなか、だいたい 100 の大きさ） */
+  sakura(){
+    let s = '';
+    for (let i = 0; i < 5; i++) s += `<ellipse cx="0" cy="-22" rx="15" ry="22" fill="#FBD9E2" stroke="#E39AB0" stroke-width="3" transform="rotate(${i * 72})"/>`;
+    return s + '<circle r="9" fill="#F5C04A"/><circle r="4" fill="#E8869E"/>';
+  },
+  petal(){ return '<path d="M0 -14C10 -8 10 8 0 14C-6 6 -6 -6 0 -14z" fill="#F9C6D3" stroke="#E39AB0" stroke-width="2"/>'; },
+  sunflower(){
+    let s = '';
+    for (let i = 0; i < 12; i++) s += `<ellipse cx="0" cy="-30" rx="9" ry="18" fill="#F7CF4A" stroke="#D9A83A" stroke-width="2.4" transform="rotate(${i * 30})"/>`;
+    return s + '<circle r="20" fill="#9A6A3E" stroke="#6E4A2A" stroke-width="3"/><circle cx="-6" cy="-5" r="2.4" fill="#6E4A2A"/><circle cx="6" cy="2" r="2.4" fill="#6E4A2A"/><circle cx="-2" cy="8" r="2.4" fill="#6E4A2A"/>';
+  },
+  bubble(){ return '<circle r="13" fill="rgba(255,255,255,.35)" stroke="#FFFFFF" stroke-width="3.4"/><path d="M-6 -4a7 7 0 0 1 6-5" stroke="#FFFFFF" stroke-width="3" fill="none" stroke-linecap="round"/>'; },
+  maple(c, k){
+    return `<path d="M0 46V20" stroke="${k}" stroke-width="4" stroke-linecap="round"/><path d="M0 -46L10 -22L28 -32L22 -10L44 -12L32 4L42 14L14 14L16 32L4 26L0 34L-4 26L-16 32L-14 14L-42 14L-32 4L-44 -12L-22 -10L-28 -32L-10 -22Z" fill="${c}" stroke="${k}" stroke-width="3.4" stroke-linejoin="round"/><path d="M0 26V-30M0 4L26 -6M0 4L-26 -6" stroke="${k}" stroke-width="2.2" fill="none" stroke-linecap="round" opacity=".7"/>`;
+  },
+  acorn(){ return '<ellipse cx="0" cy="8" rx="17" ry="21" fill="#C98A52" stroke="#8B5A3C" stroke-width="3"/><path d="M-21 -2C-21 -18 21 -18 21 -2C14 2 -14 2 -21 -2z" fill="#7A5233" stroke="#5A3A24" stroke-width="3" stroke-linejoin="round"/><path d="M0 -14V-24" stroke="#5A3A24" stroke-width="4" stroke-linecap="round"/><ellipse cx="-6" cy="8" rx="4" ry="8" fill="#FFFFFF" opacity=".35"/>'; },
+  flake(){
+    let s = '';
+    for (let i = 0; i < 6; i++) s += `<g transform="rotate(${i * 60})"><path d="M0 0V-34M0 -20L-9 -29M0 -20L9 -29M0 -10L-6 -16M0 -10L6 -16" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" fill="none"/></g>`;
+    return s + '<circle r="5" fill="#FFFFFF"/>';
+  },
+  dot(c, r){ return `<circle r="${r}" fill="${c}"/>`; },
+  star(c){ return `<path d="M0 -16L4.6 -5.4L16 -4.6L7.4 3L10 14.6L0 8.6L-10 14.6L-7.4 3L-16 -4.6L-4.6 -5.4Z" fill="${c}"/>`; },
+  heart(c){ return `<path d="M0 14C-16 4 -18 -6 -12 -11C-7 -15 -2 -13 0 -9C2 -13 7 -15 12 -11C18 -6 16 4 0 14Z" fill="${c}"/>`; },
+  at(x, y, sc, rot, svg){ return `<g transform="translate(${x} ${y}) rotate(${rot}) scale(${sc})">${svg}</g>`; },
+  /* わくの4すみに 季節の小もの */
+  corners(season, W, H){
+    const A = this.at.bind(this);
+    if (season === 'spring') return [
+      A(70, 74, 1.25, 10, this.sakura()), A(150, 46, .7, -20, this.sakura()), A(40, 160, .55, 0, this.petal()),
+      A(W - 66, 80, 1.05, -14, this.sakura()), A(W - 150, 40, .9, 30, this.petal()),
+      A(66, H - 70, .95, 20, this.sakura()), A(150, H - 34, .9, -40, this.petal()),
+      A(W - 74, H - 76, 1.3, -6, this.sakura()), A(W - 160, H - 40, .6, 12, this.sakura()), A(W - 36, H - 170, .9, 60, this.petal()),
+    ].join('');
+    if (season === 'summer') return [
+      A(76, 78, 1.15, 0, this.sunflower()), A(158, 40, .9, 0, this.bubble()), A(40, 168, .8, 0, this.bubble()),
+      A(W - 70, 70, .8, 0, this.sunflower()), A(W - 150, 36, .7, 0, this.bubble()),
+      A(56, H - 64, .75, 0, this.sunflower()), A(140, H - 32, .9, 0, this.bubble()),
+      A(W - 78, H - 80, 1.2, 0, this.sunflower()), A(W - 34, H - 180, .8, 0, this.bubble()), A(W - 170, H - 36, .6, 0, this.bubble()),
+    ].join('');
+    if (season === 'autumn'){
+      const red = this.maple('#E8613C', '#B33F22'), orange = this.maple('#F0A04B', '#B86A22'), yellow = this.maple('#E2B23A', '#A87E1C');
+      return [
+        A(74, 76, 1.2, -18, red), A(160, 40, .7, 24, yellow), A(38, 170, .75, 0, this.acorn()),
+        A(W - 70, 74, .95, 20, orange), A(W - 156, 38, .62, -12, this.acorn()),
+        A(64, H - 70, .9, 30, orange), A(150, H - 34, .7, -10, this.acorn()),
+        A(W - 76, H - 78, 1.25, 12, red), A(W - 170, H - 38, .62, -30, yellow), A(W - 36, H - 172, .7, 15, this.acorn()),
+      ].join('');
+    }
+    return [
+      A(72, 74, 1.2, 8, this.flake()), A(156, 40, .6, -10, this.flake()), A(40, 160, .9, 0, this.dot('#FFFFFF', 7)),
+      A(W - 70, 76, .9, -12, this.flake()), A(W - 150, 38, 1, 0, this.star('#FFFFFF')),
+      A(64, H - 70, .8, 20, this.flake()), A(150, H - 36, 1, 0, this.dot('#FFFFFF', 6)),
+      A(W - 76, H - 78, 1.3, 4, this.flake()), A(W - 168, H - 40, .55, 0, this.flake()), A(W - 36, H - 170, 1, 0, this.star('#FFFFFF')),
+    ].join('');
+  },
+  /* イベントの かざり：上に ガーランド、右下に イベントの置きもの（おへやと同じ絵） */
+  eventDeco(ev, x, y, w, h){
+    const sd = SEASON_DECOR[ev.decor];
+    if (!sd) return '';
+    let s = '';
+    if (sd.g) s += garland(sd.g[0], sd.g[1]).replace(' class="garland"', '').replace(' aria-hidden="true"', '').replace('<svg ', `<svg x="${x}" y="${y}" width="${w}" height="${Math.round(w * .16)}" `);
+    const iw = Math.round(w * .2);
+    s += (sd.hang || sd.item).replace('<svg ', `<svg x="${x + w - iw - 18}" y="${y + h - iw - 10}" width="${iw}" height="${iw}" `);
+    return s;
+  },
+  /* その子の おへや（かべ・ゆか・ラグ）。CSS の背景の かわりに SVG の もようで */
+  room(st, x, y, w, h, uid){
+    const R = st.room || ROOM_DEFAULT;
+    const W = findDecor('wall', R.wall), F = findDecor('floor', R.floor), G = findDecor('rug', R.rug);
+    const fy = y + Math.round(h * .62);
+    const pat = (pw, inner) => `<pattern id="${uid}w" width="${pw}" height="${pw}" patternUnits="userSpaceOnUse">${inner}</pattern>`;
+    const wall = W.pat === 'stripe' ? pat(34, `<rect width="14" height="34" fill="${W.pc}"/>`)
+      : W.pat === 'check' ? pat(60, `<rect width="30" height="60" fill="${W.pc}"/><rect width="60" height="30" fill="${W.pc}"/>`)
+      : W.pat === 'wood' ? pat(46, `<rect width="3" height="46" fill="${W.pc}"/>`)
+      : W.pat === 'heart' ? pat(68, `<g transform="translate(20 26)">${this.heart(W.pc)}</g><g transform="translate(54 60) scale(.8)">${this.heart(W.pc)}</g>`)
+      : W.pat === 'star' ? pat(92, `<g transform="translate(24 22) scale(.8)">${this.star(W.pc)}</g><circle cx="68" cy="60" r="3" fill="${W.pc}"/><circle cx="52" cy="22" r="2" fill="${W.pc}"/>`)
+      : pat(44, `<circle cx="22" cy="22" r="5" fill="${W.pc}"/>`);
+    const rx = w * .36, ry = h * .085, cx = x + w / 2, cy = fy + (y + h - fy) * .55;
+    const ring = list => list.map(([k, c]) => `<ellipse cx="${cx}" cy="${cy}" rx="${rx * k}" ry="${ry * k}" fill="${c}"/>`).join('');
+    const rug = G.none ? ''
+      : G.stripe ? `<pattern id="${uid}r" width="60" height="60" patternUnits="userSpaceOnUse"><rect width="60" height="60" fill="${G.stripe[1]}"/><rect width="36" height="60" fill="${G.stripe[0]}"/></pattern><ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="url(#${uid}r)"/>`
+      : G.id === 'tricolore' ? ring([[1, '#1F4FA3'], [.86, '#D9272E'], [.76, '#FFFFFF'], [.68, '#1F4FA3']])
+      : ring([[1, G.rings[2]], [.63, G.rings[1]], [.58, G.rings[0]]]);
+    return { floor:cy, svg:`<defs>${wall}<linearGradient id="${uid}f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${F.c1}"/><stop offset="1" stop-color="${F.c2}"/></linearGradient></defs>
+      <rect x="${x}" y="${y}" width="${w}" height="${fy - y}" fill="${W.base}"/><rect x="${x}" y="${y}" width="${w}" height="${fy - y}" fill="url(#${uid}w)"/>
+      <rect x="${x}" y="${fy}" width="${w}" height="${y + h - fy}" fill="url(#${uid}f)"/><rect x="${x}" y="${fy}" width="${w}" height="6" fill="rgba(0,0,0,.06)"/>${rug}` };
+  },
+  /* カードの SVG（季節・イベントは ルールの時計の日付。LINEの中では サーバーの日本時間） */
+  svg(st){
+    const W = CARD_W, H = CARD_H, M = CARD_M;
+    const ev = activeEvent(), season = seasonOf();
+    const P = (ev && CARD_FRAME[ev.decor]) || CARD_FRAME[season];
+    const uid = 'cd' + (++PET_SEQ);
+    const ix = M, iy = M, iw = W - M * 2, ih = H - M * 2;
+    const room = this.room(st, ix, iy, iw, ih, uid);
+    const ps = 640, px = (W - ps) / 2, py = room.floor - ps * 225 / 240;   /* 影（y=225）が ラグの まんなかに */
+    const pet = renderPet(st.pet.look, { wear:Rules.wear(st) }).replace(' aria-hidden="true"', '')
+      .replace('<svg class="pet-svg"', `<svg x="${px}" y="${py}" width="${ps}" height="${ps}" overflow="visible"`);
+    const sparkle = this.at(px + ps * .16, py + ps * .2, 1.4, -14, this.heart('#FF8FAB')) + this.at(px + ps * .86, py + ps * .14, 1, 12, this.heart('#FFB3C6'))
+      + this.at(px + ps * .9, py + ps * .4, .9, 0, this.star('#FFD86B'));
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+<style>.pv-eyes-open,.pv-eyes-closed,.pv-brow-sad,.pv-mouth-w{display:none}.pv-cheek{opacity:.8}</style>
+<defs><pattern id="${uid}d" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="7" cy="7" r="3.2" fill="${P.dot}"/><circle cx="21" cy="21" r="3.2" fill="${P.dot}"/></pattern>
+<clipPath id="${uid}c"><rect x="${ix}" y="${iy}" width="${iw}" height="${ih}" rx="34"/></clipPath></defs>
+<rect width="${W}" height="${H}" fill="${P.frame}"/><rect width="${W}" height="${H}" fill="url(#${uid}d)"/>
+<g clip-path="url(#${uid}c)">${room.svg}${ev ? this.eventDeco(ev, ix, iy + 8, iw, ih) : ''}${pet}${sparkle}</g>
+<rect x="${ix}" y="${iy}" width="${iw}" height="${ih}" rx="34" fill="none" stroke="#FFFFFF" stroke-width="10"/>
+${ev ? '' : this.corners(season, W, H)}
+</svg>`;
+  },
+  /* SVG を PNG（data URL）に */
+  async png(svg, w, h){
+    const img = new Image();
+    await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(lineErr('svg')); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+    const cv = document.createElement('canvas');
+    cv.width = w; cv.height = h;
+    cv.getContext('2d').drawImage(img, 0, 0, w, h);
+    return cv.toDataURL('image/png');
+  },
+};
+const LineCard = {
+  busy:false,
+  /* プロフィールに ボタンを出すか：LINEの中で サーバーに つながり、LINEに 子がいて、カードが休みでなく、この LINE で シェアが使える */
+  available(){
+    if (LineSync.state !== 'on' || !LineServer.member || LineSync.created == null || !S || !(LineServer.card && LineServer.card.on)) return false;
+    try { return !!(window.liff && LineApp.inClient && typeof liff.isApiAvailable === 'function' && liff.isApiAvailable('shareTargetPicker')); }
+    catch(e){ return false; }
+  },
+  async refresh(){
+    try { const r = await LineServer.call('GET', '/card'); if (r && r.card) LineServer.card = lineAiStatus(r.card); } catch(e){}
+    return LineServer.card;
+  },
+  leftText(c){
+    if (!c || !c.on) return '';
+    return c.left > 0 ? `きょうは あと${c.left}まい つくれます（1日${c.perDay}まいまで。まえと おなじ絵なら かぞえません）`
+      : `きょうの分は つかいきりました（1日${c.perDay}まいまで。あすの0時に もどります）。まえに おくった絵と おなじなら おくれます`;
+  },
+  /* この端末で カードの絵を作る（大きすぎたら 小さくして作りなおす） */
+  async make(st){
+    const svg = CardArt.svg(st);
+    let url = await CardArt.png(svg, CARD_W, CARD_H);
+    if (url.length > LINE_CFG.cardMax) url = await CardArt.png(svg, CARD_W * 3 / 4, CARD_H * 3 / 4);
+    if (!/^data:image\/png;base64,/.test(url) || url.length > LINE_CFG.cardMax) throw lineErr('canvas');
+    return url;
+  },
+  /* トークの本文に書くこと（いまの S から） */
+  info(st){
+    const L = levelInfo(st.stats.love), si = Rules.streakInfo(st);
+    const days = Math.max(1, daysBetween(st.created || now(), now()) + 1);
+    return {
+      name:String(st.pet.name || 'うちのこ').slice(0, 40), breed:breedLabel(st.pet),
+      love:`Lv ${L.lv}・${titleFor(L.lv)}`,
+      days:si.n >= 2 ? ['れんぞく', `${si.n}日`] : ['きてから', `${days}日`],
+    };
+  },
+  /* サーバーが返した 画像の URL か（Storage の公開バケット cards の ランダムな名前だけ） */
+  okUrl(u){
+    const base = new URL(LINE_CFG.api).origin + '/storage/v1/object/public/cards/';
+    return typeof u === 'string' && u.startsWith(base) && /^[A-Za-z0-9_-]{16,64}\.png$/.test(u.slice(base.length));
+  },
+  /* LINEミニアプリの カスタムシェアメッセージ（標準タイプ）：ヒーローに絵、タイトル＝名前、サブタイトル＝種類、詳細＝なかよし・れんぞく、
+     ボタン（本番用をひらく）、下の行（アイコン・名前・矢印）。ここに書いていない プロパティは 変えない（LINE のガイドライン） */
+  flex(i, url){
+    const row = (k, v) => ({ type:'box', layout:'horizontal', spacing:'sm', flex:1, contents:[
+      { type:'text', text:k, size:'sm', color:'#555555', wrap:false, flex:20 },
+      { type:'text', text:v, size:'sm', color:'#111111', wrap:false, flex:55 },
+    ] });
+    return {
+      type:'flex', altText:`${i.name}の うちのこカードが とどいたよ`,
+      contents:{
+        type:'bubble',
+        hero:{ type:'image', url, size:'full', aspectMode:'cover', aspectRatio:'3:4' },
+        body:{ type:'box', layout:'vertical', spacing:'md', contents:[
+          { type:'box', layout:'vertical', spacing:'none', contents:[{ type:'text', text:i.name, size:'lg', color:'#000000', weight:'bold', wrap:true }] },
+          { type:'box', layout:'vertical', spacing:'none', contents:[{ type:'text', text:i.breed, size:'sm', color:'#999999', wrap:true }] },
+          { type:'box', layout:'vertical', spacing:'sm', margin:'lg', flex:1, contents:[row('なかよし', i.love), row(i.days[0], i.days[1])] },
+          { type:'box', layout:'vertical', spacing:'xs', margin:'lg', contents:[
+            { type:'button', style:'primary', height:'md', color:'#4FAE9A', action:{ type:'uri', label:'うちのこ日和で あそぶ', uri:LINE_CFG.shareUrl } },
+          ] },
+        ] },
+        footer:{ type:'box', layout:'vertical', contents:[
+          { type:'separator', color:'#f0f0f0' },
+          { type:'box', layout:'horizontal', flex:1, spacing:'md', margin:'md', contents:[
+            { type:'image', url:LINE_CFG.cardIcon, flex:1, gravity:'center' },
+            { type:'text', text:'うちのこ日和', flex:19, size:'xs', color:'#999999', weight:'bold', gravity:'center', wrap:false },
+            { type:'image', url:'https://vos.line-scdn.net/service-notifier/footer_go_btn.png', flex:1, gravity:'center', size:'xxs',
+              action:{ type:'uri', label:'action', uri:LINE_CFG.shareUrl } },
+          ] },
+        ] },
+      },
+    };
+  },
+  async start(){
+    if (this.busy || !this.available() || Act.waiting()) return;
+    this.busy = true;
+    try {
+      closeSheet();
+      let png;
+      try { png = await this.make(S); }
+      catch(e){ toast('カードを つくれませんでした'); return; }
+      const info = this.info(S);
+      const v = await Modal.show({
+        label:'うちのこカード', cls:'cardprev',
+        html:() => `<div class="cardimg"><img alt="${esc(info.name)}の うちのこカード"></div>
+          <h3>うちのこカードを<br>おくる？</h3>
+          <p>えらんだ 友だちや グループに、${esc(info.name)}の カードを おくります。</p>
+          <p class="cardleft" id="cdLeft" role="status">${esc(this.leftText(LineServer.card))}</p>
+          <div class="btnrow"><button class="btn" type="button" data-close>やめておく</button><button class="btn primary" type="button" data-close="send">おくる</button></div>
+          <p class="cardnote">カードの絵は うちのこ日和の サーバーに おいて、トークに 出します（URLを 知っている人は 見られます）。さいごに おくってから 1年で けします。${LineDocs.on ? '<button class="linkbtn inline" type="button" id="cdPolicy">くわしく</button>' : ''}</p>`,
+        ready:box => {
+          box.querySelector('.cardimg img').src = png;
+          const left = box.querySelector('#cdLeft');
+          this.refresh().then(c => { if (box.isConnected) left.textContent = this.leftText(c); });
+          if (LineDocs.on) box.querySelector('#cdPolicy').addEventListener('click', () => LineDocs.open('privacy'));
+        },
+      });
+      if (v === 'send') await this.send(png, info);
+    } finally { this.busy = false; }
+  },
+  async send(png, info){
+    toast('カードを じゅんびしています…');
+    let r;
+    try { r = await LineServer.call('POST', '/card', { image:png }, true, { timeout:LINE_CFG.cardTimeout }); }
+    catch(e){ r = { ok:false, why:e.code === 'badimage' || e.code === 'nosave' ? e.code : 'unavailable' }; }
+    if (!r || typeof r !== 'object') r = { ok:false, why:'unavailable' };
+    if (r.card) LineServer.card = lineAiStatus(r.card);
+    if (!r.ok || !this.okUrl(r.url)){
+      const per = LineServer.card && LineServer.card.perDay;
+      toast({
+        limit:`きょうの カードは つかいきりました${per ? `（1日${per}まいまで）` : ''}。あすの0時に もどります`,
+        off:'いまは カードを おやすみしています',
+        badimage:'カードの絵を つくれませんでした',
+      }[r.why] || 'いまは カードを おくれませんでした。すこし あとで ためしてね');
+      LineApp.paint();
+      return;
+    }
+    let res;
+    try { res = await liff.shareTargetPicker([this.flex(info, r.url)], { isMultiple:true }); }
+    catch(e){ toast('カードを おくれませんでした。LINEを 新しくしてから ためしてね'); return; }
+    if (res && res.status === 'success') toast('カードを おくったよ');
   },
 };
 

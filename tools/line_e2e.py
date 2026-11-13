@@ -15,7 +15,9 @@
    ・AIの読みとり（送る前に きく、小さくした JPEG、サーバーでの回数、AIを使わない えらび方、読みとれないとき）
    ・やめる（2回 たしかめる、サーバーの データを すぐに消す、LINE の許可の取り消し、この端末の子は ゲストに、また ひらくと つれてくる）
    ・LINEに子がいるときの「新しい子をむかえる」と 引っこしシートでの受け取り（前の子に もどらない）
-   ・内部チャネルごとの画面（/・/review/・/dev/ で それぞれの LIFF ID、同じ会員の子、ポリシーと favicon は いちばん上）を確かめる。
+   ・内部チャネルごとの画面（/・/review/・/dev/ で それぞれの LIFF ID、同じ会員の子、ポリシーと favicon は いちばん上）
+   ・写真立て（写真の控えがない子は イラスト）
+   ・うちのこカード（見本 → POST /card〈Storage のまね〉→ シェアターゲットピッカーのまね、同じ絵は数えない、1日3まい、けすと消える）を確かめる。
    ページのエラーと CSP の違反が0件であることも見る。スクリーンショットは smoke-out/line-e2e/。
 
 サーバーの URL（LINE_CFG.api）への通信は、ブラウザの中でこのローカルのサーバーへつなぎかえる。本物の Supabase にはさわらない。
@@ -139,7 +141,10 @@ async def browser_tests(srv_port):
             errs, calls = [], []
             page.on('pageerror', lambda e: errs.append(str(e)))
             page.on('console', lambda m: errs.append('CSP: ' + m.text) if m.type == 'error' and 'Content Security Policy' in m.text else None)
-            liff = ("window.liff={init:o=>{window.__liffId=o&&o.liffId;return Promise.resolve()},isInClient:()=>%s,getOS:()=>'ios',getIDToken:()=>%s,getAccessToken:()=>'e2e-access-token'};"
+            # シェアターゲットピッカーのまね：送ったメッセージは window.__shared に。__noStp で「使えない」、__stpCancel で「えらばずに とじた」
+            liff = ("window.liff={init:o=>{window.__liffId=o&&o.liffId;return Promise.resolve()},isInClient:()=>%s,getOS:()=>'ios',getIDToken:()=>%s,getAccessToken:()=>'e2e-access-token',"
+                    "isApiAvailable:n=>n==='shareTargetPicker'&&!window.__noStp,"
+                    "shareTargetPicker:(m,o)=>{(window.__shared=window.__shared||[]).push({m:m,o:o});return Promise.resolve(window.__stpCancel?undefined:{status:'success'})}};"
                     % ('false' if external else 'true', json.dumps(token(sub))))
             await page.route('https://static.line-scdn.net/**', lambda r: r.fulfill(status=200, content_type='application/javascript', body=liff))
 
@@ -560,6 +565,114 @@ async def browser_tests(srv_port):
         await page.evaluate("() => { S.pet.look = { species:'dog', breedId:'shiba' }; Game.refresh(); }")
         g = await page.evaluate(frame_js)
         ok(f['shown'] and f['art'] and g['art'] and g['k'] != f['k'] and 'shiba' in (g['k'] or ''), 'ゲストの写真なしの子も イラスト。みためが かわると かきなおす', {'before': f, 'after': g})
+        all_errs += errs; await ctx.close()
+
+        print('15. うちのこカード（プロフィールから おくる）')
+        cards = lambda body=None: dbg('/__debug/cards', body)
+        ctx, page, errs, calls = await open_page('Ucard')
+        await page.click('#obManual'); await page.wait_for_timeout(300)
+        await page.click('[data-g="pomeranian"]'); await page.fill('#edName', 'カードのこ')
+        await page.click('#edGo'); await page.wait_for_timeout(2600)
+        await close_popups(page)
+        me = state('Ucard')
+        await page.click('#menuBtn'); await page.wait_for_timeout(400)
+        pos = await page.evaluate("() => { const c = document.getElementById('mCard'); return c ? { next: c.nextElementSibling && c.nextElementSibling.id, text: c.textContent } : null; }")
+        ok(pos is not None and pos['next'] == 'mMove' and pos['text'] == 'うちのこカードを おくる', 'プロフィールの「引っこし・バックアップ」の上に「うちのこカードを おくる」', pos)
+        await snap(page, 'card_button')
+
+        async def open_card():
+            await page.click('#menuBtn'); await page.wait_for_timeout(400)
+            await page.click('#mCard'); await page.wait_for_timeout(1500)
+            return await page.query_selector('.levelup .cardprev')
+
+        async def send_card(wait=2500):
+            await page.click('.levelup [data-close="send"]'); await page.wait_for_timeout(wait)
+            return await page.evaluate("() => ({ shared: (window.__shared || []).length, toast: document.getElementById('toast').textContent, left: LineServer.card && LineServer.card.left })")
+
+        await page.click('#mCard'); await page.wait_for_timeout(1500)
+        pv = await page.evaluate("""() => { const i = document.querySelector('.levelup .cardprev .cardimg img');
+            return i ? { w: i.naturalWidth, h: i.naturalHeight, png: i.src.startsWith('data:image/png;base64,'), left: (document.getElementById('cdLeft') || {}).textContent || '' } : null; }""")
+        ok(pv and pv['w'] == 768 and pv['h'] == 1024 and pv['png'] and 'あと3まい' in pv['left'], '見本：この端末で作った たて長の PNG と のこりの枚数（まだ送らない）', pv)
+        ok(not cards()['rows'] and not any(x.startswith('POST /card') for x in calls), '見本のあいだは サーバーに 送らない', calls[-3:])
+        await snap(page, 'card_preview')
+        r = await send_card()
+        shared = await page.evaluate('window.__shared')
+        c = cards()
+        m = shared[0]['m'][0] if shared else {}
+        cont = m.get('contents', {})
+        hero, body, foot = cont.get('hero', {}), cont.get('body', {}), cont.get('footer', {})
+        texts = json.dumps(body, ensure_ascii=False)
+        url = hero.get('url', '')
+        ok(r['shared'] == 1 and m.get('type') == 'flex' and m.get('altText') == 'カードのこの うちのこカードが とどいたよ' and cont.get('type') == 'bubble',
+           'おくる → シェアターゲットピッカーに Flex Message（バブル1つ・トークの一覧の文）', m.get('altText'))
+        ok(url.startswith('https://ftakgswltcavwixqxpzi.supabase.co/storage/v1/object/public/cards/') and hero.get('aspectRatio') == '3:4' and hero.get('size') == 'full'
+           and hero.get('aspectMode') == 'cover' and 'action' not in hero, 'ヒーローに カードの絵（Storage の公開URL、3:4、アクションなし）', hero)
+        ok('カードのこ' in texts and 'ポメラニアン' in texts and 'なかよし' in texts and 'Lv 1・はじめまして' in texts and 'きてから' in texts and '"1日"' in texts,
+           '本文：名前・種類・なかよし・（れんぞくが1日までは）きてから', texts[:300])
+        btn = body.get('contents', [{}])[-1].get('contents', [{}])[0]
+        ok(btn.get('style') == 'primary' and btn.get('action', {}).get('uri') == 'https://miniapp.line.me/2012410265-PutgsCLS' and btn['action'].get('label') == 'うちのこ日和で あそぶ',
+           'ボタンは 本番用の LIFF URL（開発用から送っても）', btn)
+        frow = (foot.get('contents') or [{}, {}])[1].get('contents', [])
+        ok(len(frow) == 3 and frow[0].get('url') == 'https://uchinoko-biyori.pages.dev/line-icon.png' and frow[1].get('text') == 'うちのこ日和'
+           and frow[2].get('url') == 'https://vos.line-scdn.net/service-notifier/footer_go_btn.png' and frow[2].get('action', {}).get('uri') == 'https://miniapp.line.me/2012410265-PutgsCLS',
+           '下の行：アイコン・名前・矢印（本番用）', frow)
+        obj = c['objects'][0] if c['objects'] else {}
+        ok(len(c['rows']) == 1 and c['rows'][0]['member'] == me['id'] and len(c['objects']) == 1 and obj.get('w') == 768 and obj.get('h') == 1024 and not obj.get('text')
+           and url.endswith('/' + obj.get('name', '-')) and c['key'] == 'sb_secret_e2e', 'サーバーが PNG を確かめて Storage に置く（768×1024、文字のチャンクなし）', c)
+        ok(r['left'] == 2 and 'おくったよ' in r['toast'], 'おくったら「カードを おくったよ」・のこり2まい', r)
+        await snap(page, 'card_sent')
+        await open_card()
+        r = await send_card()
+        shared = await page.evaluate('window.__shared')
+        c = cards()
+        ok(r['shared'] == 2 and shared[1]['m'][0]['contents']['hero']['url'] == url and len(c['rows']) == 1 and c['puts'] == 1 and r['left'] == 2,
+           '同じ絵は つくりなおさず、枚数にも 数えない（前の URL）', {'puts': c['puts'], 'left': r['left']})
+        cards({'mode': 'down'})
+        await page.evaluate("() => { S.room.rug = 'stripe'; }")
+        await open_card()
+        r = await send_card()
+        cards({'mode': 'ok'})
+        ok(r['shared'] == 2 and 'おくれませんでした' in r['toast'] and r['left'] == 2 and len(cards()['rows']) == 1,
+           'Storage に 置けないときは「いまは カードを おくれませんでした」（送らない・枚数は もどる）', r)
+        for rug in ('pink', 'mint'):
+            await page.evaluate("rug => { S.room.rug = rug; }", rug)   # ちがう絵にする（この端末の S だけ）
+            await open_card()
+            r = await send_card()
+        c = cards()
+        ok(len(c['rows']) == 3 and r['left'] == 0 and r['shared'] == 4, 'ちがう絵は 1まいずつ 数える（1日3まい）', {'rows': len(c['rows']), 'left': r['left']})
+        await page.evaluate("() => { S.room.rug = 'sun'; }")
+        pv = await open_card()
+        lt = await page.evaluate("(document.getElementById('cdLeft') || {}).textContent || ''")
+        r = await send_card()
+        ok(pv is not None and 'つかいきりました' in lt and r['shared'] == 4 and 'つかいきりました' in r['toast'] and len(cards()['rows']) == 3,
+           '4まいめは「つかいきりました」（送らない）', {'left': lt, 'toast': r['toast']})
+        await snap(page, 'card_limit')
+        await page.evaluate("() => { S.room.rug = 'mint'; window.__stpCancel = true; }")   # 前に作った絵なら、上限のあとも送れる
+        await open_card()
+        r = await send_card()
+        ok(r['shared'] == 5 and 'おくったよ' not in r['toast'] and len(cards()['rows']) == 3, '前に作った絵は 上限のあとも送れる／えらばずに とじたら なにも言わない', r)
+        await open_card()
+        await page.click('.levelup [data-close]'); await page.wait_for_timeout(600)
+        r = await page.evaluate("(window.__shared || []).length")
+        ok(r == 5, '「やめておく」なら 送らない', r)
+        await page.evaluate("() => { window.__stpCancel = false; window.__noStp = true; }")
+        await page.click('#menuBtn'); await page.wait_for_timeout(400)
+        ok(await page.query_selector('#mCard') is None, 'この LINE で シェアが使えないときは ボタンを出さない')
+        await page.click('#sheet [data-close]'); await page.wait_for_timeout(300)
+        await page.evaluate("() => { window.__noStp = false; }")
+        await page.click('#menuBtn'); await page.wait_for_timeout(400)
+        await page.click('#sheet .line-leave'); await page.wait_for_timeout(600)
+        await page.click('.levelup [data-close="next"]'); await page.wait_for_timeout(600)
+        await page.click('.levelup [data-close="yes"]'); await page.wait_for_timeout(2500)
+        c = cards()
+        ok(state('Ucard') is None and not c['rows'] and not c['objects'], '「LINEの データを けす」と カードの画像も すぐ消える', c)
+        await page.click('.levelup [data-close]'); await page.wait_for_timeout(500)
+        await page.click('#menuBtn'); await page.wait_for_timeout(400)
+        ok(await page.query_selector('#mCard') is None, 'けしたあと（ゲスト）は ボタンを出さない')
+        all_errs += errs; await ctx.close()
+        ctx, page, errs, calls = await open_page('Ucard2', local=sample('そとのこ'), external=True)
+        await page.click('#menuBtn'); await page.wait_for_timeout(400)
+        ok(await page.query_selector('#mCard') is None, 'LINEの外では ボタンを出さない')
         all_errs += errs; await ctx.close()
 
         await browser.close()

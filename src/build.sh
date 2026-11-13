@@ -51,6 +51,8 @@ LHASH="sha256-$(sha256b64 out/line-script.js)"
   printf '<script>'; cat out/line-script.js; echo '</script>'; echo '</body>'; echo '</html>'; } > out/line/index.html
 grep -q "'$LHASH'" out/line/index.html
 cp ../favicon-32.png ../favicon-64.png out/line/
+# うちのこカード（トークに送る メッセージ）の 下の行に出す LINEミニアプリの アイコン（https://uchinoko-biyori.pages.dev/line-icon.png）
+cp icons/line-icon-130.png out/line/line-icon.png
 # 審査用・開発用の内部チャネルの画面（LINE Developers の エンドポイントURL：…/review/・…/dev/。本番用は いちばん上の …/）。
 # 中身は同じで、js_line.js が ひらいた場所で LIFF ID をえらぶ。ポリシー・規約・favicon は いちばん上のものを使う
 for d in review dev; do mkdir -p out/line/$d; cp out/line/index.html out/line/$d/index.html; done

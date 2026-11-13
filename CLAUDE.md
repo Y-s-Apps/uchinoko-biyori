@@ -25,9 +25,9 @@
 | `src/js_features.js` | `ensureState`（セーブの移行）、おねがい・おたすけ・おみやげ・イベント・記念日のポップアップ、もようがえ、げい、アルバム |
 | `src/js_onboard.js` | 写真から迎える流れ、種類・色・名前の編集、起動処理（boot） |
 | `src/js_home.js` | ホーム画面版だけのJS（`build.sh` が `js_rules.js` のすぐあとに入れる）。いまは `HomeRescue`：前の きびしいルールで きょう れんぞくが1にもどった子に、おたすけを出しなおす |
-| `src/js_line.js` | LINE版だけのJS（LIFF の準備、サーバーでの本人確認とセーブ、AIの読みとり `LineAI`、やめる `LineLeave`。`LINE_CFG.liffIds`（内部チャネルごと。ひらいた場所 `/`・`/review/`・`/dev/` で えらぶ）・`LINE_CFG.api`） |
+| `src/js_line.js` | LINE版だけのJS（LIFF の準備、サーバーでの本人確認とセーブ、AIの読みとり `LineAI`、やめる `LineLeave`、写真立ての イラスト `LineFrame`、うちのこカード `CardArt`・`LineCard`〈絵を PNG に → `POST /card` → `liff.shareTargetPicker()`〉。`LINE_CFG.liffIds`（内部チャネルごと。ひらいた場所 `/`・`/review/`・`/dev/` で えらぶ）・`LINE_CFG.api`） |
 | `src/sw.js` | オフライン用のService Worker（`__VER__` はビルド時に置きかわる） |
-| `src/build.sh` | 組み立て。`../index.html` と `../sw.js`（ホーム画面版）、`out/uchinoko-claude.html`（Claude版）、`out/line/`（LINE版。本番用＝いちばん上、審査用＝`review/`、開発用＝`dev/` に同じページ）を出力 |
+| `src/build.sh` | 組み立て。`../index.html` と `../sw.js`（ホーム画面版）、`out/uchinoko-claude.html`（Claude版）、`out/line/`（LINE版。本番用＝いちばん上、審査用＝`review/`、開発用＝`dev/` に同じページ。うちのこカードの メッセージに出す `line-icon.png` も）を出力 |
 | `src/icons/` | アイコンの元データ（1024px）と描画スクリプト。LINE用（130px）は `line_icon.js`・`render_line.py` → `line-icon-130.png` |
 | `src/legal/` | LINE版のプライバシーポリシー・利用規約（`build.sh` が お問い合わせ先 `CONTACT`＝Googleフォームの URL を入れて `out/line/` に出す。空なら出さない） |
 | `tools/smoke.py` | スマホ幅での動作確認とスクリーンショット |
