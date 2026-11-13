@@ -35,6 +35,8 @@ const LINE_CFG = {
   cardIcon:'https://uchinoko-biyori.pages.dev/line-icon.png',
   cardTimeout:30000,
   cardMax:1990000,  /* POST /card に送る data URL の長さの上限（サーバーは PNG 1.5MB まで） */
+  reopenGap:10 * 60e3,  /* IDトークンが切れたときに LIFF URL から ひらきなおすのは、この間に1回まで（くりかえさない） */
+  reopenWait:8000,      /* ひらきなおすとき、ページが うつるのを まつ上限（うつらなければ「つながれません」にする） */
 };
 LINE_CFG.shareUrl = 'https://miniapp.line.me/' + LINE_CFG.liffIds.prod;
 /* この画面が どの内部チャネルのものか（ひらいた場所の さいしょのフォルダ。/dev/ と /review/ のほかは本番用） */
@@ -43,6 +45,16 @@ LINE_CFG.liffId = LINE_CFG.liffIds[LINE_CH] || '';
 const LINE_OWNER_KEY = 'uchinoko-biyori:line-owner';  /* この端末のセーブが、どの会員のものか（サーバーの会員ID） */
 const LINE_GUEST_KEY = 'uchinoko-biyori:line-guest';  /* LINEの子と入れかわった、この端末にいた子（消さずにとっておく） */
 const LINE_LEFT_KEY = 'uchinoko-biyori:line-left';    /* やめた（LINEの データを けした）会員ID。line-owner が これと同じなら、この端末の子は ゲスト */
+const LINE_REOPEN_KEY = 'uchinoko-biyori:line-reopen';  /* さいごに LIFF URL から ひらきなおした時刻（くりかえさないため） */
+/* サーバーが IDトークンを ことわった合図（切れている・たしかめられない・とれない） */
+const LINE_TOKEN_ERR = new Set(['expired', 'badtoken', 'notoken']);
+/* 合図の なかま：プロフィールの1行は 英語の合図を出さずに、やさしい ことばにする（合図は data-why に のこす） */
+function lineWhyKind(code){
+  if (code === 'expired') return 'expired';
+  if (LINE_TOKEN_ERR.has(code)) return 'token';
+  if (code === 'unavailable' || code === 'cancelled' || code === 'server' || /^http5/.test(String(code))) return 'net';
+  return 'other';
+}
 
 /* プライバシーポリシーと利用規約（サイトの いちばん上の /privacy.html・/terms.html。build.sh が src/legal/ から作る。
    審査用・開発用の画面〈/review/・/dev/〉からも 同じページ）と、
@@ -123,23 +135,53 @@ const LineApp = {
     if (LineSync.state !== 'off') d.lineServer = LineSync.state;
     this.paint();
   },
-  /* プロフィールのシートに出す1行（LIFF ID がないときは出さない） */
+  /* プロフィールのシートに出す1行（LIFF ID がないときは出さない）。つながれない理由は やさしい ことばで（英語の合図は whyCode() で data-why に） */
   statusText(){
+    const own = !!LineSync.owner();
     switch (this.state){
       case 'loading': return 'LINEに つないでいます…';
       case 'ready':
-        if (!this.inClient) return LineSync.owner() ? 'LINEの外で ひらいています。LINEに ほぞんしている子は、LINEの中で おせわできます'
+        if (!this.inClient) return own ? 'LINEの外で ひらいています。LINEに ほぞんしている子は、LINEの中で おせわできます'
           : 'LINEの外で ひらいています。ゲストとして あそべます';
         if (LineSync.state === 'left') return 'LINEの データを けしました。この端末で ゲストとして あそべます';
         if (LineSync.state === 'connecting') return 'LINEと つながっています（サーバーに つないでいます…）';
-        if (LineSync.state === 'failed') return LineSync.owner()
-          ? `LINEと つながっています。サーバーに つながれないので、おせわは つながるまで まってね（${LineSync.error}）`
-          : `LINEと つながっています。サーバーに つながれないので、この端末に ほぞんしています（${LineSync.error}）`;
+        if (LineSync.state === 'failed'){
+          if (LineSync.error === 'later') return `LINEと つながっています。${S ? S.pet.name : 'この子'}は まだ この端末だけに います。つぎに ひらいたとき、LINEに つれてくるか また ききます`;
+          const k = lineWhyKind(LineSync.error);
+          if (k === 'expired' || k === 'token') return (k === 'expired' ? 'LINEの ログインの じかんが きれました。' : 'LINEの ログインを たしかめられませんでした。')
+            + 'ミニアプリを とじて、ひらきなおしてね' + (own ? '（それまで おせわは おやすみ）' : '（それまで この端末に ほぞんします）');
+          return 'LINEと つながっています。' + (k === 'net' ? 'サーバーに とどかないので、' : 'サーバーと うまく やりとり できないので、')
+            + (own ? 'おせわは つながるまで まってね' : 'この端末に ほぞんしています');
+        }
         return 'LINEと つながっています';
-      case 'failed': return LineSync.owner() ? `LINEに つながれませんでした。つながるまで おせわは まってね（${this.error}）`
-        : `LINEに つながれませんでした。ゲストとして あそべます（${this.error}）`;
+      case 'failed': {
+        const why = this.error === 'sdk' ? 'LINEの 読みこみに しっぱいしました' : this.error === 'timeout' ? 'LINEの じゅんびが まにあいませんでした' : 'LINEに つながれませんでした';
+        return why + (own ? '。ミニアプリを ひらきなおすまで、おせわは まってね' : '。ゲストとして あそべます');
+      }
     }
     return '';
+  },
+  /* プロフィールの1行の うらに のこす 英語の合図（しらべるとき用。画面には出さない） */
+  whyCode(){
+    if (this.state === 'failed') return this.error || '';
+    return this.state === 'ready' && LineSync.state === 'failed' ? LineSync.error || '' : '';
+  },
+  /* LINE の IDトークンは 1時間で切れ、ページを読みなおすだけでは 新しくならない（LIFF が 前のトークンを とっておくため）。
+     そこで LIFF の とっておきを けして（liff.logout）、LIFF URL から ひらきなおし、LINE に 新しいトークンを わたしてもらう。
+     くりかえさないように reopenGap に1回まで（端末に時刻を書けないときは しない）。user：押した「もういちど つなぐ」から（間は見ない）。
+     ひらきなおすなら true（ページが うつる） */
+  reopen(user = false){
+    if (this.state !== 'ready' || !this.inClient || !LINE_CFG.liffId) return false;
+    const t = String(Date.now());
+    try {
+      const last = Number(localStorage.getItem(LINE_REOPEN_KEY)) || 0;
+      if (!user && Math.abs(Date.now() - last) < LINE_CFG.reopenGap) return false;
+      localStorage.setItem(LINE_REOPEN_KEY, t);
+      if (!user && localStorage.getItem(LINE_REOPEN_KEY) !== t) return false;
+    } catch(e){ if (!user) return false; }
+    try { if (window.liff && typeof liff.logout === 'function') liff.logout(); } catch(e){}
+    location.href = 'https://miniapp.line.me/' + LINE_CFG.liffId;
+    return true;
   },
   /* 引っこしコードで受け取るところに出す、LINE版だけの決まり */
   moveText(){
@@ -157,6 +199,7 @@ const LineApp = {
       else {
         if (!p){ p = document.createElement('p'); p.className = 'note line-status'; sh.appendChild(p); }
         p.textContent = (LINE_CH === 'dev' ? '［開発用］' : '') + text;   /* 開発用の画面だと わかるように（本番用・審査用には出さない） */
+        p.dataset.why = this.whyCode();
       }
       /* うちのこカード：サーバーに つながっていて、この LINE で シェアが使えるときだけ。「引っこし・バックアップ」の上に */
       const mv = sh.querySelector('#menuBtns #mMove');
@@ -245,11 +288,17 @@ const LineServer = {
     return data;
   },
   async login(){
-    let idToken = null;
+    let idToken = null, r;
     try { idToken = window.liff && liff.getIDToken ? liff.getIDToken() : null; } catch(e){}
-    if (!idToken) throw lineErr('notoken');
-    this.token = null;
-    const r = await this.call('POST', '/login', { idToken }, false);
+    try {
+      if (!idToken) throw lineErr('notoken');
+      this.token = null;
+      r = await this.call('POST', '/login', { idToken }, false);
+    } catch(e){
+      /* IDトークンが 切れている・たしかめられない：LIFF URL から 1回だけ ひらきなおす（ページが うつるまで まつ） */
+      if (LINE_TOKEN_ERR.has(e.code) && LineApp.reopen()) await sleep(LINE_CFG.reopenWait);
+      throw e;
+    }
     if (!r || typeof r.token !== 'string' || !r.member || typeof r.member.id !== 'string') throw lineErr('badreply');
     this.token = r.token; this.member = r.member.id; this.importable = !!r.member.importable;
     this.ai = lineAiStatus(r.ai);
@@ -429,6 +478,8 @@ const LineSync = {
     }).then(v => { this.waitOpen = false; if (v === 'retry') this.retry(); });
   },
   retry(){
+    /* IDトークンが 切れていたら、同じトークンで つなぎなおしても とおらないので、LIFF URL から ひらきなおす（押したときだけ。間は見ない） */
+    if (this.state === 'failed' && LINE_TOKEN_ERR.has(this.error) && LineApp.reopen(true)) return;
     if (LineApp.state === 'ready' && LineApp.inClient && LINE_CFG.api) return this.start();
     location.reload();   /* LIFF そのものが はじまらなかった */
   },

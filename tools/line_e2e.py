@@ -75,9 +75,10 @@ def run_api_test():
         db.terminate()
 
 
-def token(sub):
+def token(sub, sig='test'):
+    """ためしの IDトークン（sig：test＝とおる・expired＝切れている・ほか＝たしかめられない）"""
     b = lambda o: base64.urlsafe_b64encode(json.dumps(o).encode()).decode().rstrip('=')
-    return b({'alg': 'none'}) + '.' + b({'aud': '2012410263', 'sub': sub}) + '.test'
+    return b({'alg': 'none'}) + '.' + b({'aud': '2012410263', 'sub': sub}) + '.' + sig
 
 
 def sample(name, created_days=10, photo=False, updated_ms=None):
@@ -134,7 +135,9 @@ async def browser_tests(srv_port):
     async with async_playwright() as p:
         browser = await p.chromium.launch()
 
-        async def open_page(sub, local=None, external=False, server_down=False, owner=None, skew_ms=0, keys=None, path='/'):
+        async def open_page(sub, local=None, external=False, server_down=False, owner=None, skew_ms=0, keys=None, path='/', id_token=None, fail=None):
+            """id_token：getIDToken() が返す JS の式（既定は sub の とおるトークン）。
+            fail：{'/import': 2} のように、その口への通信を はじめの N 回 とどかなくする（あとから 0 に できる）"""
             ctx = await browser.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True,
                                             has_touch=True, timezone_id='Asia/Tokyo', locale='ja-JP')
             page = await ctx.new_page()
@@ -142,15 +145,28 @@ async def browser_tests(srv_port):
             page.on('pageerror', lambda e: errs.append(str(e)))
             page.on('console', lambda m: errs.append('CSP: ' + m.text) if m.type == 'error' and 'Content Security Policy' in m.text else None)
             # シェアターゲットピッカーのまね：送ったメッセージは window.__shared に。__noStp で「使えない」、__stpCancel で「えらばずに とじた」
-            liff = ("window.liff={init:o=>{window.__liffId=o&&o.liffId;return Promise.resolve()},isInClient:()=>%s,getOS:()=>'ios',getIDToken:()=>%s,getAccessToken:()=>'e2e-access-token',"
+            # liff.logout のまね：けした回数を localStorage の e2e-logout に
+            liff = ("window.liff={init:o=>{window.__liffId=o&&o.liffId;return Promise.resolve()},isInClient:()=>%s,getOS:()=>'ios',getIDToken:()=>(%s),getAccessToken:()=>'e2e-access-token',"
+                    "logout:()=>{localStorage.setItem('e2e-logout',String(1+Number(localStorage.getItem('e2e-logout')||0)))},"
                     "isApiAvailable:n=>n==='shareTargetPicker'&&!window.__noStp,"
                     "shareTargetPicker:(m,o)=>{(window.__shared=window.__shared||[]).push({m:m,o:o});return Promise.resolve(window.__stpCancel?undefined:{status:'success'})}};"
-                    % ('false' if external else 'true', json.dumps(token(sub))))
+                    % ('false' if external else 'true', id_token or json.dumps(token(sub))))
             await page.route('https://static.line-scdn.net/**', lambda r: r.fulfill(status=200, content_type='application/javascript', body=liff))
 
+            async def reopen(route):
+                # LIFF URL から ひらきなおす：LINE が 新しいトークンを わたして エンドポイントに もどすまね（?fresh=1）
+                calls.append('REOPEN ' + route.request.url)
+                await route.fulfill(status=200, content_type='text/html',
+                                    body="<script>location.replace('http://127.0.0.1:%d%s?fresh=1')</script>" % (PAGE_PORT, path))
+            await page.route('https://miniapp.line.me/**', reopen)
+
             async def api(route):
-                calls.append(route.request.method + ' ' + route.request.url.replace(API, ''))
+                where = route.request.url.replace(API, '')
+                calls.append(route.request.method + ' ' + where)
                 if server_down:
+                    return await route.abort()
+                if fail and fail.get(where, 0) > 0:
+                    fail[where] -= 1
                     return await route.abort()
                 resp = await route.fetch(url=route.request.url.replace(API, base + '/api'))
                 await route.fulfill(response=resp)
@@ -673,6 +689,44 @@ async def browser_tests(srv_port):
         ctx, page, errs, calls = await open_page('Ucard2', local=sample('そとのこ'), external=True)
         await page.click('#menuBtn'); await page.wait_for_timeout(400)
         ok(await page.query_selector('#mCard') is None, 'LINEの外では ボタンを出さない')
+        all_errs += errs; await ctx.close()
+
+        print('16. IDトークンが 切れたら、LIFF の とっておきを けして LIFF URL から 1回だけ ひらきなおす（3-1・4-3）')
+        reopens = lambda calls: [c for c in calls if c.startswith('REOPEN')]
+        good, stale = json.dumps(token('Uexp')), json.dumps(token('Uexp', 'expired'))
+        ctx, page, errs, calls = await open_page('Uexp', id_token="(location.search.indexOf('fresh')>=0&&localStorage.getItem('e2e-logout'))?%s:%s" % (good, stale))
+        await page.wait_for_timeout(2500)
+        i = await info(page)
+        logout = await page.evaluate("localStorage.getItem('e2e-logout')")
+        ok(len(reopens(calls)) == 1 and reopens(calls)[0].endswith('miniapp.line.me/2012410265-PutgsCLS'), 'LIFF URL（この画面の LIFF ID）から 1回 ひらきなおす', calls)
+        ok(logout == '1' and i['server'] == 'on', 'liff.logout で とっておきを けしてから ひらき、新しいトークンで つながる', {'logout': logout, 'info': i})
+        all_errs += errs; await ctx.close()
+
+        bad = json.dumps(token('Ubad', 'bad'))
+        ctx, page, errs, calls = await open_page('Ubad', local=sample('たしかめ'), id_token=bad, path='/dev/')
+        await page.wait_for_timeout(2500)
+        i = await info(page)
+        ok(len(reopens(calls)) == 1 and reopens(calls)[0].endswith('miniapp.line.me/2012410263-cuCI7vQS') and i['server'] == 'failed' and i['mode'] == 'local',
+           'ひらきなおしても とおらないときは くりかえさない（開発用の LIFF ID・この端末で あそべる）', {'calls': calls, 'info': i})
+        await page.click('#menuBtn'); await page.wait_for_timeout(400)
+        st = await page.evaluate("(()=>{const p=document.querySelector('#sheet .line-status')||{};return [p.textContent||'', (p.dataset||{}).why||'']})()")
+        ok('badtoken' not in st[0] and 'ひらきなおして' in st[0] and st[1] == 'badtoken', 'プロフィールの1行は やさしい ことば（合図は data-why に）', st)
+        await snap(page, 'token_bad')
+        all_errs += errs; await ctx.close()
+
+        # ひらいたまま つぎの日：セッション（24時間）が切れ、IDトークン（1時間）も切れている
+        one = state('Uone')
+        good1, stale1 = json.dumps(token('Uone')), json.dumps(token('Uone', 'expired'))
+        ctx, page, errs, calls = await open_page('Uone', owner=one['id'],
+                                                 id_token="(localStorage.getItem('e2e-stale')&&location.search.indexOf('fresh')<0)?%s:%s" % (stale1, good1))
+        await close_popups(page)
+        i = await info(page)
+        dbg('/__debug/drop-sessions', {})
+        await page.evaluate("localStorage.setItem('e2e-stale','1')")
+        await page.click('#actFeed'); await page.wait_for_timeout(4500)
+        i2 = await info(page)
+        ok(i['server'] == 'on' and len(reopens(calls)) == 1 and i2['server'] == 'on' and i2['name'] == one['name'],
+           'ひらいたまま セッションが切れても、1回 ひらきなおして また つながる', {'before': i, 'after': i2, 'calls': calls[-6:]})
         all_errs += errs; await ctx.close()
 
         await browser.close()

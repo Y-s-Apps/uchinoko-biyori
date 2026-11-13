@@ -174,6 +174,12 @@ def scenes(line):
         add('profile_line_outside', "LineApp.state='ready'; LineApp.inClient=false; openMenu(); LineApp.paint()", '#sheet')
         add('profile_line_srvfail', "LineApp.state='ready'; LineApp.inClient=true; LineSync.state='failed'; LineSync.error='server'; openMenu(); LineApp.paint()", '#sheet')
         add('profile_line_left', "LineApp.state='ready'; LineApp.inClient=true; LineSync.state='left'; openMenu(); LineApp.paint()", '#sheet')
+        # つながれない理由（やさしい ことば。診断 4-3）。LINEの子（line-owner）と ゲストの 両方
+        for own in ['', "localStorage.setItem(LINE_OWNER_KEY,'m1');"]:
+            for err in ['sdk', 'INIT_FAILED']:
+                add('profile_line_liff_' + err, own + "LineApp.state='failed'; LineApp.error='%s'; openMenu(); LineApp.paint()" % err, '#sheet')
+            for err in ['unavailable', 'expired', 'badtoken', 'http404', 'later']:
+                add('profile_line_srv_' + err, own + "LineApp.state='ready'; LineApp.inClient=true; LineSync.state='failed'; LineSync.error='%s'; openMenu(); LineApp.paint()" % err, '#sheet')
     # ポップアップ
     for lv in range(2, 101):
         add('levelup_%d' % lv, 'celebrate(%d, %d)' % (lv, lv - 1), '.levelup .card', 250)

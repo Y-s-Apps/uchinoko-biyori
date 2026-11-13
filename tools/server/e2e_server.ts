@@ -89,6 +89,7 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const [, body, sig] = String(p.get('id_token')).split('.');
     try {
       const o = JSON.parse(atob(body.replace(/-/g, '+').replace(/_/g, '/')));
+      if (sig === 'expired') return new Response(JSON.stringify({ error:'invalid_request', error_description:'IdToken expired.' }), { status:400 });
       if (sig === 'test' && o.aud === p.get('client_id') && typeof o.sub === 'string'){
         return new Response(JSON.stringify({ iss:'https://access.line.me', sub:o.sub, aud:o.aud, exp:Math.floor(Date.now() / 1000) + 3600 }));
       }
@@ -132,6 +133,11 @@ serve({ port:Number(PORT), hostname:'127.0.0.1', onListen(){ console.log('e2e se
   if (u.pathname === '/__debug/line'){
     const [{ n }] = await admin`select count(*)::int as n from app.members`;
     return j({ ...LINE, members:n });
+  }
+  if (u.pathname === '/__debug/drop-sessions'){
+    /* ひらいたまま 24時間たって、セッションが切れたことにする */
+    await admin`delete from app.sessions`;
+    return j({ ok:true });
   }
   if (u.pathname === '/__debug/bump'){
     /* べつの端末で遊んだことにする：名前を変え、updated を1時間先に、rev を1つ進める */
