@@ -895,10 +895,11 @@ const LineCard = {
     try { const r = await LineServer.call('GET', '/card'); if (r && r.card) LineServer.card = lineAiStatus(r.card); } catch(e){}
     return LineServer.card;
   },
+  /* のこりの枚数（HTML。2行に わけて、ことばの まんなかで 切れないように） */
   leftText(c){
     if (!c || !c.on) return '';
-    return c.left > 0 ? `きょうは あと${c.left}まい つくれます（1日${c.perDay}まいまで。まえと おなじ絵なら かぞえません）`
-      : `きょうの分は つかいきりました（1日${c.perDay}まいまで。あすの0時に もどります）。まえに おくった絵と おなじなら おくれます`;
+    return c.left > 0 ? `きょうは あと${c.left}まい つくれます<br><small>（1日${c.perDay}まいまで。おなじ絵は かぞえません）</small>`
+      : `きょうの分は つかいきりました<br><small>（あすの0時に もどります。まえに おくった絵なら おくれます）</small>`;
   },
   /* この端末で カードの絵を作る（大きすぎたら 小さくして作りなおす） */
   async make(st){
@@ -969,13 +970,13 @@ const LineCard = {
         html:() => `<div class="cardimg"><img alt="${esc(info.name)}の うちのこカード"></div>
           <h3>うちのこカードを<br>おくる？</h3>
           <p>えらんだ 友だちや グループに、${esc(info.name)}の カードを おくります。</p>
-          <p class="cardleft" id="cdLeft" role="status">${esc(this.leftText(LineServer.card))}</p>
+          <p class="cardleft" id="cdLeft" role="status">${this.leftText(LineServer.card)}</p>
           <div class="btnrow"><button class="btn" type="button" data-close>やめておく</button><button class="btn primary" type="button" data-close="send">おくる</button></div>
           <p class="cardnote">カードの絵は うちのこ日和の サーバーに おいて、トークに 出します（URLを 知っている人は 見られます）。さいごに おくってから 1年で けします。${LineDocs.on ? '<button class="linkbtn inline" type="button" id="cdPolicy">くわしく</button>' : ''}</p>`,
         ready:box => {
           box.querySelector('.cardimg img').src = png;
           const left = box.querySelector('#cdLeft');
-          this.refresh().then(c => { if (box.isConnected) left.textContent = this.leftText(c); });
+          this.refresh().then(c => { if (box.isConnected) left.innerHTML = this.leftText(c); });
           if (LineDocs.on) box.querySelector('#cdPolicy').addEventListener('click', () => LineDocs.open('privacy'));
         },
       });
