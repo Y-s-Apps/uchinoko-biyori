@@ -1,32 +1,82 @@
 # リリース前の診断とレビュー（約束①）：Claude Fable 5.2 のチャットに貼るプロンプト
 
-2026-11-13 にソーイが作成。モデルを **Claude Fable 5.2** にした新しいチャット（プロジェクト「uchinoko-biyori」の中）に、下の「ここから」〜「ここまで」をそのまま貼ります。
+2026-11-13 にソーイが作成（同じ日に UI など ぜんぶの項目と、Pro プランの上限・エフォートの目安を足した）。モデルを **Claude Fable 5.2** にした新しいチャット（プロジェクト「uchinoko-biyori」の中）に、下の「ここから」〜「ここまで」をそのまま貼ります。
+
+## Pro プランの上限（2026-11-13 に support.claude.com で確かめた）
+
+- ふだん Pro では Fable は プランの上限に ふくまれず、使うと「使用量クレジット」（従量の支払い）になる。
+- **Fable 5.2 の発売記念：2026-11-16 23:59（米国太平洋時間）＝ 日本時間 11/17（火）16:59 まで、Pro でも Fable が 週の上限の 50% まで 追加の料金なしで 使える。** あわせて Fable の上限リセットが 1回（同じ時に きれる）。
+- Fable は ほかのモデルより 上限を はやく使う。使った量は「設定 → 使用量（Settings > Usage）」で見る。Pro には 5時間ごとの上限と 週の上限がある。
+- → **診断（読んで 一覧にする）は 11/17 16:59 までに Fable で。直すのは いつもの Opus 5.5 のチャット（Pro の上限の中）が おすすめ**（むずかしい直しだけ Fable）。
+
+## エフォート（送信ボタンの横のモデル名 →「Effort」。チャットの途中でも変えられ、つぎの返事から効く）
+
+| 段階 | おすすめ | わけ |
+| --- | --- | --- |
+| 0 準備（読む・保留1の確認・レポートの用意） | Medium | 読むだけ。Fable 5.2 の ふだんの設定 |
+| 1 サーバーと DB（本人確認・セッション・RLS・Secrets・AI・カード） | **High** | 見落としが いちばん こわいところ |
+| 2 画面のコードと守り（CSP・SW・引っこしコード・セーブの移行） | **High** | 外から来るデータの扱いを ていねいに |
+| 3 不具合とデータ（日付の境目・同時に開く・オフライン・版の移動） | **High** | 端のケースを 考えぬく |
+| 4 UI・使いやすさ（スクリーンショット） | Medium | 見て くらべる作業 |
+| 5 速さ・運用・決まりと書類・保守 | Medium | 読みくらべ が中心 |
+| 6 まとめ（一覧と 直す順番の案） | Medium | まとめるだけ |
+| 直す（いつもの Opus 5.5 のチャット） | Medium（サーバーや本人確認の直しは High） | |
+
+Extra high・Max は 使わない（Pro の上限を すぐ使うため）。1つの むずかしい点を 深く追うときだけ、そのあいだ Extra high に。
 
 ---ここから---
 
-うちのこ日和の LINE版を リリース（未認証のまま公開）する直前の、**セキュリティを含めた 全体の診断とレビュー**をお願いします（オーナーとの約束①。CLAUDE.md の「オーナーとの約束」）。アプリは「完成」の中身が そろったところで、診断で 直すことが見つかったら 直してから リリースします。
+うちのこ日和の LINE版を リリース（未認証のまま公開）する直前の、**全体の診断とレビュー**をお願いします（オーナーとの約束①。CLAUDE.md の「オーナーとの約束」）。セキュリティだけでなく、UI・不具合・速さ・運用・決まりや書類も ふくめて **ぜんぶ** 見てください。アプリは「完成」の中身が そろったところで、直すことが見つかったら 直してから リリースします。
 
 ## はじめに
-1. GitHub の `Y-s-Apps/uchinoko-biyori` を push できる形でつなぎ、`CLAUDE.md`・`docs/PROJECT.md`（とくに 6章「安全のための決まり」と 10章 LINE版）・`docs/HANDOFF.md` を読んでください。ナレッジと GitHub がちがうときは GitHub を優先します。
-2. ついでに、`docs/HANDOFF.md` の保留1（GitHub Actions「サーバーを起こす」の 予定の実行が 2026-11-14 3:23 ごろ 動いたか）も確かめて、結果を一言ください。
+1. GitHub の `Y-s-Apps/uchinoko-biyori` を push できる形でつなぎ、`CLAUDE.md`・`docs/PROJECT.md`（とくに 6章「安全のための決まり」・7章・10章 LINE版）・`docs/HANDOFF.md`・計画書（https://claude.ai/artifact/AgKkCkHCsWAywKGV6VFxwK 、とくに 7章「審査のチェックリスト」）を読んでください。ナレッジと GitHub がちがうときは GitHub を優先します。
+2. `docs/HANDOFF.md` の保留1（GitHub Actions「サーバーを起こす」の 予定の実行が 2026-11-14 3:23 ごろ 動いたか）を確かめて、結果を一言ください。
+3. 診断レポートを Claude Docs のドキュメントで作り、段階ごとに 書きたしてください。
 
-## 見てほしい範囲
-- **3つの版の画面と `src/`**：ホーム画面版（GitHub Pages、`*.github.io` を組織のほかのサイトと共有）・Claude版（アーティファクト）・LINE版（Cloudflare Pages の `/`・`/review/`・`/dev/`）。`esc()` と `safePhoto()` の通し方、`innerHTML` に入るもの、`softName()`、外から来るデータ（セーブ・引っこしコード・AIの返事・サーバーの返事）の扱い、Service Worker（`sw.js`）。
-- **CSP**：`src/home_head.html`（スクリプトのハッシュは `build.sh` が入れる）、`src/line_head.html`（LIFF SDK はエッジパス、`connect-src`・`img-src`・`frame-src`）。
-- **サーバー `supabase/`**：`functions/api/index.ts` の 本人確認（IDトークンを LINE で検証、3つの内部チャネル）・自前のセッション（トークンは画面のメモリだけ、DB はハッシュ）・`/act`・`/save`・`/import`（1人1回）・`/read`（AI）・`/leave`（すぐ消す＋deauthorize）・`/card` と Storage の公開バケット `cards`（PNG の確かめと作り直し、名前、1人1日3まい、1年・やめたとき・2年ひらかない会員の画像の消し方）、2年ひらかない会員の削除、ログに出すもの。`game.js` は `tools/build_server.py` が src/ から作る（手で直さない）。
-- **DB の権限と RLS**：`supabase/migrations/`、`app` スキーマが Data API に出ていないこと、anon・authenticated に権限がないこと、`storage.objects` のポリシー。
-- **Secrets の扱い**：`ANTHROPIC_API_KEY`・`LINE_CHANNEL_SECRET`・`LINE_CHANNEL_SECRET_<チャネルID>`、`SUPABASE_SECRET_KEYS`（中身は読まない・チャットに出さない）。
-- **AIへの送り方と回数の上限**：端末で 768px にしてから送る、保存・ログなし、1人1日3回・全員で1日300回・月の予算、返事の確かめ（`parseAI`）。
-- **引っこしコードとセーブの移行**：`readMoveCode`・`decodeMovePayload`・`ensureState`・`carryExtras`、保存キー、ひかえ（backup・broken）、LINE版の端末のキー（line-owner・line-guest・line-left）。
-- **プライバシーポリシーと利用規約**（`src/legal/`）が いまの動き（取る情報・送り先・保存期間・外部サービス・回数の上限・カードの絵）と あっているか。
-- **`.github/workflows/`**（「サーバーを起こす」：権限・外の Action を使っていないか）。
-- そのほか気づいたこと（LINE の決まり＝LINEミニアプリポリシー・カスタムシェアメッセージ、ドメイン共有、依存しているもの）。
+## 上限に気をつけて（オーナーは Claude Pro）
+- Fable は Pro の上限を はやく使います。発売記念で 使えるのは 日本時間 11/17（火）16:59 まで。それまでに 診断（読んで 一覧にする）を 終えたいです。
+- 下の段階ごとに すすめ、**1段階 終わるたびに レポートに書きたしてから** オーナーに 一言（見つけた数と つぎの段階）。上限で止まっても、レポートと `docs/HANDOFF.md` から つづけられるように します。
+- 段階のはじめに、おすすめのエフォート（下の かっこ）を オーナーに伝えてください（オーナーが 切りかえます）。
+- 読むのは `src/`・`supabase/`・`tools/` などの元のファイル。ビルド結果（ルートの `index.html`・`src/out/`）は 読まない。大きなファイルは 要るところだけ（`grep` などで さがしてから）。サブエージェントは 使わない。`linebreak.py`・`line_e2e.py` など 時間のかかる道具は 要る段階で1回ずつ。
 
-## すすめかた
-- まずは **読んで しらべるだけ**（コードを変えない・push しない）。本物の DB には書きこまない（`execute_sql` は 読むだけ。ためしの会員やセッションを作らない）。Supabase の MCP は `get_advisors`・`list_tables`・`get_edge_function`・`get_logs` などの 読むものを使ってよい。公開中のページは `execute_sql` から pg_net（`net.http_get`）で 読める（作業環境の外への通信は GitHub とパッケージの置き場だけ）。
+## 段階と、見てほしいこと
+0. **準備**（Medium）：上の「はじめに」。
+1. **サーバーと DB**（High）
+   - `supabase/functions/api/index.ts`：本人確認（IDトークンを LINE で検証、3つの内部チャネル）・自前のセッション（トークンは画面のメモリだけ、DB はハッシュ、期限）・`/act`・`/save`・`/import`（1人1回）・`/read`（AI）・`/leave`（すぐ消す＋deauthorize）・`/card` と Storage の公開バケット `cards`（PNG の確かめと作り直し、名前、1人1日3まい、1年・やめたとき・2年ひらかない会員の画像の消し方）、2年ひらかない会員の削除、CORS、入力の大きさの上限、エラーで出すもの、ログに出すもの。`game.js` は `tools/build_server.py` が src/ から作る（手で直さない）。
+   - DB の権限と RLS：`supabase/migrations/`、`app` スキーマが Data API に出ていないこと、anon・authenticated に権限がないこと、`storage.objects` のポリシー、`get_advisors`。
+   - Secrets：`ANTHROPIC_API_KEY`・`LINE_CHANNEL_SECRET`・`LINE_CHANNEL_SECRET_<チャネルID>`・`SUPABASE_SECRET_KEYS` の 使い方（中身は 読まない・出さない）。リポジトリと git の履歴に 秘密が 入っていないか。
+   - AI：端末で 768px にしてから送る、保存・ログなし、1人1日3回・全員で1日300回・月の予算、返事の確かめ（`parseAI`）、プロンプトの注入。
+2. **画面のコードと守り**（High）
+   - 3つの版（ホーム画面版＝GitHub Pages で `*.github.io` を組織のほかのサイトと共有、Claude版＝アーティファクト、LINE版＝Cloudflare Pages の `/`・`/review/`・`/dev/`）の `src/`：`esc()`・`safePhoto()` の通し方、`innerHTML` に入るもの（`softName()` も）、外から来るデータ（セーブ・引っこしコード・AIの返事・サーバーの返事）。
+   - CSP：`src/home_head.html`（ハッシュは `build.sh`）、`src/line_head.html`（LIFF SDK はエッジパス、`connect-src`・`img-src`・`frame-src`）。Service Worker（`sw.js`：キャッシュ名・消すもの・更新の流れ）。
+   - 引っこしコードとセーブの移行：`readMoveCode`・`decodeMovePayload`・`ensureState`・`carryExtras`、保存キー、ひかえ（backup・broken）、LINE版の端末のキー（line-owner・line-guest・line-left）。Claude版の権限（db のルール・user・sample・downloads）。
+3. **不具合とデータ**（High）
+   - おせわのルール（`js_rules.js`）の 端のケース：日本時間の0時・日付の境目・月末やうるう年・時計を もどした・長く ひらかなかった・れんぞくと おたすけ・イベントの期間。
+   - LINE版：2つの端末や タブで 同時に ひらいたとき（`rev` のぶつかり）、つながらない・とちゅうで切れた・二度押し、ゲストと LINE の子の 入れかわり、やめたあと また ひらいたとき。
+   - データ：3つの版のあいだの 引っこしで なくなるものがないか、localStorage が いっぱいのとき、こわれたセーブ。
+4. **UI・使いやすさ**（Medium）
+   - iPhone の はば（375px・390px）で、3つの版の主な画面（おへや・下の5つのボタン・シート・ポップアップ・はじめての画面・LINE版だけの画面）を スクリーンショットで見る（`tools/smoke.py`、`smoke.py --line --android-inset 48`、`tools/linebreak.py --shots DIR`）。
+   - 見る点：タップしやすさ（大きさ・間隔）、文字の大きさと読みやすさ、改行・はみだし、ライトとダークの色の見やすさ、文言の やさしさと 言葉の そろい（「げい」「◯日」）、はじめての人に わかるか、エラーや 待つときの案内、LINE のヘッダーや 画面の下との重なり、動きの重さ・残像、読み上げ（aria）とフォーカス。
+   - 見た目や文言を変える案は、見本（直す前と後）をつけて出す。iPhone 本物の Safari・LINE での見え方は、さいごに オーナーの実機で確かめる。
+5. **速さ・運用・決まりと書類・保守**（Medium）
+   - 速さ：起動の重さ（ページの大きさ・フォント・LIFF の準備）、アニメの重さ。
+   - 運用：Supabase 無料プランの上限（DB・Storage 1GB・Edge Function の呼び出し・止まる条件）と「サーバーを起こす」、AI の予算、こまったときに気づく方法（ログ）、データの もどし方。
+   - 決まりと書類：プライバシーポリシーと利用規約（`src/legal/`）が いまの動き（取る情報・送り先・保存期間・外部サービス・回数の上限・カードの絵）と あっているか、LINEミニアプリポリシー・ガイドライン・カスタムシェアメッセージの決まり、補足資料の文（PROJECT.md 10章）が 画面と あっているか。法律の判断が要るところは「専門家に確かめる」と書く。
+   - `.github/workflows/`（権限・外の Action を使っていないか）、依存しているもの（LIFF SDK・Google Fonts・Deno の import・`tools/` の npm）。
+   - 保守：同じ処理の重なり、確かめの道具の 抜け、ビルドの再現性。
+6. **まとめ**（Medium）：レポートに 一覧と、直す順番の案。
+
+## 一覧の形
+- 分けて書く：セキュリティ／不具合・データ／UI・使いやすさ／速さ・運用／決まり・書類／保守。
+- 1つずつ：重さ（高・中・低・情報）／場所（ファイルと行）／なにが起きうるか／直し方の案／リリースの前に直すか（必ず・できれば・あとで）。
+- よいところ（守れていること）も 短く。
+
+## まもること
+- まずは **読んで しらべるだけ**（コードを変えない・push しない）。本物の DB には書きこまない（`execute_sql` は 読むだけ。ためしの会員や セッションを 作らない）。Supabase の MCP は `get_advisors`・`list_tables`・`get_edge_function`・`get_logs` などの 読むものを使ってよい。公開中のページは `execute_sql` から pg_net（`net.http_get`）で読める（作業環境の外への通信は GitHub と パッケージの置き場だけ）。
 - シークレットが見えるページや 値は 読まない・写さない。
-- 見つけたことは **一覧**にしてください：重さ（高・中・低・情報）／場所（ファイルと行）／なにが起きうるか／直し方の案／リリースの前に直すべきか。よいところ（守れていること）も短く。長くなるなら Claude Docs のドキュメントにまとめてください。
-- 一覧を見せたら、**どれを直すか オーナーに聞いてから** 直します。直すときは CLAUDE.md の「作業の流れ」と「守ること」どおり（`src/` を直す → `sh src/build.sh` → `smoke.py`・`linebreak.py`・`line_e2e.py`・必要なら `compare_home.py` → 日本語のコミットで main に push。サーバーを変えるときは `build_server.py` → push → `--pin` → デプロイ → `--check` → pg_net で確かめる）。見た目や文言が変わるときは 見本を見せてから。
-- 終わったら、CLAUDE.md の「オーナーとの約束」の ① と `docs/PROJECT.md` 10章「決めたこと（2026-11-13、リリースと認証の順番）」に「済み」と書き、`docs/HANDOFF.md` を書き直して、「完了」と 次のチャット用のプロンプト（リリース＝`docs/HANDOFF.md` の「公開の日」へ）をください。
+
+## おわったら
+- 一覧を見せたら、**どれを直すかと、どのチャットで直すか**（おすすめ：Pro の上限の中で いつもの Opus 5.5 のチャット。むずかしいものだけ Fable）を オーナーに聞いてください。直すときは CLAUDE.md の「作業の流れ」と「守ること」どおり（`src/` を直す → `sh src/build.sh` → `smoke.py`・`linebreak.py`・`line_e2e.py`・必要なら `compare_home.py` → 日本語のコミットで main に push。サーバーを変えるときは `build_server.py` → push → `--pin` → デプロイ → `--check` → pg_net で確かめる）。見た目や文言が変わるときは 見本を見せてから。
+- 診断が終わったら、CLAUDE.md の「オーナーとの約束」の ① と `docs/PROJECT.md` 10章「決めたこと（2026-11-13、リリースと認証の順番）」に「診断 済み（レポートの URL）」と書き、`docs/HANDOFF.md` を書き直して、「完了」と 次のチャット用のプロンプト（直す → リリース＝`docs/HANDOFF.md` の「公開の日」へ）をください。
 
 ---ここまで---
