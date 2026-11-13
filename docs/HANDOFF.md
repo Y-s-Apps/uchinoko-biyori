@@ -20,7 +20,7 @@
 - Secrets：`ANTHROPIC_API_KEY`・`LINE_CHANNEL_SECRET`（開発用）・`LINE_CHANNEL_SECRET_2012410264`（審査用）・`LINE_CHANNEL_SECRET_2012410265`（本番用）・`APP_DB_PASSWORD`（`uchinoko_api` の パスワード。2026-11-14）
 - 本物の DB：このチャットでも 本物の DB に ためしの会員などは 書いていない（会員・カード・ひかえ・エラーの数は 0件）
 - LINE Developers：Scope は `openid` だけ。「シェアターゲットピッカー」は 有効（2026-11-13）。認証審査は まだ申請しない（未認証でリリース → 個人事業主 → 申請）
-- **診断レポート（約束①）：https://claude.ai/artifact/8kuQtwwyAD9RJ42PPy7GU6 （Claude Docs。段階0〜6、42こ。番号 1-1〜5-11 で よぶ。表の「リリースの前」の欄に「→ 済み（コミット）」を書きたしている。いまの rev 44）**
+- **診断レポート（約束①）：https://claude.ai/artifact/8kuQtwwyAD9RJ42PPy7GU6 （Claude Docs。段階0〜6、42こ。番号 1-1〜5-11 で よぶ。表の「リリースの前」の欄に「→ 済み（コミット）」を書きたしている。いまの rev 46）**
 - LINE版の計画書：https://claude.ai/artifact/AgKkCkHCsWAywKGV6VFxwK （Claude Docs）
 - オーナーの事情（約束②で使う）：claude.ai の このプロジェクトの資料 `claude/owner-notes.md`（非公開。公開リポジトリには書かない）
 
