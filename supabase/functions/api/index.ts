@@ -22,10 +22,11 @@
  *                                    全員で1日 CARD_ALL_PER_DAY 枚・ぜんぶで CARD_ALL_MAX 枚まで（Storage の無料の枠を こえないように）
  *   GET  /notify                     よるの おしらせ（LINE の メッセージ）を うけとるか（on：null＝まだ きいていない）・おくれるか
  *   POST /notify  { on }             よるの おしらせの オン・オフ（本人だけ）
- *   POST /notify/run                 毎日 21時（日本時間）に Supabase Cron（app.notify_kick）が よぶ。ヘッダー x-notify の 1回きりの
+ *   POST /notify/run                 毎日 21時と 21時5分（日本時間）に Supabase Cron（app.notify_kick）が よぶ（21時5分は 21時の回が
+ *                                    とどかなかった・ことわられた日だけ）。ヘッダー x-notify の 1回きりの
  *                                    合いことばを app.notify_runs の ハッシュと くらべ、オンの人の セーブを ルールで みて、
  *                                    きょうの おねがいが のこっている人だけに LINE公式アカウントから 1通（同じ日に 2通 おくらない）
- *   GET  /health                     動いているか・サーバーの時刻
+ *   GET  /health                     動いているか・サーバーの時刻・この3日の エラーの数・この3日の よるの おしらせの 回（おわったか・合図だけ）
  *
  * - おなか・ごきげんの減り、おやつの回数、おみやげ、きょうのおねがい、連続記録とおたすけ、季節のイベント、
  *   記念日、げいの上限、なでなでのなかよしは、ぜんぶここ（画面と同じ js_rules.js の Rules）で決める。
@@ -95,7 +96,8 @@ const CARD_PER_DAY = intEnv('CARD_PER_DAY', 3, 50);         /* 1人1日（日本
 const CARD_KEEP_DAYS = Math.max(30, intEnv('CARD_KEEP_DAYS', 365, 3650));   /* さいごに使ってから この日数で消す（プライバシーポリシーの「1年」） */
 const CARD_KEEP_PER_MEMBER = Math.max(3, intEnv('CARD_KEEP_PER_MEMBER', 30, 1000));  /* 1人が とっておける枚数（さいごに使った 新しいものから。プライバシーポリシーの「30まい」） */
 const CARD_ALL_PER_DAY = intEnv('CARD_ALL_PER_DAY', 100, 100_000);   /* 全員あわせて 1日に作れる 新しい絵 */
-const CARD_ALL_MAX = intEnv('CARD_ALL_MAX', 3000, 1_000_000);       /* 全員あわせて とっておく枚数（1まい 0.2MB ほど。Storage の無料の枠 1GB を こえないように） */
+const CARD_ALL_MAX = intEnv('CARD_ALL_MAX', 1500, 1_000_000);       /* 全員あわせて とっておく枚数（ぜんぶ 上限の 600KB でも 0.9GB＝Storage の無料の枠 1GB に おさまる。
+                                                                       前は 3000＝1.8GB。2026-11-15 さいごのチェック F1-1・オーナー決定） */
 const CARD_BUCKET = 'cards';
 /* PNG のバイト数の上限。はかった大きさは 768×1024 で 0.14〜0.2MB（Chromium、季節・イベント・おへや 70とおり）。
    iPhone の WebKit は 大きめに なりうるので 3倍。こえたら 画面が 576×768 で作りなおす（js_line.js の cardMax と そろえる）。バケットは 1MB まで */
@@ -129,11 +131,15 @@ const ERROR_SUM_DAYS = 3;
 /* よるの おしらせ（2026-11-14 オーナー決定）。時刻は 日本時間。Secrets（環境変数）で変えられる（よぶたびに読む） */
 const LINE_PUSH = 'https://api.line.me/v2/bot/message/push';
 const notifyToken = () => env('LINE_MESSAGING_TOKEN');                            /* Messaging API の チャネルアクセストークン（長期） */
-const notifyHour = () => intEnv('NOTIFY_HOUR', 21, 23);                           /* この時より前に よばれても おくらない（cron は 21:00） */
+const notifyHour = () => intEnv('NOTIFY_HOUR', 21, 23);                           /* この時より前に よばれても おくらない（cron は 21:00 と 21:05） */
 const notifyIdleDays = () => Math.max(1, intEnv('NOTIFY_IDLE_DAYS', 14, 365));    /* この日数 ひらいていない人には おくらない（月200通の 無料の枠） */
 const notifyMax = () => Math.max(1, intEnv('NOTIFY_MAX', 300, 5000));             /* 1回に 見る人数 */
 const NOTIFY_OPEN = env('NOTIFY_OPEN_URL', 'https://miniapp.line.me/2012410265-PutgsCLS');   /* ボタンで ひらく 本番用の LIFF URL */
 const NOTIFY_WORD_SECS = 600;      /* 合いことばが 有効な 秒数（作ってから） */
+/* 21時より 少し前に とどいても うけつける ゆとり（cron は DB の 時計で 21:00:00 ちょうどに よぶので、サーバーの 時計が 少し おくれていると
+   409 early に なっていた。さいごのチェック F2-1） */
+const NOTIFY_EARLY_MS = 120_000;
+const notifySince = () => env('NOTIFY_SINCE', '2026-11-14');   /* よるの おしらせを はじめた日（/health は これより前の 日を 見ない） */
 const NOTIFY_KEEP_DAYS = 60;       /* app.notify_runs を とっておく日数 */
 
 /* ----- DB（診断 1-10）-----
@@ -1010,7 +1016,9 @@ async function linePush(token: string, to: string, msg: unknown, key: string): P
     try { v = await res.json(); } catch { /* 下へ */ }
     if (res.status === 429 && /monthly limit/i.test(String(v.message || ''))) return 'limit';
     if (res.status === 401 || res.status === 403) return 'auth';
-    if ((res.status >= 500 || res.status === 429) && i === 0){ await pause(1000); continue; }
+    /* おくりなおすのは 500 番台と とどかない ときだけ（LINE の 資料「失敗したAPIリクエストを再試行する」）。
+       回数の 制限の 429（月の 上限で ないもの）は おくりなおさず、その人を しっぱいに 数える（さいごのチェック F4-1） */
+    if (res.status >= 500 && i === 0){ await pause(1000); continue; }
     return 'http' + res.status;
   }
   return 'net';
@@ -1019,7 +1027,7 @@ async function linePush(token: string, to: string, msg: unknown, key: string): P
 async function notifyRun(req: Request) {
   const word = req.headers.get('x-notify') || '';
   if (!/^[0-9a-f]{64}$/.test(word)) throw new HttpError(403, 'forbidden');
-  if (jstHour() < notifyHour()) throw new HttpError(409, 'early');
+  if (jstHour(Date.now() + NOTIFY_EARLY_MS) < notifyHour()) throw new HttpError(409, 'early');
   const day = dayKey();
   const hex = await sha256hex(word);
   let run: Record<string, unknown> | undefined;
@@ -1054,7 +1062,11 @@ async function notifySend(day: string) {
         for (const row of rows){
           after = String(row.id);
           if (++seen > notifyMax()) break outer;
-          const t = notifyText(row.data);
+          /* 1人の セーブで ルールが 例外を 出しても、その人だけ とばして うしろの人には おくる（会員ID の 順なので、
+             前は 毎日 同じ人で 止まっていた。さいごのチェック F2-2） */
+          let t: NotifyText | null;
+          try { t = notifyText(row.data); }
+          catch { tally.failed++; await oops('notify_one', 'rules'); continue; }
           if (!t){ tally.skipped++; continue; }
           const [claim] = await sql`update app.members set notified_on = ${day}::date
             where id = ${row.id} and notify is true and (notified_on is null or notified_on < ${day}::date) returning id`;
@@ -1076,6 +1088,22 @@ async function notifySend(day: string) {
       where day = ${day}::date`;
   } catch { await oops('notify_table', 'record'); }
   return tally;
+}
+
+/* この3日（きのうから）の よるの おしらせの 回（/health。「サーバーを起こす」が 3日ごとに 見て、止まっていたら 失敗に する。さいごのチェック F2-3）。
+   kicked：cron が 回を 作った・ran：合いことばを うけつけた・done：おくりおわった・note：合図（notoken・limit・auth・error）。
+   だれか・何人かは 出さない。DB が 読めないときは null */
+async function notifyDays() {
+  const days = [1, 2, 3].map(k => dayKey(Date.now() - k * 864e5)).filter(d => d >= notifySince());
+  if (!days.length) return [];
+  try {
+    const rows = await sql`select day::text as day, used_at is not null as ran, done_at is not null as done, note
+      from app.notify_runs where day between ${days[days.length - 1]}::date and ${days[0]}::date`;
+    return days.map(day => {
+      const r = rows.find(x => x.day === day);
+      return { day, kicked:!!r, ran:!!(r && r.ran), done:!!(r && r.done), note:r && r.note ? String(r.note) : null };
+    });
+  } catch { return null; }
 }
 
 /* ----- やめる（退会） ----- */
@@ -1142,7 +1170,7 @@ async function route(req: Request): Promise<unknown> {
   const path = new URL(req.url).pathname.replace(/^.*?\/api(?=\/|$)/, '') || '/';
   const m = req.method;
   /* errors：この ERROR_SUM_DAYS 日の サーバーの エラーの数（数えられないときは null。診断 5-2） */
-  if (path === '/health' && m === 'GET') return { ok:true, now:Date.now(), day:dayKey(), cards:!!storageAuth(), notify:!!notifyToken(), errors:await errorTotal() };
+  if (path === '/health' && m === 'GET') return { ok:true, now:Date.now(), day:dayKey(), cards:!!storageAuth(), notify:!!notifyToken(), errors:await errorTotal(), notifyDays:await notifyDays() };
   if (path === '/login' && m === 'POST') return await login(req);
   if (path === '/save' && m === 'GET') return await getSave(await sessionMember(req));
   if (path === '/save' && m === 'POST') return await putSave(req, await sessionMember(req));

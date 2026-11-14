@@ -42,7 +42,7 @@
 | `tools/rules_test.mjs` | ルール（`js_rules.js`）を時計を動かして確かめる（れんぞく・おたすけ・日本時間の0時・おみやげ・げい・イベント・記念日） |
 | `tools/compare_home.py` | ホーム画面版の動きが前の版と同じかをくらべる（`python3 tools/compare_home.py [コミット]`、既定は HEAD） |
 | `docs/REVIEW_PROMPT.md` | 約束①（Claude Fable 5.2 の診断とレビュー）の チャットに貼るプロンプト |
-| `.github/workflows/keepalive.yml` | GitHub Actions「サーバーを起こす」：3日ごとに LINE版のサーバーの `/health` と、DB を1回読む呼び出し（でたらめのセッションで 401）をして、Supabase の無料プランが止まらないようにする。`/health` の この3日の エラーの数が 10以上でも 失敗にする（`docs/PROJECT.md` の10章） |
+| `.github/workflows/keepalive.yml` | GitHub Actions「サーバーを起こす」：3日ごとに LINE版のサーバーの `/health` と、DB を1回読む呼び出し（でたらめのセッションで 401）をして、Supabase の無料プランが止まらないようにする。`/health` の この3日の エラーの数が 10以上のときと、この3日に よるの おしらせが 止まった日（`notifyDays`）が あるときも 失敗にする（`docs/PROJECT.md` の10章） |
 | ルートの `index.html` `sw.js` `manifest.webmanifest` `*.png` | 公開ファイル（ビルド結果なので手で直さない） |
 
 JSは1つの `<script>` に `build.sh` の順でつなげられます。`const HOME = true/false` で、ホーム画面版とClaude版の差を切り替えます。LINE版は `HOME = true` に `js_line.js` を足したものです（`docs/PROJECT.md` の10章）。

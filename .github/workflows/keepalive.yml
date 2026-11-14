@@ -8,6 +8,9 @@
 # - 返事がちがう（止まっている・こわれている）ときは、この仕事を失敗にする（GitHub の Actions に赤く出る）。
 # - /health の errors（この3日の サーバーの エラーの数。診断 5-2）が ERR_MAX 以上のときも 失敗にする（失敗の メールで 気づける）。
 #   数が 読めない（null）ときは 失敗に しない（DB が ねているなどは 下の /save で わかる）。
+# - /health の notifyDays（この3日の よるの おしらせの 回。さいごのチェック F2-3）で、cron が 動かなかった・合いことばを うけつけなかった・
+#   おくりおわらなかった・トークンが ない（notoken）・トークンが ちがう（auth）・とちゅうで 止まった（error）日が あれば 失敗にする。
+#   月の 通数の 上限（limit）は 失敗に しない（ログに 出す）。だれか・何人かは /health に 出ない。
 # - GitHub は、60日 リポジトリに動きがないと、予定の仕事を止める。止まったら Actions の画面で もういちど有効にする。
 name: サーバーを起こす
 
@@ -38,7 +41,14 @@ jobs:
           echo "db: $s $(cat save.json)"
           [ "$s" = 401 ]
           grep -q '"nosession"' save.json
-          # エラーの数は さいごに 見る（多くても、DB を起こす よびだしは すませてから 失敗にする）
+          # エラーの数と よるの おしらせは さいごに 見る（DB を起こす よびだしは すませてから 失敗にする）
+          fail=0
           e=$(sed -n 's/.*"errors":\([0-9][0-9]*\).*/\1/p' health.json)
           echo "errors (3 days): ${e:-unknown}"
-          if [ -n "$e" ] && [ "$e" -ge "$ERR_MAX" ]; then echo "サーバーの エラーが $e 回（3日）。Supabase の ログと app.error_counts を 見てください"; exit 1; fi
+          if [ -n "$e" ] && [ "$e" -ge "$ERR_MAX" ]; then echo "サーバーの エラーが $e 回（3日）。Supabase の ログと app.error_counts を 見てください"; fail=1; fi
+          jq -r '(.notifyDays // [])[] | "notify \(.day): kicked=\(.kicked) ran=\(.ran) done=\(.done) note=\(.note // "-")"' health.json
+          if jq -e '(.notifyDays // []) | any(.note == "limit")' health.json > /dev/null; then echo "よるの おしらせが 月の 通数の 上限（無料 200通）で 止まった日が あります。プランを 見なおしてください"; fi
+          if jq -e '(.notifyDays // []) | any((.kicked and .ran and .done and (.note == null or .note == "limit")) | not)' health.json > /dev/null; then
+            echo "よるの おしらせが 止まっていた日が あります。app.notify_runs と cron（uchinoko-notify）、Secrets の LINE_MESSAGING_TOKEN を 見てください"; fail=1
+          fi
+          exit $fail
