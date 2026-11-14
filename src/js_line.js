@@ -45,7 +45,7 @@ const LINE_CFG = {
   reopenWait:8000,      /* ひらきなおすとき、ページが うつるのを まつ上限（うつらなければ「つながれません」にする） */
   /* よるの おしらせの LINE公式アカウントの ベーシックID（@…。秘密ではない）。liff.requestFriendship() が つかえない LINE のときに
      友だち追加の ページ（https://line.me/R/ti/p/@…）を ひらく。空なら ひらかない（ミニアプリに つないだ公式アカウントは LINE が えらぶ） */
-  oaId:'',
+  oaId:'@370iymyw',
 };
 LINE_CFG.shareUrl = 'https://miniapp.line.me/' + LINE_CFG.liffIds.prod;
 /* この画面が どの内部チャネルのものか（ひらいた場所の さいしょのフォルダ。/dev/ と /review/ のほかは本番用） */

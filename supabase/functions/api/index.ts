@@ -957,12 +957,13 @@ function notifyText(raw: unknown): NotifyText | null {
   const threeDone = !!(daily && Array.isArray(daily.list) && daily.list.length && daily.list.every(r => r && r.done));
   if (si.pinch){
     return { name, left, chip:'', text:threeDone
-      ? `れんぞく ${si.n}日が ピンチ！ のこりは おたすけの おねがい 1つ。きょうの うちに あいにきてね`
-      : `れんぞく ${si.n}日が ピンチ！ おたすけの おねがいも いれて あと${left}つ。きょうの うちに あいにきてね` };
+      ? `れんぞく${si.n}日がピンチ！のこりは、おたすけのおねがい1つ。きょうのうちに、あいにきてね`
+      : `れんぞく${si.n}日がピンチ！おたすけのおねがいもいれて、あと${left}つ。きょうのうちに、あいにきてね` };
   }
-  return { name, left, chip:si.n >= 2 ? `れんぞく ${si.n}日` : '', text:`きょうの おねがいが あと${left}つ のこっているよ。ねる まえに すこし あいにきてね` };
+  return { name, left, chip:si.n >= 2 ? `れんぞく${si.n}日` : '', text:`きょうのおねがいが、あと${left}つのこっているよ。ねるまえに、すこしあいにきてね` };
 }
-/* LINE の Flex Message（見本 L2：見出し・ひとこと・れんぞくの しるし・ミニアプリを ひらく ボタン）。通知の 文は altText */
+/* LINE の Flex Message（見本 L2：見出し・ひとこと・れんぞくの しるし・ミニアプリを ひらく ボタン）。通知の 文は altText。
+   LINE は 改行の 位置を えらべないので、画面の 文と ちがって ことばの あいだに スペースを 入れない（読点で 区切る。2026-11-14 オーナー） */
 function notifyFlex(t: NotifyText) {
   const body: Record<string, unknown>[] = [
     { type:'text', text:`🌙 ${t.name}より`, weight:'bold', size:'lg', color:'#111111', wrap:true },
@@ -974,12 +975,12 @@ function notifyFlex(t: NotifyText) {
     { type:'filler' },
   ] });
   return {
-    type:'flex', altText:`${t.name}：きょうの おねがい あと${t.left}つ`,
+    type:'flex', altText:`${t.name}：きょうのおねがい、あと${t.left}つ`,
     contents:{
       type:'bubble',
       body:{ type:'box', layout:'vertical', spacing:'md', contents:body },
       footer:{ type:'box', layout:'vertical', contents:[
-        { type:'button', style:'primary', height:'sm', color:'#2A7F6D', action:{ type:'uri', label:'うちのこ日和を ひらく', uri:NOTIFY_OPEN } },
+        { type:'button', style:'primary', height:'sm', color:'#2A7F6D', action:{ type:'uri', label:'うちのこ日和をひらく', uri:NOTIFY_OPEN } },
       ] },
     },
   };

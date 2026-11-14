@@ -978,12 +978,12 @@ console.log('notify (よるの おしらせ：オン・オフ・21時に のこ�
   ok(pn.auth === 'Bearer push-token' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(pn.key || '') && pn.key !== pq.key,
      'the token from Secrets, a retry key (UUID) per member and day', { auth:pn.auth, key:pn.key });
   const m0 = pn.body.messages[0];
-  ok(pn.body.messages.length === 1 && m0.type === 'flex' && m0.altText === 'ためし2：きょうの おねがい あと3つ'
-     && flat(m0).includes('🌙 ためし2より') && flat(m0).includes('きょうの おねがいが あと3つ のこっているよ。ねる まえに すこし あいにきてね')
-     && flat(m0).includes('れんぞく 12日') && flat(m0).includes('https://miniapp.line.me/2012410265-PutgsCLS') && flat(m0).includes('うちのこ日和を ひらく'),
+  ok(pn.body.messages.length === 1 && m0.type === 'flex' && m0.altText === 'ためし2：きょうのおねがい、あと3つ'
+     && flat(m0).includes('🌙 ためし2より') && flat(m0).includes('きょうのおねがいが、あと3つのこっているよ。ねるまえに、すこしあいにきてね')
+     && flat(m0).includes('"れんぞく12日"') && flat(m0).includes('https://miniapp.line.me/2012410265-PutgsCLS') && flat(m0).includes('うちのこ日和をひらく') && !/ (おねがい|あと|のこって|まえに|すこし|ひらく)/.test(flat(m0)),
      'nina: the name, 3 left, the streak chip, the button to the mini app', m0);
   ok(!flat(pn.body).includes(nina.id) && !flat(pn.body).includes('photo'), 'no member id or photo in the message');
-  ok(flat(pq.body).includes('れんぞく 7日が ピンチ！ おたすけの おねがいも いれて あと4つ。きょうの うちに あいにきてね') && !flat(pq.body).includes('"れんぞく 7日"'),
+  ok(flat(pq.body).includes('れんぞく7日がピンチ！おたすけのおねがいもいれて、あと4つ。きょうのうちに、あいにきてね') && !flat(pq.body).includes('"れんぞく7日"'),
      'quin (pinch): the rescue request counts (4 left), no chip', pq.body.messages[0].contents.body);
   const sentOn = (await db`select id::text as id, notified_on::text as d from app.members where id in (${nina.id}, ${omar.id}, ${quin.id}, ${rex.id})`)
     .reduce((o: any, x: any) => (o[x.id] = x.d, o), {});
