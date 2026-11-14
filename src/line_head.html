@@ -59,6 +59,21 @@ html .onboard{padding-bottom:calc(24px + max(env(safe-area-inset-bottom,0px),var
 .unsent .btnrow .btn{white-space:normal;line-height:1.3}
 .unsent.stack .btnrow{flex-direction:column}
 .unsent.stack .btnrow .btn{flex:none;width:100%}
+/* よるの おしらせ（LINE版だけ）：プロフィールの スイッチと、1回だけの さそい */
+.nrow{background:var(--surface-2);border-radius:16px;padding:10px 12px;margin:0 0 12px}
+.nrow .nline{display:flex;align-items:center;gap:12px}
+.nrow .ntext{flex:1;min-width:0;font-size:14px;line-height:1.45}
+.nrow .ntext small{display:block;color:var(--ink-soft);font-size:12px;font-weight:500}
+.nsw{flex:none;position:relative;width:52px;height:32px;border:0;border-radius:16px;background:#9AA6A2;cursor:pointer;padding:0;transition:background .2s}
+.nsw::before{content:"";position:absolute;inset:-6px}
+.nsw::after{content:"";position:absolute;left:3px;top:3px;width:26px;height:26px;border-radius:50%;background:#FFFFFF;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .2s}
+.nsw[aria-checked="true"]{background:var(--badge-done)}
+.nsw[aria-checked="true"]::after{left:23px}
+.nsw:disabled{opacity:.6}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .nsw:not([aria-checked="true"]){background:#5E5770}}
+:root[data-theme="dark"] .nsw:not([aria-checked="true"]){background:#5E5770}
+.nrow .nnote{margin:8px 0 0;font-size:12px;color:var(--ink-soft)}
+.notifyask .note{margin:0 0 12px}
 /* プライバシーポリシー・利用規約へのリンク（LINE版だけ） */
 .line-docs{display:flex;justify-content:center;flex-wrap:wrap;gap:4px 14px;margin:6px 0 0}
 .line-docs .linkbtn{font-size:13px;font-weight:500}

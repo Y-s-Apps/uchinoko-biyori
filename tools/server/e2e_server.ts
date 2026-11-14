@@ -19,6 +19,9 @@ for (const f of MIG.split(',')) await admin.unsafe(await Deno.readTextFile(f));
 
 Deno.env.set('ANTHROPIC_API_KEY', 'test-key');
 Deno.env.set('LINE_CHANNEL_SECRET', 'test-secret');
+/* よるの おしらせ：Messaging API の トークン（あると 画面に スイッチが 出る。/__debug/notify で けせる）。おくるのは 下で まねる */
+Deno.env.set('LINE_MESSAGING_TOKEN', 'e2e-push');
+const PUSHES: unknown[] = [];
 /* うちのこカードの Storage：URL は本物と同じ形（画面が URL を確かめるため）だが、ここへの fetch は ぜんぶ下で まねる（本物には届かない） */
 const SB = 'https://ftakgswltcavwixqxpzi.supabase.co';
 Deno.env.set('SUPABASE_URL', SB);
@@ -60,6 +63,10 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       return new Response('[]');
     }
     return new Response('{"error":"not found"}', { status:404 });
+  }
+  if (url === 'https://api.line.me/v2/bot/message/push'){
+    PUSHES.push(JSON.parse(String(init!.body)));
+    return new Response(JSON.stringify({ sentMessages:[{ id:'1' }] }));
   }
   if (url === 'https://api.anthropic.com/v1/messages'){
     AI.calls++;
@@ -133,6 +140,16 @@ serve({ port:Number(PORT), hostname:'127.0.0.1', onListen(){ console.log('e2e se
   if (u.pathname === '/__debug/line'){
     const [{ n }] = await admin`select count(*)::int as n from app.members`;
     return j({ ...LINE, members:n });
+  }
+  if (u.pathname === '/__debug/notify'){
+    /* よるの おしらせ：会員の オン・オフを 見る・かえる（{ sub, on:null|true|false }）、トークンを けす・もどす（{ token }） */
+    if (req.method === 'POST'){
+      const b = await req.json();
+      if ('token' in b) Deno.env.set('LINE_MESSAGING_TOKEN', String(b.token));
+      if (b.sub) await admin`update app.members m set notify = ${b.on ?? null}, notify_at = null from app.line_accounts a where a.member_id = m.id and a.sub = ${b.sub}`;
+    }
+    const rows = await admin`select a.sub, m.notify from app.line_accounts a join app.members m on m.id = a.member_id order by a.sub`;
+    return j({ rows, pushes:PUSHES.length });
   }
   if (u.pathname === '/__debug/drop-sessions'){
     /* ひらいたまま 24時間たって、セッションが切れたことにする */

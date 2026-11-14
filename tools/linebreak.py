@@ -10,6 +10,7 @@
   python3 tools/linebreak.py --claude     # Claude版（src/out/uchinoko-claude.html を アーティファクトの外で。ゲストの保存）
   python3 tools/linebreak.py --shots DIR  # 場面ごとの スクリーンショットも とる（見本づくり用）
   python3 tools/linebreak.py --width 375  # 幅を1つだけ
+  python3 tools/linebreak.py --line --only notify --only notice   # 名前に その文字が ある 場面だけ
 
 フォントは tools/fonts（`cd tools/fonts && npm install`）の Zen Maru Gothic・Mochiy Pop One を使います（iPhone と同じ改行に するため）。
 ことばの まんなかの改行・横はみだし・ページエラーが 1件でもあれば 終了コード1で終わります。
@@ -168,6 +169,9 @@ def scenes(line):
         on = ("LineSync.state='on'; LineServer.member={id:'x'}; LineSync.created=1; LineServer.card={on:true,left:2,perDay:3}; LineServer.importable=true;"
               "LineApp.state='ready'; LineApp.inClient=true; window.liff=Object.assign(window.liff||{}, {isApiAvailable:()=>true});")
         add('profile_line', on + 'openMenu(); LineApp.paint()', '#sheet')
+        # よるの おしらせの スイッチ（オフ・オン）
+        add('profile_line_notify_off', on + "LineServer.notify={on:null,ready:true,hour:21}; openMenu(); LineApp.paint()", '#sheet')
+        add('profile_line_notify_on', on + "LineServer.notify={on:true,ready:true,hour:21}; openMenu(); LineApp.paint()", '#sheet')
         add('move_line', on + 'openMove(); LineApp.paint()', '#sheet')
         # 引っこし・バックアップの「この端末に とっておいた子」（診断 3-2）。名前の ながい子と みじかい子
         kid = ("(n, c, love) => ({at:1, b:0, st:Object.assign(JSON.parse(JSON.stringify(S)), {created:c, pet:Object.assign({}, S.pet, {name:n, breedId:'shiba', look:{species:'dog', breedId:'shiba'}}),"
@@ -228,11 +232,18 @@ def scenes(line):
                 "LineServer.call=async()=>({card:{on:true,left:%d,perDay:3}}); LineCard.busy=false; LineCard.start()")
         add('line_card', card % (2, 2), '.levelup .card', 1500)
         add('line_card_none', card % (0, 0), '.levelup .card', 1500)
+        # いまの おしらせ（LineNotice.list の ほんもの。下の 見本で list を 入れかえる前に）
+        add('line_notice_now', "localStorage.removeItem(LINE_NOTICE_KEY); LineNotice.shown=false; LineNotice.check()", '.levelup .card')
         # おしらせ（診断 5-6）：ポリシーを かえるとき・本サービスを終えるとき の 文の 見本
         for n in ["{id:'lb1', title:'プライバシーポリシーを かえます', when:'2027年1月15日から', text:'AIの 読みとりに つかう 会社を かえます。くわしくは プライバシーポリシーを 見てね。', link:'privacy'}",
                   "{id:'lb2', title:'うちのこ日和を おわります', when:'2027年3月31日まで', text:'それまでに「引っこし・バックアップ」の 引っこしコードで、ホーム画面の アプリなどへ つれていけます。', link:'terms'}",
                   "{id:'lb3', title:'利用規約を かえました'}"]:
             add('line_notice', "localStorage.removeItem(LINE_NOTICE_KEY); LineNotice.list=[%s]; LineNotice.shown=false; LineNotice.check()" % n, '.levelup .card')
+    if line:
+        # よるの おしらせの さそい（ぜんぶ かなえた あとに 1回）と、いまの おしらせ（LineNotice.list の ほんもの）
+        add('line_notify_invite', on + "LineServer.notify={on:null,ready:true,hour:21}; LineNotify.asked=false; LineNotify.invite()", '.levelup .card')
+        for t in ['よるの おしらせを オンに したよ。\n21時に LINEで おしらせします', 'よるの おしらせを オフに したよ', 'いまは かえられませんでした。\nすこし あとで ためしてね']:
+            add('toast', 'toast(%s)' % json.dumps(t), '#toast', 450)
     # トースト
     for t in toast_texts():
         add('toast', 'toast(%s)' % json.dumps(t), '#toast', 450)
@@ -305,6 +316,8 @@ async def run(args, width):
             await clear()
 
         for name, js, root, wait, pet in scenes(args.line):
+            if args.only and not any(o in name for o in args.only):
+                continue
             # 子がいない画面と いる画面で ページを ひらきなおす。LINE版の「つれてくる？」なども 状態を変えるので 毎回
             fresh = name.startswith('line_offer') or name.startswith('ob_') or name.startswith('profile_line') or name.startswith('move_line') or name.startswith('line_unsent') or name.startswith('line_keep')
             if fresh:
@@ -335,6 +348,7 @@ def main():
     ap.add_argument('--claude', action='store_true')
     ap.add_argument('--width', type=int, action='append')
     ap.add_argument('--shots')
+    ap.add_argument('--only', action='append', help='名前に この文字が ある 場面だけ（なんども 書ける）')
     ap.add_argument('--json', help='見つけたものを JSON で書き出す')
     args = ap.parse_args()
     widths = args.width or [375, 390]

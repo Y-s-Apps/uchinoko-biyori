@@ -258,7 +258,15 @@ const Pet = {
   flash(e, ms){ this.setExpr(e); clearTimeout(this.flashT); this.flashT = setTimeout(() => this.setExpr(null), ms); },
   say(text, ms = 2400){
     const b = $('#bubble');
-    b.textContent = text; b.classList.add('show');
+    b.textContent = text; b.style.removeProperty('--bx'); b.classList.add('show');
+    /* おへやの はしで 切れないように、ふきだしだけ 内がわへ ずらす（しっぽは うちのこを さしたまま。うちのこは --s で 大きさが かわる） */
+    try {
+      const sc = Number(getComputedStyle(this.el).getPropertyValue('--s')) || 1;
+      const pr = this.el.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+      const half = b.offsetWidth * sc / 2, cx = pr.left + pr.width / 2, pad = 6;
+      const dx = cx - half < sr.left + pad ? sr.left + pad - (cx - half) : cx + half > sr.right - pad ? sr.right - pad - (cx + half) : 0;
+      if (dx) b.style.setProperty('--bx', (dx / sc).toFixed(1) + 'px');
+    } catch(e){}
     clearTimeout(this.sayT); this.sayT = setTimeout(() => b.classList.remove('show'), ms);
   },
   moveTo(x, y, speed = 1){
@@ -941,7 +949,7 @@ const Game = {
     Persist.restoredNotice();   /* before the other popups, so it is read first */
     if (!this.started){
       this.started = true;
-      setInterval(() => { updateClock(); if (S){ decay(); renderStats(); } }, 30000);
+      setInterval(() => { updateClock(); if (S){ decay(); renderStats(); Nudge.check(); } }, 30000);
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden && S){
           const away = now() - (S.last || now());

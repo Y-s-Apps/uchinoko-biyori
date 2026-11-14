@@ -20,6 +20,11 @@
  *                                    さいごに使ってから CARD_KEEP_DAYS 日（既定 365＝1年）で消す。やめる人・2年ひらかない人の画像も消す。
  *                                    1人が とっておけるのは 新しい CARD_KEEP_PER_MEMBER 枚（既定30。こえたら 古いものから消す）。
  *                                    全員で1日 CARD_ALL_PER_DAY 枚・ぜんぶで CARD_ALL_MAX 枚まで（Storage の無料の枠を こえないように）
+ *   GET  /notify                     よるの おしらせ（LINE の メッセージ）を うけとるか（on：null＝まだ きいていない）・おくれるか
+ *   POST /notify  { on }             よるの おしらせの オン・オフ（本人だけ）
+ *   POST /notify/run                 毎日 21時（日本時間）に Supabase Cron（app.notify_kick）が よぶ。ヘッダー x-notify の 1回きりの
+ *                                    合いことばを app.notify_runs の ハッシュと くらべ、オンの人の セーブを ルールで みて、
+ *                                    きょうの おねがいが のこっている人だけに LINE公式アカウントから 1通（同じ日に 2通 おくらない）
  *   GET  /health                     動いているか・サーバーの時刻
  *
  * - おなか・ごきげんの減り、おやつの回数、おみやげ、きょうのおねがい、連続記録とおたすけ、季節のイベント、
@@ -55,6 +60,10 @@
  * - だれかの ログインのとき 1日1回、Storage の cards と 表を くらべて、表に ない「まいご」の画像を消す（診断 1-8）。
  * - DB へは app の表だけ さわれる役 uchinoko_api で つなぐ（Secrets の APP_DB_PASSWORD があるとき。ないとき・つなげないときは
  *   SUPABASE_DB_URL＝持ち主。診断 1-10）。
+ * - よるの おしらせ（2026-11-14）：Messaging API の チャネルアクセストークンは Secrets の LINE_MESSAGING_TOKEN だけに置く（ないときは おくらない）。
+ *   おくり先は app.line_accounts の sub（公式アカウントの Messaging API チャネルが ミニアプリと 同じプロバイダーなので、同じ ユーザーID）。
+ *   友だちで ない・ブロックしている人には LINE が とどけない（通数にも 数えない）。友だちかどうかは 見ない（profile の スコープを つかわない）。
+ *   メッセージに 入れるのは 子の名前・のこりの数・れんぞくの日数と、ミニアプリを ひらく ボタンだけ。ログに ユーザーIDを 出さない。
  */
 import postgres from 'npm:postgres@3.4.5';
 import { cleanText, ensureState, readMoveCode, MOVE_MAX, dayKey, Rules, newState, normalizeLook, buildPrompt, parseAI } from 'uchinoko-game';
@@ -93,7 +102,7 @@ const CARD_BUCKET = 'cards';
 const CARD_MAX = 600_000;
 const CARD_B64_MAX = Math.ceil(CARD_MAX / 3) * 4;
 const CARD_SIDE = { min:240, max:1024 } as const;   /* 画像の たて・よこ（px）。LINE の Flex Message の画像は 1024px まで */
-const BODY_MAX = { login:8_000, save:8_000, act:8_000, import:MOVE_MAX + 2_000, read:IMAGE_MAX + 2_000, leave:8_000, card:CARD_B64_MAX + 2_000 } as const;
+const BODY_MAX = { login:8_000, save:8_000, act:8_000, import:MOVE_MAX + 2_000, read:IMAGE_MAX + 2_000, leave:8_000, card:CARD_B64_MAX + 2_000, notify:2_000 } as const;
 const CARE = new Set(['feed', 'treat', 'play', 'trick']);
 const CARE_GAP_MS = 2_500;
 const STROKE_MAX = 12;
@@ -117,6 +126,15 @@ const QUOTA_DAYS = 2;
 /* エラーの数（app.error_counts）を とっておく日数・/health で 合計する日数 */
 const ERROR_KEEP_DAYS = 60;
 const ERROR_SUM_DAYS = 3;
+/* よるの おしらせ（2026-11-14 オーナー決定）。時刻は 日本時間。Secrets（環境変数）で変えられる（よぶたびに読む） */
+const LINE_PUSH = 'https://api.line.me/v2/bot/message/push';
+const notifyToken = () => env('LINE_MESSAGING_TOKEN');                            /* Messaging API の チャネルアクセストークン（長期） */
+const notifyHour = () => intEnv('NOTIFY_HOUR', 21, 23);                           /* この時より前に よばれても おくらない（cron は 21:00） */
+const notifyIdleDays = () => Math.max(1, intEnv('NOTIFY_IDLE_DAYS', 14, 365));    /* この日数 ひらいていない人には おくらない（月200通の 無料の枠） */
+const notifyMax = () => Math.max(1, intEnv('NOTIFY_MAX', 300, 5000));             /* 1回に 見る人数 */
+const NOTIFY_OPEN = env('NOTIFY_OPEN_URL', 'https://miniapp.line.me/2012410265-PutgsCLS');   /* ボタンで ひらく 本番用の LIFF URL */
+const NOTIFY_WORD_SECS = 600;      /* 合いことばが 有効な 秒数（作ってから） */
+const NOTIFY_KEEP_DAYS = 60;       /* app.notify_runs を とっておく日数 */
 
 /* ----- DB（診断 1-10）-----
    app の表だけ さわれる役 uchinoko_api で つなぐ。パスワードは Secrets の APP_DB_PASSWORD（オーナーが入れる。
@@ -340,7 +358,7 @@ async function login(req: Request) {
      1日1回：きのうより前の その日の回数・60日より前の エラーの数・まいごの カードの画像 */
   await later((async () => { await sweepCards(); await sweepBackups(); if (await chore('daily', 20 * 3600e3)) await sweepDaily(); })());   /* 1つずつ順に */
   return { token, expiresAt:out.expiresAt, member:{ id:out.member, importable:out.importable }, save:out.save,
-    ai:await aiStatus(out.member), card:await cardStatus(out.member), now:Date.now() };
+    ai:await aiStatus(out.member), card:await cardStatus(out.member), notify:await notifyStatus(out.member), now:Date.now() };
 }
 
 async function getSave(member: string) {
@@ -777,6 +795,7 @@ async function sweepDaily() {
   const day = dayKey();
   try { await sql`delete from app.day_quota where day <= ${day}::date - ${QUOTA_DAYS}::int`; } catch { await oops('sweep', 'quota'); }
   try { await sql`delete from app.error_counts where day <= ${day}::date - ${ERROR_KEEP_DAYS}::int`; } catch { /* 数えられなくても よい */ }
+  try { await sql`delete from app.notify_runs where day <= ${day}::date - ${NOTIFY_KEEP_DAYS}::int`; } catch { /* 表が ない */ }
   await sweepOrphans();
 }
 /* まいごの カードの画像（診断 1-8）：Storage の cards に あるのに 表に 行が ない画像（カードを置くのと やめるのが 同時だった、
@@ -883,6 +902,181 @@ async function makeCard(req: Request, member: string) {
   return { ok:true, url:cardUrl(name), w:png.w, h:png.h, card:await cardStatus(member) };
 }
 
+/* ----- よるの おしらせ（2026-11-14 オーナー決定） -----
+   きょうの おねがいが のこっている 日の 21時（日本時間）に、LINE公式アカウント「うちのこ日和」から 1通。
+   うけとるのは 本人が オンに した人だけ（members.notify。はじめは null＝まだ きいていない）。友だちに なっていない・ブロックしている人には
+   LINE が とどけない（通数にも 数えない）。NOTIFY_IDLE_DAYS 日 ひらいていない人・おねがいを ぜんぶ かなえた人には おくらない */
+type NotifyStatus = { on: boolean | null; ready: boolean; hour: number };
+async function notifyStatus(member: string): Promise<NotifyStatus> {
+  try {
+    const [m] = await sql`select notify from app.members where id = ${member}`;
+    return { on:m && typeof m.notify === 'boolean' ? m.notify : null, ready:!!notifyToken(), hour:notifyHour() };
+  } catch {
+    await oops('notify_table', 'unavailable');
+    return { on:null, ready:false, hour:notifyHour() };
+  }
+}
+/* オン・オフ（本人だけ。1秒に 1回まで） */
+async function setNotify(req: Request, member: string) {
+  const body = await readBody(req, BODY_MAX.notify);
+  if (typeof body.on !== 'boolean') throw new HttpError(400, 'badnotify');
+  let row: Record<string, unknown> | undefined;
+  try {
+    [row] = await sql`update app.members set notify = ${body.on}, notify_at = now()
+      where id = ${member} and (notify_at is null or notify_at < now() - interval '1 second') returning id`;
+  } catch {
+    await oops('notify_table', 'unavailable');
+    throw new HttpError(503, 'unavailable');
+  }
+  if (!row){
+    const [m] = await sql`select 1 as x from app.members where id = ${member}`;
+    throw m ? new HttpError(429, 'slow') : new HttpError(401, 'nosession');
+  }
+  return { notify:await notifyStatus(member), now:Date.now() };
+}
+
+/* 日本時間の 時（0〜23） */
+const jstHour = (t = Date.now()) => new Date(t + 9 * 3600e3).getUTCHours();
+const pause = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+/* セーブから メッセージを作る（おくらない人は null）。ルールは 画面と同じ Rules（サーバーの時計＝日本時間）で、セーブは かえない */
+type NotifyText = { name: string; left: number; text: string; chip: string };
+function notifyText(raw: unknown): NotifyText | null {
+  let st: Record<string, unknown>;
+  try {
+    st = JSON.parse(JSON.stringify(raw));
+    if (!st || typeof st !== 'object' || !st.pet) return null;
+    ensureState(st);
+  } catch { return null; }
+  const left = Number(Rules.reqLeft(st));
+  if (!(left > 0)) return null;
+  const si = Rules.streakInfo(st) as { n: number; pinch: boolean };
+  const pet = st.pet as Record<string, unknown>;
+  const name = cleanText(String(pet.name || ''), 10).trim() || 'うちのこ';
+  const daily = st.daily as { list?: { done?: boolean }[] } | undefined;
+  const threeDone = !!(daily && Array.isArray(daily.list) && daily.list.length && daily.list.every(r => r && r.done));
+  if (si.pinch){
+    return { name, left, chip:'', text:threeDone
+      ? `れんぞく ${si.n}日が ピンチ！ のこりは おたすけの おねがい 1つ。きょうの うちに あいにきてね`
+      : `れんぞく ${si.n}日が ピンチ！ おたすけの おねがいも いれて あと${left}つ。きょうの うちに あいにきてね` };
+  }
+  return { name, left, chip:si.n >= 2 ? `れんぞく ${si.n}日` : '', text:`きょうの おねがいが あと${left}つ のこっているよ。ねる まえに すこし あいにきてね` };
+}
+/* LINE の Flex Message（見本 L2：見出し・ひとこと・れんぞくの しるし・ミニアプリを ひらく ボタン）。通知の 文は altText */
+function notifyFlex(t: NotifyText) {
+  const body: Record<string, unknown>[] = [
+    { type:'text', text:`🌙 ${t.name}より`, weight:'bold', size:'lg', color:'#111111', wrap:true },
+    { type:'text', text:t.text, size:'sm', color:'#444444', wrap:true },
+  ];
+  if (t.chip) body.push({ type:'box', layout:'horizontal', contents:[
+    { type:'box', layout:'vertical', flex:0, backgroundColor:'#F6E3E9', cornerRadius:'12px', paddingStart:'10px', paddingEnd:'10px', paddingTop:'2px', paddingBottom:'2px',
+      contents:[{ type:'text', text:t.chip, size:'xs', color:'#B93B5E', weight:'bold' }] },
+    { type:'filler' },
+  ] });
+  return {
+    type:'flex', altText:`${t.name}：きょうの おねがい あと${t.left}つ`,
+    contents:{
+      type:'bubble',
+      body:{ type:'box', layout:'vertical', spacing:'md', contents:body },
+      footer:{ type:'box', layout:'vertical', contents:[
+        { type:'button', style:'primary', height:'sm', color:'#2A7F6D', action:{ type:'uri', label:'うちのこ日和を ひらく', uri:NOTIFY_OPEN } },
+      ] },
+    },
+  };
+}
+/* 同じ人・同じ日の おくりなおしは LINE が 1回に まとめる（X-Line-Retry-Key。UUID の形） */
+async function notifyKey(member: string, day: string): Promise<string> {
+  const h = await sha256hex('notify:' + member + ':' + day);
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-${'89ab'[parseInt(h[16], 16) & 3]}${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+/* 1通 おくる。'ok'（とどけた・もう うけつけていた 409）・'limit'（月の 通数の 上限）・'auth'（トークンが ちがう）・ほかは しっぱいの 合図 */
+async function linePush(token: string, to: string, msg: unknown, key: string): Promise<string> {
+  for (let i = 0; i < 2; i++){
+    let res: Response;
+    try {
+      res = await fetch(LINE_PUSH, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + token, 'X-Line-Retry-Key':key },
+        body:JSON.stringify({ to, messages:[msg] }),
+        signal:AbortSignal.timeout(10_000),
+      });
+    } catch {
+      if (i === 0){ await pause(800); continue; }
+      return 'net';
+    }
+    if (res.ok || res.status === 409){ await res.body?.cancel(); return 'ok'; }
+    let v: Record<string, unknown> = {};
+    try { v = await res.json(); } catch { /* 下へ */ }
+    if (res.status === 429 && /monthly limit/i.test(String(v.message || ''))) return 'limit';
+    if (res.status === 401 || res.status === 403) return 'auth';
+    if ((res.status >= 500 || res.status === 429) && i === 0){ await pause(1000); continue; }
+    return 'http' + res.status;
+  }
+  return 'net';
+}
+/* cron から：合いことばを たしかめて（1回だけ）、おくるのは 返事の あとに うしろで */
+async function notifyRun(req: Request) {
+  const word = req.headers.get('x-notify') || '';
+  if (!/^[0-9a-f]{64}$/.test(word)) throw new HttpError(403, 'forbidden');
+  if (jstHour() < notifyHour()) throw new HttpError(409, 'early');
+  const day = dayKey();
+  const hex = await sha256hex(word);
+  let run: Record<string, unknown> | undefined;
+  try {
+    [run] = await sql`update app.notify_runs set used_at = now(), nonce_hash = null
+      where day = ${day}::date and nonce_hash = decode(${hex}, 'hex') and used_at is null
+        and made_at > now() - make_interval(secs => ${NOTIFY_WORD_SECS}) returning day`;
+  } catch {
+    await oops('notify_table', 'run');
+    throw new HttpError(503, 'unavailable');
+  }
+  if (!run) throw new HttpError(403, 'forbidden');
+  await later(notifySend(day));
+  return { ok:true, day };
+}
+/* オンの人を 50人ずつ 見て、のこっている人に おくる。おくる前に その日の しるし（notified_on）を つける（2通 おくらない）。
+   月の 通数の 上限・トークンの まちがいは そこで やめる。数だけを app.notify_runs に のこす */
+async function notifySend(day: string) {
+  const tally = { sent:0, skipped:0, failed:0, note:'' };
+  const token = notifyToken();
+  if (!token) tally.note = 'notoken';
+  else {
+    try {
+      let after = '', seen = 0;
+      outer: while (seen < notifyMax()){
+        const rows = await sql`select m.id::text as id, a.sub, s.data from app.members m
+          join app.line_accounts a on a.member_id = m.id join app.saves s on s.member_id = m.id
+          where m.notify is true and (m.notified_on is null or m.notified_on < ${day}::date)
+            and m.last_seen_at > now() - make_interval(days => ${notifyIdleDays()}) and m.id::text > ${after}
+          order by m.id::text limit 50`;
+        if (!rows.length) break;
+        for (const row of rows){
+          after = String(row.id);
+          if (++seen > notifyMax()) break outer;
+          const t = notifyText(row.data);
+          if (!t){ tally.skipped++; continue; }
+          const [claim] = await sql`update app.members set notified_on = ${day}::date
+            where id = ${row.id} and notify is true and (notified_on is null or notified_on < ${day}::date) returning id`;
+          if (!claim){ tally.skipped++; continue; }
+          const r = await linePush(token, String(row.sub), notifyFlex(t), await notifyKey(String(row.id), day));
+          if (r === 'ok'){ tally.sent++; continue; }
+          tally.failed++;
+          if (r === 'limit' || r === 'auth'){ tally.note = r; await oops('notify_' + r, r === 'limit' ? 'monthly limit' : 'token refused'); break outer; }
+          await oops('notify_push', r);
+        }
+      }
+    } catch {
+      tally.note = 'error';
+      await oops('notify_send', 'stopped');
+    }
+  }
+  try {
+    await sql`update app.notify_runs set done_at = now(), sent = ${tally.sent}, skipped = ${tally.skipped}, failed = ${tally.failed}, note = ${tally.note || null}
+      where day = ${day}::date`;
+  } catch { await oops('notify_table', 'record'); }
+  return tally;
+}
+
 /* ----- やめる（退会） ----- */
 /* LINE に、この人が うちのこ日和に あたえた許可を取り消してもらう。結果は 'done'（取り消した）・'already'（もう取り消されていた／トークンが切れている）・
    'nosecret'（その内部チャネルのシークレットがない）・'notoken'（アクセストークンが来なかった）・'failed'（LINE に届かない・ほかのチャネルのトークン など）。
@@ -947,7 +1141,7 @@ async function route(req: Request): Promise<unknown> {
   const path = new URL(req.url).pathname.replace(/^.*?\/api(?=\/|$)/, '') || '/';
   const m = req.method;
   /* errors：この ERROR_SUM_DAYS 日の サーバーの エラーの数（数えられないときは null。診断 5-2） */
-  if (path === '/health' && m === 'GET') return { ok:true, now:Date.now(), day:dayKey(), cards:!!storageAuth(), errors:await errorTotal() };
+  if (path === '/health' && m === 'GET') return { ok:true, now:Date.now(), day:dayKey(), cards:!!storageAuth(), notify:!!notifyToken(), errors:await errorTotal() };
   if (path === '/login' && m === 'POST') return await login(req);
   if (path === '/save' && m === 'GET') return await getSave(await sessionMember(req));
   if (path === '/save' && m === 'POST') return await putSave(req, await sessionMember(req));
@@ -958,6 +1152,9 @@ async function route(req: Request): Promise<unknown> {
   if (path === '/leave' && m === 'POST') return await leave(req, await sessionMember(req));
   if (path === '/card' && m === 'GET') return { card:await cardStatus(await sessionMember(req)), now:Date.now() };
   if (path === '/card' && m === 'POST') return await makeCard(req, await sessionMember(req));
+  if (path === '/notify' && m === 'GET') return { notify:await notifyStatus(await sessionMember(req)), now:Date.now() };
+  if (path === '/notify' && m === 'POST') return await setNotify(req, await sessionMember(req));
+  if (path === '/notify/run' && m === 'POST') return await notifyRun(req);
   throw new HttpError(404, 'notfound');
 }
 

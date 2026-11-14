@@ -195,6 +195,24 @@ async def main(args):
         print('右上の ボタンの名前：', names.strip('/') or '(なし)')
         if names != want:
             errors.append(f'右上の ボタンの名前が ちがいます：{names!r}（{want!r} のはず）')
+        if not args.fresh:
+            # よるの ひとこと（通知：画面の中の お知らせ）：21時を すぎて おねがいが のこっていたら、うちのこが ふきだしで 1日1回
+            # うちのこが おへやの 右はし（ベッド）に いても、ふきだしは おへやの 中に おさまる
+            await page.evaluate("() => { clearTimeout(idleT); Pet.el.style.transition = 'none'; Pet.x = 80; Pet.y = 84; Pet.apply(); }")
+            await page.wait_for_timeout(300)
+            await page.evaluate("() => { window.__hour = Clock.hour; Clock.hour = () => 21; localStorage.removeItem('uchinoko-biyori:nudge-day'); Nudge.shown = ''; Nudge.check(); }")
+            await page.wait_for_timeout(900)
+            first = await page.evaluate('''() => { const b = document.querySelector('#bubble').getBoundingClientRect(), s = document.querySelector('#stage').getBoundingClientRect();
+                return { say: document.querySelector('#bubble').textContent, show: document.querySelector('#bubble').classList.contains('show'), badge: document.querySelector('#reqBadge').classList.contains('nudge'),
+                  day: localStorage.getItem('uchinoko-biyori:nudge-day') === dayKey(), n: reqLeft(), inside: b.left >= s.left && b.right <= s.right }; }''')
+            await snap('nudge')
+            await page.wait_for_timeout(3200)
+            second = await page.evaluate("() => document.querySelector('#bubble').textContent")
+            await page.evaluate("() => { Nudge.check(); window.__again = document.querySelector('#bubble').textContent; }")
+            again = await page.evaluate("() => { Clock.hour = window.__hour; if (!Clock.hour) delete Clock.hour; return window.__again; }")
+            print('よるの ひとこと：', first['say'], '→', second)
+            if not (first['say'] == 'もうすぐ きょうが おわるよ' and first['show'] and first['badge'] and first['day'] and first['inside'] and second == f"おねがい、あと{first['n']}つ！" and again == second):
+                errors.append(f'よるの ひとこと が ちがいます：{first} {second!r} {again!r}')
         if args.line:
             info = await page.evaluate('''() => ({
                 sw: !!(navigator.serviceWorker && navigator.serviceWorker.controller),

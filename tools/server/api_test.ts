@@ -65,6 +65,9 @@ function aiReply(){
 Deno.env.set('SUPABASE_URL', 'https://store.test');
 Deno.env.set('SUPABASE_SECRET_KEYS', JSON.stringify({ default:'sb_secret_test' }));
 const STORE = { mode:'ok', objects:new Map<string, Uint8Array>(), created:new Map<string, number>(), puts:0, dels:0, lists:0, headers:null as any, cache:'' };
+// ---- fake LINE Messaging API（よるの おしらせ：プッシュメッセージ） ----
+const PUSH = { mode:'ok', flaked:false, calls:[] as { auth: string | null; key: string | null; body: any }[] };
+Deno.env.set('NOTIFY_HOUR', '0');   /* ためしは いつ うごかしても 送る回が とおるように（early は 下で しぼって 確かめる） */
 /* 回数の制限（1-5）は ふだんは ゆるく（ためしは つづけて たくさん よぶ）。下の rate で しぼって 確かめる */
 Deno.env.set('LOGIN_PER_MIN', '1000');
 Deno.env.set('ACT_PER_WINDOW', '100000');
@@ -97,6 +100,15 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       return new Response(JSON.stringify(gone.map(n => ({ name:n }))), { status:200 });
     }
     return new Response('{}', { status:405 });
+  }
+  if (url === 'https://api.line.me/v2/bot/message/push'){
+    const h = new Headers(init!.headers);
+    PUSH.calls.push({ auth:h.get('authorization'), key:h.get('x-line-retry-key'), body:JSON.parse(String(init!.body)) });
+    if (PUSH.mode === 'down') throw new Error('network');
+    if (PUSH.mode === 'limit') return new Response(JSON.stringify({ message:'You have reached your monthly limit.' }), { status:429 });
+    if (PUSH.mode === 'auth') return new Response(JSON.stringify({ message:'Authentication failed. Confirm that the access token in the authorization header is valid.' }), { status:401 });
+    if (PUSH.mode === 'flaky' && !PUSH.flaked){ PUSH.flaked = true; return new Response(JSON.stringify({ message:'internal' }), { status:500 }); }
+    return new Response(JSON.stringify({ sentMessages:[{ id:'461230966842064897' }] }), { status:200 });
   }
   if (url === 'https://api.anthropic.com/v1/messages'){
     AI.calls++;
@@ -880,6 +892,155 @@ const hx = await call('GET', '/health');
 await db`alter table app.error_counts_away rename to error_counts`;
 ok(hx.status === 200 && hx.data.ok && hx.data.errors === null, 'no error table → /health still ok (errors null)', hx.data);
 
+console.log('notify (よるの おしらせ：オン・オフ・21時に のこっている人だけ 1通)');
+{
+  const today = jst(Date.now()), yesterday = jst(Date.now() - 864e5), dayBefore = jst(Date.now() - 2 * 864e5);
+  const hexOf2 = async (s: string) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s))), b => b.toString(16).padStart(2, '0')).join('');
+  /* cron（app.notify_kick）の まね：きょうの行に 1回きりの 合いことばの ハッシュを 書く */
+  const word = async (ageSecs = 0) => {
+    const w = Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join('');
+    await db`insert into app.notify_runs (day, nonce_hash, made_at) values (${today}::date, decode(${await hexOf2(w)}, 'hex'), now() - make_interval(secs => ${ageSecs}))
+      on conflict (day) do update set nonce_hash = excluded.nonce_hash, made_at = excluded.made_at, used_at = null, done_at = null, sent = 0, skipped = 0, failed = 0, note = null`;
+    return w;
+  };
+  const run = async (w?: string) => {
+    const res = await handler(new Request('https://x.supabase.co/api/notify/run', { method:'POST', headers:w === undefined ? {} : { 'x-notify':w, 'content-type':'application/json' }, body:'{}' }));
+    const text = await res.text(); let data: any = null; try { data = JSON.parse(text); } catch { data = text; }
+    return { status:res.status, data };
+  };
+  const runRow = async () => (await db`select used_at is not null as used, done_at is not null as done, sent, skipped, failed, note, nonce_hash is null as cleared from app.notify_runs where day = ${today}::date`)[0];
+  const nina = await joiner('nina');
+  r = await call('POST', '/login', { idToken:mkToken('nina2', '2012410263', 'Unina') });
+  ok(r.status === 200 && r.data.notify && r.data.notify.on === null && r.data.notify.ready === false && r.data.notify.hour === 0,
+     'login: not asked yet (null), not ready without the Messaging API token', r.data.notify);
+  Deno.env.set('LINE_MESSAGING_TOKEN', 'push-token');
+  r = await call('GET', '/notify', undefined, nina.token);
+  ok(r.status === 200 && r.data.notify.ready === true && r.data.notify.on === null, 'GET /notify: ready once the token is set', r.data);
+  ok((await call('GET', '/health')).data.notify === true, '/health: notify true (the token is set)');
+  r = await call('GET', '/notify');
+  ok(r.status === 401, 'GET /notify needs a session', r);
+  r = await call('POST', '/notify', { on:'yes' }, nina.token);
+  ok(r.status === 400 && r.data.error === 'badnotify', 'on must be true or false', r);
+  r = await call('POST', '/notify', { on:true }, nina.token);
+  ok(r.status === 200 && r.data.notify.on === true, 'turn on', r.data);
+  r = await call('POST', '/notify', { on:false }, nina.token);
+  ok(r.status === 429 && r.data.error === 'slow', 'once a second at most', r);
+  await db`update app.members set notify_at = now() - interval '5 seconds' where id = ${nina.id}`;
+  r = await call('POST', '/notify', { on:false }, nina.token);
+  ok(r.status === 200 && r.data.notify.on === false, 'turn off', r.data);
+  await db`update app.members set notify_at = now() - interval '5 seconds' where id = ${nina.id}`;
+  r = await call('POST', '/notify', { on:true }, nina.token);
+  ok(r.status === 200 && r.data.notify.on === true, 'turn on again', r.data);
+  const [nm] = await db`select notify, notify_at is not null as at, notified_on from app.members where id = ${nina.id}`;
+  ok(nm.notify === true && nm.at && nm.notified_on === null, 'stored on the member: on, when, not sent yet', nm);
+
+  /* みんなの ようす：nina＝れんぞく 12日（きのうまで）・きょうは まだ / omar＝きょう ぜんぶ かなえた / quin＝ピンチ（おととい まで 7日）/
+     rex＝20日 ひらいていない / sue＝オフ / tom＝きょう もう おくった / vic＝まだ きいていない（null） */
+  const omar = await joiner('omar'), quin = await joiner('quin'), rex = await joiner('rex'), sue = await joiner('sue'), tom = await joiner('tom'), vic = await joiner('vic');
+  const old = { day:'2000-01-01', list:[], all:false };
+  await patch(nina.id, d => { d.daily = old; d.streak = { last:yesterday, n:12, best:12 }; });
+  await patch(omar.id, d => { d.daily = { day:today, list:[{ type:'meal', n:2, got:2, done:true }, { type:'play', n:2, got:2, done:true }, { type:'pet', n:10, got:10, done:true }], all:true };
+    d.streak = { last:today, n:3, best:3 }; });
+  await patch(quin.id, d => { d.daily = old; d.streak = { last:dayBefore, n:7, best:7 }; d.rescued = []; });
+  for (const m of [rex, sue, tom, vic]) await patch(m.id, d => { d.daily = old; });
+  await db`update app.members set notify = true where id in (${omar.id}, ${quin.id}, ${rex.id}, ${tom.id})`;
+  await db`update app.members set notify = false where id = ${sue.id}`;
+  await db`update app.members set last_seen_at = now() - interval '20 days' where id = ${rex.id}`;
+  await db`update app.members set notified_on = ${today}::date where id = ${tom.id}`;
+
+  r = await run();
+  ok(r.status === 403, 'no word → 403', r);
+  r = await run('x'.repeat(64));
+  ok(r.status === 403, 'a malformed word → 403', r);
+  let w = await word();
+  r = await run('ab'.repeat(32));
+  ok(r.status === 403 && (await runRow()).used === false, 'a wrong word → 403 (the real word is not used)', r);
+  w = await word(20 * 60);
+  r = await run(w);
+  ok(r.status === 403 && PUSH.calls.length === 0, 'an old word (20 minutes) → 403', r);
+  if (new Date(Date.now() + 9 * 3600e3).getUTCHours() < 23){
+    Deno.env.set('NOTIFY_HOUR', '23');
+    w = await word();
+    r = await run(w);
+    ok(r.status === 409 && r.data.error === 'early' && (await runRow()).used === false && PUSH.calls.length === 0, 'before the hour → 409 early (the word stays)', r);
+    Deno.env.set('NOTIFY_HOUR', '0');
+  }
+  w = await word();
+  r = await run(w);
+  const row1 = await runRow();
+  const to = PUSH.calls.map(c => c.body.to).sort();
+  ok(r.status === 200 && r.data.ok && r.data.day === today, 'the run: 200', r);
+  ok(to.join() === 'Unina,Uquin', 'sent only to members who are on, opened in 14 days, not sent today, with requests left (nina・quin)', to);
+  ok(row1.used && row1.done && row1.cleared && row1.sent === 2 && row1.skipped === 1 && row1.failed === 0 && row1.note === null,
+     'the run row: used (hash cleared), done, 2 sent, 1 skipped (omar: all done)', row1);
+  const pn = PUSH.calls.find(c => c.body.to === 'Unina')!, pq = PUSH.calls.find(c => c.body.to === 'Uquin')!;
+  const flat = (o: any) => JSON.stringify(o);
+  ok(pn.auth === 'Bearer push-token' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(pn.key || '') && pn.key !== pq.key,
+     'the token from Secrets, a retry key (UUID) per member and day', { auth:pn.auth, key:pn.key });
+  const m0 = pn.body.messages[0];
+  ok(pn.body.messages.length === 1 && m0.type === 'flex' && m0.altText === 'ためし2：きょうの おねがい あと3つ'
+     && flat(m0).includes('🌙 ためし2より') && flat(m0).includes('きょうの おねがいが あと3つ のこっているよ。ねる まえに すこし あいにきてね')
+     && flat(m0).includes('れんぞく 12日') && flat(m0).includes('https://miniapp.line.me/2012410265-PutgsCLS') && flat(m0).includes('うちのこ日和を ひらく'),
+     'nina: the name, 3 left, the streak chip, the button to the mini app', m0);
+  ok(!flat(pn.body).includes(nina.id) && !flat(pn.body).includes('photo'), 'no member id or photo in the message');
+  ok(flat(pq.body).includes('れんぞく 7日が ピンチ！ おたすけの おねがいも いれて あと4つ。きょうの うちに あいにきてね') && !flat(pq.body).includes('"れんぞく 7日"'),
+     'quin (pinch): the rescue request counts (4 left), no chip', pq.body.messages[0].contents.body);
+  const sentOn = (await db`select id::text as id, notified_on::text as d from app.members where id in (${nina.id}, ${omar.id}, ${quin.id}, ${rex.id})`)
+    .reduce((o: any, x: any) => (o[x.id] = x.d, o), {});
+  ok(sentOn[nina.id] === today && sentOn[quin.id] === today && sentOn[omar.id] === null && sentOn[rex.id] === null, 'marked as sent today only where sent', sentOn);
+  const [{ saves }] = await db`select count(*)::int as saves from app.saves where member_id = ${nina.id} and data->'daily'->>'day' = ${today}`;
+  ok(saves === 0, 'the run does not change the saves (it only reads them)', saves);
+  r = await run(w);
+  ok(r.status === 403, 'the same word again → 403 (once)', r);
+  const n1 = PUSH.calls.length;
+  w = await word();
+  r = await run(w);
+  ok(r.status === 200 && PUSH.calls.length === n1 && (await runRow()).sent === 0, 'another run the same day → nobody gets a second one', { calls:PUSH.calls.length - n1 });
+
+  /* つぎの日の まね（notified_on を きのうに）：月の 通数の 上限 → そこで やめる */
+  await db`update app.members set notified_on = ${yesterday}::date where id in (${nina.id}, ${quin.id})`;
+  PUSH.mode = 'limit';
+  const n2 = PUSH.calls.length;
+  w = await word();
+  r = await run(w);
+  const row2 = await runRow();
+  const lim = (await db`select n from app.error_counts where day = ${today}::date and kind = 'notify_limit'`)[0];
+  ok(r.status === 200 && PUSH.calls.length === n2 + 1 && row2.failed === 1 && row2.sent === 0 && row2.note === 'limit' && lim && lim.n >= 1,
+     'monthly limit (429) → stops after the first, counted as notify_limit', { row2, calls:PUSH.calls.length - n2 });
+  /* 500 は 同じ キーで 1回 おくりなおす */
+  await db`update app.members set notified_on = ${yesterday}::date where id in (${nina.id}, ${quin.id})`;
+  PUSH.mode = 'flaky'; PUSH.flaked = false;
+  const n3 = PUSH.calls.length;
+  w = await word();
+  r = await run(w);
+  const tries = PUSH.calls.slice(n3);
+  const row3 = await runRow();
+  ok(row3.sent === 2 && row3.failed === 0 && tries.length === 3 && tries[0].key === tries[1].key, 'a 500 is retried once with the same retry key', { row3, keys:tries.map(t => t.key && t.key.slice(0, 8)) });
+  PUSH.mode = 'ok';
+  /* トークンが ない → おくらない */
+  await db`update app.members set notified_on = ${yesterday}::date where id in (${nina.id}, ${quin.id})`;
+  Deno.env.set('LINE_MESSAGING_TOKEN', '');
+  const n4 = PUSH.calls.length;
+  w = await word();
+  r = await run(w);
+  ok(r.status === 200 && PUSH.calls.length === n4 && (await runRow()).note === 'notoken', 'no token → nothing sent (note notoken)', await runRow());
+  r = await call('GET', '/notify', undefined, nina.token);
+  ok(r.data.notify.ready === false && r.data.notify.on === true, 'GET /notify: not ready without the token (the switch stays on)', r.data.notify);
+  Deno.env.set('LINE_MESSAGING_TOKEN', 'push-token');
+  /* やめると いっしょに 消える */
+  await call('POST', '/leave', { confirm:'leave' }, quin.token);
+  const [{ q }] = await db`select count(*)::int as q from app.members where id = ${quin.id}`;
+  ok(q === 0, 'leave removes the notify setting with the member', q);
+  /* 60日より前の 回は 1日1回の 掃除で 消える */
+  await db`insert into app.notify_runs (day, sent) values (${jst(Date.now() - 70 * 864e5)}::date, 1), (${jst(Date.now() - 10 * 864e5)}::date, 1) on conflict do nothing`;
+  await db`update app.chores set done_at = now() - interval '2 days'`;
+  await call('POST', '/login', { idToken:mkToken('sweeper3', '2012410263', 'Usweeper') });
+  const keptRuns = (await db`select day::text as d from app.notify_runs where day < ${today}::date order by day`).map((x: any) => x.d);
+  ok(keptRuns.join() === jst(Date.now() - 10 * 864e5), 'runs older than 60 days are swept', keptRuns);
+  const ncols = (await db`select column_name from information_schema.columns where table_schema='app' and table_name='notify_runs' order by column_name`).map((x: any) => x.column_name);
+  ok(!ncols.some((c: string) => /member|sub|user/.test(c)), 'the run rows keep no member or LINE id', ncols);
+}
+
 console.log('role (1-10：app の表だけ さわれる役 uchinoko_api)');
 await db`create table if not exists public.not_app (x int)`;
 const can: Record<string, boolean> = {};
@@ -895,6 +1056,7 @@ try {
     await tryIt('chores', q => q`update app.chores set done_at = now()`);
     await tryIt('cards', q => q`select count(*) from app.cards`);
     await tryIt('backups', q => q`select count(*) from app.save_backups`);
+    await tryIt('notify runs', q => q`update app.notify_runs set note = null where false`);
     await tryIt('delete member (cascade)', q => q`delete from app.members where id = (select member_id from app.saves limit 1)`);
     await tryIt('other schema', q => q`select * from public.not_app`);
     await tryIt('create table', q => q`create table app.evil (x int)`);
@@ -902,7 +1064,7 @@ try {
     throw new Error('rollback');
   });
 } catch { /* もどす */ }
-ok(can['read saves'] && can['new member'] && can['lock'] && can['quota'] && can['errors'] && can['chores'] && can['cards'] && can['backups'] && can['delete member (cascade)']
+ok(can['read saves'] && can['new member'] && can['lock'] && can['quota'] && can['errors'] && can['chores'] && can['cards'] && can['backups'] && can['notify runs'] && can['delete member (cascade)']
    && !can['other schema'] && !can['create table'] && !can['drop table'], 'the role reads and writes app tables (RLS opened only for it), nothing else', can);
 const [{ anonp }] = await db`select count(*)::int as anonp from pg_policies where schemaname = 'app' and not ('uchinoko_api' = any(roles))`;
 ok(anonp === 0, 'no policy for other roles (anon・authenticated see nothing)', anonp);

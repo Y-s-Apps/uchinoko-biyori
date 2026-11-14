@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-pHJZ3rqUF+OLIlIvThtPvRqNRUHAZw2kI162qeAAp+U='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-MrVKlZgAWKnn2HeIKPOgOjjJEmxIs/BNTEAUcuqGw+s='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="写真の犬や猫をそっくりなペットにして、ごはん・おやつ・なでなででのんびり育てるアプリ">
@@ -92,6 +92,10 @@ button{font:inherit;color:inherit}
 .iconbtn svg{width:22px;height:22px}
 .badge{position:absolute;right:-4px;top:-4px;min-width:18px;height:18px;padding:0 4px;box-sizing:border-box;border-radius:9px;background:var(--badge);color:#FFFFFF;font-size:11px;font-weight:900;line-height:18px;text-align:center;box-shadow:0 0 0 2px var(--ground);font-variant-numeric:tabular-nums}
 .badge.done{background:var(--badge-done)}
+/* よるの ひとこと（通知）：おねがいの バッジが 3回 はねる */
+.badge.nudge{animation:nudge .9s cubic-bezier(.3,1.6,.5,1) 3}
+@keyframes nudge{0%,100%{transform:translateZ(0)}30%{transform:translateY(-5px) scale(1.18)}60%{transform:translateY(0) scale(.96)}}
+@media (prefers-reduced-motion: reduce){.badge.nudge{animation:none}}
 .lvpill{margin-left:6px;background:color-mix(in srgb,var(--berry) 16%,var(--surface));color:var(--berry-ink);border-radius:999px;padding:1px 8px;font-size:12px;font-variant-numeric:tabular-nums}
 
 /* stage */
@@ -229,9 +233,9 @@ button{font:inherit;color:inherit}
 .tr-punch .pv-legR{animation:trPunch .35s ease 4 alternate}
 @keyframes trPunch{to{transform:translate(8px,-24px) rotate(-55deg)}}
 
-.bubble{position:absolute;left:50%;bottom:92%;z-index:2;transform:translateX(-50%) scale(.6);transform-origin:50% 100%;opacity:0;pointer-events:none;background:#FFFFFF;color:#3A3147;font-weight:700;font-size:14px;line-height:1.4;padding:7px 13px;border-radius:16px;white-space:nowrap;box-shadow:0 3px 0 rgba(58,49,71,.12);transition:opacity .2s,transform .25s cubic-bezier(.3,1.6,.5,1)}
-.bubble::after{content:"";position:absolute;left:50%;top:100%;border:7px solid transparent;border-top-color:#FFFFFF;transform:translateX(-50%)}
-.bubble.show{opacity:1;transform:translateX(-50%) scale(1)}
+.bubble{position:absolute;left:50%;bottom:92%;z-index:2;transform:translateX(calc(-50% + var(--bx,0px))) scale(.6);transform-origin:50% 100%;opacity:0;pointer-events:none;background:#FFFFFF;color:#3A3147;font-weight:700;font-size:14px;line-height:1.4;padding:7px 13px;border-radius:16px;white-space:nowrap;box-shadow:0 3px 0 rgba(58,49,71,.12);transition:opacity .2s,transform .25s cubic-bezier(.3,1.6,.5,1)}
+.bubble::after{content:"";position:absolute;left:clamp(14px,calc(50% - var(--bx,0px)),calc(100% - 14px));top:100%;border:7px solid transparent;border-top-color:#FFFFFF;transform:translateX(-50%)}
+.bubble.show{opacity:1;transform:translateX(calc(-50% + var(--bx,0px))) scale(1)}
 
 /* fx */
 .fx{position:absolute;pointer-events:none;z-index:400}
@@ -2217,7 +2221,15 @@ const Pet = {
   flash(e, ms){ this.setExpr(e); clearTimeout(this.flashT); this.flashT = setTimeout(() => this.setExpr(null), ms); },
   say(text, ms = 2400){
     const b = $('#bubble');
-    b.textContent = text; b.classList.add('show');
+    b.textContent = text; b.style.removeProperty('--bx'); b.classList.add('show');
+    /* おへやの はしで 切れないように、ふきだしだけ 内がわへ ずらす（しっぽは うちのこを さしたまま。うちのこは --s で 大きさが かわる） */
+    try {
+      const sc = Number(getComputedStyle(this.el).getPropertyValue('--s')) || 1;
+      const pr = this.el.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+      const half = b.offsetWidth * sc / 2, cx = pr.left + pr.width / 2, pad = 6;
+      const dx = cx - half < sr.left + pad ? sr.left + pad - (cx - half) : cx + half > sr.right - pad ? sr.right - pad - (cx + half) : 0;
+      if (dx) b.style.setProperty('--bx', (dx / sc).toFixed(1) + 'px');
+    } catch(e){}
     clearTimeout(this.sayT); this.sayT = setTimeout(() => b.classList.remove('show'), ms);
   },
   moveTo(x, y, speed = 1){
@@ -2900,7 +2912,7 @@ const Game = {
     Persist.restoredNotice();   /* before the other popups, so it is read first */
     if (!this.started){
       this.started = true;
-      setInterval(() => { updateClock(); if (S){ decay(); renderStats(); } }, 30000);
+      setInterval(() => { updateClock(); if (S){ decay(); renderStats(); Nudge.check(); } }, 30000);
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden && S){
           const away = now() - (S.last || now());
@@ -3536,6 +3548,47 @@ function openAlbum(tab){
   });
 }
 
+/* ===== よるの ひとこと（通知の「画面の中の お知らせ」。3つの版。2026-11-14 オーナー決定 案A） =====
+   NUDGE_HOUR（21時）から 0時までに ひらいているとき・ひらいたとき・もどってきたとき、きょうの おねがいが のこっていたら、
+   うちのこが ふきだしで「もうすぐ きょうが おわるよ」→「おねがい、あと◯つ！」（ピンチの日は「れんぞく ◯日が ピンチ！」も）と言い、
+   おねがいの バッジが はねる。1日1回（見せた日は 端末の NUDGE_KEY。書けない端末では ひらいている あいだ 1回）。
+   ポップアップ・シート・はじめての画面・おせわの とちゅうは まつ。時刻は ルールの時計（LINE版で つながっているときは サーバーの 日本時間）。
+   セーブ（S）は かえない */
+const NUDGE_HOUR = 21;
+const NUDGE_KEY = 'uchinoko-biyori:nudge-day';
+const Nudge = {
+  shown:'', t:null,
+  hour(){ return typeof Clock.hour === 'function' ? Clock.hour() : new Date(now()).getHours(); },
+  later(ms = 3500){ clearTimeout(this.t); this.t = setTimeout(() => this.check(), ms); },
+  busy(){
+    const ob = document.getElementById('onboard');
+    return Pet.busy || dragging || Onboard.busy || Modal.busy || Modal.q.length > 0 || (ob && !ob.hidden)
+      || $('#sheetWrap').classList.contains('open') || (typeof Act.waiting === 'function' && Act.waiting());
+  },
+  check(){
+    clearTimeout(this.t);
+    if (!S || !Game.started || document.hidden || this.hour() < NUDGE_HOUR) return;
+    const day = dayKey();
+    if (this.shown === day) return;
+    let seen = '';
+    try { seen = localStorage.getItem(NUDGE_KEY) || ''; } catch(e){}
+    if (seen === day){ this.shown = day; return; }
+    if (this.busy()){ this.later(4000); return; }
+    const n = reqLeft();
+    if (!n) return;
+    this.shown = day;
+    try { localStorage.setItem(NUDGE_KEY, day); } catch(e){}
+    const si = streakInfo();
+    const lines = ['もうすぐ きょうが おわるよ', `おねがい、あと${n}つ！`];
+    if (si.pinch && si.n > 0) lines.push(`れんぞく ${si.n}日が ピンチ！`);
+    Pet.wake(); Pet.setExpr(null);
+    lastChat = now();   /* ふだんの ひとりごとで うわがき しない */
+    lines.forEach((l, i) => setTimeout(() => { if (!Modal.busy && !Pet.busy){ Pet.say(l, 3000); lastChat = now(); } }, 400 + i * 3100));
+    const b = $('#reqBadge');
+    if (b){ b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge'); setTimeout(() => b.classList.remove('nudge'), 3600); }
+  },
+};
+
 /* ===== lifecycle hooks ===== */
 const Features = {
   /* the album's first page, milestones, the season's event, a souvenir and the streak notices come from the rules (Act.open) */
@@ -3546,12 +3599,14 @@ const Features = {
     renderReqBadge();
     Persist.schedule();
     Act.open(away);
+    Nudge.later();
   },
   resume(away){
     ensureDaily();
     renderReqBadge();
     renderSeason();
     Act.open(away);
+    Nudge.later();
   },
   hint(){
     if (!S || !S.daily || Math.random() > .35) return null;

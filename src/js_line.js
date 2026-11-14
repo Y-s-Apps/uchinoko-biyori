@@ -18,7 +18,11 @@
    - うちのこカード（LineCard）：プロフィールの「うちのこカードを おくる」。この端末で カードの絵（きせかえを着た うちのこ＋おへや＋季節のわく。
      写真と文字は入れない）を PNG にして見本を出し、「おくる」で POST /card（サーバーが Storage に1年おく。1人1日3まい）→ liff.shareTargetPicker()。
    - おしらせ（LineNotice）：ポリシー・規約の 大事な変更や、本サービスを終えるときの知らせ。LineNotice.list に書いておくと、
-     まだ見ていない人に ひらいたとき 1回だけ ポップアップで出す（サーバーは使わない。ゲストにも出る。診断 5-6）。 */
+     まだ見ていない人に ひらいたとき 1回だけ ポップアップで出す（サーバーは使わない。ゲストにも出る。診断 5-6）。
+   - よるの おしらせ（LineNotify）：きょうの おねがいが のこっている 日の 21時に、LINE公式アカウント「うちのこ日和」から メッセージ
+     （サーバーが Supabase Cron で おくる）。プロフィールの スイッチで オン・オフ（はじめは オフ。おねがいを ぜんぶ かなえた日に 1回だけ さそう）。
+     オンに したら liff.requestFriendship() で 公式アカウントの 友だち追加を うながす（友だちかどうかは 見ない＝profile の スコープを つかわない）。
+     3つの版の「よるの ひとこと」（js_features.js の Nudge）とは べつ。 */
 const LINE_CFG = {
   sdk:'https://static.line-scdn.net/liff/edge/2/sdk.js',  /* エッジパス：v2 の最新版が自動で入る（古い版に固定しない） */
   /* LINEミニアプリの内部チャネル（本番用・審査用・開発用）ごとの LIFF ID（秘密ではない。前の数字がチャネルID）。
@@ -39,6 +43,9 @@ const LINE_CFG = {
   cardMax:800000,   /* POST /card に送る data URL の長さの上限（サーバーは PNG 600KB まで＝base64 で 800000 文字。こえたら 576×768 で作りなおす） */
   reopenGap:10 * 60e3,  /* IDトークンが切れたときに LIFF URL から ひらきなおすのは、この間に1回まで（くりかえさない） */
   reopenWait:8000,      /* ひらきなおすとき、ページが うつるのを まつ上限（うつらなければ「つながれません」にする） */
+  /* よるの おしらせの LINE公式アカウントの ベーシックID（@…。秘密ではない）。liff.requestFriendship() が つかえない LINE のときに
+     友だち追加の ページ（https://line.me/R/ti/p/@…）を ひらく。空なら ひらかない（ミニアプリに つないだ公式アカウントは LINE が えらぶ） */
+  oaId:'',
 };
 LINE_CFG.shareUrl = 'https://miniapp.line.me/' + LINE_CFG.liffIds.prod;
 /* この画面が どの内部チャネルのものか（ひらいた場所の さいしょのフォルダ。/dev/ と /review/ のほかは本番用） */
@@ -215,6 +222,8 @@ const LineApp = {
         p.textContent = (LINE_CH === 'dev' ? '［開発用］' : '') + text;   /* 開発用の画面だと わかるように（本番用・審査用には出さない） */
         p.dataset.why = this.whyCode();
       }
+      /* よるの おしらせの スイッチ：サーバーに つながっていて、おくれる（サーバーに トークンが ある）ときだけ。ボタンの上に */
+      LineNotify.paint(sh);
       /* うちのこカード：サーバーに つながっていて、この LINE で シェアが使えるときだけ。「引っこし・バックアップ」の上に */
       const mv = sh.querySelector('#menuBtns #mMove');
       let cb = sh.querySelector('#mCard');
@@ -269,6 +278,7 @@ const LineServer = {
   token:null, member:null, importable:false,
   ai:null,            /* AIの読みとり：{ on, left, perDay }（サーバーが数える） */
   card:null,          /* うちのこカード：{ on, left, perDay }（サーバーが数える） */
+  notify:null,        /* よるの おしらせ：{ on:null|true|false, ready, hour }（サーバーの members.notify） */
   /* opt：{ timeout, signal }（signal で とめたら 'cancelled'） */
   async call(method, path, body, again = true, opt = {}){
     if (LineSync.state === 'left') throw lineErr('left');   /* やめたあとは、だまって つなぎなおさない（新しい会員を作らない） */
@@ -319,6 +329,7 @@ const LineServer = {
     this.token = r.token; this.member = r.member.id; this.importable = !!r.member.importable;
     this.ai = lineAiStatus(r.ai);
     this.card = lineAiStatus(r.card);
+    this.notify = lineNotifyStatus(r.notify);
     lineServerClock(r.now);
     return r;
   },
@@ -329,6 +340,8 @@ function lineServerClock(serverNow){
   const off = Number(serverNow) - Date.now();
   if (!Number.isFinite(off)) return;
   Clock.now = () => Date.now() + off;
+  /* よるの ひとこと（Nudge）の 時刻も 日本時間 */
+  Clock.hour = function(t){ return new Date((t == null ? this.now() : Number(t)) + 9 * 3600e3).getUTCHours(); };
   Clock.dayKey = function(t){
     const ms = t == null ? this.now() : (t instanceof Date ? t.getTime() : Number(t));
     const d = new Date(ms + 9 * 3600e3);
@@ -1285,6 +1298,99 @@ Game.refresh = function(){
   LineFrame.paint();   /* サーバーの返事で みためが かわったとき */
 };
 
+/* ----- よるの おしらせ（LINE の メッセージ。2026-11-14 オーナー決定） -----
+   サーバー（members.notify）が オンの人に、きょうの おねがいが のこっている 日の 21時、LINE公式アカウント「うちのこ日和」から 1通。
+   ここでは オン・オフ（プロフィールの スイッチ）と、1回だけの さそい（おねがいを ぜんぶ かなえた ポップアップの あと。まだ きいていない＝null の人）。
+   オンに したら liff.requestFriendship()（公式アカウントの 友だち追加・ブロックの 解除を うながす。もう 友だちなら すぐ とじる）。
+   友だちに ならないと とどかない（友だちかどうかは 見ない） */
+function lineNotifyStatus(n){
+  if (!n || typeof n !== 'object') return null;
+  const h = Math.floor(Number(n.hour));
+  return { on:n.on === true ? true : n.on === false ? false : null, ready:!!n.ready, hour:h >= 0 && h <= 23 ? h : 21 };
+}
+const LineNotify = {
+  busy:false, asked:false,
+  /* つかえるか：LINEの中で サーバーに つながり、LINEに 子がいて、サーバーが おくれる（トークンが ある） */
+  available(){ return LineSync.state === 'on' && !!LineServer.member && LineSync.created != null && !!(LineServer.notify && LineServer.notify.ready); },
+  on(){ return LineServer.notify ? LineServer.notify.on : null; },
+  hour(){ return LineServer.notify ? LineServer.notify.hour : 21; },
+  async set(on){
+    if (this.busy) return false;
+    this.busy = true;
+    LineApp.paint();
+    try {
+      const r = await LineServer.call('POST', '/notify', { on });
+      const st = lineNotifyStatus(r && r.notify);
+      if (st) LineServer.notify = st;
+      return true;
+    } catch(e){
+      toast('いまは かえられませんでした。\nすこし あとで ためしてね');
+      return false;
+    } finally { this.busy = false; LineApp.paint(); }
+  },
+  /* 公式アカウントの 友だち追加（ブロック中なら 解除）を うながす。つかえない LINE では ベーシックIDの ページ（あれば） */
+  async friend(){
+    try {
+      if (window.liff && typeof liff.requestFriendship === 'function'){ await liff.requestFriendship(); return true; }
+    } catch(e){}
+    if (LINE_CFG.oaId){
+      try { liff.openWindow({ url:'https://line.me/R/ti/p/' + encodeURIComponent(LINE_CFG.oaId), external:false }); return true; } catch(e){}
+    }
+    return false;
+  },
+  async turnOn(){
+    if (!await this.set(true)) return;
+    await this.friend();
+    toast(`よるの おしらせを オンに したよ。\n${this.hour()}時に LINEで おしらせします`);
+  },
+  async turnOff(){
+    if (await this.set(false)) toast('よるの おしらせを オフに したよ');
+  },
+  /* プロフィールの スイッチ（なければ 作る・つかえなければ けす） */
+  paint(sh){
+    const box = sh.querySelector('#menuBtns');
+    let row = sh.querySelector('#mNotify');
+    if (!box || !this.available()){ if (row) row.remove(); return; }
+    const on = this.on() === true;
+    if (!row){
+      row = document.createElement('div');
+      row.id = 'mNotify'; row.className = 'nrow';
+      row.innerHTML = `<div class="nline"><span class="ntext"><b>よるの おしらせ（LINE）</b><small></small></span>
+        <button type="button" class="nsw" role="switch" aria-label="よるの おしらせ（LINE）"></button></div>
+        <p class="nnote">LINE公式アカウント「うちのこ日和」を 友だちに すると とどきます。<button type="button" class="linkbtn inline nfriend">友だちに する</button></p>`;
+      row.querySelector('.nsw').addEventListener('click', () => { if (!this.busy) (this.on() === true ? this.turnOff() : this.turnOn()); });
+      row.querySelector('.nfriend').addEventListener('click', () => this.friend());
+      box.insertAdjacentElement('beforebegin', row);
+    }
+    const sw = row.querySelector('.nsw');
+    if (sw.getAttribute('aria-checked') !== String(on)) sw.setAttribute('aria-checked', String(on));
+    sw.disabled = this.busy;
+    const small = row.querySelector('small'), text = `おねがいが のこっている 日の ${this.hour()}時に`;
+    if (small.textContent !== text) small.textContent = text;
+    const note = row.querySelector('.nnote');
+    if (note.hidden === on) note.hidden = !on;
+  },
+  /* 1回だけの さそい（ぜんぶ かなえた ポップアップの あとに ならぶ）。「いらない」は オフ（もう さそわない）、とじただけなら また こんど */
+  invite(){
+    if (this.asked || !this.available() || this.on() !== null) return;
+    this.asked = true;
+    Modal.show({
+      label:'よるの おしらせ', cls:'notifyask',
+      html:() => `${petCard()}<h3>よるの おしらせを<br>LINEで うけとる？</h3>
+        <p>きょうの おねがいが のこっている 日は、${this.hour()}時に LINEで おしらせします。</p>
+        <p class="note">LINE公式アカウント「うちのこ日和」を 友だちに すると とどきます。オン・オフは プロフィールで かえられます。</p>
+        <div class="btnrow"><button class="btn" type="button" data-close="no">いらない</button><button class="btn primary" type="button" data-close="yes">うけとる</button></div>`,
+    }).then(v => {
+      if (v === 'yes') this.turnOn();
+      else if (v === 'no') this.set(false);
+      else this.asked = false;
+    });
+  },
+};
+/* きょうの おねがいを ぜんぶ かなえた ポップアップの あとに さそう（まだ きいていない人に 1回） */
+const lineAllDoneModal = allDoneModal;
+allDoneModal = function(e){ lineAllDoneModal(e); setTimeout(() => LineNotify.invite(), 1300); };
+
 /* ----- おしらせ（診断 5-6） -----
    プライバシーポリシー・利用規約の「大事な変更は 本サービスの中でも知らせます」「終えるときは 30日以上前に 本サービスの中で知らせます」の しくみ。
    そのときは ポリシー・規約を直す コミットで、list に 1つ足す（id は つかいまわさない。足したら docs/PROJECT.md 10章にも書く）：
@@ -1295,7 +1401,11 @@ Game.refresh = function(){
    「わかった」などで とじたら 見たことにする（id を 端末の LINE_NOTICE_KEY に。新しい じゅんに 50まで。消えても また出るだけ） */
 const LINE_NOTICE_KEY = 'uchinoko-biyori:line-notice';
 const LineNotice = {
-  list:[],
+  list:[
+    /* 2026-11-14：よるの おしらせ（LINE の メッセージ）を はじめた（プライバシーポリシー 1.(2)・1.(8)・2.・5.・6.・7.・8.、利用規約 第5条の2） */
+    { id:'2026-11-notify', from:'2026-11-14', until:'2026-12-14', title:'よるの おしらせが できました',
+      text:'きょうの おねがいが のこっている 日の 21時に、LINEで おしらせを うけとれます。プロフィールの スイッチで オンに してね。プライバシーポリシーと 利用規約に 書きたしました。', link:'privacy' },
+  ],
   shown:false,
   seen(){
     try { const a = JSON.parse(localStorage.getItem(LINE_NOTICE_KEY) || '[]'); return Array.isArray(a) ? a.filter(x => typeof x === 'string') : []; }

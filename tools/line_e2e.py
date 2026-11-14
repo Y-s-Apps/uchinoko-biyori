@@ -32,8 +32,8 @@ BIN = os.path.join(TOOLS, 'node_modules', '.bin')
 FN = os.path.join(ROOT, 'supabase', 'functions', 'api', 'index.ts')
 CFG = os.path.join(ROOT, 'supabase', 'functions', 'api', 'deno.local.json')
 MIGDIR = os.path.join(ROOT, 'supabase', 'migrations')
-# 表のマイグレーション（pg_net は本物の Supabase の確認用なので、PGlite には入れない）。カンマでつないで渡す
-MIG = ','.join(os.path.join(MIGDIR, f) for f in sorted(os.listdir(MIGDIR)) if f.endswith('.sql') and 'pg_net' not in f)
+# 表のマイグレーション（pg_net は本物の Supabase の確認用、cron は pg_cron・pg_net を使うので、PGlite には入れない）。カンマでつないで渡す
+MIG = ','.join(os.path.join(MIGDIR, f) for f in sorted(os.listdir(MIGDIR)) if f.endswith('.sql') and 'pg_net' not in f and 'cron' not in f)
 API = 'https://ftakgswltcavwixqxpzi.supabase.co/functions/v1/api'
 PAGE_PORT = 8765
 OUT = os.path.join(ROOT, 'smoke-out', 'line-e2e')
@@ -41,6 +41,8 @@ OUT = os.path.join(ROOT, 'smoke-out', 'line-e2e')
 
 # 3-9：サーバーが busy で ことわったときの ひとこと（js_app.js の careRefused と そろえる）
 BUSY_WORDS = 'いまのは かぞえられなかったよ。'
+# アプリの中の おしらせ（js_line.js の LineNotice.list の id）。ふつうの場面では もう見たことにする
+NOTICE_IDS = ['2026-11-notify']
 
 
 def free_port():
@@ -142,8 +144,9 @@ async def browser_tests(srv_port):
     async with async_playwright() as p:
         browser = await p.chromium.launch()
 
-        async def open_page(sub, local=None, external=False, server_down=False, owner=None, skew_ms=0, keys=None, path='/', id_token=None, fail=None, lose=None):
+        async def open_page(sub, local=None, external=False, server_down=False, owner=None, skew_ms=0, keys=None, path='/', id_token=None, fail=None, lose=None, notice_seen=True):
             """id_token：getIDToken() が返す JS の式（既定は sub の とおるトークン）。
+            notice_seen：アプリの中の おしらせ（LineNotice.list）を もう見たことにする（ふつうの場面で ポップアップが じゃまを しないように。20 は False で 見る）。
             fail：{'/import': 2} のように、その口への通信を はじめの N 回 とどかなくする（あとから 0 に できる）。
             lose：{'/act': 1} のように、サーバーには とどけて 返事だけ はじめの N 回 なくす（3-3）"""
             ctx = await browser.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True,
@@ -157,7 +160,8 @@ async def browser_tests(srv_port):
             liff = ("window.liff={init:o=>{window.__liffId=o&&o.liffId;return Promise.resolve()},isInClient:()=>%s,getOS:()=>'ios',getIDToken:()=>(%s),getAccessToken:()=>'e2e-access-token',"
                     "logout:()=>{localStorage.setItem('e2e-logout',String(1+Number(localStorage.getItem('e2e-logout')||0)))},"
                     "isApiAvailable:n=>n==='shareTargetPicker'&&!window.__noStp,"
-                    "shareTargetPicker:(m,o)=>{(window.__shared=window.__shared||[]).push({m:m,o:o});return Promise.resolve(window.__stpCancel?undefined:{status:'success'})}};"
+                    "shareTargetPicker:(m,o)=>{(window.__shared=window.__shared||[]).push({m:m,o:o});return Promise.resolve(window.__stpCancel?undefined:{status:'success'})},"
+                    "requestFriendship:()=>{window.__friend=(window.__friend||0)+1;return Promise.resolve()}};"
                     % ('false' if external else 'true', id_token or json.dumps(token(sub))))
             await page.route('https://static.line-scdn.net/**', lambda r: r.fulfill(status=200, content_type='application/javascript', body=liff))
 
@@ -192,6 +196,8 @@ async def browser_tests(srv_port):
                 init.append("localStorage.setItem('uchinoko-biyori:v1', %s);" % json.dumps(json.dumps(local, ensure_ascii=False)))
             if owner:
                 init.append("localStorage.setItem('uchinoko-biyori:line-owner', %s);" % json.dumps(owner))
+            if notice_seen and 'uchinoko-biyori:line-notice' not in (keys or {}):
+                init.append("localStorage.setItem('uchinoko-biyori:line-notice', JSON.stringify(%s));" % json.dumps(NOTICE_IDS))
             for k, v in (keys or {}).items():
                 if v is not None:
                     init.append("localStorage.setItem(%s, %s);" % (json.dumps(k), json.dumps(v)))
@@ -911,7 +917,7 @@ async def browser_tests(srv_port):
         g = await page.evaluate('''() => { const l = LineNotice.later; window.__later = 0; LineNotice.later = () => { window.__later++; };
             Game.start('ただいま！'); LineNotice.later = l; return { later: window.__later, list: LineNotice.list.length,
             seen: localStorage.getItem('uchinoko-biyori:line-notice') }; }''')
-        ok(g['later'] == 1 and g['list'] == 0 and g['seen'] is None, 'おへやが出ると おしらせを 見にいく（いまは おしらせなし＝なにも出ない）', g)
+        ok(g['later'] == 1 and g['list'] == len(NOTICE_IDS) and json.loads(g['seen'] or '[]') == NOTICE_IDS, 'おへやが出ると おしらせを 見にいく（もう見た おしらせは 出ない）', g)
         await close_popups(page)
         await page.evaluate('''() => { window.__opened = null; LineDocs.open = n => { window.__opened = n; };
             LineNotice.list = [{ id:'t-old', title:'おわった おしらせ', until:'2000-01-01' }, { id:'t-future', title:'まだの おしらせ', from:'2999-01-01' },
@@ -927,7 +933,7 @@ async def browser_tests(srv_port):
         await page.click('.levelup [data-close="more"]'); await page.wait_for_timeout(700)
         g = await page.evaluate('''() => { LineNotice.check(); return { opened: window.__opened, seen: JSON.parse(localStorage.getItem('uchinoko-biyori:line-notice') || '[]'),
             open: !!document.querySelector('.levelup .card') }; }''')
-        ok(g['opened'] == 'privacy' and g['seen'] == ['t-1'] and not g['open'], '「くわしく」で ポリシーを ひらき、見たことになる（この回は もう出さない）', g)
+        ok(g['opened'] == 'privacy' and g['seen'] == ['t-1'] + NOTICE_IDS and not g['open'], '「くわしく」で ポリシーを ひらき、見たことになる（この回は もう出さない）', g)
         await page.reload(); await page.wait_for_timeout(2600)
         await close_popups(page)
         await page.evaluate('''() => { LineNotice.list = [{ id:'t-1', title:'プライバシーポリシーを かえます' }, { id:'t-2', title:'つぎの おしらせ' }];
@@ -937,7 +943,7 @@ async def browser_tests(srv_port):
         ok('つぎの おしらせ' in g['text'] and 'プライバシーポリシーを かえます' not in g['text'] and not g['more'], 'つぎに ひらくと、見た おしらせは出ず つぎの おしらせ（link なしは「くわしく」なし）', g)
         await page.click('.levelup .btn.primary'); await page.wait_for_timeout(600)
         seen = await page.evaluate("JSON.parse(localStorage.getItem('uchinoko-biyori:line-notice') || '[]')")
-        ok(seen == ['t-2', 't-1'], '「わかった」でも 見たことになる', seen)
+        ok(seen == ['t-2', 't-1'] + NOTICE_IDS, '「わかった」でも 見たことになる', seen)
         await page.evaluate("() => { LineNotice.list = [{ id:'t-3', title:'はじめての画面の あとの おしらせ' }]; LineNotice.shown = false; Onboard.openNew(true); LineNotice.check(); }")
         await page.wait_for_timeout(700)
         during = await page.evaluate("() => !!document.querySelector('.levelup .card')")
@@ -946,6 +952,73 @@ async def browser_tests(srv_port):
         after_ob = await page.evaluate("() => { const c = document.querySelector('.levelup .card'); return c ? c.textContent : ''; }")
         ok(not during and 'はじめての画面の あとの おしらせ' in after_ob, 'はじめての画面の 上には 出さず、とじてから 出す', {'during': during, 'after': after_ob[:80]})
         all_errs += errs; await ctx.close()
+        ctx, page, errs, calls = await open_page('Uone', owner=one['id'], notice_seen=False)
+        await page.wait_for_timeout(1800)
+        g = await page.evaluate('''() => { const c = document.querySelector('.levelup .card'); return { text: c ? c.textContent.replace(/\\s+/g, ' ') : '', more: !!(c && c.querySelector('[data-close="more"]')) }; }''')
+        ok('よるの おしらせが できました' in g['text'] and '21時' in g['text'] and g['more'], 'まだ見ていない人には いまの おしらせ（よるの おしらせ）が 出る', g)
+        await snap(page, 'notice_notify')
+        await page.click('.levelup .btn.primary'); await page.wait_for_timeout(600)
+        seen = await page.evaluate("JSON.parse(localStorage.getItem('uchinoko-biyori:line-notice') || '[]')")
+        ok(seen == NOTICE_IDS, '見たら もう出ない', seen)
+        all_errs += errs; await ctx.close()
+
+        print('21. よるの おしらせ（LINE の メッセージ：プロフィールの スイッチ・1回だけの さそい・友だち追加）')
+        notif = lambda: next((r['notify'] for r in dbg('/__debug/notify')['rows'] if r['sub'] == 'Uone'), 'none')
+        dbg('/__debug/notify', {'sub': 'Uone', 'on': None})
+        ctx, page, errs, calls = await open_page('Uone', owner=one['id'])
+        await close_popups(page)
+        await page.click('#menuBtn'); await page.wait_for_timeout(500)
+        row_js = '''() => { const r = document.querySelector('#sheet #mNotify'); if (!r) return null; const sw = r.querySelector('.nsw');
+            return { checked: sw.getAttribute('aria-checked'), small: r.querySelector('small').textContent, note: !r.querySelector('.nnote').hidden,
+              before: r.nextElementSibling && r.nextElementSibling.id, friend: window.__friend || 0, toast: document.querySelector('#toast').textContent }; }'''
+        g = await page.evaluate(row_js)
+        ok(g and g['checked'] == 'false' and g['small'] == 'おねがいが のこっている 日の 21時に' and not g['note'] and g['before'] == 'menuBtns',
+           'プロフィールに スイッチ（はじめは オフ、ボタンの上）', g)
+        await page.click('#sheet #mNotify .nsw'); await page.wait_for_timeout(900)
+        g = await page.evaluate(row_js)
+        ok(g['checked'] == 'true' and g['note'] and g['friend'] == 1 and 'オンに したよ' in g['toast'] and notif() is True,
+           'オンに すると サーバーに のこり、公式アカウントの 友だち追加を うながす（requestFriendship）', {**g, 'server': notif()})
+        await snap(page, 'notify_switch')
+        await page.click('#sheet #mNotify .nfriend'); await page.wait_for_timeout(400)
+        ok((await page.evaluate('window.__friend')) == 2, '「友だちに する」で もう一度 うながせる')
+        await page.wait_for_timeout(1100)
+        await page.click('#sheet #mNotify .nsw'); await page.wait_for_timeout(900)
+        g = await page.evaluate(row_js)
+        ok(g['checked'] == 'false' and not g['note'] and notif() is False and 'オフに したよ' in g['toast'], 'もう一度 押すと オフ', {**g, 'server': notif()})
+        await page.click('#sheet [data-close]'); await page.wait_for_timeout(400)
+        all_errs += errs; await ctx.close()
+        for choice, want in (('yes', True), ('no', False)):
+            dbg('/__debug/notify', {'sub': 'Uone', 'on': None})
+            ctx, page, errs, calls = await open_page('Uone', owner=one['id'])
+            await close_popups(page)
+            await page.evaluate("() => allDoneModal({})"); await page.wait_for_timeout(1800)
+            first = await page.evaluate("() => (document.querySelector('.levelup .card') || {}).textContent || ''")
+            await page.click('.levelup .btn.primary'); await page.wait_for_timeout(700)
+            ask = await page.evaluate("() => { const c = document.querySelector('.levelup .notifyask'); return c ? c.textContent.replace(/\\s+/g, ' ') : ''; }")
+            ok('ぜんぶかなえた' in first and 'LINEで うけとる？' in ask and '21時に LINEで おしらせします' in ask, f'{choice}：ぜんぶ かなえた ポップアップの あとに 1回だけ さそう', {'first': first[:40], 'ask': ask})
+            if choice == 'yes':
+                await snap(page, 'notify_invite')
+            await page.click(f'.levelup [data-close="{choice}"]'); await page.wait_for_timeout(1000)
+            friend = await page.evaluate('window.__friend || 0')
+            ok(notif() is want and friend == (1 if want else 0), f'{choice}：サーバーは {want}（うけとる なら 友だち追加を うながす）', {'server': notif(), 'friend': friend})
+            await page.evaluate("() => allDoneModal({})"); await page.wait_for_timeout(1800)
+            await page.click('.levelup .btn.primary'); await page.wait_for_timeout(700)
+            again = await page.evaluate("() => !!document.querySelector('.levelup .notifyask')")
+            ok(not again, f'{choice}：もう さそわない', again)
+            all_errs += errs; await ctx.close()
+        # LINEの外・サーバーが おくれない（トークンが ない）ときは スイッチを 出さない
+        ctx, page, errs, calls = await open_page('Ugst21', local=sample('ゲスト'), external=True)
+        await close_popups(page)
+        await page.click('#menuBtn'); await page.wait_for_timeout(500)
+        ok(await page.evaluate(row_js) is None, 'LINEの外では スイッチなし')
+        all_errs += errs; await ctx.close()
+        dbg('/__debug/notify', {'token': ''})
+        ctx, page, errs, calls = await open_page('Uone', owner=one['id'])
+        await close_popups(page)
+        await page.click('#menuBtn'); await page.wait_for_timeout(500)
+        ok(await page.evaluate(row_js) is None, 'サーバーに トークンが ないときも スイッチなし')
+        all_errs += errs; await ctx.close()
+        dbg('/__debug/notify', {'token': 'e2e-push'})
 
         await browser.close()
     httpd.shutdown()

@@ -585,6 +585,47 @@ function openAlbum(tab){
   });
 }
 
+/* ===== よるの ひとこと（通知の「画面の中の お知らせ」。3つの版。2026-11-14 オーナー決定 案A） =====
+   NUDGE_HOUR（21時）から 0時までに ひらいているとき・ひらいたとき・もどってきたとき、きょうの おねがいが のこっていたら、
+   うちのこが ふきだしで「もうすぐ きょうが おわるよ」→「おねがい、あと◯つ！」（ピンチの日は「れんぞく ◯日が ピンチ！」も）と言い、
+   おねがいの バッジが はねる。1日1回（見せた日は 端末の NUDGE_KEY。書けない端末では ひらいている あいだ 1回）。
+   ポップアップ・シート・はじめての画面・おせわの とちゅうは まつ。時刻は ルールの時計（LINE版で つながっているときは サーバーの 日本時間）。
+   セーブ（S）は かえない */
+const NUDGE_HOUR = 21;
+const NUDGE_KEY = 'uchinoko-biyori:nudge-day';
+const Nudge = {
+  shown:'', t:null,
+  hour(){ return typeof Clock.hour === 'function' ? Clock.hour() : new Date(now()).getHours(); },
+  later(ms = 3500){ clearTimeout(this.t); this.t = setTimeout(() => this.check(), ms); },
+  busy(){
+    const ob = document.getElementById('onboard');
+    return Pet.busy || dragging || Onboard.busy || Modal.busy || Modal.q.length > 0 || (ob && !ob.hidden)
+      || $('#sheetWrap').classList.contains('open') || (typeof Act.waiting === 'function' && Act.waiting());
+  },
+  check(){
+    clearTimeout(this.t);
+    if (!S || !Game.started || document.hidden || this.hour() < NUDGE_HOUR) return;
+    const day = dayKey();
+    if (this.shown === day) return;
+    let seen = '';
+    try { seen = localStorage.getItem(NUDGE_KEY) || ''; } catch(e){}
+    if (seen === day){ this.shown = day; return; }
+    if (this.busy()){ this.later(4000); return; }
+    const n = reqLeft();
+    if (!n) return;
+    this.shown = day;
+    try { localStorage.setItem(NUDGE_KEY, day); } catch(e){}
+    const si = streakInfo();
+    const lines = ['もうすぐ きょうが おわるよ', `おねがい、あと${n}つ！`];
+    if (si.pinch && si.n > 0) lines.push(`れんぞく ${si.n}日が ピンチ！`);
+    Pet.wake(); Pet.setExpr(null);
+    lastChat = now();   /* ふだんの ひとりごとで うわがき しない */
+    lines.forEach((l, i) => setTimeout(() => { if (!Modal.busy && !Pet.busy){ Pet.say(l, 3000); lastChat = now(); } }, 400 + i * 3100));
+    const b = $('#reqBadge');
+    if (b){ b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge'); setTimeout(() => b.classList.remove('nudge'), 3600); }
+  },
+};
+
 /* ===== lifecycle hooks ===== */
 const Features = {
   /* the album's first page, milestones, the season's event, a souvenir and the streak notices come from the rules (Act.open) */
@@ -595,12 +636,14 @@ const Features = {
     renderReqBadge();
     Persist.schedule();
     Act.open(away);
+    Nudge.later();
   },
   resume(away){
     ensureDaily();
     renderReqBadge();
     renderSeason();
     Act.open(away);
+    Nudge.later();
   },
   hint(){
     if (!S || !S.daily || Math.random() > .35) return null;
