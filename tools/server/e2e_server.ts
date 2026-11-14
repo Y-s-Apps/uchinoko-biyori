@@ -117,7 +117,8 @@ serve({ port:Number(PORT), hostname:'127.0.0.1', onListen(){ console.log('e2e se
   if (u.pathname === '/__debug/state'){
     const rows = await admin`select a.sub, m.id, m.imported_at is not null as imported, s.rev::int as rev,
       s.data->'pet'->>'name' as name, s.data->'pet'->'photo' as photo, (s.data->>'created')::bigint as created,
-      (s.data->'stats'->>'love')::float as love, (s.data->'counts'->>'meals')::int as meals, (s.data->'counts'->>'pets')::int as pets
+      (s.data->'stats'->>'love')::float as love, (s.data->'counts'->>'meals')::int as meals, (s.data->'counts'->>'pets')::int as pets,
+      (select b.data->'pet'->>'name' from app.save_backups b where b.member_id = m.id) as backup
       from app.line_accounts a join app.members m on m.id = a.member_id left join app.saves s on s.member_id = m.id order by a.sub`;
     return j(rows);
   }

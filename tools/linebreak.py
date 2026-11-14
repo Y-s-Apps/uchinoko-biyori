@@ -28,6 +28,15 @@ class Quiet(http.server.SimpleHTTPRequestHandler):
         pass
 
 
+def line_notice_ids():
+    """いまの おしらせ（src/js_line.js の LineNotice.list）の id。LINE版を ひらく前に「見た」に しておく
+    （おしらせは ひらいて 1.5秒あとに 出るので、おそい 環境では 道具の 片づけ〈1.4秒〉の あとに のこり、つぎの 場面が 止まっていた。
+    さいごのチェック F5-1）。おしらせの 場面（line_notice_now・line_notice）は 自分で けしてから 出す"""
+    with open(os.path.join(ROOT, 'src', 'js_line.js'), encoding='utf-8') as f:
+        m = re.search(r'const LineNotice = \{.*?\n  list:\[(.*?)\],\n', f.read(), re.S)
+    return re.findall(r"\bid:'([^']+)'", m.group(1)) if m else []
+
+
 def serve(root):
     httpd = socketserver.TCPServer(('127.0.0.1', 0), functools.partial(Quiet, directory=root))
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
@@ -232,8 +241,9 @@ def scenes(line):
                 "LineServer.call=async()=>({card:{on:true,left:%d,perDay:3}}); LineCard.busy=false; LineCard.start()")
         add('line_card', card % (2, 2), '.levelup .card', 1500)
         add('line_card_none', card % (0, 0), '.levelup .card', 1500)
-        # いまの おしらせ（LineNotice.list の ほんもの。下の 見本で list を 入れかえる前に）
-        add('line_notice_now', "localStorage.removeItem(LINE_NOTICE_KEY); LineNotice.shown=false; LineNotice.check()", '.levelup .card')
+        # いまの おしらせ（LineNotice.list の ほんもの。下の 見本で list を 入れかえる前に。いまは 0こ＝F3-3）
+        if line_notice_ids():
+            add('line_notice_now', "localStorage.removeItem(LINE_NOTICE_KEY); LineNotice.shown=false; LineNotice.check()", '.levelup .card')
         # おしらせ（診断 5-6）：ポリシーを かえるとき・本サービスを終えるとき の 文の 見本
         for n in ["{id:'lb1', title:'プライバシーポリシーを かえます', when:'2027年1月15日から', text:'AIの 読みとりに つかう 会社を かえます。くわしくは プライバシーポリシーを 見てね。', link:'privacy'}",
                   "{id:'lb2', title:'うちのこ日和を おわります', when:'2027年3月31日まで', text:'それまでに「引っこし・バックアップ」の 引っこしコードで、ホーム画面の アプリなどへ つれていけます。', link:'terms'}",
@@ -276,12 +286,15 @@ async def run(args, width):
         page = await ctx.new_page()
         page.on('pageerror', lambda e: errors.append(str(e)))
         cur = {'pet': None}
+        notice_ids = line_notice_ids() if args.line else []
 
         async def load(pet):
             if cur['pet'] is pet:
                 return
             await page.goto(f'http://127.0.0.1:{port}/about:blank')
             await page.evaluate("Object.keys(localStorage).filter(k => k.startsWith('uchinoko-biyori:')).forEach(k => localStorage.removeItem(k)); sessionStorage.clear()")
+            if notice_ids:
+                await page.evaluate('ids => localStorage.setItem("uchinoko-biyori:line-notice", JSON.stringify(ids))', notice_ids)
             if pet:
                 st = sample_state()
                 st['pet']['name'] = 'だいず'

@@ -42,7 +42,7 @@ OUT = os.path.join(ROOT, 'smoke-out', 'line-e2e')
 # 3-9：サーバーが busy で ことわったときの ひとこと（js_app.js の careRefused と そろえる）
 BUSY_WORDS = 'いまのは かぞえられなかったよ。'
 # アプリの中の おしらせ（js_line.js の LineNotice.list の id）。ふつうの場面では もう見たことにする
-NOTICE_IDS = ['2026-11-notify']
+NOTICE_IDS = []   # 2026-11-15：`2026-11-notify` は リリースの前に はずした（さいごのチェック F3-3）。20 は ためしの おしらせで 見る
 
 
 def free_port():
@@ -461,6 +461,31 @@ async def browser_tests(srv_port):
         await page.focus('#pet'); await page.keyboard.press('Enter'); await page.wait_for_timeout(1500)
         i3 = await info(page)
         ok(i3['love'] == i['love'], 'なでても なかよしはかわらない', i3)
+        all_errs += errs; await ctx.close()
+
+        print('8c. よるに サーバーに つながれなくても、よるの ひとことで「つながっていません」が かってに 出ない（さいごのチェック F3-1）')
+        ctx, page, errs, calls = await open_page('Uthree', local=mirror, owner=three['id'], server_down=True)
+        await close_popups(page)
+        g = await page.evaluate('''() => { window.__later = 0; const l = Nudge.later.bind(Nudge); Nudge.later = ms => { window.__later++; l(ms); };
+            Clock.hour = () => 21; localStorage.removeItem('uchinoko-biyori:nudge-day'); Nudge.shown = '';
+            document.querySelector('#toast').textContent = ''; Nudge.check();
+            return { why: Act.blocked(), left: reqLeft(), later: window.__later }; }''')
+        await page.wait_for_timeout(9000)   # 前は 4秒ごとに また ポップアップが 出ていた
+        g2 = await page.evaluate('''() => ({ wait: !!document.querySelector('.levelup .card[aria-label="つながるまで まってね"]'), modal: !!document.querySelector('.levelup .card'),
+            toast: document.querySelector('#toast').textContent, later: window.__later, day: localStorage.getItem('uchinoko-biyori:nudge-day') })''')
+        ok(g['why'] == 'offline' and g['left'] > 0 and not g2['wait'] and not g2['modal'] and not g2['toast'] and g2['later'] == 0 and g2['day'] is None,
+           'つながれない あいだは 知らせを 出さず、4秒ごとにも ためさない（30秒ごとの 時計に まかせる）', {**g, **g2})
+        await snap(page, 'nudge_offline')
+        g = await page.evaluate('''() => { LineSync.state = 'connecting'; window.__later = 0; Nudge.check();
+            return { why: Act.blocked(), later: window.__later }; }''')
+        await page.wait_for_timeout(1200)
+        g2 = await page.evaluate("() => ({ toast: document.querySelector('#toast').textContent, modal: !!document.querySelector('.levelup .card') })")
+        ok(g['why'] == 'connecting' and g['later'] == 1 and not g2['toast'] and not g2['modal'], 'つないでいる とちゅうは だまって 4秒あとに また 見る（トーストも 出さない）', {**g, **g2})
+        g = await page.evaluate('''() => { clearTimeout(Nudge.t); LineSync.state = 'failed'; const lock = Act.lock; Act.lock = () => null; Nudge.check(); Act.lock = lock;
+            return { day: localStorage.getItem('uchinoko-biyori:nudge-day') === dayKey() }; }''')
+        await page.wait_for_timeout(900)
+        say = await page.evaluate("() => document.querySelector('#bubble').textContent")
+        ok(g['day'] and 'きょうが おわる' in say, 'つながれたら いつもの ひとことが 出る', {**g, 'say': say})
         all_errs += errs; await ctx.close()
 
         print('9. 外部ブラウザ')
@@ -897,6 +922,41 @@ async def browser_tests(srv_port):
                 ok(s['name'] == 'ビスケ' and s['love'] == 0 and i['name'] == 'ビスケ' and ['もとのこ', 0] in kl and not unsent, 'おくる：ビスケが LINEの子に（もとのこは とっておく）', {'state': s, 'info': i, 'kids': kl})
             all_errs += errs; await ctx.close()
 
+        print('18b. 新しい子が とどいたのに 返事が 2回とも なくなっても、つなぎなおし・ひらきなおしで 2回 作らない（さいごのチェック F3-2）')
+        for sub, how in (('Ulose', 'retry'), ('Ulose2', 'reopen')):
+            lose = {}
+            ctx, page, errs, calls = await open_page(sub, lose=lose)
+            await page.click('#obManual'); await page.wait_for_timeout(300)
+            await page.click('[data-g="shiba"]'); await page.fill('#edName', 'もとのこ')
+            await page.click('#edGo'); await page.wait_for_timeout(2600)
+            await close_popups(page)
+            lose['/act'] = 2
+            await page.click('#menuBtn'); await page.wait_for_timeout(400)
+            await page.click('#mNew'); await page.wait_for_timeout(300)
+            await page.click('#mYes'); await page.wait_for_timeout(600)
+            await page.click('#obManual'); await page.wait_for_timeout(300)
+            await page.click('[data-g="pomeranian"]'); await page.fill('#edName', 'ビスケ')
+            await page.click('#edGo'); await page.wait_for_timeout(4000)
+            await close_popups(page)
+            s1, i = state(sub), await info(page)
+            ok(calls.count('LOST /act') == 2 and s1['name'] == 'ビスケ' and s1['backup'] == 'もとのこ' and i['server'] == 'failed' and i['name'] == 'ビスケ',
+               f'{sub}：ビスケは サーバーに とどいたが、返事が 2回とも なくなった', {'state': s1, 'info': i, 'calls': calls[-6:]})
+            if how == 'retry':
+                await page.click('#actFeed'); await page.wait_for_timeout(900)
+                btn = await page.query_selector('.levelup [data-close="retry"]')
+                if btn:
+                    await btn.click(); await page.wait_for_timeout(2600)
+            else:
+                await page.reload(); await page.wait_for_timeout(2800)
+            await close_popups(page)
+            s2, i = state(sub), await info(page)
+            g = await page.evaluate("() => ({ unsentModal: !!document.querySelector('.levelup .unsent'), unsent: localStorage.getItem('uchinoko-biyori:line-unsent'), kids: %s })" % kids_js)
+            ok(s2['created'] == s1['created'] and s2['name'] == 'ビスケ' and s2['backup'] == 'もとのこ' and i['name'] == 'ビスケ' and i['server'] == 'on' and i['owner'] == s2['id']
+               and not g['unsentModal'] and not g['unsent'] and not any(k[0] == 'ビスケ' for k in g['kids']),
+               f'{sub}（{"もういちど つなぐ" if how == "retry" else "ひらきなおす"}）：とどいていた ビスケの まま（サーバーは 作りなおさず〈created が 同じ〉、ひかえも もとのこの まま・「とどいていませんでした」も 出ない）',
+               {'before': s1, 'after': s2, 'info': i, **g})
+            all_errs += errs; await ctx.close()
+
         print('19. おせわの返事だけ とどかなくても、おくりなおしで 2回 数えない（3-3）')
         lose = {}
         one = state('Uone')
@@ -954,12 +1014,9 @@ async def browser_tests(srv_port):
         all_errs += errs; await ctx.close()
         ctx, page, errs, calls = await open_page('Uone', owner=one['id'], notice_seen=False)
         await page.wait_for_timeout(1800)
-        g = await page.evaluate('''() => { const c = document.querySelector('.levelup .card'); return { text: c ? c.textContent.replace(/\\s+/g, ' ') : '', more: !!(c && c.querySelector('[data-close="more"]')) }; }''')
-        ok('よるの おしらせが できました' in g['text'] and '21時' in g['text'] and g['more'], 'まだ見ていない人には いまの おしらせ（よるの おしらせ）が 出る', g)
-        await snap(page, 'notice_notify')
-        await page.click('.levelup .btn.primary'); await page.wait_for_timeout(600)
-        seen = await page.evaluate("JSON.parse(localStorage.getItem('uchinoko-biyori:line-notice') || '[]')")
-        ok(seen == NOTICE_IDS, '見たら もう出ない', seen)
+        g = await page.evaluate('''() => ({ list: LineNotice.list.length, card: !!document.querySelector('.levelup .card'),
+            seen: localStorage.getItem('uchinoko-biyori:line-notice') })''')
+        ok(g['list'] == len(NOTICE_IDS) and not g['card'] and g['seen'] is None, 'いまは 出す おしらせが ない（まだ見ていない人にも 出ない。F3-3）', g)
         all_errs += errs; await ctx.close()
 
         print('21. よるの おしらせ（LINE の メッセージ：プロフィールの スイッチ・1回だけの さそい・友だち追加）')

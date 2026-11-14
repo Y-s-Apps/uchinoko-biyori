@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-MrVKlZgAWKnn2HeIKPOgOjjJEmxIs/BNTEAUcuqGw+s='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-GGOPugbtYT4WXIadTZ9NQuZOjcXx5mVSsVtz4YVsPzI='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="写真の犬や猫をそっくりなペットにして、ごはん・おやつ・なでなででのんびり育てるアプリ">
@@ -3553,7 +3553,10 @@ function openAlbum(tab){
    うちのこが ふきだしで「もうすぐ きょうが おわるよ」→「おねがい、あと◯つ！」（ピンチの日は「れんぞく ◯日が ピンチ！」も）と言い、
    おねがいの バッジが はねる。1日1回（見せた日は 端末の NUDGE_KEY。書けない端末では ひらいている あいだ 1回）。
    ポップアップ・シート・はじめての画面・おせわの とちゅうは まつ。時刻は ルールの時計（LINE版で つながっているときは サーバーの 日本時間）。
-   セーブ（S）は かえない */
+   セーブ（S）は かえない。
+   LINE版で サーバーを まつ あいだは、知らせを 出さない Act.blocked() で 見る（Act.waiting() は ポップアップや トーストも 出す。
+   よるに つながれないと「サーバーに つながっていません」が かってに くりかえし 出ていた。さいごのチェック F3-1）。
+   つないでいる とちゅうは 4秒ごと、つながれない（offline・LINEの外）あいだは 30秒ごとの 時計に まかせる */
 const NUDGE_HOUR = 21;
 const NUDGE_KEY = 'uchinoko-biyori:nudge-day';
 const Nudge = {
@@ -3563,7 +3566,7 @@ const Nudge = {
   busy(){
     const ob = document.getElementById('onboard');
     return Pet.busy || dragging || Onboard.busy || Modal.busy || Modal.q.length > 0 || (ob && !ob.hidden)
-      || $('#sheetWrap').classList.contains('open') || (typeof Act.waiting === 'function' && Act.waiting());
+      || $('#sheetWrap').classList.contains('open');
   },
   check(){
     clearTimeout(this.t);
@@ -3573,6 +3576,8 @@ const Nudge = {
     let seen = '';
     try { seen = localStorage.getItem(NUDGE_KEY) || ''; } catch(e){}
     if (seen === day){ this.shown = day; return; }
+    const why = Act.blocked();
+    if (why){ if (why === 'connecting') this.later(4000); return; }
     if (this.busy()){ this.later(4000); return; }
     const n = reqLeft();
     if (!n) return;

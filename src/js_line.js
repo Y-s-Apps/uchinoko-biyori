@@ -55,8 +55,10 @@ const LINE_OWNER_KEY = 'uchinoko-biyori:line-owner';  /* この端末のセー�
 const LINE_GUEST_KEY = 'uchinoko-biyori:line-guest';  /* LINEの子と入れかわった、この端末にいた子（消さずにとっておく） */
 const LINE_LEFT_KEY = 'uchinoko-biyori:line-left';    /* やめた（LINEの データを けした）会員ID。line-owner が これと同じなら、この端末の子は ゲスト */
 const LINE_REOPEN_KEY = 'uchinoko-biyori:line-reopen';  /* さいごに LIFF URL から ひらきなおした時刻（くりかえさないため） */
-/* この端末で うまれて サーバーへ おくっている とちゅうの子（{ m:会員ID, c:created, k:'adopt'|'import' }。とどいたら 空に）。
-   とどかないまま とじたら、つぎに ひらいたとき「とどいていませんでした」と きく（診断 3-8） */
+/* この端末で うまれて サーバーへ おくっている とちゅうの子（{ m:会員ID, c:created, k:'adopt'|'import', r:番号 }。とどいたら 空に）。
+   とどかないまま とじたら、つぎに ひらいたとき「とどいていませんでした」と きく（診断 3-8）。
+   r は おくったときの 番号（rid）。サーバーの セーブに 同じ番号が あれば「返事だけ なかった＝とどいていた」と わかる
+   （前の形の しるしは r なし。さいごのチェック F3-2） */
 const LINE_UNSENT_KEY = 'uchinoko-biyori:line-unsent';
 /* この端末に とっておく子（line-guest）は 5ひきまで（前は 1ぴきで 上書きしていた。診断 3-2） */
 const LINE_KEEP_MAX = 5;
@@ -393,6 +395,7 @@ let lineSettle = null;
 const LineSync = {
   state:'off',        /* off → connecting → on ／ failed */
   error:null, rev:null, pendingCode:null, fresh:null,
+  freshRid:null,      /* 新しい子（fresh）を おくる番号。とどくまで 同じ（返事が なくなって おくりなおしても、サーバーは 2回 作らない。F3-2） */
   created:null,       /* サーバーにいる子の created（null：まだいない） */
   idSent:null,        /* サーバーにいる子の名前・みため */
   chain:Promise.resolve(), lastToast:0, waitOpen:false,
@@ -408,9 +411,10 @@ const LineSync = {
     if (!S || this.state !== 'on') return null;
     const p = this.pendingCode;
     if (p && p.st === S){
-      /* 引っこしコードで受け取った子は、取りこみ口（1回だけ）から入れる */
-      this.markUnsent(S, 'import');
-      const r = await this.send('POST', '/import', { code:p.text });
+      /* 引っこしコードで受け取った子は、取りこみ口（1回だけ）から入れる（番号は とどくまで 同じ） */
+      if (!p.rid) p.rid = lineRid();
+      this.markUnsent(S, 'import', p.rid);
+      const r = await this.send('POST', '/import', { code:p.text, rid:p.rid });
       this.pendingCode = null;
       LineServer.importable = false;
       this.apply(r.save, { photo:S.pet.photo });
@@ -420,9 +424,10 @@ const LineSync = {
     if (this.fresh && this.fresh === S){
       /* この端末でむかえた新しい子：サーバーが まっさらの子を作る（名前・みためだけ送る） */
       const photo = S.pet.photo;
-      this.markUnsent(S, 'adopt');
-      const r = await this.send('POST', '/act', { type:'adopt', pet:linePet(S) });
-      this.fresh = null;
+      if (!this.freshRid) this.freshRid = lineRid();
+      this.markUnsent(S, 'adopt', this.freshRid);
+      const r = await this.send('POST', '/act', { type:'adopt', pet:linePet(S), rid:this.freshRid });
+      this.fresh = null; this.freshRid = null;
       this.apply(r.save, { photo });
       this.markUnsent(null);
       return 'adopt';
@@ -478,12 +483,21 @@ const LineSync = {
     if (Persist.ref === ServerRef){ Persist.ref = null; Persist.mode = 'local'; }
     Act.remote = null;
     this.created = this.idSent = this.rev = null;
-    this.pendingCode = null; this.fresh = null;
+    this.pendingCode = null; this.fresh = null; this.freshRid = null;
     this.setState('left');
     if (S) Persist.saveLocal();
   },
   markOwner(){ try { if (LineServer.member && this.created != null) localStorage.setItem(LINE_OWNER_KEY, LineServer.member); } catch(e){} },
   samePet(a, b){ return !!(a && b && Number(a.created) && Number(a.created) === Number(b.created)); },
+  /* この端末で むかえた子（S）を おくった adopt が、返事だけ なくなって サーバーに とどいていたか（サーバーの 子は created が ちがうので、
+     セーブに のこる おせわの番号 srv.rq.id で 見る。とどいていなければ null。さいごのチェック F3-2） */
+  arrivedRid(remote){
+    if (!S || !remote) return null;
+    const u = this.unsent();
+    const rid = this.fresh === S && this.freshRid ? this.freshRid : u && u.k === 'adopt' && u.r && this.unsentIs(S) ? u.r : null;
+    const rq = remote.srv && typeof remote.srv === 'object' ? remote.srv.rq : null;
+    return rid && rq && rq.id === rid ? rid : null;
+  },
   valid(d){ return d && typeof d === 'object' && d.pet && typeof d.pet === 'object' ? d : null; },
   /* この端末で遊んだあとがある子か（なかよし・おせわの回数・スタンプ） */
   progressed(st){
@@ -532,7 +546,14 @@ const LineSync = {
     Act.remote = (t, p) => this.act(t, p);
     if (remote){
       this.setState('on');
-      if (S && mine && (this.fresh === S || (this.pendingCode && this.pendingCode.st === S))){
+      if (this.arrivedRid(remote)){
+        /* むかえた子は とどいていた（返事だけ なかった）：サーバーの子に そろえて、写真の控えだけ のこす（もう一度 作らない・とっておかない） */
+        const photo = S.pet.photo;
+        this.fresh = null; this.freshRid = null;
+        this.apply(save, { photo });
+        this.markUnsent(null);
+      }
+      else if (S && mine && (this.fresh === S || (this.pendingCode && this.pendingCode.st === S))){
         this.know(remote);
         Persist.flush();                                        /* この端末で むかえた子が まだ とどいていない：先に送る */
       }
@@ -553,7 +574,7 @@ const LineSync = {
       this.created = this.idSent = null;
       this.setState('on');
       if (S && this.progressed(S)) this.offerLocal();           /* LINEに まだ子がいない：この端末の子をどうするか聞く */
-      else if (S){ this.fresh = S; Persist.flush(); }           /* いまむかえたばかりの子：サーバーが まっさらの子を作る */
+      else if (S){ if (this.fresh !== S) this.freshRid = null; this.fresh = S; Persist.flush(); }   /* いまむかえたばかりの子：サーバーが まっさらの子を作る */
     }
     this.settle();
     LineApp.paint();
@@ -651,12 +672,13 @@ const LineSync = {
   unsent(){
     try {
       const u = JSON.parse(localStorage.getItem(LINE_UNSENT_KEY) || 'null');
-      return u && typeof u === 'object' && u.m === LineServer.member && Number(u.c) > 0 && (u.k === 'adopt' || u.k === 'import') ? { m:u.m, c:Number(u.c), k:u.k } : null;
+      return u && typeof u === 'object' && u.m === LineServer.member && Number(u.c) > 0 && (u.k === 'adopt' || u.k === 'import')
+        ? { m:u.m, c:Number(u.c), k:u.k, r:typeof u.r === 'string' && /^[A-Za-z0-9_-]{8,40}$/.test(u.r) ? u.r : null } : null;
     } catch(e){ return null; }
   },
   unsentIs(st){ const u = this.unsent(); return !!(u && st && Number(st.created) === u.c); },
-  markUnsent(st, kind){
-    try { localStorage.setItem(LINE_UNSENT_KEY, st && LineServer.member ? JSON.stringify({ m:LineServer.member, c:Number(st.created) || 0, k:kind }) : ''); } catch(e){}
+  markUnsent(st, kind, rid){
+    try { localStorage.setItem(LINE_UNSENT_KEY, st && LineServer.member ? JSON.stringify(Object.assign({ m:LineServer.member, c:Number(st.created) || 0, k:kind }, rid ? { r:rid } : {})) : ''); } catch(e){}
   },
   guestHtml(g, body){
     const wear = wearFrom(g.pet);
@@ -694,7 +716,7 @@ const LineSync = {
     try {
       if (u.k === 'import') await this.bring(g, `${g.pet.name}を LINEに おくったよ`);
       else {
-        const r = await this.queue(() => this.send('POST', '/act', { type:'adopt', pet:linePet(g) }));
+        const r = await this.queue(() => this.send('POST', '/act', Object.assign({ type:'adopt', pet:linePet(g) }, u.r ? { rid:u.r } : {})));
         if (S && !this.samePet(S, g)) this.stash(S);   /* いれかわる LINEの子は この端末に とっておく */
         this.adopt(r.save);
         if (g.pet.photo && S){ S.pet.photo = safePhoto(g.pet.photo); Persist.saveLocal(); Game.refresh(); }
@@ -1401,11 +1423,9 @@ allDoneModal = function(e){ lineAllDoneModal(e); setTimeout(() => LineNotify.inv
    「わかった」などで とじたら 見たことにする（id を 端末の LINE_NOTICE_KEY に。新しい じゅんに 50まで。消えても また出るだけ） */
 const LINE_NOTICE_KEY = 'uchinoko-biyori:line-notice';
 const LineNotice = {
-  list:[
-    /* 2026-11-14：よるの おしらせ（LINE の メッセージ）を はじめた（プライバシーポリシー 1.(2)・1.(8)・2.・5.・6.・7.・8.、利用規約 第5条の2） */
-    { id:'2026-11-notify', from:'2026-11-14', until:'2026-12-14', title:'よるの おしらせが できました',
-      text:'きょうの おねがいが のこっている 日の 21時に、LINEで おしらせを うけとれます。プロフィールの スイッチで オンに してね。プライバシーポリシーと 利用規約に 書きたしました。', link:'privacy' },
-  ],
+  /* 出した id は つかいまわさない。2026-11-15：`2026-11-notify`（よるの おしらせが できました）は リリースの前に はずした
+     （前の ポリシーを 読んだのは オーナーだけ。さいごのチェック F3-3・オーナー決定） */
+  list:[],
   shown:false,
   seen(){
     try { const a = JSON.parse(localStorage.getItem(LINE_NOTICE_KEY) || '[]'); return Array.isArray(a) ? a.filter(x => typeof x === 'string') : []; }
@@ -1473,7 +1493,7 @@ Act.lock = () => LineSync.lockReason();
 Act.onWait = (why, quiet) => LineSync.waitNotice(why, quiet);
 /* この端末で新しい子をむかえたら、サーバーには adopt で作ってもらう */
 const lineNewState = newState;
-newState = function(pet, t){ const st = lineNewState(pet, t); LineSync.fresh = st; return st; };
+newState = function(pet, t){ const st = lineNewState(pet, t); LineSync.fresh = st; LineSync.freshRid = null; return st; };
 
 /* 引っこしコード：LINEに ほぞんしているときは、取りこみ口（1回だけ）を通す */
 const lineReadMoveCode = readMoveCode;
