@@ -16,7 +16,9 @@
    - やめる（LineLeave）：プロフィールの「LINEの データを けす」。2回 たしかめてから POST /leave（サーバーの データを すぐに ぜんぶ消し、
      LINE の許可も取り消す）。この端末の子は のこして ゲストにする（line-owner は消さず、line-left に やめた会員IDを書く）。
    - うちのこカード（LineCard）：プロフィールの「うちのこカードを おくる」。この端末で カードの絵（きせかえを着た うちのこ＋おへや＋季節のわく。
-     写真と文字は入れない）を PNG にして見本を出し、「おくる」で POST /card（サーバーが Storage に1年おく。1人1日3まい）→ liff.shareTargetPicker()。 */
+     写真と文字は入れない）を PNG にして見本を出し、「おくる」で POST /card（サーバーが Storage に1年おく。1人1日3まい）→ liff.shareTargetPicker()。
+   - おしらせ（LineNotice）：ポリシー・規約の 大事な変更や、本サービスを終えるときの知らせ。LineNotice.list に書いておくと、
+     まだ見ていない人に ひらいたとき 1回だけ ポップアップで出す（サーバーは使わない。ゲストにも出る。診断 5-6）。 */
 const LINE_CFG = {
   sdk:'https://static.line-scdn.net/liff/edge/2/sdk.js',  /* エッジパス：v2 の最新版が自動で入る（古い版に固定しない） */
   /* LINEミニアプリの内部チャネル（本番用・審査用・開発用）ごとの LIFF ID（秘密ではない。前の数字がチャネルID）。
@@ -1192,7 +1194,7 @@ const LineCard = {
           { type:'box', layout:'vertical', spacing:'none', contents:[{ type:'text', text:i.breed, size:'sm', color:'#999999', wrap:true }] },
           { type:'box', layout:'vertical', spacing:'sm', margin:'lg', flex:1, contents:[row('なかよし', i.love), row(i.days[0], i.days[1])] },
           { type:'box', layout:'vertical', spacing:'xs', margin:'lg', contents:[
-            { type:'button', style:'primary', height:'md', color:'#4FAE9A', action:{ type:'uri', label:'うちのこ日和で あそぶ', uri:LINE_CFG.shareUrl } },
+            { type:'button', style:'primary', height:'md', color:'#2A7F6D', action:{ type:'uri', label:'うちのこ日和で あそぶ', uri:LINE_CFG.shareUrl } },
           ] },
         ] },
         footer:{ type:'box', layout:'vertical', contents:[
@@ -1283,6 +1285,53 @@ Game.refresh = function(){
   LineFrame.paint();   /* サーバーの返事で みためが かわったとき */
 };
 
+/* ----- おしらせ（診断 5-6） -----
+   プライバシーポリシー・利用規約の「大事な変更は 本サービスの中でも知らせます」「終えるときは 30日以上前に 本サービスの中で知らせます」の しくみ。
+   そのときは ポリシー・規約を直す コミットで、list に 1つ足す（id は つかいまわさない。足したら docs/PROJECT.md 10章にも書く）：
+     { id:'2026-12-policy', from:'2026-11-20', until:'2026-12-31', title:'プライバシーポリシーを かえます', when:'12月1日から',
+       text:'AIの 読みとりに つかう 会社を かえます。くわしくは プライバシーポリシーを 見てね。', link:'privacy' }
+   from・until は 'YYYY-MM-DD'（until は その日まで。どちらも なくてよい）、when は なくてよい、link は 'privacy'・'terms'（「くわしく」で ひらく。なくてよい）。
+   文は 文節の あいだに スペース（改行の きまり）。まだ見ていない・期間の中の いちばん上の 1つを、おへやが出ているときに ひらいた回に 1回だけ出す。
+   「わかった」などで とじたら 見たことにする（id を 端末の LINE_NOTICE_KEY に。新しい じゅんに 50まで。消えても また出るだけ） */
+const LINE_NOTICE_KEY = 'uchinoko-biyori:line-notice';
+const LineNotice = {
+  list:[],
+  shown:false,
+  seen(){
+    try { const a = JSON.parse(localStorage.getItem(LINE_NOTICE_KEY) || '[]'); return Array.isArray(a) ? a.filter(x => typeof x === 'string') : []; }
+    catch(e){ return []; }
+  },
+  mark(id){
+    try { localStorage.setItem(LINE_NOTICE_KEY, JSON.stringify([id].concat(this.seen().filter(x => x !== id)).slice(0, 50))); } catch(e){}
+  },
+  /* いま出す おしらせ（なければ null） */
+  due(){
+    const day = Clock.dayKey(), seen = this.seen();
+    return this.list.find(n => n && typeof n.id === 'string' && n.id && typeof n.title === 'string' && !seen.includes(n.id)
+      && (!n.from || n.from <= day) && (!n.until || day <= n.until)) || null;
+  },
+  later(){ setTimeout(() => this.check(), 1500); },   /* ひらいたときの ポップアップ（おみやげ など）の あとに */
+  check(){
+    if (this.shown || !S || !Game.started || Onboard.busy) return;
+    const ob = document.getElementById('onboard');   /* はじめての画面が 出ているときは 出さない */
+    if (ob && !ob.hidden) return;
+    const n = this.due();
+    if (!n) return;
+    this.shown = true;
+    const link = LineDocs.on && (n.link === 'privacy' || n.link === 'terms') ? n.link : '';
+    Modal.show({
+      label:'おしらせ',
+      html:() => `${petCard()}<h3>おしらせ</h3>
+        <p class="line-notice-title"><b>${esc(n.title)}</b>${n.when ? `<br>（${esc(n.when)}）` : ''}</p>
+        ${n.text ? `<p>${esc(n.text)}</p>` : ''}
+        <div class="btnrow">${link ? '<button class="btn" type="button" data-close="more">くわしく</button>' : ''}<button class="btn primary" type="button" data-close>わかった</button></div>`,
+    }).then(v => {
+      this.mark(n.id);
+      if (v === 'more') LineDocs.open(link);
+    });
+  },
+};
+
 /* 写真立て：写真の控えがない子（ほかの端末で ひらいた・LINEの保存から きた・写真なしで むかえた）は、
    うちのこの イラスト（きせかえなし、にっこり）を かざる。写真の控えがある端末は いままでどおり写真 */
 const LineFrame = {
@@ -1339,4 +1388,8 @@ moveErrorText = function(r){
   watch(document.getElementById('sheet'));
   watch(document.getElementById('ob'));
 })();
+/* おしらせ：おへやが出たら（はじめての画面の あとも）。boot は この前に おへやを出していることがある */
+const lineGameStart = Game.start;
+Game.start = function(greet, away){ lineGameStart.call(this, greet, away); LineNotice.later(); };
+if (Game.started) LineNotice.later();
 LineApp.init();

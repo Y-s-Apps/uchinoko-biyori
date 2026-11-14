@@ -228,6 +228,11 @@ def scenes(line):
                 "LineServer.call=async()=>({card:{on:true,left:%d,perDay:3}}); LineCard.busy=false; LineCard.start()")
         add('line_card', card % (2, 2), '.levelup .card', 1500)
         add('line_card_none', card % (0, 0), '.levelup .card', 1500)
+        # おしらせ（診断 5-6）：ポリシーを かえるとき・本サービスを終えるとき の 文の 見本
+        for n in ["{id:'lb1', title:'プライバシーポリシーを かえます', when:'2027年1月15日から', text:'AIの 読みとりに つかう 会社を かえます。くわしくは プライバシーポリシーを 見てね。', link:'privacy'}",
+                  "{id:'lb2', title:'うちのこ日和を おわります', when:'2027年3月31日まで', text:'それまでに「引っこし・バックアップ」の 引っこしコードで、ホーム画面の アプリなどへ つれていけます。', link:'terms'}",
+                  "{id:'lb3', title:'利用規約を かえました'}"]:
+            add('line_notice', "localStorage.removeItem(LINE_NOTICE_KEY); LineNotice.list=[%s]; LineNotice.shown=false; LineNotice.check()" % n, '.levelup .card')
     # トースト
     for t in toast_texts():
         add('toast', 'toast(%s)' % json.dumps(t), '#toast', 450)

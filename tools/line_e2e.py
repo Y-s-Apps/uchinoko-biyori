@@ -699,8 +699,9 @@ async def browser_tests(srv_port):
         ok('カードのこ' in texts and 'ポメラニアン' in texts and 'なかよし' in texts and 'Lv 1・はじめまして' in texts and 'きてから' in texts and '"1日"' in texts,
            '本文：名前・種類・なかよし・（れんぞくが1日までは）きてから', texts[:300])
         btn = body.get('contents', [{}])[-1].get('contents', [{}])[0]
-        ok(btn.get('style') == 'primary' and btn.get('action', {}).get('uri') == 'https://miniapp.line.me/2012410265-PutgsCLS' and btn['action'].get('label') == 'うちのこ日和で あそぶ',
-           'ボタンは 本番用の LIFF URL（開発用から送っても）', btn)
+        ok(btn.get('style') == 'primary' and btn.get('height') == 'md' and btn.get('color') == '#2A7F6D'
+           and btn.get('action', {}).get('uri') == 'https://miniapp.line.me/2012410265-PutgsCLS' and btn['action'].get('label') == 'うちのこ日和で あそぶ',
+           'ボタンは こい みどり（白い字との差 4.8。5-8）で 本番用の LIFF URL（開発用から送っても）', btn)
         frow = (foot.get('contents') or [{}, {}])[1].get('contents', [])
         ok(len(frow) == 3 and frow[0].get('url') == 'https://uchinoko-biyori.pages.dev/line-icon.png' and frow[1].get('text') == 'うちのこ日和'
            and frow[2].get('url') == 'https://vos.line-scdn.net/service-notifier/footer_go_btn.png' and frow[2].get('action', {}).get('uri') == 'https://miniapp.line.me/2012410265-PutgsCLS',
@@ -902,6 +903,48 @@ async def browser_tests(srv_port):
         await close_popups(page)
         after, i = state('Uone')['meals'], await info(page)
         ok('LOST /act' in calls and after == before + 1 and i['meals'] == after and i['server'] == 'on', 'とどいたのに 返事が なくても、おくりなおしは 1回と 数える', {'before': before, 'after': after, 'info': i, 'calls': calls[-5:]})
+        all_errs += errs; await ctx.close()
+
+        print('20. おしらせ（ポリシー・規約の 大事な変更など。まだ見ていない人に 1回だけ。5-6）')
+        ctx, page, errs, calls = await open_page('Uone', owner=one['id'])
+        await close_popups(page)
+        g = await page.evaluate('''() => { const l = LineNotice.later; window.__later = 0; LineNotice.later = () => { window.__later++; };
+            Game.start('ただいま！'); LineNotice.later = l; return { later: window.__later, list: LineNotice.list.length,
+            seen: localStorage.getItem('uchinoko-biyori:line-notice') }; }''')
+        ok(g['later'] == 1 and g['list'] == 0 and g['seen'] is None, 'おへやが出ると おしらせを 見にいく（いまは おしらせなし＝なにも出ない）', g)
+        await close_popups(page)
+        await page.evaluate('''() => { window.__opened = null; LineDocs.open = n => { window.__opened = n; };
+            LineNotice.list = [{ id:'t-old', title:'おわった おしらせ', until:'2000-01-01' }, { id:'t-future', title:'まだの おしらせ', from:'2999-01-01' },
+              { id:'t-1', title:'プライバシーポリシーを かえます', when:'12月1日から', text:'ためしの おしらせです。くわしくは プライバシーポリシーを 見てね。', link:'privacy' },
+              { id:'t-2', title:'つぎの おしらせ' }];
+            LineNotice.shown = false; LineNotice.check(); }''')
+        await page.wait_for_timeout(700)
+        g = await page.evaluate('''() => { const c = document.querySelector('.levelup .card');
+            return { text: c ? c.textContent.replace(/\\s+/g, ' ') : '', more: !!(c && c.querySelector('[data-close="more"]')), n: document.querySelectorAll('.levelup .card').length }; }''')
+        ok('ためしの おしらせです' in g['text'] and '12月1日から' in g['text'] and 'おわった' not in g['text'] and 'まだの' not in g['text'] and g['more'] and g['n'] == 1,
+           '期間の中の いちばん上の おしらせが 1つ出る（おわった・まだの ものは 出ない）', g)
+        await snap(page, 'notice')
+        await page.click('.levelup [data-close="more"]'); await page.wait_for_timeout(700)
+        g = await page.evaluate('''() => { LineNotice.check(); return { opened: window.__opened, seen: JSON.parse(localStorage.getItem('uchinoko-biyori:line-notice') || '[]'),
+            open: !!document.querySelector('.levelup .card') }; }''')
+        ok(g['opened'] == 'privacy' and g['seen'] == ['t-1'] and not g['open'], '「くわしく」で ポリシーを ひらき、見たことになる（この回は もう出さない）', g)
+        await page.reload(); await page.wait_for_timeout(2600)
+        await close_popups(page)
+        await page.evaluate('''() => { LineNotice.list = [{ id:'t-1', title:'プライバシーポリシーを かえます' }, { id:'t-2', title:'つぎの おしらせ' }];
+            LineNotice.shown = false; LineNotice.check(); }''')
+        await page.wait_for_timeout(700)
+        g = await page.evaluate('''() => { const c = document.querySelector('.levelup .card'); return { text: c ? c.textContent : '', more: !!(c && c.querySelector('[data-close="more"]')) }; }''')
+        ok('つぎの おしらせ' in g['text'] and 'プライバシーポリシーを かえます' not in g['text'] and not g['more'], 'つぎに ひらくと、見た おしらせは出ず つぎの おしらせ（link なしは「くわしく」なし）', g)
+        await page.click('.levelup .btn.primary'); await page.wait_for_timeout(600)
+        seen = await page.evaluate("JSON.parse(localStorage.getItem('uchinoko-biyori:line-notice') || '[]')")
+        ok(seen == ['t-2', 't-1'], '「わかった」でも 見たことになる', seen)
+        await page.evaluate("() => { LineNotice.list = [{ id:'t-3', title:'はじめての画面の あとの おしらせ' }]; LineNotice.shown = false; Onboard.openNew(true); LineNotice.check(); }")
+        await page.wait_for_timeout(700)
+        during = await page.evaluate("() => !!document.querySelector('.levelup .card')")
+        await page.evaluate("() => { Onboard.close(); LineNotice.check(); }")
+        await page.wait_for_timeout(700)
+        after_ob = await page.evaluate("() => { const c = document.querySelector('.levelup .card'); return c ? c.textContent : ''; }")
+        ok(not during and 'はじめての画面の あとの おしらせ' in after_ob, 'はじめての画面の 上には 出さず、とじてから 出す', {'during': during, 'after': after_ob[:80]})
         all_errs += errs; await ctx.close()
 
         await browser.close()
