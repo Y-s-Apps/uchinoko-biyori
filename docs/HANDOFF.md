@@ -2,24 +2,25 @@
 
 このファイルは、チャットのいちばん最後に毎回まるごと書き直します。次のチャットは、ここを読めば続きから始められます。オーナーは、更新のたびにプロジェクトナレッジのGitHubを「同期」し、作業ごとに新しいチャットへ移ります（`CLAUDE.md` の作業の流れ 7）。
 
-- 最終更新：2026-11-14（13回目：**通知**＝よるの ひとこと〈3つの版〉・よるの おしらせ〈LINE版〉。つぎは Fable 5.2 の さいごのチェック）
+- 最終更新：2026-11-15（13回目：**通知**＝よるの ひとこと〈3つの版〉・よるの おしらせ〈LINE版〉。公式アカウントの 準備も 済み・実機に 届いた。つぎは Fable 5.2 の さいごのチェック）
 - リポジトリ：`Y-s-Apps/uchinoko-biyori`（組織 Y-s-Apps）。ホーム画面版：https://y-s-apps.github.io/uchinoko-biyori/
 - ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-f52547f23b`**（`1c07a70`。公開中の `index.html`・`sw.js` の md5 が 手元と同じ＝`b6613434…`・`6836e2d6…`）。おせわの 動きは 前と同じ（`compare_home.py`：おなじ）
 - Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン25**（`1c07a70` の中身）。公開するときは `src/out/uchinoko-claude.html` の前に いまの版と同じ1行目（`<!doctype html><html><head><meta charset=utf8><meta name=viewport …><style>…</style></head><body>` ＋改行）を、うしろに `</body></html>` ＋改行 を つけて `publish_files`（`capabilities` は はぶいて 引きつぐ。前の版を この形で 作りなおすと `list_files` の sha256 と 同じになるのを 確かめてから 出した）
-- LINE版の画面：Cloudflare Pages（main の push で自動ビルド。`1c07a70` で `/`・`/dev/`・`/review/` の md5 が 手元の `src/out/line/index.html` と同じ＝`7b7d2032…`）
+- LINE版の画面：Cloudflare Pages（main の push で自動ビルド。`34ed2cd` で 手元の `src/out/line/index.html` と同じ＝`4b84cc5d…`。`LINE_CFG.oaId` に `@370iymyw`）
   - 本番用 https://uchinoko-biyori.pages.dev/ 、審査用 https://uchinoko-biyori.pages.dev/review/ 、開発用 https://uchinoko-biyori.pages.dev/dev/ （同じページ。ひらいた場所で LIFF ID をえらぶ）
   - ヘッダー（`_headers`）：ぜんぶ（`/*`）に `Referrer-Policy: no-referrer`・`X-Content-Type-Options: nosniff`・`Content-Security-Policy: frame-ancestors 'none'`・`X-Frame-Options: DENY`
   - LIFF URL：開発用 https://miniapp.line.me/2012410263-cuCI7vQS ／審査用 https://miniapp.line.me/2012410264-JD4WhzAb （審査担当者だけ）／本番用 https://miniapp.line.me/2012410265-PutgsCLS （未認証なので URL を知っている人は開ける）
   - チャネルID：開発用 `2012410263`・審査用 `2012410264`・本番用 `2012410265`
   - プライバシーポリシー https://uchinoko-biyori.pages.dev/privacy.html ・利用規約 https://uchinoko-biyori.pages.dev/terms.html （どちらも 2026-11-14 改定。通知で ポリシー 1.(8)・規約 第5条の2 を足した。改定日は 11-14 のまま）、お問い合わせフォーム https://forms.gle/aywxktpPZettxFSS7
-- LINE版のサーバー：Supabase のプロジェクト「uchinoko-biyori」（`ftakgswltcavwixqxpzi`、東京、組織 `Yuthy's` の無料プラン）。Edge Function `api` は **MCP の version 21**（`index.ts` は `1c07a70`。`get_edge_function` で 手元と同じ）。`deno.json` は `game.js` を コミット **`3933abe`** に固定のまま（`game.js` は かわらない。`--check` 同じ）
+- LINE版のサーバー：Supabase のプロジェクト「uchinoko-biyori」（`ftakgswltcavwixqxpzi`、東京、組織 `Yuthy's` の無料プラン）。Edge Function `api` は **MCP の version 23**（`index.ts` は `34ed2cd`＝LINE の 文から スペースを とった版。`get_edge_function` で 手元と同じ）。`deno.json` は `game.js` を コミット **`3933abe`** に固定のまま（`game.js` は かわらない。`--check` 同じ）
 - 表：`app` スキーマに members（**notify・notify_at・notified_on を足した**）・line_accounts・sessions・saves・cards・save_backups・day_quota・error_counts・chores・**notify_runs（足した）**
 - **cron（足した）：** pg_cron 1.6.4、ジョブ `uchinoko-notify`（`0 12 * * *`＝日本時間 21:00、`select app.notify_kick()`）。`app.notify_kick()` が 1回きりの 合いことばを作って pg_net で `POST /notify/run`
 - 役：`uchinoko_api`（`app` の表だけ。サーバーは この役で つないでいる。`notify_runs` にも 権限と ポリシー）
 - Storage：バケット `cards`（公開・PNG だけ・1MB まで、ポリシーなし）
 - サーバーを起こす：GitHub Actions（`.github/workflows/keepalive.yml`、cron `23 18 */3 * *`＝日本時間 3:23 ごろ、数時間 おくれることがある）。いちばん新しい 予定の回は 2026-11-14 8:43 成功。**つぎは 11-17 3:23 ごろ**（このチャットの 時点では まだ 来ていない）
-- Secrets：`ANTHROPIC_API_KEY`・`LINE_CHANNEL_SECRET`（開発用）・`LINE_CHANNEL_SECRET_2012410264`・`LINE_CHANNEL_SECRET_2012410265`・`APP_DB_PASSWORD`。**`LINE_MESSAGING_TOKEN` は オーナーが これから 入れる**（入れるまでは よるの おしらせは 送らず、画面に スイッチも 出ない。`/health` の `notify` が true に なれば 入った）
-- 本物の DB：**会員 0人**（前の チャットの こむぎは もう いない＝公開の前に 消す 作業は いらなくなった）。カード・ひかえ・エラーの数・Storage の `cards` は 0件。`app.notify_runs` に 2026-11-14 の行（20時すぎに `app.notify_kick()` を 1回 よんで 409 `early` を 確かめた。21時の cron が 合いことばを 作りなおす）
+- Secrets：`ANTHROPIC_API_KEY`・`LINE_CHANNEL_SECRET`（開発用）・`LINE_CHANNEL_SECRET_2012410264`・`LINE_CHANNEL_SECRET_2012410265`・`APP_DB_PASSWORD`・**`LINE_MESSAGING_TOKEN`（2026-11-14 オーナーが 入れた。`/health` の `notify` が true）**
+- 本物の DB：**会員 1人＝オーナーの ためしの子「こむぎ」**（2026-11-14 23:43 に 開発用で 作った。よるの おしらせ オン。**公開の前に「LINEの データを けす」で 消す**）。カード・ひかえ・エラーの数・Storage の `cards` は 0件。`app.notify_runs`：2026-11-14 は 21:00 の cron が `notoken`、23:45 に SQL で もどして 送りなおし `sent 1`
+- LINE公式アカウント「うちのこ日和」（ベーシックID `@370iymyw`、Messaging API の プロバイダー「Y's Apps」、ビジネスマネージャーの 組織「Y's Apps」、アイコンは アプリと同じ、応答メッセージ・Webhook オフ、あいさつは オーナーの文）。ミニアプリの 友だち追加オプション・デフォルトの公式アカウントも 設定ずみ（オーナー）
 - LINE Developers：Scope は `openid` だけ（通知でも 足さない）。「シェアターゲットピッカー」は 有効。認証審査は まだ申請しない（未認証でリリース → 個人事業主 → 申請）
 - 診断レポート（約束①）：https://claude.ai/artifact/8kuQtwwyAD9RJ42PPy7GU6 （42こ ぜんぶ 片づいた。さいごのチェックで「さいごのチェック」の 章を 書きたす）
 - LINE版の計画書：https://claude.ai/artifact/AgKkCkHCsWAywKGV6VFxwK
@@ -36,14 +37,13 @@
 | 画面（LINE版） | プロフィールの スイッチ「よるの おしらせ（LINE）」、おねがいを ぜんぶ かなえた あとに 1回だけ さそう、オンで `liff.requestFriendship()`。アプリの中の おしらせ `2026-11-notify`（11-14〜12-14） |
 | ポリシー・規約 | ポリシー 1.(2)・1.(8)〈新〉・2.・5.・6.・7.・8.、規約 まとめ・第5条の2〈新〉 |
 | 確かめ | `api_test.ts` の notify（33こ）、`line_e2e.py` の 20（いまの おしらせ）・21（スイッチ・さそい など）、`smoke.py` に よるの ひとこと、`linebreak.py` に `--only` と 通知の 場面。ぜんぶ 通った（`line_e2e.py` all passed・page errors 0、`smoke.py`・`--dark`・`--claude`・`--line --android-inset 48` エラー0、`linebreak.py` ホーム画面版 205場面・LINE版 257場面 0件、`compare_home.py` おなじ） |
-| 本物 | マイグレーション `notify`・`notify_cron`、Edge Function v21、`get_advisors` security 0件、pg_net で `/health`（`notify:false`）・`/notify/run` 403・`notify_kick` 409 early。Claude版 v25。`docs/REVIEW_PROMPT.md` を さいごのチェック用に 作りなおした |
+| 本物 | マイグレーション `notify`・`notify_cron`、Edge Function v21 → v23、`get_advisors` security 0件、pg_net で `/health`・`/notify/run` 403・`notify_kick` 409 early。21:00 の cron が うごいた（`notoken`）。Claude版 v25。`docs/REVIEW_PROMPT.md` を さいごのチェック用に 作りなおした |
+| 公式アカウント・実機 | オーナーが 準備 ①〜⑥（公式アカウント・Messaging API・応答設定・トークン・ミニアプリと つなぐ・ベーシックID）。23:45 に 実機の LINE に 届いた。小さい スペースが 気になる → LINE の 文から スペースを とり 読点で 区切った（`34ed2cd`、v23）。`LINE_CFG.oaId`＝`@370iymyw` |
 
 ## 保留・オーナーの判断待ち（つぎのチャットのはじめに）
 
-1. **よるの おしらせの 準備（オーナー。2026-11-14 に 手順を おつたえ。できたか 聞く）：** ① 公式アカウント「うちのこ日和」を ミニアプリの Admin の アカウントで作る（アイコン `icon-512.png`）→ ② Messaging API を 有効に（プロバイダーは ミニアプリと 同じ）→ ③ 応答メッセージ・Webhook オフ、あいさつメッセージ（7章の文）→ ④ チャネルアクセストークン（長期）を Supabase の Secrets `LINE_MESSAGING_TOKEN` に → ⑤ ミニアプリの「友だち追加オプション」オン（normal）・「デフォルトのLINE公式アカウント」に うちのこ日和 → ⑥ ベーシックID（@…）を ソーイに。
-   - ④ の あと：pg_net で `/health` の `notify` が true か 見る。
-   - ⑥ の あと：`js_line.js` の `LINE_CFG.oaId` に 入れる（LINE版だけの 変更。ホーム画面版の md5 が かわらないことを 確かめる）。PROJECT.md の「オーナーの準備」にも 書く。
-   - **実機の ためし（できれば、さいごのチェックの前）：** iPhone の LINE で 開発用を ひらく → 新しい子（取りこみは 公開の日の だいずに とっておく）→ プロフィールの スイッチを オン → 友だち追加 → 21時に とどくか（おねがいを のこしておく）。21時より あとに 準備が できた日は、その日の 回が もう つかわれているので、ソーイが SQL で もう一度 送れる：`update app.notify_runs set used_at = null, done_at = null where day = (now() at time zone 'Asia/Tokyo')::date; select app.notify_kick();`（21時から 0時の あいだ。きょう もう 送った人には 送らない）。結果は `select * from app.notify_runs order by day desc limit 3;`。ためしの 会員は 公開の前に「LINEの データを けす」で 消す。
+1. **よるの おしらせ：準備は 済み、実機にも 届いた（2026-11-14）。** 2026-11-15 21時の cron で、スペースを とった 新しい 文の メッセージが こむぎに 届くか（おねがいを のこしていれば）を オーナーに 聞く。`select * from app.notify_runs order by day desc limit 3;` で `sent`・`note` を 見る。ためしの こむぎは 公開の前に 消す。
+   - もう一度 その日に 送りたいときは（21時から 0時）：`update app.notify_runs set used_at = null, done_at = null where day = (now() at time zone 'Asia/Tokyo')::date;`、送った人にも もう一度なら `update app.members set notified_on = null where notify;`、そのあと `select app.notify_kick();`。
 2. **さいごのチェック（つぎの作業）：** モデルを Claude Fable 5.2 にした 新しいチャットに `docs/REVIEW_PROMPT.md` の「ここから」〜「ここまで」を貼る。見るのは 診断の コミット `f22d9a6` から いまの main まで ぜんぶ（かたまり A〜D と 通知）。Fable の発売記念の枠は 日本時間 11/17（火）16:59 まで。直すのは いつもの Opus 5.5 の チャット。終わったら 約束①は「済み」。
 3. **さいごのチェックが終わったら リリース**（未認証のまま。下の「公開の日」）。
 4. **リリースしたら：約束②（個人事業主の申請のための別プロジェクトのプロンプト）を ソーイから伝える。** 中身は プロジェクトの資料 `claude/owner-notes.md`。

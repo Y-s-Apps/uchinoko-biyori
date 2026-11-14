@@ -1,6 +1,6 @@
 # うちのこ日和：仕様と決めたこと
 
-最終更新：2026-11-14（ナレッジの中身がこの日付より古いときは、プロジェクトのナレッジで「Sync now」を押すと最新になります）
+最終更新：2026-11-15（ナレッジの中身がこの日付より古いときは、プロジェクトのナレッジで「Sync now」を押すと最新になります）
 
 ## 1. どんなアプリか
 
@@ -690,6 +690,7 @@ GitHub はリポジトリを移しても、Pages の古いURLを新しいURLへ�
 - **確かめの場面：** `tools/server/api_test.ts` の notify（オン・オフ・1秒・合いことば〈ない・形・ちがう・古い・早い・2回め〉・えらび方〈オフ・まだ きいていない・14日・きょう もう・ぜんぶ かなえた〉・中身〈名前・あと3つ・れんぞく・ボタン・ピンチで あと4つ〉・会員IDを 入れない・セーブを かえない・2通 おくらない・月の上限・500の おくりなおし・トークンなし・やめると 消える・60日・表に だれかを のこさない）、role に `notify_runs`。`tools/line_e2e.py` の 20（いまの おしらせが 出る）・21（スイッチ・友だち追加・オフ・さそい〈うけとる／いらない〉・もう さそわない・LINEの外・トークンなし）。`tools/smoke.py` に よるの ひとこと（おへやの はしでも 中に おさまる・つぎの文・1日1回）。`tools/linebreak.py --line` に スイッチ（オフ・オン）・さそい・いまの おしらせ・トースト。
 - **実機（2026-11-14 23:45）：** オーナーの iPhone の LINE で 開発用を ひらき、ためしの子（こむぎ）で スイッチを オン → 友だち追加 → 21時の回は トークンの前で つかわれていたので、SQL で 回を もどして `app.notify_kick()`（`sent 1・failed 0`）→ トークに 届いた（見出し・文・ボタン。れんぞく 1日なので しるしなし）。文の 小さい スペースが 気になる（オーナー）→ LINE の 文から スペースを とり、読点を 足した（上の「メッセージ」）。
 - **出した おしらせ（`LineNotice.list`）：** `2026-11-notify`（2026-11-14〜12-14）「よるの おしらせが できました」（［くわしく］で ポリシー）。
+- **本物（2026-11-15）：** LINE の 文の スペースを とった `34ed2cd` を Edge Function **version 23** に（`get_edge_function` で 手元と同じ・`game.js` は `3933abe` のまま）。LINE版の 画面（`oaId`）は Cloudflare で md5 が 手元と同じ。ホーム画面版・Claude版は かわらない（md5 同じ）。
 - **本物（2026-11-14）：** `1c07a70` を push（ホーム画面版の キャッシュ名 `uchinoko-f52547f23b`。公開中の `index.html`・`sw.js`・LINE版の3か所の md5 が 手元と同じ）→ マイグレーション `notify` を `apply_migration` → Edge Function `api` を MCP の **version 21** に（`index.ts` は `1c07a70`、`deno.json` は `3933abe` の `game.js` のまま＝`game.js` は かわらない・`--check` 同じ）→ `get_edge_function` で 手元と 同じ → マイグレーション `notify_cron`（pg_cron 1.6.4 を 入れて ジョブ `uchinoko-notify`＝`0 12 * * *`）→ `get_advisors`：security 0件、performance は 使われていない索引の INFO（`cards_day_idx`・`members_notify_idx`）だけ → pg_net で `/health` 200（`notify:false`＝トークンは まだ）・合いことばなしの `/notify/run` 403・`app.notify_kick()` は 409 `early`（20時すぎ。pg_net から とどくのを 確かめた）。Claude版を **バージョン25** に（`capabilities` は 引きついだ）。本物の DB の 会員は 0人（こむぎは もう いない）。
 
 ### サーバーのきまり
