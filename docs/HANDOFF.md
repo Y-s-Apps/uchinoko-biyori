@@ -2,7 +2,7 @@
 
 このファイルは、チャットのいちばん最後に毎回まるごと書き直します。次のチャットは、ここを読めば続きから始められます。オーナーは、更新のたびにプロジェクトナレッジのGitHubを「同期」し、作業ごとに新しいチャットへ移ります（`CLAUDE.md` の作業の流れ 7）。
 
-- 最終更新：2026-11-15（13回目：**通知**＝よるの ひとこと〈3つの版〉・よるの おしらせ〈LINE版〉。公式アカウントの 準備も 済み・実機に 届いた。つぎは Fable 5.2 の さいごのチェック）
+- 最終更新：2026-11-15（14回目：**Fable 5.2 の さいごのチェック**。42こは ぜんぶ 片づいていた。新しく 17こ〈中1・低5・情報11、必ず0〉。オーナー決定：見つけた ぜんぶを 直してから リリース。つぎは Opus 5.5 の チャットで 直す）
 - リポジトリ：`Y-s-Apps/uchinoko-biyori`（組織 Y-s-Apps）。ホーム画面版：https://y-s-apps.github.io/uchinoko-biyori/
 - ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-f52547f23b`**（`1c07a70`。公開中の `index.html`・`sw.js` の md5 が 手元と同じ＝`b6613434…`・`6836e2d6…`）。おせわの 動きは 前と同じ（`compare_home.py`：おなじ）
 - Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン25**（`1c07a70` の中身）。公開するときは `src/out/uchinoko-claude.html` の前に いまの版と同じ1行目（`<!doctype html><html><head><meta charset=utf8><meta name=viewport …><style>…</style></head><body>` ＋改行）を、うしろに `</body></html>` ＋改行 を つけて `publish_files`（`capabilities` は はぶいて 引きつぐ。前の版を この形で 作りなおすと `list_files` の sha256 と 同じになるのを 確かめてから 出した）
@@ -26,32 +26,48 @@
 - LINE版の計画書：https://claude.ai/artifact/AgKkCkHCsWAywKGV6VFxwK
 - オーナーの事情（約束②で使う）：claude.ai の このプロジェクトの資料 `claude/owner-notes.md`（非公開）
 
-## 直近のチャットでやったこと（2026-11-14、13回目：通知）
+## 直近のチャットでやったこと（2026-11-15、14回目：Fable 5.2 の さいごのチェック）
 
-見本（画面の中の お知らせ 3案・LINE の メッセージ・さそい・スイッチ）を見せて、オーナーが ぜんぶ おすすめの案に 決めた（`docs/PROJECT.md` 7章「通知」）。`1c07a70` の push 1回で 画面・サーバー・表・ポリシーを まとめて 出した。くわしくは `docs/PROJECT.md` 10章「しくみ（よるの おしらせ・よるの ひとこと）」。
+読んで しらべただけ（コード・本物の DB・cron は 変えていない。この `docs/` と `CLAUDE.md` だけ push）。レポート https://claude.ai/artifact/8kuQtwwyAD9RJ42PPy7GU6 の いちばん うしろの 章「さいごのチェック（2026-11-15）」に、チェック0〜6 を 書いた。
 
-| | 中身 |
-| --- | --- |
-| よるの ひとこと（3つの版） | 21時から 0時に おねがいが のこっていると、うちのこが ふきだしで「もうすぐ きょうが おわるよ」→「おねがい、あと◯つ！」（ピンチは「れんぞく ◯日が ピンチ！」も）、バッジが はねる。1日1回（端末の `uchinoko-biyori:nudge-day`）。`js_features.js` の `Nudge`。ふきだしが おへやの はしで 切れないように `Pet.say` が 内がわへ ずらす（`--bx`） |
-| よるの おしらせ（LINE版） | オンに した人に 21時、LINE公式アカウント「うちのこ日和」から Flex の メッセージ（「🌙 ◯◯より」・のこりの数・れんぞく・［うちのこ日和を ひらく］）。Supabase Cron → `app.notify_kick()` → `POST /notify/run`（1回きりの 合いことば）→ オン・14日以内・きょう まだ・のこりが ある人へ LINE の プッシュ（`notified_on` で 2通 送らない、月の上限で とまる） |
-| 画面（LINE版） | プロフィールの スイッチ「よるの おしらせ（LINE）」、おねがいを ぜんぶ かなえた あとに 1回だけ さそう、オンで `liff.requestFriendship()`。アプリの中の おしらせ `2026-11-notify`（11-14〜12-14） |
-| ポリシー・規約 | ポリシー 1.(2)・1.(8)〈新〉・2.・5.・6.・7.・8.、規約 まとめ・第5条の2〈新〉 |
-| 確かめ | `api_test.ts` の notify（33こ）、`line_e2e.py` の 20（いまの おしらせ）・21（スイッチ・さそい など）、`smoke.py` に よるの ひとこと、`linebreak.py` に `--only` と 通知の 場面。ぜんぶ 通った（`line_e2e.py` all passed・page errors 0、`smoke.py`・`--dark`・`--claude`・`--line --android-inset 48` エラー0、`linebreak.py` ホーム画面版 205場面・LINE版 257場面 0件、`compare_home.py` おなじ） |
-| 本物 | マイグレーション `notify`・`notify_cron`、Edge Function v21 → v23、`get_advisors` security 0件、pg_net で `/health`・`/notify/run` 403・`notify_kick` 409 early。21:00 の cron が うごいた（`notoken`）。Claude版 v25。`docs/REVIEW_PROMPT.md` を さいごのチェック用に 作りなおした |
-| 公式アカウント・実機 | オーナーが 準備 ①〜⑥（公式アカウント・Messaging API・応答設定・トークン・ミニアプリと つなぐ・ベーシックID）。23:45 に 実機の LINE に 届いた。小さい スペースが 気になる → LINE の 文から スペースを とり 読点で 区切った（`34ed2cd`、v23）。`LINE_CFG.oaId`＝`@370iymyw` |
+- **42こ：ぜんぶ 片づいていた**（片づいていない もの 0）。
+- **新しく 見つけたのは 17こ**（中1・低5・情報11。「必ず」0。セキュリティで 直す ものは なし）。
+- 本物（読むだけ）：`get_advisors` security 0件、`app` の表 10こ RLS 有効・権限は 持ち主と `uchinoko_api` だけ、`app.notify_kick()` を よべるのは 持ち主だけ、サーバーは `uchinoko_api` で つながる、Edge Function の 記録に `x-notify`・`x-session` は のこらない、会員 1（ためしの こむぎ）・エラーの数 0。
+- 動かした：`line_e2e.py` all passed、`smoke.py` 5とおり エラー0、`compare_home.py` おなじ、`linebreak.py` ホーム画面版 0件、`--line` は F5-1 で 止まる（まち時間を のばすと 0件）。ビルド結果は リポジトリと 同じ。
+- **オーナー決定（2026-11-15）：チェックで 見つけた ぜんぶを 直してから リリース。** F3-3（おしらせ）と 直す チャットは 答えが なかったので、おすすめ（おしらせは はずす・いつもの Opus 5.5 の 新しい チャット）で すすめる。つぎの チャットの はじめに 一言 たしかめる。
 
 ## 保留・オーナーの判断待ち（つぎのチャットのはじめに）
 
-1. **よるの おしらせ：準備は 済み、実機にも 届いた（2026-11-14）。** 2026-11-15 21時の cron で、スペースを とった 新しい 文の メッセージが こむぎに 届くか（おねがいを のこしていれば）を オーナーに 聞く。`select * from app.notify_runs order by day desc limit 3;` で `sent`・`note` を 見る。ためしの こむぎは 公開の前に 消す。
-   - もう一度 その日に 送りたいときは（21時から 0時）：`update app.notify_runs set used_at = null, done_at = null where day = (now() at time zone 'Asia/Tokyo')::date;`、送った人にも もう一度なら `update app.members set notified_on = null where notify;`、そのあと `select app.notify_kick();`。
-2. **さいごのチェック（つぎの作業）：** モデルを Claude Fable 5.2 にした 新しいチャットに `docs/REVIEW_PROMPT.md` の「ここから」〜「ここまで」を貼る。見るのは 診断の コミット `f22d9a6` から いまの main まで ぜんぶ（かたまり A〜D と 通知）。Fable の発売記念の枠は 日本時間 11/17（火）16:59 まで。直すのは いつもの Opus 5.5 の チャット。終わったら 約束①は「済み」。
-3. **さいごのチェックが終わったら リリース**（未認証のまま。下の「公開の日」）。
+1. **さいごのチェックの 直し（つぎの作業）。** くわしい 場所・なにが 起きるか・直し方は レポートの「さいごのチェック」の 各表。直し おわったら、`CLAUDE.md` の 約束①と `docs/PROJECT.md` 10章「決めたこと（2026-11-13、リリースと認証の順番）」に「さいごのチェック 済み（2026-11-15・レポートの URL）＝約束① 済み」と書き、レポートの 表にも「→ 済み（コミット）」を 書きたす。
+
+   | 順 | 番号 | 直すこと | さわる所 |
+   | --- | --- | --- | --- |
+   | 1 | **F3-1（中）** | `Nudge.busy` が `Act.waiting()` を よぶので、LINE版で 21〜0時に LINEの子が つながれない（LINEの外も）と「サーバーに つながっていません」が 押さずに 出て、とじても くりかえす（動かして 確かめた）。知らせを 出さない `Act.blocked()` で 見る。つながれない あいだは 4秒ごとに ためさず、30秒ごとの 時計に まかせる。`line_e2e.py` に「よる・つながれない・ポップアップが 出ない」場面 | `src/js_features.js`（3つの版。ホーム画面版の 動きは 同じ＝`compare_home.py`。だいずの アプリは 更新される） |
+   | 2 | F5-1（低） | `linebreak.py --line` が おそい 環境で `line_bring_failed` で 止まる（おしらせが 1.5秒あと、道具の 片づけが 1.4秒）。ひらく前に `uchinoko-biyori:line-notice` に 見た id を 入れるか、まち時間を のばす | `tools/linebreak.py` |
+   | 3 | F3-3（情報） | おしらせ `2026-11-notify` を `LineNotice.list` から はずす（リリース前の 変更で、前の ポリシーを 読んだ人は オーナーだけ。**はずすで よいか 一言 たしかめる**）。`line_e2e.py` 20 の 場面は ためし用の おしらせで つづける | `src/js_line.js`・`tools/line_e2e.py`・`docs/PROJECT.md` 10章 |
+   | 4 | F2-1（低） | cron が 1日 1回きり。とどかない・サーバーの 時計が 少し おくれて 409 `early` だと、その日は だれにも 出ず、エラーの数にも 出ない。cron を `0,5 12 * * *`（21:00 と 21:05。`notify_kick` は つかった日は なにも しない）に。`early` に 1〜2分の ゆとり | 新しい マイグレーション（`cron.schedule` を 同じ名前で）→ `apply_migration`、`index.ts` `notifyRun` → デプロイ |
+   | 5 | F2-2（低） | `notifyText` の `Rules.reqLeft`・`streakInfo` が `try` の外。1人の 例外で その回の うしろ ぜんぶが 止まる。1人ずつ `try` で かこみ、`failed` と エラーの数 `notify_one` に（`oops` の 種類の 正規表現は そのまま 通る）。`api_test.ts` に 場面 | `index.ts`（4 と 同じ デプロイ） |
+   | 6 | F2-3（低） | 通知が 止まっても 気づきにくい（`notoken` は `note` だけ、`notify_auth`・`notify_limit` は 1日1つ）。`/health` に きのうの 回（おわったか・`note`）を 出し、「サーバーを起こす」で 見る（だれかは 出さない。月の 上限 `limit` は 失敗に しない） | `index.ts`・`.github/workflows/keepalive.yml`・`docs/PROJECT.md` |
+   | 7 | F3-2（低） | 「新しい子」が とどいたのに 返事が 2回とも なくなると、つなぎなおしで 新しい `rid` の `adopt` → サーバーの ひかえが 上書き。とじて ひらくと 同じ名前で「とどいていませんでした」。新しい子の `rid` を とどくまで 同じに（`fresh` と `line-unsent` の しるしに 入れる。前の形の しるしも 読める ように） | `src/js_line.js`・`tools/line_e2e.py` |
+   | 8 | F4-1（情報） | `linePush` は 429（月の上限で ないもの）でも 同じ キーで おくりなおす。LINE の 資料では おくりなおすのは 500 と 時間切れ だけ → 429 は おくりなおさず しっぱいに | `index.ts` |
+   | 9 | F3-4（情報） | オフの スイッチの 地（`#9AA6A2`、ダーク `#5E5770`）と まわりの 色の差が 2.3・2.4（目安 3）。**見本を 見せてから**（例 `#7F8B87`） | `src/line_head.html` |
+   | 10 | F1-1（情報） | `CARD_ALL_MAX` 3000×上限 600KB＝1.8GB。気になれば 1500 に（**オーナーに 聞く**。Secrets でも 変えられる） | `index.ts`・ポリシーは 数を 書いていないので そのまま |
+   | 11 | F4-2（情報） | LINE で 知らせるときの 同意の 取り方・未成年は 専門家へ：プロジェクトの資料 `claude/owner-notes.md` に 1行 足す（公開リポジトリには 書かない） | プロジェクトの資料 |
+   | — | F2-4（情報） | 同じ日の 送りなおしは とどかない → この HANDOFF の 2. に 書いた（済み） | — |
+   | — | 直さない | F1-2・F1-3・F2-5・F2-6・F3-5（このままでよい。レポートに 理由） | — |
+
+   - 1〜3・7・9 は 画面（`sh src/build.sh` → `smoke.py`・`--dark`・`--line --android-inset 48` → `linebreak.py`・`--line` → `line_e2e.py` → `compare_home.py`）。4〜6・8・10 は サーバー（`build_server.py --check` → `line_e2e.py` → push → デプロイ〈`verify_jwt: false`・`import_map_path: deno.json`〉→ pg_net で `/health`・`/notify/run` 403 → `get_advisors`）。`game.js` は 変わらない はずなので `deno.json` の 固定は そのまま。
+   - ポリシー・規約は 動きと あっていた。4〜6・8 では 取る情報・保存期間は 変わらない（変わるなら 同じ コミットで 直す）。
+   - 直したら Claude版も 同じ URL に 出しなおす（1 が 入るので）。
+2. **よるの おしらせ：** 2026-11-15 21時の cron で、スペースを とった 新しい 文が こむぎに 届いたかを オーナーに 聞く。`select day, made_at, used_at, done_at, sent, skipped, failed, note from app.notify_runs order by day desc limit 3;`。ためしの こむぎは 公開の前に 消す。
+   - もう一度 その日に 送りたいときは（21時から 0時）：`update app.notify_runs set used_at = null, done_at = null where day = (now() at time zone 'Asia/Tokyo')::date;`、送った人にも もう一度なら `update app.members set notified_on = null where notify;`、そのあと `select app.notify_kick();`。**ただし、その日に もう とどいた人には とどかない**（リトライキーが 会員と 日付で 決まり、LINE は 同じ キーを 24時間 うけつけない＝409。`sent` には 数える。F2-4）。
+3. **直し おわったら リリース**（未認証のまま。下の「公開の日」）。公開の日に 足すこと：Supabase の Settings → Data API の「Exposed schemas」に `app`・`net` が ないのを オーナーが 見る（F2-5。今回は 確かめられなかった）。
 4. **リリースしたら：約束②（個人事業主の申請のための別プロジェクトのプロンプト）を ソーイから伝える。** 中身は プロジェクトの資料 `claude/owner-notes.md`。
 - おたすけ：ホーム画面版は1日おき（2026-11-12）。Claude版・LINE版は「前回から7日」のまま。
 
 ## 次にやること
 
-- 上の保留（通知の 準備と 実機の ためし → Fable の さいごのチェック → リリース → 約束② → 個人事業主 → 認証審査の申請）。
+- 上の保留（さいごのチェックの 直し → リリース → 約束② → 個人事業主 → 認証審査の申請）。
 - 認証審査を申請したら：審査は1〜2週間、「審査中」は取り消しも変更も できない（画面とサーバーも変えない）。認証されたら：「検索可能にする」は 承認から30日以内に押す。リンクする公式アカウント・友だち追加オプションは 認証の前に すませておく（あとで変えると 再審査）。
 - **公開の前に：** ためしで作った 会員（通知の ためしなど）は「LINEの データを けす」で 消す（`app.members` が 0件か 確かめる）。消さないと 公開の日に だいずを 引っこしコードで 取りこめない（1人1回）。
 - **公開の日：** オーナーの iPhone の LINE に ためしの子が ゲストとして のこっていれば、本番用の LIFF URL を LINE で ひらいて「◯◯を LINEに つれてくる？」が出たら**「やめておく」**→ はじめての画面の「引っこしコード」で だいずを取りこむ（取りこみは1人1回）。ホーム画面版で「引っこし・バックアップ」→「ファイルで保存」の控えも とっておく。開発用・審査用・本番用は 同じサーバーと DB。ためしで作った カードの画像は 公開の前に けす（`app.cards`・`app.save_backups` と Storage の `cards` が0件か確かめる。`app.day_quota`・`app.error_counts`・`app.notify_runs` は 2日・60日・60日で 消えるので のこっていてよい）。公開の日に、本番用で「うちのこカードを おくる」と よるの おしらせの スイッチが 出るかも だいずで見る。
