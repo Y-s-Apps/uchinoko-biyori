@@ -2,63 +2,62 @@
 
 このファイルは、チャットのいちばん最後に毎回まるごと書き直します。次のチャットは、ここを読めば続きから始められます。オーナーは、更新のたびにプロジェクトナレッジのGitHubを「同期」し、作業ごとに新しいチャットへ移ります（`CLAUDE.md` の作業の流れ 7）。
 
-- 最終更新：2026-11-16（18回目：**パズルの レビュー（Claude Fable 5.2）と 画面の 作りなおし 済み**（`d723d51`。ルール・サーバーに 直すものは なし＝デプロイなし）。**つぎ：オーナーが iPhone の LINE で ためす（高さ・下スワイプ）→ のこりの 2つ（P5-1 なでなで・P6-1 小さい Android の 下の ボタン）を オーナーに きいて 直す → リリース**）
+- 最終更新：2026-11-16（19回目：**実機の 結果を きいて、のこりの 2つ（P5-1 なでなで・P6-1 小さい Android の 下の ボタン）を 直した**（`de696b7`。ルール・サーバーは かえていない＝デプロイなし）。**うちのこの 体勢と 動きの 設計を `docs/MOTION_DESIGN.md` に 作った**（実装は あとで Opus 5.5）。**つぎ：リリース（下の「公開の日」。オーナーの 手順 1〜5 → ソーイが 確かめて「リリース 済み」→ 約束②）**）
 - リポジトリ：`Y-s-Apps/uchinoko-biyori`（組織 Y-s-Apps）。ホーム画面版：https://y-s-apps.github.io/uchinoko-biyori/
-- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-1104ee5d98`**（`d723d51`。`index.html`・`sw.js` の md5 は `bf568483…`・`564b4fd7…`。Pages の deploy は success）。パズルの 画面が かわったので だいずの アプリは 更新される（おせわの 動きは 前と同じ＝`compare_home.py`：おなじ）
-- Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン28**（`d723d51` の中身。version `1794755766-655f`、capabilities は 引きついだ）。公開するときは `src/out/uchinoko-claude.html` の前に いまの版と同じ1行目（`<!doctype html><html><head><meta charset=utf8><meta name=viewport …><style>…</style></head><body>` ＋改行）を、うしろに `</body></html>` ＋改行 を つけて `publish_files`（slug は UUID `507aa3eb-87ee-4ddc-80e3-61638a697f56`。短い id は ことわられる。`capabilities` は はぶいて 引きつぐ。前の版を この形で 作りなおすと `list_files` の sha256 と 同じになるのを 確かめてから 出す。1行目は `read_file` の `offset 1・limit 1` で 読める）
-- LINE版の画面：Cloudflare Pages（main の push で自動ビルド。`d723d51` の ビルドは success。`LINE_CFG.oaId` に `@370iymyw`）
+- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-42796d8f16`**（`de696b7`。`index.html`・`sw.js` の md5 は `d8882038…`・`36368c0e…`。Pages の deploy は success）。なでなでの 直しが 入ったので だいずの アプリは 更新される（おせわの 動きは 前と同じ＝`compare_home.py`：おなじ）
+- Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン29**（`de696b7` の中身。version `1794772870-8994`、capabilities は 引きついだ）。公開するときは `src/out/uchinoko-claude.html` の前に いまの版と同じ1行目（`<!doctype html><html><head><meta charset=utf8><meta name=viewport …><style>…</style></head><body>` ＋改行）を、うしろに `</body></html>` ＋改行 を つけて `publish_files`（slug は UUID `507aa3eb-87ee-4ddc-80e3-61638a697f56`。短い id は ことわられる。`capabilities` は はぶいて 引きつぐ。前の版を この形で 作りなおすと `list_files` の sha256 と 同じになるのを 確かめてから 出す。1行目は `read_file` の `offset 1・limit 1` で 読める）
+- LINE版の画面：Cloudflare Pages（main の push で自動ビルド。`de696b7` の ビルドは success。`LINE_CFG.oaId` に `@370iymyw`）
   - 本番用 https://uchinoko-biyori.pages.dev/ 、審査用 https://uchinoko-biyori.pages.dev/review/ 、開発用 https://uchinoko-biyori.pages.dev/dev/ （同じページ。ひらいた場所で LIFF ID をえらぶ）
   - ヘッダー（`_headers`）：ぜんぶ（`/*`）に `Referrer-Policy: no-referrer`・`X-Content-Type-Options: nosniff`・`Content-Security-Policy: frame-ancestors 'none'`・`X-Frame-Options: DENY`
   - LIFF URL：開発用 https://miniapp.line.me/2012410263-cuCI7vQS ／審査用 https://miniapp.line.me/2012410264-JD4WhzAb （審査担当者だけ）／本番用 https://miniapp.line.me/2012410265-PutgsCLS （未認証なので URL を知っている人は開ける）
   - チャネルID：開発用 `2012410263`・審査用 `2012410264`・本番用 `2012410265`
   - プライバシーポリシー https://uchinoko-biyori.pages.dev/privacy.html ・利用規約 https://uchinoko-biyori.pages.dev/terms.html （ポリシーは 2026-11-15 改定〈パズルの 記録〉。今回の 作りなおしでは 取る情報・送り先・保存期間は かわらないので そのまま）、お問い合わせフォーム https://forms.gle/aywxktpPZettxFSS7
-- LINE版のサーバー：Supabase のプロジェクト「uchinoko-biyori」（`ftakgswltcavwixqxpzi`、東京、組織 `Yuthy's` の無料プラン）。Edge Function `api` は **MCP の version 25 のまま**（2026-11-15 17:46。`index.ts` は `6820b68`・`deno.json` は `game.js` を `6820b68` に固定。18回目は `game.js` が かわらない＝`build_server.py --check` OK なので デプロイなし）
+- LINE版のサーバー：Supabase のプロジェクト「uchinoko-biyori」（`ftakgswltcavwixqxpzi`、東京、組織 `Yuthy's` の無料プラン）。Edge Function `api` は **MCP の version 25 のまま**（2026-11-15 17:46。`index.ts` は `6820b68`・`deno.json` は `game.js` を `6820b68` に固定。18・19回目は `game.js` が かわらない＝`build_server.py --check` OK なので デプロイなし）
 - 表：`app` スキーマに members・line_accounts・sessions・saves・cards・save_backups・day_quota・error_counts・chores・notify_runs
 - **cron：** pg_cron 1.6.4、ジョブ `uchinoko-notify`（**`0,5 12 * * *`＝日本時間 21:00 と 21:05**。`select app.notify_kick()`。21:05 は 21:00 の回が とどかなかった・ことわられた日だけ 動く）。**2026-11-15 21:00 に はじめて 予定どおり 自分で 動いて 1通 とどいた**（`made 12:00:00 UTC`・`done 12:00:21`・`sent 1`・`failed 0`。21:05 は 送らない。オーナーが LINE で 見た）
 - 役：`uchinoko_api`（`app` の表だけ。サーバーは この役で つないでいる）
 - Storage：バケット `cards`（公開・PNG だけ・1MB まで、ポリシーなし）。カードは 全員で 1500まい まで
 - サーバーを起こす：GitHub Actions（`.github/workflows/keepalive.yml`、cron `23 18 */3 * *`＝日本時間 3:23 ごろ、数時間 おくれることがある）。`/health` の `errors`（10以上で 失敗）と `notifyDays`（止まった日が あれば 失敗）を 見る。**つぎの 予定は 11-17 3:23 ごろ**
 - Secrets：`ANTHROPIC_API_KEY`・`LINE_CHANNEL_SECRET`（開発用）・`LINE_CHANNEL_SECRET_2012410264`・`LINE_CHANNEL_SECRET_2012410265`・`APP_DB_PASSWORD`・`LINE_MESSAGING_TOKEN`
-- 本物の DB（2026-11-15 夜）：**会員 1人＝オーナーの ためしの子「こむぎ」**（開発用で 作った。よるの おしらせ オン。セーブに `puzzle` の 記録あり。**公開の前に「LINEの データを けす」で 消す**）。カード・ひかえ・Storage の `cards` は 0件
+- 本物の DB（2026-11-16 4時半）：**会員 1人＝オーナーの ためしの子「こむぎ」**（開発用で 作った。よるの おしらせ オン。セーブに `puzzle` の 記録あり。**公開の前に「LINEの データを けす」で 消す**）。カード・ひかえ・Storage の `cards` は 0件
 - LINE公式アカウント「うちのこ日和」（ベーシックID `@370iymyw`、Messaging API の プロバイダー「Y's Apps」、応答メッセージ・Webhook オフ）。ミニアプリの 友だち追加オプション・デフォルトの公式アカウントも 設定ずみ
 - LINE Developers：Scope は `openid` だけ。「シェアターゲットピッカー」は 有効。認証審査は まだ申請しない（未認証でリリース → 個人事業主 → 申請）
 - 診断レポート（約束①）：https://claude.ai/artifact/8kuQtwwyAD9RJ42PPy7GU6 （42こ・さいごのチェックの 17こ ぜんぶ 片づいた。**いちばん うしろの 章「パズルの レビュー（2026-11-16）」に 18回目の 結果**）
 - LINE版の計画書：https://claude.ai/artifact/AgKkCkHCsWAywKGV6VFxwK
 - オーナーの事情（約束②で使う）：claude.ai の このプロジェクトの資料 `claude/owner-notes.md`（非公開）
 
-## 直近のチャットでやったこと（2026-11-15〜16、18回目：パズルの レビューと 画面の 作りなおし。Claude Fable 5.2）
+## 直近のチャットでやったこと（2026-11-16、19回目：実機の 結果 → のこりの 直し → 設計。Claude Fable 5.2）
 
-`docs/REVIEW_PROMPT.md` の とおりに 段階0〜7。見たのは `9807bb1`〜`f14bc65`。オーナーから「UI と セキュリティ 以外も、リリースできる 最終チェックとして」。
+- **オーナーの 実機（iPhone の LINE）の 結果：** 高さ＝入った。下スワイプ＝パズルでは 問題なし。おへやの なでなでは はじめの 下スワイプだけ 引っぱられた（そのあとは 引っぱられない。オーナーは「問題ない」）。そのほか＝なし（「今後 アップデートの 余地は あるが、当初より いい感じ」）。
+- **P5-1 なでなで（オーナー「まかせる」→ 直した）：** `js_app.js` の `petStill`＝`#pet` の `touchstart`・`touchmove` を `preventDefault`（`passive:false`）。なでる・タップは ポインターの イベントなので そのまま。3つの 版に 入る。**実機で はじめの 1回も 引っぱられなく なったかは、つぎに オーナーが さわった ときに きく**（かわらなくても 害は ない）。
+- **P6-1 小さい Android の 下の ボタン（オーナー「未確認」＝Android が 手もとに ない → ためしの まねで 出ていたので 直した）：** `line_head.html` の 下の すき間を `:root` から `html .app` の `padding-bottom`（`16px ＋ すき間`）へ。高い 画面（390×844）の 見た目は 前と 同じ。`smoke.py --line --android-inset 48 --size 375x667`・`375x603` が 0件に（下の ボタンの 下に 64px）。**実機の Android では まだ 見ていない**（公開の日の 手順 6）。
+- **`smoke.py` に なでる（指の まね）：** CDP の タッチで うちのこを 下に こする → なでた ことに なる・タップは へんじ・`touchstart`/`touchmove` が ぜんぶ `defaultPrevented`・ページが スクロールしない。直す 前の 版では 失敗するのを 確かめた。
+- **設計：`docs/MOTION_DESIGN.md`**（オーナー：「アプリを通して ずっと 同じ 体勢だから、動きを つけたり アップデートしたい。Opus 5.5 に 向けた 設計だけ」）。体勢 6つ（すわる・たつ・ふせる・ねる・ごろん・おねだり）・しぐさ 12こ・なでる／タップの 返事・ひまな ときの 行動の 表・ほかの 画面、作る 順番（だんかい 0〜4）、確かめ方、実装のチャットに 貼る プロンプト。**新しい 絵を かかず、いまの グループを うごかす**（ポメラニアン・柴・ダックス・猫で ためして できると 確かめた）。見た目だけ（ルール・セーブ・サーバーは かえない）。
+- **確かめ（ぜんぶ `42796d8f16` の ビルドで）：** `smoke.py`（ふつう・`--dark`・`--size 375x667`・`--fresh`・`--claude`・`--line`・`--line --dark`・`--line --android-inset 48`・その `--size 375x667`・`375x603`）エラー0、`compare_home.py` おなじ、`build_server.py --check` OK、`line_e2e.py` all passed、`linebreak.py --line`（ぜんぶ）・`--line --height 603`（パズル・あそぶ）0件。文言は かえていない。
+- **push・公開：** `de696b7`（GitHub Pages・Cloudflare とも success）。Claude版 バージョン29。Edge Function は そのまま。
 
-- **レビューの 結果：** 「必ず」は 0。ルール（P1-1〜4 情報）・サーバー（P2-1 低＝画面で 直した、P2-2・3 情報）・書類と LINE の 決まり（P3-1〜4 情報。課金の ない ゲームに 申告は いらない）に 直すものは なし。端末と サーバーで 同じ盤に なるのを 2000回ぶん 確かめた。
-- **画面の 作りなおし（オーナーが 見本から「案A おへや」、×は「たしかめる」を えらんだ）：** シートの中 → **ページごと うつる 画面 `#pzPage`**。上の まんなかに うちのこ（もようがえの かべ・ゆかの 前、ふきだしで 応援）、のこりの手・けした数・点数の 3まい、盤。盤の 大きさは `PuzzleUI.fit()` が 画面の 高さから 決める（LINE の 中でも スクロールなし。375×603 で 1マス 52px）。おわり・とちゅうで やめる の 知らせは 盤の 上に かさねる カード（下の ボタンが 切れない）。あそびかたは えらぶ シートの 下の 文と「？」。ページは 指で うごかない（`touch-action:none`・`overscroll-behavior:none`・`touchstart`/`touchmove` を とめる。盤は タッチの イベントで うごかす）。
-- **いっしょに 直した 不具合：** P4-1（中）LINE版で あそんでいる あいだに 通信が 切れる・2回とも とどかないと、端末だけで「クリア！ ほうび」と 出て あとで 消えた → `Act.blocked()` を 見て おくらない・「きろく できなかったよ」＋「もういちど おくる」。P4-2（低）おくりなおしが 新しい 番号で「きろく されなかった」と 出た → 1回の あそびに 番号 `rid` を 1つ。P4-3（低）うごいている とちゅうで とじると `TypeError` → `tok` で 見る。P4-4（低）まちがえて とじると 回が なくなる → たしかめ。P2-1（低）`busy` は おくりなおし。
-- **道具：** `smoke.py --size WxH`（パズルが スクロールなしで 入るか・1マス 44px 以上・×の たしかめ・？・おわりの カードが 盤の 中か）、`linebreak.py --height N`（ポップアップの 上が 切れて とどかない・シートが 画面の 上に 出る・パズルが 入りきらない も 数える。パズルの 場面は ふきだしの 文 ぜんぶ）、`line_e2e.py` の 22b（2回とも とどかない）・22c（返事だけ なくなる）・22d（とちゅうで 切れる）。
-- **確かめ（ぜんぶ `1104ee5d98` の ビルドで）：** `line_e2e.py` all passed、`smoke.py`（ふつう・`--dark`・`--size 375x667`・`--fresh`・`--claude`・`--line --android-inset 48`）エラー0、`compare_home.py` おなじ、`linebreak.py`・`--claude`（パズル）・`--line --height 603`（パズル）・`--line`（ぜんぶ）0件、指の まね（`touchscreen`）の ためし。**`smoke.py --line --android-inset 48 --size 375x667` だけ 1件**＝下の P6-1（パズルでは なく 前から ある おへやの 画面）。
-- **push・公開：** `d723d51`（GitHub Pages・Cloudflare とも success）。Claude版 バージョン28。Edge Function は そのまま。
+## その前のチャット（2026-11-15〜16、18回目：パズルの レビューと 画面の 作りなおし）
 
-## その前のチャット（2026-11-15、16〜17回目：パズル「おやつならべ」と デプロイ）
+パズルの レビュー（「必ず」0。ルール・サーバーに 直すもの なし）と、パズルの 画面の 作りなおし（シートの中 → ページごと うつる `#pzPage`。盤の 大きさは `PuzzleUI.fit()`。ページは 指で うごかない）。いっしょに P4-1〜4・P2-1 を 直した。`d723d51`、Claude版 バージョン28。くわしくは `docs/PROJECT.md` の 更新履歴と 10章「しくみ（パズル）」、診断レポートの「パズルの レビュー（2026-11-16）」。
+
+## さらに 前（2026-11-15、16〜17回目：パズル「おやつならべ」と デプロイ）
 
 オーナー決定（2026-11-15）：課金と広告の順番の ③ のうち パズルだけを リリースの前に（リワード広告・課金は 入れない）。入口＝「あそぶ」で ボール／パズルを えらぶ、版＝3つ ぜんぶ、ほうび＝最小（ごきげん+5・なかよし+2、1日3回）、形＝6×6・5しゅるい・12手で 54こ けす。ルール（`Puzzle`・`Rules.puzzle`）と サーバー（`/act` が `seed`・`moves` を わたす）は `6820b68`、Edge Function version 25。オーナーが LINE で ためして サーバーに きろく された。手ざわり 3つ（高さ・下スワイプ・ペットを 大きく）→ 18回目で 作りなおした。
 
 ## 保留・オーナーの判断待ち（つぎのチャットのはじめに）
 
-1. **オーナーの 実機（iPhone の LINE。開発用の LIFF URL https://miniapp.line.me/2012410263-cuCI7vQS ）で パズルを ためした 結果を きく：**
-   - 「あそぶ」→ パズルで、画面が スクロールなしで 入るか（「もういちど」「おわる」が 切れないか）。
-   - **盤の 上・うちのこの ところを 下に スワイプしても、LINE に 引っぱられないか（P5-2）。** まだ 引っぱられるなら、つぎの 手を 考える（タップだけで 入れかえる、盤を 少し 下に さげる など。LINE の 資料には とめ方が 書かれていない）。
-   - うちのこの 大きさ・ふきだし・数字の 3まい・おわりの カード、「×」の たしかめ、「？」。
-   - ホーム画面版（だいず）でも 同じ 画面に なっている。
-2. **P5-1（低。オーナーに きく）なでなでの 下スワイプ：** おへやの うちのこ（`#pet`）は 前の パズルの 盤と 同じ 作り（`touch-action:none` と ポインターの イベントだけ）なので、下に こすると LINE の 最小化が 起きうる。直し方＝`js_app.js` の なでなでに `touchstart`・`touchmove` の `preventDefault`（`passive:false`）を 足す 3行ほど。**1 で パズルの 対策が 効いたと わかってから。** ホーム画面版も かわる（`compare_home.py` で おなじ を 確かめる）。
-3. **P6-1（低。オーナーに きく）小さい Android で 下の 5つの ボタンが ナビゲーションバーに かくれる：** `line_head.html` は 下の すき間を `:root` の `padding-bottom` で あけているが、おへやの 画面は 高さが 648px より 小さく ならないので、画面の 高さが 648＋すき間 より ひくいと（375×667 で すき間 35px、603 以下で 16px）ページが スクロールして すき間が きえる。iPhone は あたらない（ホームバーの ある iPhone は 高さが たりる・SE は すき間 0）。直し方＝すき間を `:root` から `.app` の `padding-bottom` に うつす（LINE版だけ。`line_head.html` の 1〜2行）。直したら `smoke.py --line --android-inset 48 --size 375x667` が 0件に なる。
-4. **（あとで・情報）** P5-3 シートを いちばん上で 下に 引くと LINE の 最小化（ふつうの 動き）、P5-4 ダークで ブルーベリーが 見わけにくい、P5-5 高さ 500px より ひくい 画面は パズルが たてに スクロール、P5-6 `smoke.py --claude` は パズルを とおらない。
-5. **つぎは リリース（公開の日）。** 下の「公開の日」の 手順で すすめる。発売記念は 日本時間 11/17 16:59 まで（Fable 5.2 の こと。リリースの 日は オーナーが 決める）。
-6. **公開の日に オーナーが 見ること：** Supabase の Settings → Data API の「Exposed schemas」に `app`・`net` が ないこと（F2-5。ソーイは 確かめられない）。
+1. **リリース（公開の日）。** オーナーに 下の「公開の日」の 手順 1〜5 を おねがいした（19回目の さいごに 伝えた）。オーナーが「やった」と 言ったら：ソーイが `app.members`・`app.cards`・`app.save_backups`・Storage の `cards` を 見る（手順 1 の あとは 0件、だいずを 取りこんだ あとは 会員 1人）→ `docs/PROJECT.md`（10章の ①・更新履歴）に「リリース 済み（日付）」→ **約束②を 伝える**。発売記念は 日本時間 11/17 16:59 まで（Fable 5.2 の こと。リリースの 日は オーナーが 決める）。
+2. **公開の日に オーナーが 見ること：** Supabase の Settings → Data API の「Exposed schemas」に `app`・`net` が ないこと（F2-5。ソーイは 確かめられない）。
+3. **なでなで（P5-1）の 実機：** はじめの 下スワイプも 引っぱられなく なったか、オーナーに きく（きくだけ。かわらなくても そのまま）。
+4. **小さい Android（P6-1）の 実機：** まだ だれも 見ていない。Android の 人が いれば、下の 5つの ボタンと パズルの 下の すき間を 見てもらう（公開の日の 手順 6）。
+5. **うちのこの 体勢と 動き（`docs/MOTION_DESIGN.md`）：** 実装は リリースの あと、Opus 5.5 の 新しい チャットで（プロンプトは 設計の 8章）。だんかい 0 の あと、見本を 見て オーナーが 決める（入れる もの・ごろんの 見え方・うごく 多さ）。**認証審査の「審査中」は LINE版を かえられないので、申請の 前か 認証の あとに 出す。**
+6. **（あとで・情報）** P5-3 シートを いちばん上で 下に 引くと LINE の 最小化（ふつうの 動き）、P5-4 ダークで ブルーベリーが 見わけにくい、P5-5 高さ 500px より ひくい 画面は パズルが たてに スクロール、P5-6 `smoke.py --claude` は パズルを とおらない。小さい 画面（高さ 648＋すき間 より ひくい）では おへやの 画面が 少し スクロールする（前から。下まで スクロールすれば ボタンは ぜんぶ 見える）。
 7. **リリースしたら：約束②（個人事業主の申請のための別プロジェクトのプロンプト）を ソーイから伝える。** 中身は プロジェクトの資料 `claude/owner-notes.md`。
 - おたすけ：ホーム画面版は1日おき（2026-11-12）。Claude版・LINE版は「前回から7日」のまま。
 
 ## 次にやること
 
-- 実機の 結果 → のこりの 直し → リリース（未認証のまま）→ 約束② → 個人事業主 → 認証審査の申請。
+- リリース（未認証のまま）→ 約束② → 個人事業主 → 認証審査の申請。うちのこの 体勢と 動き（Opus 5.5）は リリースの あと（審査中を さける）。
 - 認証審査を申請したら：審査は1〜2週間、「審査中」は取り消しも変更も できない（画面とサーバーも変えない）。認証されたら：「検索可能にする」は 承認から30日以内に押す。リンクする公式アカウント・友だち追加オプションは 認証の前に すませておく（あとで変えると 再審査）。
 
 ## 公開の日（リリース）の 手順
@@ -74,6 +73,8 @@
 
 ## 気をつけること
 
+- **なでなで（`#pet`）と LINE の 下スワイプ：** `petStill`（`touchstart`・`touchmove` の `preventDefault`）を はずさない。`#pet` の 中に ボタンや リンクを 足すと 指の `click` が 来ない（タッチを とめているので）。`smoke.py` の「なでる（指）」が 見る。
+- **LINE版の 下の すき間：** おへやの 画面は `html .app`、シート・ポップアップ・はじめての画面・パズルは それぞれ（`line_head.html`）。`:root` には あけない（P6-1）。新しい 画面いっぱいの 入れものを 足したら、そこにも 書く。
 - **パズルの 画面（`PuzzleUI`。2026-11-16）：**
   - 重なりの 順：はじめての画面 40 ＜ **`.pz-page` 45** ＜ シート 50 ＜ ポップアップ 70。ひらいている あいだ `#app` は `inert`（`#sheetWrap`・`#onboard` は `#app` の となりなので さわれる）。`Game.start` は ひらいていたら とじる。`Nudge.busy` は `PuzzleUI.page` も 見る。
   - **おくる 前に `Act.blocked()` を 見る。** `Act.run` は つながっていないと 端末の ルールで 数えてしまう（`Act.remote` が `null`）ので、LINE版で サーバーを とおさない 記録を 作らない（P4-1。`line_e2e.py` 22b・22d）。番号 `rid` は `start()` で 1つ 作り、おくりなおしも 同じ（22c）。
@@ -95,7 +96,7 @@
 - **おしらせ（`LineNotice`）：** ポリシー・規約の 大事な変更や 本サービスを終えるとき（30日以上前）は、同じコミットで `js_line.js` の `LineNotice.list` に `{ id, from, until, title, when, text, link }` を1つ足す（id は つかいまわさない。`2026-11-notify` は もう つかった）。足したら `linebreak.py --line --only notice` で 改行を確かめ、PROJECT.md 10章に「出した おしらせ」を書き、`line_e2e.py` の `NOTICE_IDS` にも 足す。
 - **カードの ボタンと 通知の ボタンは `#2A7F6D`**（LINE が 白い字で かく）。
 - **名前などの短い文字は `cleanText(v, max)`**、**表の ID を見るときは `hasId(表, id)`**。
-- いま育てている子は「だいず」（クリームのポメラニアン、ホーム画面版）。セーブをこわす変更はしない。LINE版だけの変更では、ビルドの前後でホーム画面版の `index.html`・`sw.js` が同じか確かめる（`md5sum`。いまは `bf568483…`・`564b4fd7…`）。
+- いま育てている子は「だいず」（クリームのポメラニアン、ホーム画面版）。セーブをこわす変更はしない。LINE版だけの変更では、ビルドの前後でホーム画面版の `index.html`・`sw.js` が同じか確かめる（`md5sum`。いまは `d8882038…`・`36368c0e…`）。
 - 正規表現に 日本語の文字を そのまま書かない。正規表現の うしろ読み（`(?<!…)`）・`Object.hasOwn` も 古い iPhone で 止まるので 使わない。
 - `js_line.js` は `js_onboard.js` の boot の**あと**に読まれる。`renderHeader`・`allDoneModal` などを包むときは、包んだあとに いまの画面にも1回あてる（必要なら）。
 - **`line-guest` は `{ v:2, kids:[…] }`（5ひき）。** キーごと 消す処理は 書かない。`line-unsent` は `markUnsent()` で 書く・空にする。
