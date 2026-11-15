@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-wLsHhG1U+xxzEv/nG+zmxIZsN+O97FvxLO4o7/q6YRA='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-Jr2e//Cub38Y07UFjRVZVefmLo3b+ggBkG+6uvKySk4='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="写真の犬や猫をそっくりなペットにして、ごはん・おやつ・なでなででのんびり育てるアプリ">
@@ -511,33 +511,70 @@ button{font:inherit;color:inherit}
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
 }
-/* パズル「おやつならべ」（2026-11-15） */
+/* パズル「おやつならべ」（2026-11-15。2026-11-16 に、シートの中から ページごと うつる 形に 作りなおした）
+   - 画面いっぱい（.pz-page。重なりは はじめての画面 40 ＜ ここ 45 ＜ シート 50 ＜ ポップアップ 70：ポップアップの ボタンから ひらく シートも 上に 出る）。盤の 一辺 --pz-s は PuzzleUI.fit() が 画面の 高さから 決める（スクロールなしで ぜんぶ 見える）。
+   - ページは うごかさない（overflow:hidden・touch-action:none・overscroll-behavior:none。LINE で 下に 引っぱられない ように）。
+     入りきらない ほど ひくい 画面（.tight）だけ たてに スクロール。
+   - うちのこが はねる 動きは 絵の 外がわの わく（.pz-art）に つける（#petArt と 同じ 理由） */
 .playpick{grid-template-columns:repeat(2,minmax(0,1fr))}
 .playpick .tile{padding-block:14px 12px}
 .playpick .tname small{display:block;font-size:11px;color:var(--ink-soft);font-weight:700}
-.pz-top{display:flex;align-items:center;gap:8px;margin:0 0 10px}
-.pz-pet{flex:0 0 60px;height:60px}
-.pz-pet .pet-svg{display:block;width:60px;height:60px}
-.pz-pet.hop{animation:pzHop .45s ease}
-.pz-pet.joy{animation:pzHop .45s ease 3}
-@keyframes pzHop{0%,100%{transform:none}40%{transform:translateY(-10px)}}
-.pz-say{flex:1 1 auto;min-width:0;position:relative;margin:0;background:var(--surface-2);border-radius:14px;padding:6px 10px;font-size:13px;font-weight:700;line-height:1.4;min-height:2.8em;display:flex;align-items:center}
-.pz-say::before{content:"";position:absolute;left:-6px;top:50%;margin-top:-6px;border:6px solid transparent;border-left:0;border-right-color:var(--surface-2)}
-.pz-nums{display:flex;gap:8px;text-align:center;flex:0 0 auto}
-.pz-nums div{display:flex;flex-direction:column;line-height:1.2;min-width:46px}
-.pz-nums b{font-size:20px;font-variant-numeric:tabular-nums}
-.pz-nums small{font-size:11px;color:var(--ink-soft);font-weight:700;white-space:nowrap}
-.pz-board{position:relative;width:100%;max-width:360px;margin:0 auto;aspect-ratio:1/1;background:var(--surface-2);border-radius:18px;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
-.pz-t{position:absolute;width:16.6667%;height:16.6667%;margin:0;padding:3px;border:0;border-radius:14px;background:none;color:inherit;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:top .22s ease-in,left .19s ease,transform .22s ease,opacity .22s ease}
+html.pz-open,html.pz-open body{overflow:hidden;overscroll-behavior:none}
+.pz-page{position:fixed;inset:0;z-index:45;box-sizing:border-box;background:var(--ground);color:var(--ink);overflow:hidden;overscroll-behavior:none;touch-action:none;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;outline:none;
+  padding:calc(10px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px));animation:pzIn .22s ease}
+.pz-page.tight{overflow:auto;touch-action:pan-y}
+@keyframes pzIn{from{opacity:0;transform:translateY(14px)}}
+.pz-col{box-sizing:border-box;max-width:480px;height:100%;margin:0 auto;display:flex;flex-direction:column;justify-content:center;gap:10px}
+.pz-page.tight .pz-col{height:auto;min-height:100%}
+.pz-bar{flex:none;display:flex;align-items:center;gap:10px}
+.pz-bar h2{flex:1;min-width:0;margin:0;text-align:center;font-family:var(--f-display);font-weight:400;font-size:18px;line-height:1.3}
+.pz-bar .closebtn{flex:none;background:var(--surface);box-shadow:var(--lift)}
+.pz-q{font-weight:900;font-size:18px;line-height:1}
+.pz-hero{position:relative;flex:1 1 0;min-height:92px;max-height:340px;border-radius:24px;overflow:hidden;isolation:isolate}
+.pz-wall{position:absolute;inset:0 0 30% 0;background:radial-gradient(rgba(255,255,255,.6) 2px,transparent 2.6px) 0 0/22px 22px,#E1EFE9}
+.pz-floor{position:absolute;inset:70% 0 0 0;background:repeating-linear-gradient(90deg,rgba(120,80,40,.10) 0 2px,transparent 2px 64px),linear-gradient(#EACFA6,#DDB98C)}
+.pz-floor::before{content:"";position:absolute;left:0;right:0;top:0;height:7px;background:#FFFFFF;opacity:.75}
+.pz-pet{position:absolute;left:50%;bottom:5%;width:var(--pz-pet,120px);height:var(--pz-pet,120px);transform:translateX(-50%)}
+.pz-art{width:100%;height:100%;transform-origin:50% 93.3%;will-change:transform;transform:translateZ(0)}
+.pz-art .pet-svg{display:block;width:100%;height:100%;overflow:visible}
+.pz-pet.hop .pz-art{animation:pzHop .45s ease}
+.pz-pet.joy .pz-art{animation:pzHop .45s ease 3}
+@keyframes pzHop{0%,100%{transform:translateZ(0)}40%{transform:translateY(-9%)}}
+.pz-say{position:absolute;z-index:2;left:50%;bottom:calc(5% + var(--pz-pet,120px) + 2px);transform:translateX(-50%);box-sizing:border-box;margin:0;width:max-content;max-width:calc(100% - 20px);background:#FFFFFF;color:#3A3147;
+  font-weight:700;font-size:14px;line-height:1.4;padding:7px 13px;border-radius:16px;text-align:center;box-shadow:0 3px 0 rgba(58,49,71,.12)}
+.pz-say::after{content:"";position:absolute;left:50%;top:100%;border:7px solid transparent;border-top-color:#FFFFFF;transform:translateX(-50%)}
+.pz-say:empty{display:none}
+/* ひくい 画面（うちのこの ところが 150px より ひくい。iPhone SE の LINE など）：うちのこは 左より、ふきだしは その右に（ことばが 切れない はばを とる） */
+.pz-hero.low .pz-pet{left:27%;bottom:4%}
+.pz-hero.low .pz-say{left:calc(27% + var(--pz-pet,96px) / 2 + 12px);top:50%;bottom:auto;transform:translateY(-50%);max-width:calc(73% - var(--pz-pet,96px) / 2 - 22px);font-size:13px;padding:6px 10px;text-align:left}
+.pz-hero.low .pz-say::after{left:auto;right:100%;top:50%;border:6px solid transparent;border-right-color:#FFFFFF;transform:translateY(-50%)}
+.pz-nums{flex:none;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px}
+.pz-n,.pz-goal{box-sizing:border-box;background:var(--surface);border-radius:16px;padding:7px 12px 8px;box-shadow:var(--lift);display:flex;flex-direction:column;justify-content:center;line-height:1.2;min-width:0}
+.pz-n{align-items:center;min-width:64px}
+.pz-nums small{font-size:11px;font-weight:700;color:var(--ink-soft);white-space:nowrap}
+.pz-nums span{font-size:12px;font-weight:700;white-space:nowrap}
+.pz-nums b{font-size:22px;font-weight:900;font-variant-numeric:tabular-nums;margin-right:1px}
+.pz-gt{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
+.pz-goal .bar{margin-top:5px;height:8px}
+.pz-goal .bar i{width:0;background:var(--berry)}
+.pz-wrap{position:relative;flex:none;width:var(--pz-s,min(100%,52vh));height:var(--pz-s,min(calc(100vw - 32px),52vh));margin:0 auto 6px}
+.pz-board{position:absolute;inset:0;background:var(--surface);border-radius:20px;overflow:hidden;touch-action:none;box-shadow:var(--lift)}
+.pz-t{position:absolute;width:16.6667%;height:16.6667%;margin:0;padding:3px;border:0;border-radius:14px;background:none;color:inherit;display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:none;transition:top .22s ease-in,left .19s ease,transform .22s ease,opacity .22s ease}
 .pz-t svg{width:100%;height:100%;pointer-events:none}
-.pz-t.sel{background:color-mix(in srgb,var(--honey) 38%,transparent);transform:scale(1.06)}
+.pz-t.sel{background:rgba(239,180,67,.38);background:color-mix(in srgb,var(--honey) 38%,transparent);transform:scale(1.06)}
 .pz-t.pop{transform:scale(1.3);opacity:0}
 .pz-t:focus-visible{outline:3px solid var(--sky);outline-offset:-3px}
-.pz-end{margin-top:12px;text-align:center}
-.pz-res{margin:0;font-size:18px;font-weight:900}
-.pz-sub{margin:2px 0 12px;font-size:13px;color:var(--ink-soft)}
+.pz-end{position:absolute;inset:0;z-index:2;box-sizing:border-box;display:grid;place-items:center;padding:12px;border-radius:20px;background:var(--scrim);animation:fadein .2s ease}
+.pz-end[hidden]{display:none}
+.pz-card{box-sizing:border-box;width:100%;max-width:304px;background:var(--surface);border-radius:22px;padding:16px 14px 14px;text-align:center;box-shadow:0 6px 0 rgba(0,0,0,.08);animation:pop .35s cubic-bezier(.3,1.5,.5,1)}
+.pz-res{margin:0;font-size:18px;font-weight:900;line-height:1.4}
+.pz-sub{margin:4px 0 0;font-size:13px;color:var(--ink-soft);line-height:1.55}
 .pz-best{color:var(--berry-ink)}
-@media (prefers-reduced-motion: reduce){.pz-t{transition:none}.pz-pet.hop,.pz-pet.joy{animation:none}}
+.pz-card .btnrow{flex-wrap:nowrap;margin-top:12px}
+.pz-card .btnrow .btn{flex:1 1 0;min-width:0;white-space:normal;line-height:1.25;padding:11px 6px;min-height:46px}
+.pz-how{display:flex;justify-content:center;gap:6px;margin-bottom:2px}
+.pz-how svg{width:44px;height:44px}
 </style>
 </head>
 <body>
@@ -2674,15 +2711,16 @@ function setPlayIcon(){
   const want = S.pet.species === 'cat' ? YARN_ICON : SOCCER_ICON;
   if (svg.outerHTML !== want) svg.outerHTML = want;
 }
-/* あそぶ：ボール（猫は 毛糸玉）か パズル「おやつならべ」を えらぶ（2026-11-15 オーナー決定） */
+/* あそぶ：ボール（猫は 毛糸玉）か パズル「おやつならべ」を えらぶ（2026-11-15 オーナー決定）。パズルの あそびかたは ここと、パズルの 画面の「？」に */
 function openPlay(){
   if (Pet.busy || !S) return;
-  const cat = S.pet.species === 'cat', left = Rules.puzzleLeft(S);
+  const cat = S.pet.species === 'cat', left = Rules.puzzleLeft(S), best = S.puzzle && S.puzzle.best;
   const toy = document.querySelector('#actPlay svg');
   const html = `<div class="tiles playpick">
       <button class="tile" type="button" data-play="ball">${toy ? toy.outerHTML : ''}<span class="tname">${cat ? '毛糸玉' : 'ボール'}</span><span class="gain"><b>♥+3</b> ごきげん+12</span></button>
       <button class="tile" type="button" data-play="puzzle"><svg viewBox="0 0 24 24" aria-hidden="true">${MINI.puzzle}</svg><span class="tname">パズル<small>おやつならべ</small></span><span class="gain">${left ? `ほうび あと${left}回` : 'ほうびは<br>また あした'}</span></button>
-    </div>`;
+    </div>
+    <p class="note">パズルは、となりの おやつと 入れかえて 3つ そろえる あそび。${PUZZLE.moves}手で ${PUZZLE.goal}こ けしたら クリア！${best ? `<br>いままでの さいこうは ${Math.floor(best)}点` : ''}</p>`;
   openSheet('なにで あそぶ？', html, sh => {
     sh.querySelector('[data-play="ball"]').addEventListener('click', () => { closeSheet(); play(); });
     sh.querySelector('[data-play="puzzle"]').addEventListener('click', () => PuzzleUI.open());
@@ -3088,6 +3126,7 @@ const Game = {
   started:false,
   start(greet, away){
     Onboard.close();
+    if (PuzzleUI.page) PuzzleUI.close();   /* 子が 入れかわった・読みなおした：パズルの 画面は とじる（たねが かわるため） */
     ensureState(S);
     decay();
     renderHeader();
@@ -3762,7 +3801,7 @@ const Nudge = {
   busy(){
     const ob = document.getElementById('onboard');
     return Pet.busy || dragging || Onboard.busy || Modal.busy || Modal.q.length > 0 || (ob && !ob.hidden)
-      || $('#sheetWrap').classList.contains('open');
+      || $('#sheetWrap').classList.contains('open') || !!PuzzleUI.page;
   },
   check(){
     clearTimeout(this.t);
@@ -3819,41 +3858,93 @@ const Features = {
 };
 
 /* ===== パズル「おやつならべ」の画面（2026-11-15。ルールと 盤は js_rules.js の Puzzle） =====
-   「あそぶ」で えらぶ。おわったら たね（seed）と 手順（moves）だけを Act.run('puzzle') に わたし、
-   クリアしたか・点数・ほうびは ルール（LINE版は サーバー）が 再生して 決める。とちゅうで とじたら なにも おくらない */
+   「あそぶ」の シートで えらぶと、ページごと パズルの 画面に うつる（2026-11-16 に 作りなおした。前は シートの中）。
+   - 上の まんなかに うちのこ（応援の ふきだし）、その下に のこりの手・けした数・点数、下に 盤。あそびかたは「？」と えらぶ シートに。
+   - 盤の 大きさは 画面の 高さから 決めて（fit）、スクロールなしで ぜんぶ 見える。画面は うごかさない（LINE は ページを 下に
+     引っぱると ミニアプリを 小さくする ので、touchmove を とめる）。おわりの 知らせは 盤の 上に かさねる（高さが かわらない）。
+   - おわったら たね（seed）と 手順（moves）だけを Act.run('puzzle') に わたし、クリアしたか・点数・ほうびは ルール（LINE版は サーバー）が
+     再生して 決める。LINE に ほぞんしている子は、サーバーに つながっていない あいだは きろく しない（端末だけで 数えない）。
+     とちゅうで やめたら なにも おくらない */
 const PZ_TREATS = { dog:['bolo','apple','blueberry','milkgum','jerky'], cat:['kibble','paste','niboshi','maguro','catmilk'] };
+const PZ_MIN = 264;   /* 盤の いちばん 小さい 一辺（1マス 44px） */
 const PuzzleUI = {
-  g:null, seed:0, els:[], moves:[], sel:-1, busy:false, sh:null, box:null, swiped:false, cleared:false,
+  g:null, seed:0, rid:null, els:[], moves:[], sel:-1, busy:false, page:null, box:null, cleared:false, tok:0, tapAt:0, back:null, onFit:null, onKey:null, shown:null, cheerT:null, viaKey:false,
   kinds(){ const sp = isCat() ? 'cat' : 'dog'; return PZ_TREATS[sp].map(id => TREATS[sp].find(t => t.id === id)); },
-  note(){
-    const left = Rules.puzzleLeft(S);
-    return (left ? `クリアの ほうび（ごきげん+${PUZZLE.mood}・♥+${PUZZLE.love}）は<br>きょう あと${left}回` : 'きょうの ほうびは おわり。<br>あそぶのは いつでも できるよ')
-      + (S.puzzle.best ? `・さいこう ${S.puzzle.best}点` : '');
-  },
+  q(sel){ return this.page ? this.page.querySelector(sel) : null; },
   open(){
-    if (!S || Pet.busy || Act.waiting()) return;
-    const html = `<p class="sheet-sub">となりの おやつと 入れかえて、3つ いじょう そろえよう。${PUZZLE.moves}手で ${PUZZLE.goal}こ けしたら クリア！</p>
-      <div class="pz">
-        <div class="pz-top">
-          <div class="pz-pet" id="pzPet">${renderPet(S.pet.look, { wear:petWear() })}</div>
-          <p class="pz-say" id="pzSay" role="status"></p>
-          <div class="pz-nums"><div><b id="pzGot">0</b><small>/${PUZZLE.goal}こ</small></div><div><b id="pzLeft">${PUZZLE.moves}</b><small>のこり手</small></div></div>
+    if (!S || Pet.busy || this.page || Act.waiting()) return;
+    closeSheet();
+    this.back = document.activeElement;
+    const page = document.createElement('div');
+    page.className = 'pz-page'; page.id = 'pzPage'; page.tabIndex = -1;
+    page.setAttribute('role', 'dialog'); page.setAttribute('aria-modal', 'true'); page.setAttribute('aria-label', 'おやつならべ');
+    const wall = $('.wall'), floor = $('.floor');
+    page.innerHTML = `<div class="pz-col">
+        <div class="pz-bar">
+          <button class="closebtn" type="button" id="pzQuit" aria-label="パズルを やめる">${ICON_X}</button>
+          <h2>おやつならべ</h2>
+          <button class="closebtn pz-q" type="button" id="pzHelp" aria-label="あそびかた">？</button>
         </div>
-        <div class="pz-board" id="pzBoard" aria-label="おやつの ばん"></div>
-        <div class="pz-end" id="pzEnd" hidden></div>
-        <p class="note" id="pzNote">${this.note()}</p>
+        <div class="pz-hero">
+          <div class="pz-wall" aria-hidden="true"></div><div class="pz-floor" aria-hidden="true"></div>
+          <p class="pz-say" id="pzSay" role="status"></p>
+          <div class="pz-pet" id="pzPet"><div class="pz-art" id="pzArt">${renderPet(S.pet.look, { wear:petWear() })}</div></div>
+        </div>
+        <div class="pz-nums">
+          <div class="pz-n"><small>のこり</small><span><b id="pzLeft">${PUZZLE.moves}</b>手</span></div>
+          <div class="pz-goal"><div class="pz-gt"><small>けした かず</small><span><b id="pzGot">0</b>/${PUZZLE.goal}こ</span></div><div class="bar"><i id="pzBar"></i></div></div>
+          <div class="pz-n"><small>てんすう</small><span><b id="pzScore">0</b>点</span></div>
+        </div>
+        <div class="pz-wrap">
+          <div class="pz-board" id="pzBoard" role="group" aria-label="おやつの ばん"></div>
+          <div class="pz-end" id="pzEnd" hidden></div>
+        </div>
       </div>`;
-    openSheet('おやつならべ', html, sh => { this.sh = sh; this.box = sh.querySelector('#pzBoard'); this.bind(); this.start(); });
+    /* うしろの かべと ゆかは、いまの おへやの もようがえ と 同じ */
+    if (wall) page.querySelector('.pz-wall').style.background = wall.style.background;
+    if (floor) page.querySelector('.pz-floor').style.background = floor.style.background;
+    document.body.appendChild(page);
+    this.page = page; this.box = page.querySelector('#pzBoard');
+    document.documentElement.classList.add('pz-open');
+    const app = $('#app');
+    if (app){ app.setAttribute('aria-hidden', 'true'); app.inert = true; }
+    this.bind();
+    this.fit();
+    this.start();
+    this.refocus(page);
+  },
+  /* 盤の 一辺を 画面の 高さと はばから 決める（うちのこの ところは のこり ぜんぶ。入りきらない ほど ひくい 画面だけ スクロール） */
+  fit(){
+    const p = this.page;
+    if (!p) return;
+    p.style.height = '';
+    const vv = window.visualViewport;
+    /* 見えている 高さ（visualViewport）が ページより ひくい ときは そちらに あわせる（ひろげて 見ている〈scale が 1 で ない〉ときは さわらない） */
+    if (vv && Math.abs((vv.scale || 1) - 1) < .01 && vv.height > 200 && vv.height < p.clientHeight - 1) p.style.height = Math.floor(vv.height) + 'px';
+    const cs = getComputedStyle(p), col = p.firstElementChild;
+    const H = p.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom), W = col.clientWidth;
+    const gap = parseFloat(getComputedStyle(col).rowGap) || 0;
+    const rest = this.q('.pz-bar').offsetHeight + this.q('.pz-nums').offsetHeight + gap * 3;
+    const heroMin = 92;
+    const side = Math.floor(Math.min(W, 440, H - rest - heroMin));
+    const tight = side < PZ_MIN;
+    p.classList.toggle('tight', tight);
+    p.style.setProperty('--pz-s', Math.max(PZ_MIN, Math.min(side, W)) + 'px');
+    /* うちのこの 大きさ（--pz-pet）。うちのこの ところが ひくい ときは、ふきだしを うちのこの 右に */
+    const hero = this.q('.pz-hero'), hh = hero.clientHeight, low = hh < 150;
+    hero.classList.toggle('low', low);
+    hero.style.setProperty('--pz-pet', Math.round(low ? hh * .9 : Math.min(hh - 66, 200)) + 'px');
   },
   start(){
     this.g = Puzzle.start(Puzzle.seed(S));
-    this.seed = this.g.seed; this.moves = []; this.sel = -1; this.busy = false; this.cleared = false;
+    this.seed = this.g.seed; this.rid = typeof lineRid === 'function' ? lineRid() : null;
+    this.moves = []; this.sel = -1; this.busy = false; this.cleared = false; this.shown = null; this.tok++;
     this.box.innerHTML = '';
     this.els = this.g.b.map((k, i) => this.tile(i, k));
-    this.sh.querySelector('#pzEnd').hidden = true;
-    this.sh.querySelector('#pzPet').className = 'pz-pet';
+    this.card(null);
+    this.q('#pzPet').className = 'pz-pet';
     this.nums();
-    this.say(isCat() ? 'いっしょに がんばるにゃ！' : 'いっしょに がんばろ！');
+    this.say(!S.firsts.puzzle ? 'となりと 入れかえて、3つ そろえてね' : isCat() ? 'いっしょに がんばるにゃ！' : 'いっしょに がんばろ！');
   },
   tile(i, k, fromRow){
     const t = this.kinds()[k];
@@ -3871,84 +3962,150 @@ const PuzzleUI = {
     el.style.left = (i % W) * 100 / W + '%';
     el.style.top = (row == null ? Math.floor(i / W) : row) * 100 / W + '%';
   },
-  say(text){ const b = this.sh && this.sh.querySelector('#pzSay'); if (b) b.textContent = text; },
-  hop(){ const p = this.sh.querySelector('#pzPet'); p.classList.remove('hop'); void p.offsetWidth; p.classList.add('hop'); },
-  nums(){
-    this.sh.querySelector('#pzGot').textContent = Math.min(this.g.got, PUZZLE.goal);
-    this.sh.querySelector('#pzLeft').textContent = this.g.left;
+  say(text){ const b = this.q('#pzSay'); if (b) b.textContent = text; },
+  /* うちのこが はねる（joy は 3回）。体ごと うごかすのは 絵の 外がわの わく（#pzArt）に つける */
+  cheer(kind){
+    const p = this.q('#pzPet');
+    if (!p) return;
+    p.classList.remove('hop', 'joy'); void p.offsetWidth;
+    p.classList.add(kind || 'hop', 'ex-happy', 'wag-fast');
+    clearTimeout(this.cheerT);
+    if (kind !== 'joy') this.cheerT = setTimeout(() => { const x = this.q('#pzPet'); if (x) x.classList.remove('ex-happy', 'wag-fast'); }, 1400);
   },
+  /* 数字：のこりの手・けした数（と バー）・点数。got・score を わたすと その数で（れんさの だんかいごとに ふやす とき） */
+  nums(got = this.g.got, score = this.g.score){
+    if (!this.page) return;
+    got = Math.min(got, PUZZLE.goal);
+    this.shown = { got, score };
+    this.q('#pzGot').textContent = got;
+    this.q('#pzLeft').textContent = this.g.left;
+    this.q('#pzScore').textContent = score;
+    this.q('#pzBar').style.width = Math.round(got / PUZZLE.goal * 100) + '%';
+  },
+  /* いま 盤を さわれるか（うごいている あいだ・おわったあと・知らせが 出ている あいだは さわれない） */
+  ready(){ return !!this.page && !this.busy && !this.g.end && this.q('#pzEnd').hidden; },
   bind(){
+    const page = this.page, box = this.box;
     let down = null;
-    this.box.addEventListener('pointerdown', e => {
-      const el = e.target.closest('.pz-t');
-      down = el && !this.busy && !this.g.end ? { i:+el.dataset.i, x:e.clientX, y:e.clientY } : null;
-    });
-    this.box.addEventListener('pointermove', e => {
+    const tileAt = t => { const el = t && t.closest ? t.closest('.pz-t') : null; return el && this.ready() ? +el.dataset.i : -1; };
+    const begin = (i, x, y) => { down = i >= 0 ? { i, x, y } : null; this.viaKey = false; };
+    const move = (x, y) => {
       if (!down) return;
-      const dx = e.clientX - down.x, dy = e.clientY - down.y;
-      if (Math.max(Math.abs(dx), Math.abs(dy)) < 16) return;
-      const W = PUZZLE.w, i = down.i, x = i % W, y = Math.floor(i / W);
-      down = null; this.swiped = true;
-      const j = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? (x < W - 1 ? i + 1 : -1) : (x > 0 ? i - 1 : -1))
-        : (dy > 0 ? (y < W - 1 ? i + W : -1) : (y > 0 ? i - W : -1));
+      const dx = x - down.x, dy = y - down.y;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < 14) return;
+      const W = PUZZLE.w, i = down.i, cx = i % W, cy = Math.floor(i / W);
+      down = null; this.tapAt = Date.now();
+      const j = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? (cx < W - 1 ? i + 1 : -1) : (cx > 0 ? i - 1 : -1))
+        : (dy > 0 ? (cy < W - 1 ? i + W : -1) : (cy > 0 ? i - W : -1));
       this.pick(-1);
       if (j >= 0) this.tryMove(i, j);
+    };
+    const end = () => { if (!down) return; const i = down.i; down = null; this.tapAt = Date.now(); this.tap(i); };
+    /* ページを うごかさない：LINE は ページを 下に 引っぱると ミニアプリを 小さくする（最小化）ので、指の うごきを ブラウザに わたさない
+       （ボタンの ほかは さわった ときから、ボタンの 上は うごかした ときだけ＝タップは そのまま）。ひくい 画面（tight）は 盤だけ */
+    const still = e => { if (e.cancelable && (!page.classList.contains('tight') || e.target.closest('.pz-wrap'))) e.preventDefault(); };
+    page.addEventListener('touchstart', e => { if (!e.target.closest('button') || e.target.closest('.pz-t')) still(e); }, { passive:false });
+    page.addEventListener('touchmove', still, { passive:false });
+    /* 指：タッチの イベントで（さわった ときに とめるので click は 来ない）。1本めの 指だけ */
+    box.addEventListener('touchstart', e => { const t = e.changedTouches[0]; if (e.touches.length === 1) begin(tileAt(e.target), t.clientX, t.clientY); else down = null; }, { passive:true });
+    box.addEventListener('touchmove', e => { const t = e.changedTouches[0]; move(t.clientX, t.clientY); }, { passive:true });
+    box.addEventListener('touchend', end);
+    box.addEventListener('touchcancel', () => { down = null; });
+    /* マウス・ペン：ポインターの イベントで（指の ぶんは 上で すんでいる） */
+    box.addEventListener('pointerdown', e => {
+      if (e.pointerType === 'touch') return;
+      begin(tileAt(e.target), e.clientX, e.clientY);
+      if (down) try { box.setPointerCapture(e.pointerId); } catch(_){}
     });
-    this.box.addEventListener('pointerup', () => { down = null; });
-    this.box.addEventListener('pointercancel', () => { down = null; });
-    /* タップ（と キーボード）：1つ えらんで、となりを えらぶと 入れかえ */
-    this.box.addEventListener('click', e => {
-      if (this.swiped){ this.swiped = false; return; }
+    box.addEventListener('pointermove', e => { if (e.pointerType !== 'touch') move(e.clientX, e.clientY); });
+    box.addEventListener('pointerup', e => { if (e.pointerType !== 'touch') end(); });
+    box.addEventListener('pointercancel', e => { if (e.pointerType !== 'touch') down = null; });
+    /* キーボード（Enter・スペース）と、上の どちらも ない ブラウザ：click。さっき 指や マウスで さわった ぶんは 数えない */
+    box.addEventListener('click', e => {
+      if (Date.now() - this.tapAt < 700) return;
       const el = e.target.closest('.pz-t');
-      if (!el || this.busy || this.g.end) return;
-      const i = +el.dataset.i;
-      if (this.sel < 0 || this.sel === i) this.pick(this.sel === i ? -1 : i);
-      else if (Puzzle.code(this.sel, i) >= 0){ const a = this.sel; this.pick(-1); this.tryMove(a, i); }
-      else this.pick(i);
+      if (el){ this.viaKey = true; this.tap(+el.dataset.i); }
     });
+    /* やじるしキーで となりの おやつへ */
+    box.addEventListener('keydown', e => {
+      const d = { ArrowLeft:-1, ArrowRight:1, ArrowUp:-PUZZLE.w, ArrowDown:PUZZLE.w }[e.key];
+      const el = e.target.closest('.pz-t');
+      if (!d || !el) return;
+      const W = PUZZLE.w, i = +el.dataset.i, j = i + d;
+      e.preventDefault();
+      if (j < 0 || j >= W * W || (Math.abs(d) === 1 && Math.floor(j / W) !== Math.floor(i / W)) || !this.els[j]) return;
+      this.els[j].focus();
+    });
+    page.querySelector('#pzQuit').addEventListener('click', () => this.quit());
+    page.querySelector('#pzHelp').addEventListener('click', () => this.help());
+    /* Esc：とじる（フォーカスが 画面の 外に 出ていても きくように document で。ポップアップが 出ている あいだは ポップアップが 先に うけとり、
+       上に シートが 出ている あいだは シートだけ とじる） */
+    this.onKey = e => { if (e.key === 'Escape' && this.page && !Modal.busy && !$('#sheetWrap').classList.contains('open')) this.quit(); };
+    document.addEventListener('keydown', this.onKey, true);   /* capture：シートを とじる 処理（js_app.js）より 先に 見る */
+    this.onFit = () => this.fit();
+    addEventListener('resize', this.onFit);
+    if (window.visualViewport) visualViewport.addEventListener('resize', this.onFit);
+  },
+  refocus(el){ el = el || this.page; if (el) try { el.focus({ preventScroll:true }); } catch(e){ try { el.focus(); } catch(_){} } },
+  /* タップ：1つ えらんで、となりを えらぶと 入れかえ */
+  tap(i){
+    if (!this.ready() || !this.els[i]) return;
+    if (this.sel < 0 || this.sel === i) this.pick(this.sel === i ? -1 : i);
+    else if (Puzzle.code(this.sel, i) >= 0){ const a = this.sel; this.pick(-1); this.tryMove(a, i); }
+    else this.pick(i);
   },
   pick(i){
     if (this.sel >= 0 && this.els[this.sel]){ this.els[this.sel].classList.remove('sel'); this.els[this.sel].removeAttribute('aria-pressed'); }
     this.sel = i;
-    if (i >= 0){ this.els[i].classList.add('sel'); this.els[i].setAttribute('aria-pressed', 'true'); }
+    if (i >= 0 && this.els[i]){ this.els[i].classList.add('sel'); this.els[i].setAttribute('aria-pressed', 'true'); }
   },
   async tryMove(i, j){
-    const code = Puzzle.code(i, j);
-    if (code < 0 || this.busy || this.g.end) return;
+    const code = Puzzle.code(i, j), tok = this.tok;
+    if (code < 0 || !this.page || this.busy || this.g.end) return;
+    const live = () => this.page && this.tok === tok;   /* とちゅうで とじた・はじめなおした あとは つづけない */
     this.busy = true;
     const a = this.els[i], b = this.els[j];
     this.place(a, j); this.place(b, i);
     await sleep(190);
+    if (!live()) return;
     const steps = Puzzle.move(this.g, code);
     if (!steps){
       this.place(a, i); this.place(b, j);
       await sleep(190);
+      if (!live()) return;
       this.say(pick(['そろわないみたい', 'ほかの ところは どうかな？']));
       this.busy = false;
       return;
     }
     this.els[i] = b; this.els[j] = a;
     this.moves.push(code);
-    for (const st of steps) await this.animate(st);
+    const from = this.shown || { got:0, score:0 };
+    this.nums(from.got, from.score);
+    for (const st of steps){ await this.animate(st); if (!live()) return; }
     this.nums();
     this.busy = false;
+    /* キーボードで うごかした おやつが きえると フォーカスが 画面の 外へ 出るので、うごかした 先の マスに もどす（指・マウスの ときは さわらない） */
+    if (this.viaKey && !this.page.contains(document.activeElement)) this.refocus(this.els[j]);
     if (this.g.end) this.finish();
   },
   async animate(st){
+    const tok = this.tok, live = () => this.page && this.tok === tok;
     if (st.shuffle){
       this.say('うごかせないから、ならべなおすね');
       this.els.forEach(el => el && el.classList.add('pop'));
       await sleep(260);
+      if (!live()) return;
       this.box.innerHTML = '';
       this.els = this.g.b.map((k, i) => this.tile(i, k));
       return;
     }
     for (const i of st.hit) this.els[i].classList.add('pop');
-    if (st.chain >= 2){ this.say(st.chain >= 3 ? 'すごい すごい！' : 'れんさだ！'); this.hop(); }
-    else if (st.hit.length >= 4){ this.say(pick(['たくさん けせたね！', 'じょうず！'])); this.hop(); }
+    this.nums(this.shown.got + st.hit.length, this.shown.score + st.pts);
+    if (st.chain >= 2){ this.say(st.chain >= 3 ? 'すごい すごい！' : 'れんさだ！'); this.cheer(); }
+    else if (st.hit.length >= 4){ this.say(pick(['たくさん けせたね！', 'じょうず！'])); this.cheer(); }
     else if (Math.random() < .35) this.say(pick(isCat() ? ['いいかんじにゃ', 'その ちょうし！', 'おいしそう…'] : ['いいね！', 'その ちょうし！', 'おいしそう…']));
-    this.sh.querySelector('#pzGot').textContent = Math.min(this.g.got, PUZZLE.goal);
     await sleep(240);
+    if (!live()) return;
     for (const i of st.hit){ this.els[i].remove(); this.els[i] = null; }
     for (const [from, to] of st.fall){ const el = this.els[from]; this.els[from] = null; this.els[to] = el; this.place(el, to); }
     const W = PUZZLE.w, born = st.add.map(([i, k, n]) => { const el = this.tile(i, k, Math.floor(i / W) - n); this.els[i] = el; return [el, i]; });
@@ -3956,49 +4113,103 @@ const PuzzleUI = {
     born.forEach(([el, i]) => this.place(el, i));
     await sleep(260);
   },
-  async finish(){
-    const g = this.g, end = this.sh.querySelector('#pzEnd'), pet = this.sh.querySelector('#pzPet');
+  /* LINE に ほぞんしている子が サーバーに つながっていない あいだは true。つないでいる とちゅうは ふきだしで 知らせる
+     （Act.waiting() の トーストは おへやの 中に 出るので、この 画面の 下に かくれる）。つながらない ときは いつもの ポップアップ */
+  held(){
+    const why = Act.blocked();
+    if (!why) return false;
+    if (why === 'connecting') this.say('LINEに つないでいるよ。すこし まってね'); else Act.waiting();
+    return true;
+  },
+  /* 盤の 上に かさねる 知らせ（おわり・とちゅうで やめる）。html が null なら けす */
+  card(html){
+    const end = this.q('#pzEnd');
+    if (!end) return null;
+    end.hidden = html == null;
+    end.innerHTML = html == null ? '' : `<div class="pz-card">${html}</div>`;
+    return end;
+  },
+  finish(){
+    const g = this.g;
     this.cleared = g.clear;
-    pet.classList.add(g.clear ? 'joy' : 'hop');
+    this.pick(-1);
+    if (g.clear) this.cheer('joy'); else this.cheer();
     this.say(g.clear ? (isCat() ? 'クリア！ やったにゃ！' : 'クリア！ やったね！') : 'おしかったね！ また あそぼ');
-    end.hidden = false;
-    end.innerHTML = '<p class="pz-res">きろく しているよ…</p>';
-    const r = await Act.run('puzzle', { seed:this.seed, moves:this.moves.slice() });
-    if (!this.sh || !this.sh.isConnected) return;
+    return this.send();
+  },
+  /* きろく：LINE に ほぞんしている子は サーバーに つながっていないと きろく できない（Act.run は つながっていないと この端末の ルールで
+     数えてしまうので、先に Act.blocked() を 見る）。同じ回は 同じ番号（rid）で おくるので、とどいていたら 前の答えが かえる */
+  async send(){
+    const tok = this.tok;
+    this.card('<p class="pz-res" role="status">きろく しているよ…</p>');
+    const r = Act.blocked() ? { ok:false, why:'offline' } : await Act.run('puzzle', Object.assign({ seed:this.seed, moves:this.moves.slice() }, this.rid ? { rid:this.rid } : {}));
+    if (r && r.ok){ playEvents(r.ev); commit(); }
+    if (!this.page || this.tok !== tok) return r;   /* とじた あとに とどいた 返事：きろくは 上で すんでいる */
     this.result(r);
+    return r;
   },
   result(r){
-    const end = this.sh.querySelector('#pzEnd');
-    let head, sub;
+    const n = v => Math.max(0, Math.floor(Number(v) || 0));   /* サーバーの 返事の 数字は 数に してから 出す */
+    let head, sub, again = true;
     if (r && r.ok){
-      playEvents(r.ev);
-      commit();
-      head = r.clear ? `クリア！ ${r.score}点` : `${r.got}こ けしたよ・${r.score}点`;
-      sub = (r.best ? '<b class="pz-best">さいこう点！</b> ' : '')
-        + (r.reward ? `ごきげん+${PUZZLE.mood}・♥+${PUZZLE.love}` : r.clear ? 'きょうの ほうびは おわり。<br>あしたまた もらえるよ' : 'クリアまで あと すこし！');
-    } else if (r && r.why === 'offline'){
+      const left = n(r.left);
+      head = r.clear ? `クリア！ ${n(r.score)}点` : `${n(r.got)}こ けしたよ・${n(r.score)}点`;
+      sub = (r.best ? '<b class="pz-best">さいこう点！</b><br>' : '')
+        + (r.reward ? `ごきげん+${PUZZLE.mood}・♥+${PUZZLE.love}<br>${left ? `きょうの ほうび あと${left}回` : 'きょうの ほうびは ここまで'}`
+          : r.clear ? 'きょうの ほうびは おわり。<br>あしたまた もらえるよ' : 'クリアまで あと すこし！');
+    } else if (r && (r.why === 'offline' || r.why === 'busy')){
+      /* とどかなかった・サーバーが いそがしい（busy）：あそんだ 手順は そのまま、もういちど おくれる */
+      again = false;
       head = 'きろく できなかったよ';
-      sub = 'サーバーに つながらなかったみたい。<br>「もういちど おくる」で ためしてね';
+      sub = r.why === 'busy' ? 'すこし まってから、<br>「もういちど おくる」を おしてね' : 'サーバーに つながらなかったみたい。<br>「もういちど おくる」で ためしてね';
     } else {
       head = 'これは きろく されなかったよ';
       sub = r && r.why === 'stale' ? 'ほかの 端末で あそんだか、<br>もう きろく されていたみたい' : 'もういちど あそんでね';
     }
-    end.innerHTML = `<p class="pz-res">${head}</p><p class="pz-sub">${sub}</p>
-      <div class="btnrow">${r && r.why === 'offline' ? '<button class="btn" type="button" data-pz="resend">もういちど おくる</button>' : '<button class="btn" type="button" data-pz="again">もういちど</button>'}<button class="btn primary" type="button" data-pz="close">おわる</button></div>`;
-    this.sh.querySelector('#pzNote').innerHTML = this.note();
+    const end = this.card(`<p class="pz-res">${head}</p><p class="pz-sub">${sub}</p>
+      <div class="btnrow">${again ? '<button class="btn" type="button" data-pz="again">もういちど</button>' : '<button class="btn" type="button" data-pz="resend">もういちど おくる</button>'}<button class="btn primary" type="button" data-pz="close">おわる</button></div>`);
     end.querySelector('[data-pz="close"]').addEventListener('click', () => this.close());
-    const again = end.querySelector('[data-pz="again"]');
-    if (again) again.addEventListener('click', () => { if (!Act.waiting()) this.start(); });
-    const resend = end.querySelector('[data-pz="resend"]');
-    if (resend) resend.addEventListener('click', async () => {
-      end.innerHTML = '<p class="pz-res">きろく しているよ…</p>';
-      const r2 = await Act.run('puzzle', { seed:this.seed, moves:this.moves.slice() });
-      if (this.sh && this.sh.isConnected) this.result(r2);
-    });
+    const b = end.querySelector('[data-pz="again"]');
+    if (b) b.addEventListener('click', () => { if (!this.held()) this.start(); });
+    const s = end.querySelector('[data-pz="resend"]');
+    if (s) s.addEventListener('click', () => { if (!this.held()) this.send(); });
     end.querySelector('[data-pz="close"]').focus();
   },
+  /* とじる（×・Esc）：あそんでいる とちゅうなら 1回 たしかめる（とじたら その回は きろく されない） */
+  quit(){
+    if (!this.page) return;
+    if (!this.g || this.g.end || !this.moves.length){ this.close(); return; }
+    if (!this.q('#pzEnd').hidden) return;
+    const end = this.card(`<p class="pz-res">とちゅうで やめる？</p><p class="pz-sub">いまの 回は きろく されないよ。<br>つぎも 同じ ならびから あそべるよ</p>
+      <div class="btnrow"><button class="btn" type="button" data-pz="quit">やめる</button><button class="btn primary" type="button" data-pz="stay">つづける</button></div>`);
+    end.querySelector('[data-pz="quit"]').addEventListener('click', () => this.close());
+    end.querySelector('[data-pz="stay"]').addEventListener('click', () => { if (this.g.end) return; this.card(null); this.refocus(); });
+    end.querySelector('[data-pz="stay"]').focus();
+  },
+  help(){
+    Modal.show({
+      label:'あそびかた',
+      html:() => `<div class="pz-how" aria-hidden="true">${this.kinds().slice(0, 3).map(t => `<svg viewBox="0 0 48 48">${treatIcon(t)}</svg>`).join('')}</div>
+        <h3>あそびかた</h3>
+        <p>となりの おやつと 入れかえて、<br>たて・よこに 3つ いじょう そろえよう。<br>タップで えらんでも、<br>スワイプで うごかしても いいよ。</p>
+        <p><b class="quote">${PUZZLE.moves}手で ${PUZZLE.goal}こ けしたら クリア！</b><br>クリアの ほうび（ごきげん+${PUZZLE.mood}・♥+${PUZZLE.love}）は<br>1日${PUZZLE.perDay}回まで。あそぶのは 何回でも。</p>
+        <button class="btn primary" type="button" data-close>わかった</button>`,
+    });
+  },
   close(){
-    closeSheet();
+    const page = this.page;
+    if (!page) return;
+    this.page = null; this.box = null; this.els = []; this.tok++; this.busy = false;
+    clearTimeout(this.cheerT);
+    removeEventListener('resize', this.onFit);
+    if (window.visualViewport) visualViewport.removeEventListener('resize', this.onFit);
+    document.removeEventListener('keydown', this.onKey, true);
+    page.remove();
+    document.documentElement.classList.remove('pz-open');
+    const app = $('#app');
+    if (app){ app.removeAttribute('aria-hidden'); app.inert = false; }
+    const back = this.back && this.back.isConnected ? this.back : $('#actPlay');
+    if (back && back.focus) try { back.focus({ preventScroll:true }); } catch(e){}
     if (this.cleared && S && !Pet.busy){
       Pet.wake(); Pet.wag(1600); hearts(3);
       Pet.say(isCat() ? 'パズル たのしかったにゃ！' : 'パズル たのしかった！');

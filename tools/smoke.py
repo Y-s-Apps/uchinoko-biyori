@@ -13,6 +13,7 @@
   python3 tools/smoke.py --dark     # ダークモードで（--line・--fresh と いっしょにも使える）
   python3 tools/smoke.py --claude   # Claude版（src/out/uchinoko-claude.html）：クラウドの セーブの まねで、はじめての画面の とちゅうに
                                     # クラウドの子が 届いたとき（診断 3-7）
+  python3 tools/smoke.py --size 375x667   # ちがう 大きさの 画面で（既定は 390x844。パズルの 画面が スクロールなしで 入るかも 見る）
 
 見た目の確かめ（どの画面でも）：文字と地の色の差（ふつうの文字 4.5・大きい文字 3 より小さい）、11px より小さい文字、
 シートの「とじる」の さわれる所（44px より小さい）を数える（診断 4-1・4-2・4-4）。ホーム画面版では、Service Worker が
@@ -96,6 +97,7 @@ LOOKS_JS = r'''(() => {
     if (!r.width || r.bottom < 0 || r.top > innerHeight) continue;
     const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
     const hit = (x, y) => { const e = document.elementFromPoint(x, y); return !!e && (e === b || b.contains(e)); };
+    if (!hit(cx, cy)) continue;   /* ポップアップの 下に かくれている ボタン（パズルの 画面の 上に「あそびかた」など）は 見ない */
     if (!(hit(cx - 21.5, cy) && hit(cx + 21.5, cy) && hit(cx, cy - 21.5) && hit(cx, cy + 21.5)))
       out.push(`「${b.getAttribute('aria-label') || b.textContent.trim()}」の さわれる所が 44px より小さい`);
   }
@@ -138,7 +140,8 @@ async def main(args):
     errors, shots = [], []
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        ctx = await browser.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2,
+        vw, vh = (int(x) for x in args.size.lower().split('x'))
+        ctx = await browser.new_context(viewport={'width': vw, 'height': vh}, device_scale_factor=2,
                                         is_mobile=True, has_touch=True, timezone_id='Asia/Tokyo', locale='ja-JP',
                                         color_scheme='dark' if args.dark else 'light')
         page = await ctx.new_page()
@@ -239,7 +242,6 @@ async def main(args):
             ('album_stamp', '#albumBtn', ['[data-at="stamp"]']),
             ('profile', '#menuBtn', []),
             ('play_pick', '#actPlay', []),
-            ('puzzle', '#actPlay', ['[data-play="puzzle"]']),
         ]
         for name, opener, clicks in steps:
             await page.click(opener); await page.wait_for_timeout(450)
@@ -256,14 +258,38 @@ async def main(args):
                 if pad < 22 + args.android_inset:
                     errors.append('シートの下のすき間が足りません（%spx）' % pad)
             await close_sheet()
-        # パズル（2026-11-15）：タップで 1手（えらぶ → となり）、のこりは いちばん多く けせる手で さいごまで。おわりの画面と ほうび
+        # パズル（2026-11-15。2026-11-16 から ページごと うつる 画面）：盤も おわりの 知らせも スクロールなしで 画面に 入るか。
+        # タップで 1手（えらぶ → となり）、のこりは いちばん多く けせる手で さいごまで。おわりの 知らせと ほうび
         await page.click('#actPlay'); await page.wait_for_timeout(450)
-        await page.click('[data-play="puzzle"]'); await page.wait_for_timeout(500)
+        await page.click('[data-play="puzzle"]'); await page.wait_for_timeout(600)
+        await snap('puzzle')
+        fit_js = '''() => { const pg = document.querySelector('#pzPage'), r = s => { const e = pg.querySelector(s); return e && !e.hidden ? e.getBoundingClientRect() : null; };
+            const b = r('#pzBoard'), t = r('.pz-t'), c = r('.pz-card'), h = r('.pz-hero'), pad = parseFloat(getComputedStyle(pg).paddingBottom);
+            return { vh: innerHeight, vw: innerWidth, board: [Math.round(b.left), Math.round(b.top), Math.round(b.right), Math.round(b.bottom)], tile: Math.round(t.width * 10) / 10, hero: Math.round(h.height),
+                     card: c ? [Math.round(c.top), Math.round(c.bottom)] : null, scroll: [pg.scrollHeight, pg.clientHeight, document.scrollingElement.scrollTop], tight: pg.classList.contains('tight'), pad: pad,
+                     sheet: document.querySelector('#sheetWrap').classList.contains('open') }; }'''
+        fit = await page.evaluate(fit_js)
+        print('パズルの 画面：', fit)
+        if not (not fit['sheet'] and not fit['tight'] and fit['scroll'][0] <= fit['scroll'][1] and fit['board'][0] >= 0 and fit['board'][2] <= fit['vw']
+                and fit['board'][3] <= fit['vh'] - args.android_inset and fit['tile'] >= 44 and fit['hero'] >= 90):
+            errors.append(f'パズルの 画面が 入りきっていません：{fit}')
         tap = await page.evaluate('''() => { for (let c = 0; c < 2 * PUZZLE.w * PUZZLE.w; c++){ const p = Puzzle.pair(c); if (p && Puzzle.lines(Puzzle.swapped(PuzzleUI.g.b, p[0], p[1])).length) return p; } return null; }''')
         love0 = await page.evaluate('S.stats.love')
         await page.click(f'.pz-t[data-i="{tap[0]}"]'); await page.wait_for_timeout(200)
         await snap('puzzle_select')
         await page.click(f'.pz-t[data-i="{tap[1]}"]'); await page.wait_for_timeout(1600)
+        # とちゅうで ×：1回 たしかめる（つづける）
+        await page.click('#pzQuit'); await page.wait_for_timeout(400)
+        await snap('puzzle_quit')
+        asked = await page.evaluate("document.querySelector('#pzEnd').textContent")
+        await page.click('#pzPage [data-pz="stay"]'); await page.wait_for_timeout(300)
+        # 「？」：あそびかた
+        await page.click('#pzHelp'); await page.wait_for_timeout(500)
+        await snap('puzzle_help')
+        helped = await page.evaluate("(document.querySelector('.levelup') || {}).textContent || ''")
+        await page.click('.levelup [data-close]'); await page.wait_for_timeout(400)
+        if 'とちゅうで やめる？' not in asked or 'あそびかた' not in helped:
+            errors.append(f'パズルの「×」の たしかめ か「？」が 出ません：{asked!r} {helped[:20]!r}')
         played = await page.evaluate('''async () => {
             const U = PuzzleUI, used = U.moves.length;
             for (let guard = 0; guard < 40 && !U.g.end; guard++){
@@ -272,17 +298,23 @@ async def main(args):
               const p = Puzzle.pair(best); await U.tryMove(p[0], p[1]);
             }
             for (let i = 0; i < 60 && !document.querySelector('#pzEnd .btnrow'); i++) await new Promise(r => setTimeout(r, 100));
-            return { tapped: used, end: U.g.end, clear: U.g.clear, score: U.g.score, text: document.querySelector('#pzEnd').textContent, best: S.puzzle.best, n: S.puzzle.n, games: S.puzzle.games, left: document.querySelectorAll('.pz-t').length };
+            return { tapped: used, end: U.g.end, clear: U.g.clear, score: U.g.score, text: document.querySelector('#pzEnd').textContent, best: S.puzzle.best, n: S.puzzle.n, games: S.puzzle.games, left: document.querySelectorAll('.pz-t').length,
+                     shown: [+document.querySelector('#pzGot').textContent, +document.querySelector('#pzLeft').textContent, +document.querySelector('#pzScore').textContent], g: [Math.min(U.g.got, PUZZLE.goal), U.g.left, U.g.score] };
         }''')
         await page.wait_for_timeout(1500)
         await close_popups()
         await snap('puzzle_end')
         love1 = await page.evaluate('S.stats.love')
-        print('パズル：', played, f'なかよし +{round(love1 - love0, 1)}')
+        fit = await page.evaluate(fit_js)
+        print('パズル：', played, f'なかよし +{round(love1 - love0, 1)}', fit['card'])
         if not (played['tapped'] == 1 and played['end'] and played['games'] == 1 and played['left'] == 36 and played['best'] == played['score']
-                and (played['n'] == 1) == played['clear'] and played['text'].startswith('クリア！') == played['clear']):
+                and (played['n'] == 1) == played['clear'] and played['text'].strip().startswith('クリア！') == played['clear'] and played['shown'] == played['g']):
             errors.append(f'パズルの おわりが ちがいます：{played}')
-        await page.click('#sheet [data-pz="close"]'); await page.wait_for_timeout(600)
+        if not (fit['card'] and fit['card'][0] >= fit['board'][1] and fit['card'][1] <= fit['board'][3] and fit['scroll'][0] <= fit['scroll'][1]):
+            errors.append(f'パズルの おわりの 知らせが 盤の 中に 入っていません：{fit}')
+        await page.click('#pzPage [data-pz="close"]'); await page.wait_for_timeout(600)
+        if await page.evaluate("!!document.querySelector('#pzPage') || document.documentElement.classList.contains('pz-open') || !!document.querySelector('#app').inert"):
+            errors.append('パズルの 画面が とじません')
         await page.click('#actFeed'); await page.wait_for_timeout(5500)
         await close_popups()
         await snap('after_meal')
@@ -440,5 +472,6 @@ if __name__ == '__main__':
     ap.add_argument('--android-inset', type=int, default=0)
     ap.add_argument('--dark', action='store_true')
     ap.add_argument('--claude', action='store_true')
+    ap.add_argument('--size', default='390x844', help='画面の 大きさ（はば x たかさ）。iPhone SE は 375x667、LINE の 中の SE は 375x603 くらい')
     a = ap.parse_args()
     raise SystemExit(asyncio.run(claude_cloud(a) if a.claude else main(a)))

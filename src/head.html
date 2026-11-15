@@ -484,31 +484,68 @@ button{font:inherit;color:inherit}
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
 }
-/* パズル「おやつならべ」（2026-11-15） */
+/* パズル「おやつならべ」（2026-11-15。2026-11-16 に、シートの中から ページごと うつる 形に 作りなおした）
+   - 画面いっぱい（.pz-page。重なりは はじめての画面 40 ＜ ここ 45 ＜ シート 50 ＜ ポップアップ 70：ポップアップの ボタンから ひらく シートも 上に 出る）。盤の 一辺 --pz-s は PuzzleUI.fit() が 画面の 高さから 決める（スクロールなしで ぜんぶ 見える）。
+   - ページは うごかさない（overflow:hidden・touch-action:none・overscroll-behavior:none。LINE で 下に 引っぱられない ように）。
+     入りきらない ほど ひくい 画面（.tight）だけ たてに スクロール。
+   - うちのこが はねる 動きは 絵の 外がわの わく（.pz-art）に つける（#petArt と 同じ 理由） */
 .playpick{grid-template-columns:repeat(2,minmax(0,1fr))}
 .playpick .tile{padding-block:14px 12px}
 .playpick .tname small{display:block;font-size:11px;color:var(--ink-soft);font-weight:700}
-.pz-top{display:flex;align-items:center;gap:8px;margin:0 0 10px}
-.pz-pet{flex:0 0 60px;height:60px}
-.pz-pet .pet-svg{display:block;width:60px;height:60px}
-.pz-pet.hop{animation:pzHop .45s ease}
-.pz-pet.joy{animation:pzHop .45s ease 3}
-@keyframes pzHop{0%,100%{transform:none}40%{transform:translateY(-10px)}}
-.pz-say{flex:1 1 auto;min-width:0;position:relative;margin:0;background:var(--surface-2);border-radius:14px;padding:6px 10px;font-size:13px;font-weight:700;line-height:1.4;min-height:2.8em;display:flex;align-items:center}
-.pz-say::before{content:"";position:absolute;left:-6px;top:50%;margin-top:-6px;border:6px solid transparent;border-left:0;border-right-color:var(--surface-2)}
-.pz-nums{display:flex;gap:8px;text-align:center;flex:0 0 auto}
-.pz-nums div{display:flex;flex-direction:column;line-height:1.2;min-width:46px}
-.pz-nums b{font-size:20px;font-variant-numeric:tabular-nums}
-.pz-nums small{font-size:11px;color:var(--ink-soft);font-weight:700;white-space:nowrap}
-.pz-board{position:relative;width:100%;max-width:360px;margin:0 auto;aspect-ratio:1/1;background:var(--surface-2);border-radius:18px;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
-.pz-t{position:absolute;width:16.6667%;height:16.6667%;margin:0;padding:3px;border:0;border-radius:14px;background:none;color:inherit;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:top .22s ease-in,left .19s ease,transform .22s ease,opacity .22s ease}
+html.pz-open,html.pz-open body{overflow:hidden;overscroll-behavior:none}
+.pz-page{position:fixed;inset:0;z-index:45;box-sizing:border-box;background:var(--ground);color:var(--ink);overflow:hidden;overscroll-behavior:none;touch-action:none;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;outline:none;
+  padding:calc(10px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px));animation:pzIn .22s ease}
+.pz-page.tight{overflow:auto;touch-action:pan-y}
+@keyframes pzIn{from{opacity:0;transform:translateY(14px)}}
+.pz-col{box-sizing:border-box;max-width:480px;height:100%;margin:0 auto;display:flex;flex-direction:column;justify-content:center;gap:10px}
+.pz-page.tight .pz-col{height:auto;min-height:100%}
+.pz-bar{flex:none;display:flex;align-items:center;gap:10px}
+.pz-bar h2{flex:1;min-width:0;margin:0;text-align:center;font-family:var(--f-display);font-weight:400;font-size:18px;line-height:1.3}
+.pz-bar .closebtn{flex:none;background:var(--surface);box-shadow:var(--lift)}
+.pz-q{font-weight:900;font-size:18px;line-height:1}
+.pz-hero{position:relative;flex:1 1 0;min-height:92px;max-height:340px;border-radius:24px;overflow:hidden;isolation:isolate}
+.pz-wall{position:absolute;inset:0 0 30% 0;background:radial-gradient(rgba(255,255,255,.6) 2px,transparent 2.6px) 0 0/22px 22px,#E1EFE9}
+.pz-floor{position:absolute;inset:70% 0 0 0;background:repeating-linear-gradient(90deg,rgba(120,80,40,.10) 0 2px,transparent 2px 64px),linear-gradient(#EACFA6,#DDB98C)}
+.pz-floor::before{content:"";position:absolute;left:0;right:0;top:0;height:7px;background:#FFFFFF;opacity:.75}
+.pz-pet{position:absolute;left:50%;bottom:5%;width:var(--pz-pet,120px);height:var(--pz-pet,120px);transform:translateX(-50%)}
+.pz-art{width:100%;height:100%;transform-origin:50% 93.3%;will-change:transform;transform:translateZ(0)}
+.pz-art .pet-svg{display:block;width:100%;height:100%;overflow:visible}
+.pz-pet.hop .pz-art{animation:pzHop .45s ease}
+.pz-pet.joy .pz-art{animation:pzHop .45s ease 3}
+@keyframes pzHop{0%,100%{transform:translateZ(0)}40%{transform:translateY(-9%)}}
+.pz-say{position:absolute;z-index:2;left:50%;bottom:calc(5% + var(--pz-pet,120px) + 2px);transform:translateX(-50%);box-sizing:border-box;margin:0;width:max-content;max-width:calc(100% - 20px);background:#FFFFFF;color:#3A3147;
+  font-weight:700;font-size:14px;line-height:1.4;padding:7px 13px;border-radius:16px;text-align:center;box-shadow:0 3px 0 rgba(58,49,71,.12)}
+.pz-say::after{content:"";position:absolute;left:50%;top:100%;border:7px solid transparent;border-top-color:#FFFFFF;transform:translateX(-50%)}
+.pz-say:empty{display:none}
+/* ひくい 画面（うちのこの ところが 150px より ひくい。iPhone SE の LINE など）：うちのこは 左より、ふきだしは その右に（ことばが 切れない はばを とる） */
+.pz-hero.low .pz-pet{left:27%;bottom:4%}
+.pz-hero.low .pz-say{left:calc(27% + var(--pz-pet,96px) / 2 + 12px);top:50%;bottom:auto;transform:translateY(-50%);max-width:calc(73% - var(--pz-pet,96px) / 2 - 22px);font-size:13px;padding:6px 10px;text-align:left}
+.pz-hero.low .pz-say::after{left:auto;right:100%;top:50%;border:6px solid transparent;border-right-color:#FFFFFF;transform:translateY(-50%)}
+.pz-nums{flex:none;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px}
+.pz-n,.pz-goal{box-sizing:border-box;background:var(--surface);border-radius:16px;padding:7px 12px 8px;box-shadow:var(--lift);display:flex;flex-direction:column;justify-content:center;line-height:1.2;min-width:0}
+.pz-n{align-items:center;min-width:64px}
+.pz-nums small{font-size:11px;font-weight:700;color:var(--ink-soft);white-space:nowrap}
+.pz-nums span{font-size:12px;font-weight:700;white-space:nowrap}
+.pz-nums b{font-size:22px;font-weight:900;font-variant-numeric:tabular-nums;margin-right:1px}
+.pz-gt{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
+.pz-goal .bar{margin-top:5px;height:8px}
+.pz-goal .bar i{width:0;background:var(--berry)}
+.pz-wrap{position:relative;flex:none;width:var(--pz-s,min(100%,52vh));height:var(--pz-s,min(calc(100vw - 32px),52vh));margin:0 auto 6px}
+.pz-board{position:absolute;inset:0;background:var(--surface);border-radius:20px;overflow:hidden;touch-action:none;box-shadow:var(--lift)}
+.pz-t{position:absolute;width:16.6667%;height:16.6667%;margin:0;padding:3px;border:0;border-radius:14px;background:none;color:inherit;display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:none;transition:top .22s ease-in,left .19s ease,transform .22s ease,opacity .22s ease}
 .pz-t svg{width:100%;height:100%;pointer-events:none}
-.pz-t.sel{background:color-mix(in srgb,var(--honey) 38%,transparent);transform:scale(1.06)}
+.pz-t.sel{background:rgba(239,180,67,.38);background:color-mix(in srgb,var(--honey) 38%,transparent);transform:scale(1.06)}
 .pz-t.pop{transform:scale(1.3);opacity:0}
 .pz-t:focus-visible{outline:3px solid var(--sky);outline-offset:-3px}
-.pz-end{margin-top:12px;text-align:center}
-.pz-res{margin:0;font-size:18px;font-weight:900}
-.pz-sub{margin:2px 0 12px;font-size:13px;color:var(--ink-soft)}
+.pz-end{position:absolute;inset:0;z-index:2;box-sizing:border-box;display:grid;place-items:center;padding:12px;border-radius:20px;background:var(--scrim);animation:fadein .2s ease}
+.pz-end[hidden]{display:none}
+.pz-card{box-sizing:border-box;width:100%;max-width:304px;background:var(--surface);border-radius:22px;padding:16px 14px 14px;text-align:center;box-shadow:0 6px 0 rgba(0,0,0,.08);animation:pop .35s cubic-bezier(.3,1.5,.5,1)}
+.pz-res{margin:0;font-size:18px;font-weight:900;line-height:1.4}
+.pz-sub{margin:4px 0 0;font-size:13px;color:var(--ink-soft);line-height:1.55}
 .pz-best{color:var(--berry-ink)}
-@media (prefers-reduced-motion: reduce){.pz-t{transition:none}.pz-pet.hop,.pz-pet.joy{animation:none}}
+.pz-card .btnrow{flex-wrap:nowrap;margin-top:12px}
+.pz-card .btnrow .btn{flex:1 1 0;min-width:0;white-space:normal;line-height:1.25;padding:11px 6px;min-height:46px}
+.pz-how{display:flex;justify-content:center;gap:6px;margin-bottom:2px}
+.pz-how svg{width:44px;height:44px}
 </style>

@@ -538,15 +538,16 @@ function setPlayIcon(){
   const want = S.pet.species === 'cat' ? YARN_ICON : SOCCER_ICON;
   if (svg.outerHTML !== want) svg.outerHTML = want;
 }
-/* あそぶ：ボール（猫は 毛糸玉）か パズル「おやつならべ」を えらぶ（2026-11-15 オーナー決定） */
+/* あそぶ：ボール（猫は 毛糸玉）か パズル「おやつならべ」を えらぶ（2026-11-15 オーナー決定）。パズルの あそびかたは ここと、パズルの 画面の「？」に */
 function openPlay(){
   if (Pet.busy || !S) return;
-  const cat = S.pet.species === 'cat', left = Rules.puzzleLeft(S);
+  const cat = S.pet.species === 'cat', left = Rules.puzzleLeft(S), best = S.puzzle && S.puzzle.best;
   const toy = document.querySelector('#actPlay svg');
   const html = `<div class="tiles playpick">
       <button class="tile" type="button" data-play="ball">${toy ? toy.outerHTML : ''}<span class="tname">${cat ? '毛糸玉' : 'ボール'}</span><span class="gain"><b>♥+3</b> ごきげん+12</span></button>
       <button class="tile" type="button" data-play="puzzle"><svg viewBox="0 0 24 24" aria-hidden="true">${MINI.puzzle}</svg><span class="tname">パズル<small>おやつならべ</small></span><span class="gain">${left ? `ほうび あと${left}回` : 'ほうびは<br>また あした'}</span></button>
-    </div>`;
+    </div>
+    <p class="note">パズルは、となりの おやつと 入れかえて 3つ そろえる あそび。${PUZZLE.moves}手で ${PUZZLE.goal}こ けしたら クリア！${best ? `<br>いままでの さいこうは ${Math.floor(best)}点` : ''}</p>`;
   openSheet('なにで あそぶ？', html, sh => {
     sh.querySelector('[data-play="ball"]').addEventListener('click', () => { closeSheet(); play(); });
     sh.querySelector('[data-play="puzzle"]').addEventListener('click', () => PuzzleUI.open());
@@ -952,6 +953,7 @@ const Game = {
   started:false,
   start(greet, away){
     Onboard.close();
+    if (PuzzleUI.page) PuzzleUI.close();   /* 子が 入れかわった・読みなおした：パズルの 画面は とじる（たねが かわるため） */
     ensureState(S);
     decay();
     renderHeader();

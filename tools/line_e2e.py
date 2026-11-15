@@ -971,7 +971,7 @@ async def browser_tests(srv_port):
         ok('LOST /act' in calls and after == before + 1 and i['meals'] == after and i['server'] == 'on', 'とどいたのに 返事が なくても、おくりなおしは 1回と 数える', {'before': before, 'after': after, 'info': i, 'calls': calls[-5:]})
         all_errs += errs; await ctx.close()
 
-        print('22. パズル（2026-11-15）：「あそぶ」で えらぶ → さいごまで → サーバーが 再生して ほうび。とどかなくても 2回 数えない')
+        print('22. パズル（2026-11-15）：「あそぶ」で えらぶ → ページごと パズルの 画面 → さいごまで → サーバーが 再生して ほうび。とどかなくても 2回 数えない')
         PZ_PLAY = '''async () => {
             const U = PuzzleUI;
             for (let guard = 0; guard < 40 && !U.g.end; guard++){
@@ -980,8 +980,10 @@ async def browser_tests(srv_port):
               const p = Puzzle.pair(best); await U.tryMove(p[0], p[1]);
             }
             for (let i = 0; i < 80 && !document.querySelector('#pzEnd .btnrow'); i++) await new Promise(r => setTimeout(r, 100));
-            return { clear: U.g.clear, score: U.g.score, moves: U.moves.length, text: document.querySelector('#pzEnd').textContent, local: JSON.parse(JSON.stringify(S.puzzle)) };
+            return { clear: U.g.clear, score: U.g.score, moves: U.moves.length, text: document.querySelector('#pzEnd').textContent.trim(), local: JSON.parse(JSON.stringify(S.puzzle)), love: S.stats.love,
+                     resend: !!document.querySelector('#pzEnd [data-pz="resend"]'), state: LineSync.state };
         }'''
+        PZ_NOW = '''({ text: document.querySelector('#pzEnd').textContent.trim(), local: JSON.parse(JSON.stringify(S.puzzle)), love: S.stats.love, resend: !!document.querySelector('#pzEnd [data-pz="resend"]'), state: LineSync.state, modal: !!document.querySelector('.levelup [data-close="retry"]') })'''
         lose = {}
         one = state('Uone')
         ctx, page, errs, calls = await open_page('Uone', owner=one['id'], lose=lose)
@@ -990,6 +992,9 @@ async def browser_tests(srv_port):
         await page.click('#actPlay'); await page.wait_for_timeout(450)
         await page.click('[data-play="puzzle"]'); await page.wait_for_timeout(600)
         seed_ok = await page.evaluate('PuzzleUI.seed === Puzzle.seed(S)')
+        fit = await page.evaluate("(() => { const pg = document.querySelector('#pzPage'), b = document.querySelector('#pzBoard').getBoundingClientRect(); return { page: !!pg, sheet: document.querySelector('#sheetWrap').classList.contains('open'), bottom: Math.round(b.bottom), vh: innerHeight, scroll: pg.scrollHeight <= pg.clientHeight }; })()")
+        ok(fit['page'] and not fit['sheet'] and fit['bottom'] <= fit['vh'] and fit['scroll'], 'パズルの 画面は ページごと うつり、盤が スクロールなしで 入る', fit)
+        await snap(page, 'puzzle')
         lose['/act'] = 1   # さいしょの 返事だけ なくす（とどいてはいる）→ 同じ rid で おくりなおし
         r = await page.evaluate(PZ_PLAY)
         await page.wait_for_timeout(1500); await close_popups(page)
@@ -1000,18 +1005,80 @@ async def browser_tests(srv_port):
         ok((p1['n'] == p0['n'] + 1) == r['clear'] and r['text'].startswith('クリア！') == r['clear'], 'ほうびは クリアした ときだけ（サーバーが 数える）', {'p0': p0, 'p1': p1, 'r': r})
         await snap(page, 'puzzle_end')
         # ちがう たね（ほかの端末で あそんだ）→ きろく されない（なにも かわらない）
-        await page.click('#sheet [data-pz="again"]'); await page.wait_for_timeout(500)
+        await page.click('#pzPage [data-pz="again"]'); await page.wait_for_timeout(500)
         dbg('/__debug/puzzle', {'sub': 'Uone', 'games': p1['games'] + 5})
         r2 = await page.evaluate(PZ_PLAY)
         p2 = state('Uone')['puzzle']
         ok('きろく されなかった' in r2['text'] and p2['games'] == p1['games'] + 5 and p2['n'] == p1['n'], 'ほかの端末で あそんで たねが かわっていたら きろく しない（stale）', {'r2': r2['text'], 'p2': p2})
-        await page.click('#sheet [data-pz="close"]'); await page.wait_for_timeout(500)
+        await page.click('#pzPage [data-pz="close"]'); await page.wait_for_timeout(500)
+        ok(await page.evaluate("!document.querySelector('#pzPage')"), '「おわる」で パズルの 画面が とじる')
         # サーバーに つながらないときは はじめない（LINEの子は まってもらう）
         await page.evaluate("() => { LineSync.state = 'failed'; LineSync.error = 'unavailable'; }")
         await page.click('#actPlay'); await page.wait_for_timeout(450)
         await page.click('[data-play="puzzle"]'); await page.wait_for_timeout(600)
         has_board = await page.evaluate("!!document.querySelector('#pzBoard')")
         ok(not has_board, 'つながらない ときは パズルを はじめない', has_board)
+        all_errs += errs; await ctx.close()
+
+        print('22b. パズルの おわりで サーバーに とどかない：この端末だけで 数えない → つなぎなおして「もういちど おくる」で 1回だけ（パズルの レビュー P4-1）')
+        fail = {}
+        ctx, page, errs, calls = await open_page('Uone', owner=one['id'], fail=fail)
+        await close_popups(page)
+        p0, love0 = state('Uone')['puzzle'], state('Uone')['love']
+        await page.click('#actPlay'); await page.wait_for_timeout(450)
+        await page.click('[data-play="puzzle"]'); await page.wait_for_timeout(600)
+        fail['/act'] = 2   # 2回とも とどかない（おくりなおしも）
+        r = await page.evaluate(PZ_PLAY)
+        ok('きろく できなかったよ' in r['text'] and r['resend'] and r['local'] == p0 and r['love'] == love0 and state('Uone')['puzzle'] == p0,
+           'とどかないとき：「きろく できなかったよ」・この端末の きろくも なかよしも ふえない', {'r': r, 'p0': p0})
+        await snap(page, 'puzzle_offline')
+        await page.click('#pzPage [data-pz="resend"]'); await page.wait_for_timeout(800)
+        n1 = await page.evaluate(PZ_NOW)
+        ok(n1['modal'] and n1['local'] == p0 and n1['love'] == love0 and state('Uone')['puzzle'] == p0, 'つながっていない あいだの「もういちど おくる」：「つながっていません」が 出て、なにも 数えない', n1)
+        await page.click('.levelup [data-close="retry"]'); await page.wait_for_timeout(3000)
+        await close_popups(page)
+        await page.click('#pzPage [data-pz="resend"]'); await page.wait_for_timeout(2500)
+        await close_popups(page)
+        n2, p1 = await page.evaluate(PZ_NOW), state('Uone')['puzzle']
+        ok(n2['state'] == 'on' and p1['games'] == p0['games'] + 1 and n2['local'] == p1 and n2['text'].startswith('クリア！') == r['clear'] and not n2['resend'],
+           'つなぎなおして「もういちど おくる」：サーバーが 1回 きろく・画面も 同じ', {'n2': n2, 'p1': p1})
+        await page.click('#pzPage [data-pz="close"]'); await page.wait_for_timeout(400)
+        all_errs += errs; await ctx.close()
+
+        print('22c. とどいたのに 返事が 2回とも なくなった：つなぎなおして「もういちど おくる」→ 同じ番号なので 前の答え（2回 数えない）')
+        lose = {}
+        ctx, page, errs, calls = await open_page('Uone', owner=one['id'], lose=lose)
+        await close_popups(page)
+        p0 = state('Uone')['puzzle']
+        await page.click('#actPlay'); await page.wait_for_timeout(450)
+        await page.click('[data-play="puzzle"]'); await page.wait_for_timeout(600)
+        lose['/act'] = 2
+        r = await page.evaluate(PZ_PLAY)
+        p1 = state('Uone')['puzzle']
+        ok('きろく できなかったよ' in r['text'] and r['resend'] and p1['games'] == p0['games'] + 1 and r['local'] == p0, 'サーバーには とどいた（1回）が、画面は まだ「きろく できなかったよ」', {'r': r, 'p0': p0, 'p1': p1})
+        await page.click('#pzPage [data-pz="resend"]'); await page.wait_for_timeout(800)
+        await page.click('.levelup [data-close="retry"]'); await page.wait_for_timeout(3000)
+        await close_popups(page)
+        await page.click('#pzPage [data-pz="resend"]'); await page.wait_for_timeout(2500)
+        await close_popups(page)
+        n2, p2 = await page.evaluate(PZ_NOW), state('Uone')['puzzle']
+        ok(p2 == p1 and n2['local'] == p1 and (n2['text'].startswith('クリア！') if r['clear'] else 'けしたよ' in n2['text']) and not n2['resend'],
+           '同じ番号の おくりなおし：サーバーは 数えなおさず、画面に ほんとうの 結果が 出る', {'n2': n2, 'p1': p1, 'p2': p2})
+        await page.click('#pzPage [data-pz="close"]'); await page.wait_for_timeout(400)
+        all_errs += errs; await ctx.close()
+
+        print('22d. あそんでいる あいだに つながりが 切れた：おわっても この端末だけで 数えない')
+        ctx, page, errs, calls = await open_page('Uone', owner=one['id'])
+        await close_popups(page)
+        p0, love0 = state('Uone')['puzzle'], state('Uone')['love']
+        await page.click('#actPlay'); await page.wait_for_timeout(450)
+        await page.click('[data-play="puzzle"]'); await page.wait_for_timeout(600)
+        await page.evaluate("LineSync.fail({ code:'unavailable' })")
+        r = await page.evaluate(PZ_PLAY)
+        ok('きろく できなかったよ' in r['text'] and r['resend'] and r['local'] == p0 and r['love'] == love0 and state('Uone')['puzzle'] == p0,
+           'つながりが 切れた あとの おわり：「きろく できなかったよ」・なにも ふえない', {'r': r, 'p0': p0})
+        await page.click('#pzQuit'); await page.wait_for_timeout(400)
+        ok(await page.evaluate("!document.querySelector('#pzPage')"), 'おわったあとの × は すぐ とじる')
         all_errs += errs; await ctx.close()
 
         print('20. おしらせ（ポリシー・規約の 大事な変更など。まだ見ていない人に 1回だけ。5-6）')

@@ -22,7 +22,7 @@
 | `src/js_wear.js` | きせかえの描画 `wearSvg()` |
 | `src/js_rules.js` | おせわのルール `Rules`（画面にさわらない。セーブ `st` を変えて、できごと `ev` を返す）と時計 `Clock`（`now()`・`dayKey()`・乱数）、パズル「おやつならべ」の盤 `Puzzle`（たねと 手順から 再生して クリアと 点数を 決める。2026-11-15）。LINE版のサーバーでも同じものを使う |
 | `src/js_app.js` | 状態 `S`、保存、ペットの動き、おせわの画面（`Act.run` で判定をたのみ、`playEvents` で出す）、シート、引っこしコード、`Game.start` |
-| `src/js_features.js` | `ensureState`（セーブの移行）、おねがい・おたすけ・おみやげ・イベント・記念日のポップアップ、もようがえ、げい、アルバム、よるの ひとこと `Nudge`（21時から おねがいが のこっていると うちのこが ふきだしで。1日1回）、パズルの画面 `PuzzleUI`（「あそぶ」の `openPlay` から） |
+| `src/js_features.js` | `ensureState`（セーブの移行）、おねがい・おたすけ・おみやげ・イベント・記念日のポップアップ、もようがえ、げい、アルバム、よるの ひとこと `Nudge`（21時から おねがいが のこっていると うちのこが ふきだしで。1日1回）、パズルの画面 `PuzzleUI`（「あそぶ」の `openPlay` から、ページごと うつる `#pzPage`。盤の 大きさは `fit()` が 画面の 高さから。2026-11-16 に 作りなおした） |
 | `src/js_onboard.js` | 写真から迎える流れ、種類・色・名前の編集、起動処理（boot） |
 | `src/js_home.js` | ホーム画面版だけのJS（`build.sh` が `js_rules.js` のすぐあとに入れる）。いまは `HomeRescue`：前の きびしいルールで きょう れんぞくが1にもどった子に、おたすけを出しなおす |
 | `src/js_line.js` | LINE版だけのJS（LIFF の準備、サーバーでの本人確認とセーブ、AIの読みとり `LineAI`、やめる `LineLeave`、写真立ての イラスト `LineFrame`、うちのこカード `CardArt`・`LineCard`〈絵を PNG に → `POST /card` → `liff.shareTargetPicker()`〉、おしらせ `LineNotice`〈ポリシー・規約の 大事な変更などを 1回だけ。`LineNotice.list` に書く〉、よるの おしらせ `LineNotify`〈プロフィールの スイッチ・1回だけの さそい・`liff.requestFriendship()`。おくるのは サーバー〉。`LINE_CFG.liffIds`（内部チャネルごと。ひらいた場所 `/`・`/review/`・`/dev/` で えらぶ）・`LINE_CFG.api`） |
@@ -30,8 +30,8 @@
 | `src/build.sh` | 組み立て。`../index.html` と `../sw.js`（ホーム画面版）、`out/uchinoko-claude.html`（Claude版）、`out/line/`（LINE版。本番用＝いちばん上、審査用＝`review/`、開発用＝`dev/` に同じページ。うちのこカードの メッセージに出す `line-icon.png` と、Cloudflare Pages の ヘッダー `_headers` も）を出力 |
 | `src/icons/` | アイコンの元データ（1024px）と描画スクリプト。LINE用（130px）は `line_icon.js`・`render_line.py` → `line-icon-130.png` |
 | `src/legal/` | LINE版のプライバシーポリシー・利用規約（`build.sh` が お問い合わせ先 `CONTACT`＝Googleフォームの URL を入れて `out/line/` に出す。空なら出さない） |
-| `tools/smoke.py` | スマホ幅での動作確認とスクリーンショット。見た目（文字と地の色の差・11px より小さい文字・「とじる」の さわれる大きさ）も数える。ホーム画面版では オフラインで 自分の キャッシュから ひらくかも（`--dark` ダーク、`--fresh` はじめて、`--line` LINE版、`--claude` Claude版の クラウドの子の まね） |
-| `tools/linebreak.py` | 改行の確認：375・390px で シート・ポップアップ・トースト・はじめての画面を出し、ことばの まんなかの改行と 横はみだしを数える（`--line` LINE版、`--claude` Claude版、`--shots DIR` で スクリーンショット） |
+| `tools/smoke.py` | スマホ幅での動作確認とスクリーンショット。見た目（文字と地の色の差・11px より小さい文字・「とじる」の さわれる大きさ）も数える。ホーム画面版では オフラインで 自分の キャッシュから ひらくかも、パズルの 画面が スクロールなしで 入るかも（`--dark` ダーク、`--fresh` はじめて、`--line` LINE版、`--claude` Claude版の クラウドの子の まね、`--size 375x667` 画面の 大きさ） |
+| `tools/linebreak.py` | 改行の確認：375・390px で シート・ポップアップ・トースト・はじめての画面を出し、ことばの まんなかの改行と 横はみだしを数える（`--line` LINE版、`--claude` Claude版、`--shots DIR` で スクリーンショット、`--height 603` ひくい 画面＝ポップアップの 上が 切れて とどかない ところ・パズルの 画面が 入りきらない ところも 数える） |
 | `tools/webfonts.py`・`tools/fonts/` | 確認用に Google Fonts と同じフォント（@fontsource）を手元から出す（はじめに `cd tools/fonts && npm install`。`linebreak.py` が使う） |
 | `supabase/migrations/` | LINE版のサーバー（Supabase「uchinoko-biyori」）の表。`app` スキーマ（Data API に出さない）。サーバーが つなぐ役 `uchinoko_api`（`app` の表だけ）も。よるの おしらせの cron（`*_notify_cron.sql`、pg_cron と pg_net。ためしでは 読まない）も |
 | `supabase/functions/api/index.ts` | LINE版のサーバーの関数（本人確認・おせわの判定 `/act`・名前とみための `/save`・引っこしコードの取りこみ・AIの読みとり `/read`・やめる `/leave`・うちのこカードの画像 `/card`〈Storage のバケット `cards`〉・よるの おしらせ `/notify`・`/notify/run`〈cron の 1回きりの 合いことば → LINE の プッシュ〉） |

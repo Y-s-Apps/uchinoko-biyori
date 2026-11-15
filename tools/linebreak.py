@@ -11,6 +11,8 @@
   python3 tools/linebreak.py --shots DIR  # 場面ごとの スクリーンショットも とる（見本づくり用）
   python3 tools/linebreak.py --width 375  # 幅を1つだけ
   python3 tools/linebreak.py --line --only notify --only notice   # 名前に その文字が ある 場面だけ
+  python3 tools/linebreak.py --line --height 603   # ひくい 画面（LINE の 中の iPhone SE くらい）。ポップアップの 上が 切れて とどかない
+                                                    # ところ・パズルの 画面が 入りきらない ところも「はみだし」に 数える
 
 フォントは tools/fonts（`cd tools/fonts && npm install`）の Zen Maru Gothic・Mochiy Pop One を使います（iPhone と同じ改行に するため）。
 ことばの まんなかの改行・横はみだし・ページエラーが 1件でもあれば 終了コード1で終わります。
@@ -114,13 +116,25 @@ AUDIT_JS = r"""
       });
     }
   }
-  const de = document.scrollingElement;
+  const de = document.scrollingElement || document.documentElement;   /* --claude の ためしの ページ（doctype なし）で body が overflow:hidden だと null */
   if (de.scrollWidth > innerWidth + 1) out.overflow.push({ ch:'', where:'page', text:'横スクロール ' + de.scrollWidth + 'px' });
   return out;
 }
 """
 
 # ----- 場面 -----
+def puzzle_lines():
+    """パズルの 画面で うちのこが 言う ことば（src/js_features.js の PuzzleUI の say(...) と pick([...]) の 文）"""
+    src = open(os.path.join(ROOT, 'src', 'js_features.js'), encoding='utf-8').read()
+    block = src[src.index('const PuzzleUI = {'):]
+    out = []
+    for m in re.finditer(r"say\(([^;]*)\);", block):
+        for t in re.findall(r"'([^']+)'", m.group(1)):
+            if t not in out and re.search(r'[ぁ-んァ-ヶ]', t):
+                out.append(t)
+    return out
+
+
 def toast_texts():
     """src の toast(...) に出す文を あつめる（${…} は ためしの値に）"""
     texts = []
@@ -173,16 +187,28 @@ def scenes(line):
     for cat in ['floor', 'rug', 'bed', 'view']:
         add('room_' + cat, "dressSlot='room'; roomCat='%s'; openDress()" % cat, '#sheet')
     add('album_souv_all', "SOUVENIRS.forEach(x => S.souv.have[x.id] = 2); openAlbum('souv')", '#sheet')
-    # パズル（2026-11-15）：えらぶ・はじめ・おわり（クリア・ほうび おわり・クリアできない・つながらない・きろく されない）
+    # パズル（2026-11-15。2026-11-16 から ページごと うつる 画面 #pzPage）：えらぶ・はじめ・「？」・×の たしかめ・
+    # おわり（クリア・ほうび おわり・クリアできない・つながらない・いそがしい・きろく されない）・ふきだしの ことば（ひくい 画面でも）
     add('play_pick', 'openPlay()', '#sheet')
-    add('play_pick_none', "S.puzzle.day=dayKey(); S.puzzle.n=3; openPlay()", '#sheet')
-    add('puzzle', 'PuzzleUI.open()', '#sheet', 600)
-    add('puzzle_none', "S.puzzle.day=dayKey(); S.puzzle.n=3; S.puzzle.best=1230; PuzzleUI.open()", '#sheet', 600)
+    add('play_pick_none', "S.puzzle.day=dayKey(); S.puzzle.n=3; S.puzzle.best=1230; openPlay()", '#sheet')
+    add('puzzle', 'PuzzleUI.open()', '#pzPage', 600)
+    add('puzzle_seen', "S.firsts.puzzle=true; PuzzleUI.open()", '#pzPage', 600)
+    add('puzzle_help', "PuzzleUI.open(); await new Promise(r => setTimeout(r, 300)); PuzzleUI.help()", '.levelup', 600)
+    add('puzzle_quit', "PuzzleUI.open(); await new Promise(r => setTimeout(r, 300)); PuzzleUI.moves=[0]; PuzzleUI.quit()", '#pzPage', 600)
     for nm, r in [('clear', "{ok:true,clear:true,score:1230,got:56,best:true,reward:true,left:2,ev:[]}"),
+                  ('clear_last', "{ok:true,clear:true,score:1230,got:56,best:false,reward:true,left:0,ev:[]}"),
                   ('clear_done', "{ok:true,clear:true,score:880,got:55,best:false,reward:false,left:0,ev:[]}"),
                   ('miss', "{ok:true,clear:false,score:640,got:47,best:false,reward:false,left:3,ev:[]}"),
-                  ('offline', "{ok:false,why:'offline',ev:[]}"), ('stale', "{ok:false,why:'stale',ev:[]}")]:
-        add('puzzle_' + nm, "PuzzleUI.open(); await new Promise(r => setTimeout(r, 300)); PuzzleUI.say('クリア！ やったね！'); PuzzleUI.sh.querySelector('#pzEnd').hidden=false; PuzzleUI.result(%s)" % r, '#sheet', 600)
+                  ('offline', "{ok:false,why:'offline',ev:[]}"), ('busy', "{ok:false,why:'busy',ev:[]}"),
+                  ('stale', "{ok:false,why:'stale',ev:[]}"), ('bad', "{ok:false,why:'bad',ev:[]}")]:
+        add('puzzle_' + nm, "PuzzleUI.open(); await new Promise(r => setTimeout(r, 300)); PuzzleUI.say('クリア！ やったね！'); PuzzleUI.result(%s)" % r, '#pzPage', 600)
+    # ひくい 画面（iPhone SE の LINE など）：ふきだしは うちのこの 右。おわりの 知らせも 小さい 盤の 中に
+    low = "Object.defineProperty(window, 'visualViewport', { configurable:true, value:{ height:560, scale:1, addEventListener(){}, removeEventListener(){} } }); "
+    add('puzzle_low_clear', low + "PuzzleUI.open(); await new Promise(r => setTimeout(r, 300)); PuzzleUI.say('クリア！ やったね！'); PuzzleUI.result({ok:true,clear:true,score:1230,got:56,best:true,reward:true,left:2,ev:[]})", '#pzPage', 600)
+    add('puzzle_low_offline', low + "PuzzleUI.open(); await new Promise(r => setTimeout(r, 300)); PuzzleUI.result({ok:false,why:'offline',ev:[]})", '#pzPage', 600)
+    for i, t in enumerate(puzzle_lines()):
+        add('puzzle_say_%02d' % i, "PuzzleUI.open(); await new Promise(r => setTimeout(r, 200)); PuzzleUI.say(%s)" % json.dumps(t, ensure_ascii=False), '#pzPage', 250)
+        add('puzzle_low_say_%02d' % i, low + "PuzzleUI.open(); await new Promise(r => setTimeout(r, 200)); PuzzleUI.say(%s)" % json.dumps(t, ensure_ascii=False), '#pzPage', 250)
     add('requests_pinch',"S.daily.rescue={type:'treat',n:2,got:0,done:false}; S.streak={last:Clock.dayKey(now()-2*864e5),n:12,best:20}; openRequests()", '#sheet')
     if line:
         on = ("LineSync.state='on'; LineServer.member={id:'x'}; LineSync.created=1; LineServer.card={on:true,left:2,perDay:3}; LineServer.importable=true;"
@@ -270,6 +296,31 @@ def scenes(line):
     return S
 
 
+# スクロールしても とどかない ところ：まんなかに そろえた ポップアップが 画面より 高いと 上が 切れる（スクロールは 下にしか のびない）、
+# シートが 画面の 上に はみだす、パズルの 画面が スクロールする（盤の 上では スクロールできない）
+REACH_JS = r"""() => {
+  const out = [], vh = innerHeight;
+  const m = document.querySelector('.levelup');
+  if (m){
+    const c = m.querySelector('.card');
+    if (c){
+      m.scrollTop = 0;
+      const top = c.getBoundingClientRect().top;
+      m.scrollTop = m.scrollHeight;
+      const bottom = c.getBoundingClientRect().bottom;
+      m.scrollTop = 0;
+      if (top < -1) out.push({ where:'.levelup .card', text:'ポップアップの 上が ' + Math.round(-top) + 'px 切れて とどかない（高さ ' + Math.round(c.getBoundingClientRect().height) + '／画面 ' + vh + '）' });
+      if (bottom > vh + 1) out.push({ where:'.levelup .card', text:'ポップアップの 下が ' + Math.round(bottom - vh) + 'px とどかない' });
+    }
+  }
+  const w = document.querySelector('#sheetWrap.open'), sh = document.querySelector('#sheet');
+  if (w && sh && sh.getBoundingClientRect().top < -1) out.push({ where:'#sheet', text:'シートが 画面の 上に ' + Math.round(-sh.getBoundingClientRect().top) + 'px はみだす' });
+  const pz = document.querySelector('#pzPage');
+  if (pz && !m && (pz.scrollHeight > pz.clientHeight + 1 || pz.classList.contains('tight'))) out.push({ where:'#pzPage', text:'パズルの 画面が 入りきらない（' + pz.scrollHeight + '／' + pz.clientHeight + '）' });
+  return out;
+}"""
+
+
 async def run(args, width):
     from playwright.async_api import async_playwright
     root = ROOT
@@ -288,7 +339,7 @@ async def run(args, width):
         os.makedirs(shots, exist_ok=True)
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        ctx = await browser.new_context(viewport={'width': width, 'height': 844}, device_scale_factor=2, is_mobile=True,
+        ctx = await browser.new_context(viewport={'width': width, 'height': args.height}, device_scale_factor=2, is_mobile=True,
                                         has_touch=True, timezone_id='Asia/Tokyo', locale='ja-JP', service_workers='block')
         fonts = await webfonts.install(ctx)
         if args.line:
@@ -320,6 +371,8 @@ async def run(args, width):
             await page.evaluate('''() => { document.querySelectorAll('.levelup').forEach(e => e.remove());
               if (typeof Modal !== 'undefined'){ Modal.q = []; Modal.busy = false; }
               try { closeSheet(); } catch(e){}
+              try { if (typeof PuzzleUI !== 'undefined') PuzzleUI.close(); } catch(e){}
+              try { delete window.visualViewport; } catch(e){}
               const t = document.getElementById('toast'); if (t) t.classList.remove('show'); }''')
             await page.wait_for_timeout(380)
 
@@ -330,6 +383,9 @@ async def run(args, width):
             await page.wait_for_timeout(wait)
             res = await page.evaluate(AUDIT_JS, root)
             n_scenes += 1
+            # 高さ：ポップアップ・シート・パズルの 画面の 中身に、スクロールしても とどかない ところが ないか（ひくい 画面は --height で）
+            for o in await page.evaluate(REACH_JS):
+                overflow.append((name, o['where'], o['text']))
             for b in res['breaks']:
                 found.append((name, b['kind'], b['ctx'], b['where']))
             for o in res['overflow']:
@@ -372,6 +428,7 @@ def main():
     ap.add_argument('--width', type=int, action='append')
     ap.add_argument('--shots')
     ap.add_argument('--only', action='append', help='名前に この文字が ある 場面だけ（なんども 書ける）')
+    ap.add_argument('--height', type=int, default=844, help='画面の 高さ（既定 844）。LINE の 中の iPhone SE は 603 くらい。ポップアップの 上が 切れないかも 見る')
     ap.add_argument('--json', help='見つけたものを JSON で書き出す')
     args = ap.parse_args()
     widths = args.width or [375, 390]
