@@ -653,6 +653,11 @@ const endDrag = () => {
   drag = null; dragging = false;
   if (tap) onTap();
 };
+/* LINE の 中で うちのこを 下に こすると、はじめの 1回だけ ページごと 引っぱられた（ミニアプリの 最小化）。
+   パズルの 盤と 同じに、さわった ところで ブラウザの 動きを とめる（なでる・タップは ポインターの イベントで うけとるので そのまま。P5-1） */
+const petStill = e => { if (e.cancelable) e.preventDefault(); };
+Pet.el.addEventListener('touchstart', petStill, { passive:false });
+Pet.el.addEventListener('touchmove', petStill, { passive:false });
 Pet.el.addEventListener('pointerup', endDrag);
 Pet.el.addEventListener('pointercancel', () => { drag = null; dragging = false; });
 Pet.el.addEventListener('keydown', e => {

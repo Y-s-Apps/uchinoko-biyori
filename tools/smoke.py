@@ -318,6 +318,27 @@ async def main(args):
         await page.click('#actFeed'); await page.wait_for_timeout(5500)
         await close_popups()
         await snap('after_meal')
+        # なでる（指の まね）：うちのこを 下に こすると なでた ことに なり、タップは へんじ。さわった ところで ブラウザの 動きを
+        # とめている（LINE の 中で ページごと 引っぱられない ように。P5-1）
+        cdp = await ctx.new_cdp_session(page)
+        px, py = await page.evaluate('''() => { clearTimeout(idleT);
+            window.__pt = { ev: 0, still: 0, stroke: 0, tap: 0, y0: scrollY };
+            for (const t of ['touchstart', 'touchmove']) document.addEventListener(t, e => { __pt.ev++; if (e.defaultPrevented) __pt.still++; });
+            const s = window.onStroke, t = window.onTap;
+            window.onStroke = e => { __pt.stroke++; return s(e); };
+            window.onTap = () => { __pt.tap++; return t(); };
+            const r = Pet.el.getBoundingClientRect(); return [Math.round(r.left + r.width / 2), Math.round(r.top + r.height * .3)]; }''')
+        async def finger(kind, x, y):
+            await cdp.send('Input.dispatchTouchEvent', {'type': kind, 'touchPoints': [] if kind == 'touchEnd' else [{'x': x, 'y': y}]})
+        await finger('touchStart', px, py)
+        for i in range(1, 9):
+            await finger('touchMove', px, py + i * 12); await page.wait_for_timeout(16)
+        await finger('touchEnd', 0, 0); await page.wait_for_timeout(200)
+        await finger('touchStart', px, py); await finger('touchEnd', 0, 0); await page.wait_for_timeout(300)
+        pt = await page.evaluate('Object.assign(__pt, { y1: scrollY })')
+        print('なでる（指）：', pt)
+        if not (pt['stroke'] >= 1 and pt['tap'] == 1 and pt['ev'] >= 10 and pt['still'] == pt['ev'] and pt['y1'] == pt['y0']):
+            errors.append(f'なでる（指）が ちがいます：{pt}')
         if not args.line and not args.fresh:
             # 組織の ほかのアプリの キャッシュに 同じ URL（index.html）が あっても、オフラインで ひらくのは うちのこ日和（診断 2-4）
             # ページは https のときだけ Service Worker を入れるので、ここ（http://127.0.0.1）では 手で入れる

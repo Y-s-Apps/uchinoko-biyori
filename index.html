@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-Jr2e//Cub38Y07UFjRVZVefmLo3b+ggBkG+6uvKySk4='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-03+JjKLR4TpBckyDZdZq+tWr8kpI8uCiyHqA2IcgHx0='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="写真の犬や猫をそっくりなペットにして、ごはん・おやつ・なでなででのんびり育てるアプリ">
@@ -2826,6 +2826,11 @@ const endDrag = () => {
   drag = null; dragging = false;
   if (tap) onTap();
 };
+/* LINE の 中で うちのこを 下に こすると、はじめの 1回だけ ページごと 引っぱられた（ミニアプリの 最小化）。
+   パズルの 盤と 同じに、さわった ところで ブラウザの 動きを とめる（なでる・タップは ポインターの イベントで うけとるので そのまま。P5-1） */
+const petStill = e => { if (e.cancelable) e.preventDefault(); };
+Pet.el.addEventListener('touchstart', petStill, { passive:false });
+Pet.el.addEventListener('touchmove', petStill, { passive:false });
 Pet.el.addEventListener('pointerup', endDrag);
 Pet.el.addEventListener('pointercancel', () => { drag = null; dragging = false; });
 Pet.el.addEventListener('keydown', e => {

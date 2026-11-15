@@ -30,7 +30,7 @@
 | `src/build.sh` | 組み立て。`../index.html` と `../sw.js`（ホーム画面版）、`out/uchinoko-claude.html`（Claude版）、`out/line/`（LINE版。本番用＝いちばん上、審査用＝`review/`、開発用＝`dev/` に同じページ。うちのこカードの メッセージに出す `line-icon.png` と、Cloudflare Pages の ヘッダー `_headers` も）を出力 |
 | `src/icons/` | アイコンの元データ（1024px）と描画スクリプト。LINE用（130px）は `line_icon.js`・`render_line.py` → `line-icon-130.png` |
 | `src/legal/` | LINE版のプライバシーポリシー・利用規約（`build.sh` が お問い合わせ先 `CONTACT`＝Googleフォームの URL を入れて `out/line/` に出す。空なら出さない） |
-| `tools/smoke.py` | スマホ幅での動作確認とスクリーンショット。見た目（文字と地の色の差・11px より小さい文字・「とじる」の さわれる大きさ）も数える。ホーム画面版では オフラインで 自分の キャッシュから ひらくかも、パズルの 画面が スクロールなしで 入るかも（`--dark` ダーク、`--fresh` はじめて、`--line` LINE版、`--claude` Claude版の クラウドの子の まね、`--size 375x667` 画面の 大きさ） |
+| `tools/smoke.py` | スマホ幅での動作確認とスクリーンショット。見た目（文字と地の色の差・11px より小さい文字・「とじる」の さわれる大きさ）も数える。ホーム画面版では オフラインで 自分の キャッシュから ひらくかも、パズルの 画面が スクロールなしで 入るかも、なでる（指の まね）で ブラウザの 動きを とめているかも（`--dark` ダーク、`--fresh` はじめて、`--line` LINE版、`--claude` Claude版の クラウドの子の まね、`--size 375x667` 画面の 大きさ） |
 | `tools/linebreak.py` | 改行の確認：375・390px で シート・ポップアップ・トースト・はじめての画面を出し、ことばの まんなかの改行と 横はみだしを数える（`--line` LINE版、`--claude` Claude版、`--shots DIR` で スクリーンショット、`--height 603` ひくい 画面＝ポップアップの 上が 切れて とどかない ところ・パズルの 画面が 入りきらない ところも 数える） |
 | `tools/webfonts.py`・`tools/fonts/` | 確認用に Google Fonts と同じフォント（@fontsource）を手元から出す（はじめに `cd tools/fonts && npm install`。`linebreak.py` が使う） |
 | `supabase/migrations/` | LINE版のサーバー（Supabase「uchinoko-biyori」）の表。`app` スキーマ（Data API に出さない）。サーバーが つなぐ役 `uchinoko_api`（`app` の表だけ）も。よるの おしらせの cron（`*_notify_cron.sql`、pg_cron と pg_net。ためしでは 読まない）も |
@@ -41,6 +41,7 @@
 | `tools/line_e2e.py` | LINE版のルール・サーバー・画面の通し確認（`tools/rules_test.mjs` も動かす。`tools/server/` の Deno と PGlite を使う。はじめに `cd tools/server && npm install`） |
 | `tools/rules_test.mjs` | ルール（`js_rules.js`）を時計を動かして確かめる（れんぞく・おたすけ・日本時間の0時・おみやげ・げい・イベント・記念日・パズル） |
 | `tools/compare_home.py` | ホーム画面版の動きが前の版と同じかをくらべる（`python3 tools/compare_home.py [コミット]`、既定は HEAD） |
+| `docs/MOTION_DESIGN.md` | うちのこの 体勢と 動きを ふやす 設計（2026-11-16。Opus 5.5 の チャットで 実装する。まだ 実装していない） |
 | `docs/REVIEW_PROMPT.md` | Claude Fable 5.2 の レビューの チャットに貼るプロンプト（約束①の 診断・さいごのチェックの あと、2026-11-15 から パズルの レビュー用＝2026-11-16 に 済み。前の版は git に） |
 | `.github/workflows/keepalive.yml` | GitHub Actions「サーバーを起こす」：3日ごとに LINE版のサーバーの `/health` と、DB を1回読む呼び出し（でたらめのセッションで 401）をして、Supabase の無料プランが止まらないようにする。`/health` の この3日の エラーの数が 10以上のときと、この3日に よるの おしらせが 止まった日（`notifyDays`）が あるときも 失敗にする（`docs/PROJECT.md` の10章） |
 | ルートの `index.html` `sw.js` `manifest.webmanifest` `*.png` | 公開ファイル（ビルド結果なので手で直さない） |

@@ -15,8 +15,11 @@
      サーバー（本人確認とセーブ）は Supabase の Edge Function：connect-src の ftakgswltcavwixqxpzi.supabase.co は js_line.js の LINE_CFG.api とそろえる -->
 <style>
 /* Android版LINEは edge-to-edge 表示：下のナビゲーションバーの分を、LINEの変数と safe-area の大きいほうであける
-   （変数がどの要素に置かれても届くよう、使う場所ごとに書く） */
-:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:max(env(safe-area-inset-bottom,0px),var(--android-safe-area-inset-bottom,0px))}
+   （変数がどの要素に置かれても届くよう、使う場所ごとに書く）。
+   おへやの 画面の すき間は .app の 中に あける：:root に あけると、画面が ひくくて ページが スクロールする ときに
+   すき間が きえて、下の 5つの ボタンが ナビゲーションバーに かくれた（小さい Android。P6-1） */
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px)}
+html .app{padding-bottom:calc(16px + max(env(safe-area-inset-bottom,0px),var(--android-safe-area-inset-bottom,0px)))}
 html{box-sizing:border-box;-webkit-text-size-adjust:100%}
 body{margin:0;font:14px/1.5 system-ui,-apple-system,sans-serif;overscroll-behavior-y:none}
 img{max-width:100%}
