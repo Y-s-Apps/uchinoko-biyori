@@ -2,17 +2,17 @@
 
 このファイルは、チャットのいちばん最後に毎回まるごと書き直します。次のチャットは、ここを読めば続きから始められます。オーナーは、更新のたびにプロジェクトナレッジのGitHubを「同期」し、作業ごとに新しいチャットへ移ります（`CLAUDE.md` の作業の流れ 7）。
 
-- 最終更新：2026-11-15（16回目：**パズル「おやつならべ」を リリースの前に 足した**（オーナー決定で ③ の 前倒し）。とちゅう：push → サーバーの デプロイ → Claude版 → オーナーの 実機 → Fable 5.2 の レビュー（`docs/REVIEW_PROMPT.md`）→ 直し → リリース）
+- 最終更新：2026-11-15（16回目：**パズル「おやつならべ」を リリースの前に 足した**（オーナー決定で ③ の 前倒し）。push・画面3か所・Claude版まで 済み。**のこり：Edge Function `api` の デプロイ**（下の「保留」1）→ オーナーの 実機 → Fable 5.2 の レビュー（`docs/REVIEW_PROMPT.md`）→ 直し → リリース）
 - リポジトリ：`Y-s-Apps/uchinoko-biyori`（組織 Y-s-Apps）。ホーム画面版：https://y-s-apps.github.io/uchinoko-biyori/
-- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-deffdbacd6`**（`bcbd414`。公開中の `index.html`・`sw.js` の md5 が 手元と同じ＝`e0821d0f…`・`65669db0…`）。おせわの 動きは 前と同じ（`compare_home.py`：おなじ）。よるの ひとことの 直し（F3-1）が 入ったので、だいずの アプリは 更新される（動きは 同じ）
-- Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン26**（`bcbd414` の中身）。公開するときは `src/out/uchinoko-claude.html` の前に いまの版と同じ1行目（`<!doctype html><html><head><meta charset=utf8><meta name=viewport …><style>…</style></head><body>` ＋改行）を、うしろに `</body></html>` ＋改行 を つけて `publish_files`（slug は UUID `507aa3eb-87ee-4ddc-80e3-61638a697f56`。短い id は ことわられる。`capabilities` は はぶいて 引きつぐ。前の版を この形で 作りなおすと `list_files` の sha256 と 同じになるのを 確かめてから 出す）
-- LINE版の画面：Cloudflare Pages（main の push で自動ビルド。`bcbd414` で 3か所とも 手元の `src/out/line/index.html` と同じ＝`bcc62c0f…`。`LINE_CFG.oaId` に `@370iymyw`）
+- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-1cb2871136`**（`6820b68`。`index.html`・`sw.js` の md5 は `975dcdc9…`・`192daad7…`。Pages の deploy は success）。パズルが 入ったので だいずの アプリは 更新される（パズルを 使わなければ おせわの 動きは 前と同じ＝`compare_home.py`：おなじ）
+- Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン27**（`6820b68` の中身。version `1794724047-ac10`、capabilities は 引きついだ）。公開するときは `src/out/uchinoko-claude.html` の前に いまの版と同じ1行目（`<!doctype html><html><head><meta charset=utf8><meta name=viewport …><style>…</style></head><body>` ＋改行）を、うしろに `</body></html>` ＋改行 を つけて `publish_files`（slug は UUID `507aa3eb-87ee-4ddc-80e3-61638a697f56`。短い id は ことわられる。`capabilities` は はぶいて 引きつぐ。前の版を この形で 作りなおすと `list_files` の sha256 と 同じになるのを 確かめてから 出す）
+- LINE版の画面：Cloudflare Pages（main の push で自動ビルド。`6820b68` の ビルドは success。`LINE_CFG.oaId` に `@370iymyw`）
   - 本番用 https://uchinoko-biyori.pages.dev/ 、審査用 https://uchinoko-biyori.pages.dev/review/ 、開発用 https://uchinoko-biyori.pages.dev/dev/ （同じページ。ひらいた場所で LIFF ID をえらぶ）
   - ヘッダー（`_headers`）：ぜんぶ（`/*`）に `Referrer-Policy: no-referrer`・`X-Content-Type-Options: nosniff`・`Content-Security-Policy: frame-ancestors 'none'`・`X-Frame-Options: DENY`
   - LIFF URL：開発用 https://miniapp.line.me/2012410263-cuCI7vQS ／審査用 https://miniapp.line.me/2012410264-JD4WhzAb （審査担当者だけ）／本番用 https://miniapp.line.me/2012410265-PutgsCLS （未認証なので URL を知っている人は開ける）
   - チャネルID：開発用 `2012410263`・審査用 `2012410264`・本番用 `2012410265`
   - プライバシーポリシー https://uchinoko-biyori.pages.dev/privacy.html ・利用規約 https://uchinoko-biyori.pages.dev/terms.html （どちらも 2026-11-14 改定。今回の 直しでは 取る情報・送り先・保存期間は かわらないので そのまま）、お問い合わせフォーム https://forms.gle/aywxktpPZettxFSS7
-- LINE版のサーバー：Supabase のプロジェクト「uchinoko-biyori」（`ftakgswltcavwixqxpzi`、東京、組織 `Yuthy's` の無料プラン）。Edge Function `api` は **MCP の version 24**（`index.ts` は `919a322`。`get_edge_function` で 手元と同じ）。`deno.json` は `game.js` を コミット **`3933abe`** に固定のまま（`game.js` は かわらない。`--check` 同じ）
+- LINE版のサーバー：Supabase のプロジェクト「uchinoko-biyori」（`ftakgswltcavwixqxpzi`、東京、組織 `Yuthy's` の無料プラン）。Edge Function `api` は **まだ MCP の version 24**（`index.ts` は `919a322`・`deno.json` は `game.js` を **`3933abe`** に固定）。**パズルの ための デプロイが のこっている**（`index.ts` の `/act` が `seed`・`moves` を わたす 1行と、`deno.json` を `6820b68` の `game.js` へ）。それまで LINE版で つながっている子の パズルは サーバーが `badtype`（400）を返し、画面は「これは きろく されなかったよ」になる（公開前なので こむぎだけ）
 - 表：`app` スキーマに members・line_accounts・sessions・saves・cards・save_backups・day_quota・error_counts・chores・notify_runs
 - **cron：** pg_cron 1.6.4、ジョブ `uchinoko-notify`（**`0,5 12 * * *`＝日本時間 21:00 と 21:05**。2026-11-15 から。`select app.notify_kick()`。21:05 は 21:00 の回が とどかなかった・ことわられた日だけ 動く）。`/notify/run` は 21時の 2分前から うけつける
 - 役：`uchinoko_api`（`app` の表だけ。サーバーは この役で つないでいる）
@@ -31,8 +31,9 @@
 オーナー決定（2026-11-15）：課金と広告の順番の ③ のうち パズルだけを リリースの前に（リワード広告・課金は 入れない）。はじめに きいたこと：入口＝**「あそぶ」で ボール／パズルを えらぶ**、版＝**3つ ぜんぶ**、ほうび＝**最小（ごきげん+5・なかよし+2、1日3回）**、形＝**6×6・5しゅるい・12手で 54こ けす**（54は 2000回の ためしで「ふつうに 8割」に あわせた）。
 
 - **できたこと（どこまで）：** ① ルール（`Puzzle`・`Rules.puzzle`・`ensureState`・`carryExtras`）と サーバー（`/act` が `seed`・`moves` を わたす）→ ② 画面（`openPlay`・`PuzzleUI`・`.pz-*`）→ ③ 書類（PROJECT.md 5章・6章・8章・10章〈決めたこと・しくみ・補足資料の 4〉、プライバシーポリシーの「おせわの記録」と 改定日 11-15、CLAUDE.md の 表、`docs/REVIEW_PROMPT.md` を パズル用に 作りなおし）。
-- **確かめ：** `rules_test.mjs`（パズル 26こ）・`api_test.ts`（puzzle 9こ）all passed、`smoke.py`（ふつう・`--dark`）エラー0、`linebreak.py --only puzzle --only play` 0件、`compare_home.py` おなじ。のこり：`line_e2e.py`（22 を 足した）・`smoke.py --line --android-inset 48`・`--claude`・`linebreak.py --line`。
-- **このあと：** main に push → `build_server.py --pin` → Edge Function を デプロイ → `/health` → deno.json を push → Claude版を 同じ URL に → オーナーに iPhone で さわってもらう → Fable 5.2 の レビュー（貼る文は `docs/REVIEW_PROMPT.md`）。
+- **確かめ：** `line_e2e.py` all passed（rules_test の パズル 26こ・api_test の puzzle 9こ・画面の 22）、`smoke.py`（ふつう・`--dark`・`--claude`・`--line --android-inset 48`）エラー0、`linebreak.py --only puzzle --only play` 0件、`compare_home.py` おなじ。**`linebreak.py --line` は まだ**（パズルの 場面は ホーム画面版で 0件。LINE版だけの 文は かえていない）。
+- **push・公開：** `6820b68` を main に push（GitHub Pages・Cloudflare とも success）。Claude版 バージョン27。
+- **Edge Function の デプロイは できなかった：** 1回めは 作業環境の確認で 止められ、オーナーに きいて もう一度 ためしたら、ソーイの 送り方（80KB の `index.ts` を JSON の 文字列に する ところ）の まちがいで 読めなかった。このチャットは とても 長く、1回 ためすごとに 上限を 多く使うので、**つぎの 新しい チャットで はじめに やる**（下の「保留」1）。`deno.json` の `--pin` は もどした（commit していない）。
 
 ## その前のチャット（2026-11-15、15回目：さいごのチェックの 直し → 約束① 済み）
 
@@ -46,9 +47,12 @@
 
 ## 保留・オーナーの判断待ち（つぎのチャットのはじめに）
 
-1. **つぎは リリース（公開の日）。** 下の「公開の日」の 手順で すすめる。はじめに オーナーに 一言 たしかめる：今夜（11-15）21時の よるの おしらせが こむぎに 届いたか（1通だけか＝21:05 に 2通めが 来ていないか）。`select day, made_at, used_at, done_at, sent, skipped, failed, note from app.notify_runs order by day desc limit 3;`
-2. **公開の日に オーナーが 見ること：** Supabase の Settings → Data API の「Exposed schemas」に `app`・`net` が ないこと（F2-5。ソーイは 確かめられない）。
-3. **リリースしたら：約束②（個人事業主の申請のための別プロジェクトのプロンプト）を ソーイから伝える。** 中身は プロジェクトの資料 `claude/owner-notes.md`（診断 5-7・さいごのチェック F4-2 も ふくむ）。
+1. **（いちばん はじめに）Edge Function `api` の デプロイ（パズル）。** `python3 tools/build_server.py --pin 6820b6813eab5f50e42ffc40ba7a423f6a78f82b`（`game.js` は いまの src と 同じ。あとの コミットでも `game.js` が かわらなければ どれでも よい）→ Supabase の MCP `deploy_edge_function`（`project_id` `ftakgswltcavwixqxpzi`、`name` `api`、`verify_jwt: false`、`import_map_path: deno.json`、files は `deno.json` と `index.ts` を 丸ごと）→ `get_edge_function` の 結果を 手元と python で くらべる → `--check` → `execute_sql` の pg_net で `/health` → `deno.json` を commit・push。**`index.ts` は 6万5千文字（1203行）あるので、JSON の 文字列に するとき 改行は かならず `\n`、バックスラッシュ 28こは `\\`、ダブルクォート 2こ（43行め）は `\"`**（改行を そのまま 入れると 読めない）。止められたら オーナーに 一言 きいて もう一度。デプロイの あと オーナーに 開発用の LIFF URL で パズルを 1回 ためしてもらい、`select data->'puzzle' from app.saves;` で 回数が すすんだか 見る。
+2. **オーナーの 実機（手ざわり）：** ホーム画面版（もう 入っている）と、デプロイの あと 開発用の LIFF URL で「あそぶ」→ パズル。盤の 大きさ・タップと スワイプ・ペットの 応援・おわりの画面・クリアの むずかしさ（54こ）を きいて、直すなら 直す。
+3. **Fable 5.2 の レビュー：** 貼る文は `docs/REVIEW_PROMPT.md`（見るのは `9807bb1`〜main）。発売記念は 日本時間 11/17 16:59 まで。レポートは 診断レポートの いちばん うしろに 新しい 章。見つかったものは Opus 5.5 の チャットで 直す。
+4. **つぎは リリース（公開の日）。** 下の「公開の日」の 手順で すすめる。はじめに オーナーに 一言 たしかめる：今夜（11-15）21時の よるの おしらせが こむぎに 届いたか（1通だけか＝21:05 に 2通めが 来ていないか）。`select day, made_at, used_at, done_at, sent, skipped, failed, note from app.notify_runs order by day desc limit 3;`
+5. **公開の日に オーナーが 見ること：** Supabase の Settings → Data API の「Exposed schemas」に `app`・`net` が ないこと（F2-5。ソーイは 確かめられない）。
+6. **リリースしたら：約束②（個人事業主の申請のための別プロジェクトのプロンプト）を ソーイから伝える。** 中身は プロジェクトの資料 `claude/owner-notes.md`（診断 5-7・さいごのチェック F4-2 も ふくむ）。
 - おたすけ：ホーム画面版は1日おき（2026-11-12）。Claude版・LINE版は「前回から7日」のまま。
 
 ## 次にやること
