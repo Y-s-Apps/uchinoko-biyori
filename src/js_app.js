@@ -538,6 +538,20 @@ function setPlayIcon(){
   const want = S.pet.species === 'cat' ? YARN_ICON : SOCCER_ICON;
   if (svg.outerHTML !== want) svg.outerHTML = want;
 }
+/* あそぶ：ボール（猫は 毛糸玉）か パズル「おやつならべ」を えらぶ（2026-11-15 オーナー決定） */
+function openPlay(){
+  if (Pet.busy || !S) return;
+  const cat = S.pet.species === 'cat', left = Rules.puzzleLeft(S);
+  const toy = document.querySelector('#actPlay svg');
+  const html = `<div class="tiles playpick">
+      <button class="tile" type="button" data-play="ball">${toy ? toy.outerHTML : ''}<span class="tname">${cat ? '毛糸玉' : 'ボール'}</span><span class="gain"><b>♥+3</b> ごきげん+12</span></button>
+      <button class="tile" type="button" data-play="puzzle"><svg viewBox="0 0 24 24" aria-hidden="true">${MINI.puzzle}</svg><span class="tname">パズル<small>おやつならべ</small></span><span class="gain">${left ? `ほうび あと${left}回` : 'ほうびは<br>また あした'}</span></button>
+    </div>`;
+  openSheet('なにで あそぶ？', html, sh => {
+    sh.querySelector('[data-play="ball"]').addEventListener('click', () => { closeSheet(); play(); });
+    sh.querySelector('[data-play="puzzle"]').addEventListener('click', () => PuzzleUI.open());
+  });
+}
 async function play(){
   if (Pet.busy || !S || Act.waiting()) return;
   decay();
@@ -992,7 +1006,7 @@ const Game = {
 
 $('#actFeed').addEventListener('click', feed);
 $('#actTreat').addEventListener('click', openTreats);
-$('#actPlay').addEventListener('click', play);
+$('#actPlay').addEventListener('click', openPlay);
 $('#actDress').addEventListener('click', openDress);
 $('#actTrick').addEventListener('click', openTricks);
 $('#reqBtn').addEventListener('click', openRequests);

@@ -971,6 +971,49 @@ async def browser_tests(srv_port):
         ok('LOST /act' in calls and after == before + 1 and i['meals'] == after and i['server'] == 'on', 'とどいたのに 返事が なくても、おくりなおしは 1回と 数える', {'before': before, 'after': after, 'info': i, 'calls': calls[-5:]})
         all_errs += errs; await ctx.close()
 
+        print('22. パズル（2026-11-15）：「あそぶ」で えらぶ → さいごまで → サーバーが 再生して ほうび。とどかなくても 2回 数えない')
+        PZ_PLAY = '''async () => {
+            const U = PuzzleUI;
+            for (let guard = 0; guard < 40 && !U.g.end; guard++){
+              let best = -1, bn = 0;
+              for (let c = 0; c < 2 * PUZZLE.w * PUZZLE.w; c++){ const p = Puzzle.pair(c); if (!p) continue; const n = Puzzle.lines(Puzzle.swapped(U.g.b, p[0], p[1])).length; if (n > bn){ bn = n; best = c; } }
+              const p = Puzzle.pair(best); await U.tryMove(p[0], p[1]);
+            }
+            for (let i = 0; i < 80 && !document.querySelector('#pzEnd .btnrow'); i++) await new Promise(r => setTimeout(r, 100));
+            return { clear: U.g.clear, score: U.g.score, moves: U.moves.length, text: document.querySelector('#pzEnd').textContent, local: JSON.parse(JSON.stringify(S.puzzle)) };
+        }'''
+        lose = {}
+        one = state('Uone')
+        ctx, page, errs, calls = await open_page('Uone', owner=one['id'], lose=lose)
+        await close_popups(page)
+        p0 = state('Uone')['puzzle']
+        await page.click('#actPlay'); await page.wait_for_timeout(450)
+        await page.click('[data-play="puzzle"]'); await page.wait_for_timeout(600)
+        seed_ok = await page.evaluate('PuzzleUI.seed === Puzzle.seed(S)')
+        lose['/act'] = 1   # さいしょの 返事だけ なくす（とどいてはいる）→ 同じ rid で おくりなおし
+        r = await page.evaluate(PZ_PLAY)
+        await page.wait_for_timeout(1500); await close_popups(page)
+        p1 = state('Uone')['puzzle']
+        acts = [c for c in calls if c.endswith('/act')]
+        ok(seed_ok and 'LOST /act' in calls and p1['games'] == p0['games'] + 1 and p1['best'] == max(p0['best'], r['score']) and r['local'] == p1,
+           'たねは サーバーの セーブから・返事を なくしても 1回と 数える・画面の きろくは サーバーと 同じ', {'p0': p0, 'p1': p1, 'r': r, 'calls': calls[-6:]})
+        ok((p1['n'] == p0['n'] + 1) == r['clear'] and r['text'].startswith('クリア！') == r['clear'], 'ほうびは クリアした ときだけ（サーバーが 数える）', {'p0': p0, 'p1': p1, 'r': r})
+        await snap(page, 'puzzle_end')
+        # ちがう たね（ほかの端末で あそんだ）→ きろく されない（なにも かわらない）
+        await page.click('#sheet [data-pz="again"]'); await page.wait_for_timeout(500)
+        dbg('/__debug/puzzle', {'sub': 'Uone', 'games': p1['games'] + 5})
+        r2 = await page.evaluate(PZ_PLAY)
+        p2 = state('Uone')['puzzle']
+        ok('きろく されなかった' in r2['text'] and p2['games'] == p1['games'] + 5 and p2['n'] == p1['n'], 'ほかの端末で あそんで たねが かわっていたら きろく しない（stale）', {'r2': r2['text'], 'p2': p2})
+        await page.click('#sheet [data-pz="close"]'); await page.wait_for_timeout(500)
+        # サーバーに つながらないときは はじめない（LINEの子は まってもらう）
+        await page.evaluate("() => { LineSync.state = 'failed'; LineSync.error = 'unavailable'; }")
+        await page.click('#actPlay'); await page.wait_for_timeout(450)
+        await page.click('[data-play="puzzle"]'); await page.wait_for_timeout(600)
+        has_board = await page.evaluate("!!document.querySelector('#pzBoard')")
+        ok(not has_board, 'つながらない ときは パズルを はじめない', has_board)
+        all_errs += errs; await ctx.close()
+
         print('20. おしらせ（ポリシー・規約の 大事な変更など。まだ見ていない人に 1回だけ。5-6）')
         ctx, page, errs, calls = await open_page('Uone', owner=one['id'])
         await close_popups(page)

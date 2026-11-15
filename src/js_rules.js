@@ -56,6 +56,119 @@ const TRICK_LOVE_A_DAY = 10;
 const STROKE_MAX = 12;       /* なでなでのなかよし：たまる上限（回分）と、1回分がたまる分数 */
 const STROKE_MINUTES = 3;
 
+/* ----- パズル「おやつならべ」（「あそぶ」の中の 小さな ミニゲーム。2026-11-15 オーナー決定） -----
+   6×6・おやつ5しゅるい・12手。同じ おやつを たて・よこに 3つ以上 そろえて けし、GOAL こ けしたら クリア。
+   盤と 落ちてくる おやつは たね（seed）だけで決まるので、サーバーは 画面から「たね・手順」だけを うけとって 再生し、
+   クリアしたか と 点数を ここで決める（画面から 点数や 回数を うけとらない）。ライフ・時間切れは ない。
+   ほうびは クリアしたか だけで決め（点数では かえない）、1日 PER_DAY 回まで（そのあとも あそべる） */
+const PUZZLE = { w:6, kinds:5, moves:12, goal:54, perDay:3, love:2, mood:5, leftBonus:30, bestMax:1e6 };
+const Puzzle = {
+  /* つぎの 1回の たね：子と、これまでに あそんだ回数から（あそぶたびに かわる。サーバーの セーブと 画面の 写しで 同じ） */
+  seed(st){ const z = st && st.puzzle; return hashStr('pz:' + ((st && st.created) || 0) + ':' + ((z && z.games) || 0)); },
+  start(seed){
+    const g = { seed:seed >>> 0, r:rng(seed >>> 0), b:[], left:PUZZLE.moves, got:0, score:0, end:false, clear:false };
+    this.fill(g);
+    return g;
+  },
+  /* そろっている ところが なく、うごかせる手が ある 盤（はじめと、手が なくなったとき） */
+  fill(g){
+    const W = PUZZLE.w;
+    for (let guard = 0; guard < 50; guard++){
+      const b = [];
+      for (let i = 0; i < W * W; i++){
+        let k, tries = 0;
+        do { k = Math.floor(g.r() * PUZZLE.kinds); tries++; }
+        while (tries < 20 && ((i % W >= 2 && b[i - 1] === k && b[i - 2] === k) || (i >= 2 * W && b[i - W] === k && b[i - 2 * W] === k)));
+        b.push(k);
+      }
+      g.b = b;
+      if (this.hasMove(b)) return;
+    }
+  },
+  /* そろっている マス（小さい じゅん） */
+  lines(b){
+    const W = PUZZLE.w, hit = new Set();
+    for (let a = 0; a < W; a++){
+      for (const vert of [false, true]){
+        let run = 1;
+        for (let k = 1; k <= W; k++){
+          const i = vert ? k * W + a : a * W + k, j = vert ? (k - 1) * W + a : a * W + k - 1;
+          if (k < W && b[i] >= 0 && b[i] === b[j]) run++;
+          else {
+            if (run >= 3) for (let m = k - run; m < k; m++) hit.add(vert ? m * W + a : a * W + m);
+            run = 1;
+          }
+        }
+      }
+    }
+    return [...hit].sort((x, y) => x - y);
+  },
+  /* 手の 番号：マス a と その右（a×2）・その下（a×2＋1） */
+  pair(code){
+    const W = PUZZLE.w;
+    if (!Number.isInteger(code) || code < 0 || code >= 2 * W * W) return null;
+    const a = code >> 1;
+    if (code & 1) return a + W < W * W ? [a, a + W] : null;
+    return a % W < W - 1 ? [a, a + 1] : null;
+  },
+  code(i, j){
+    const W = PUZZLE.w, a = Math.min(i, j), d = Math.abs(i - j);
+    if (d === 1 && a % W < W - 1) return a * 2;
+    if (d === W) return a * 2 + 1;
+    return -1;
+  },
+  swapped(b, i, j){ const c = b.slice(); const t = c[i]; c[i] = c[j]; c[j] = t; return c; },
+  hasMove(b){
+    for (let c = 0; c < 2 * PUZZLE.w * PUZZLE.w; c++){
+      const p = this.pair(c);
+      if (p && this.lines(this.swapped(b, p[0], p[1])).length) return true;
+    }
+    return false;
+  },
+  /* 1手。そろわない手は null（なにも かわらず、手も へらない）。そろえば 画面が うごかすための だんかいを返す */
+  move(g, code){
+    const W = PUZZLE.w;
+    const p = g.end ? null : this.pair(code);
+    if (!p) return null;
+    const b = this.swapped(g.b, p[0], p[1]);
+    if (!this.lines(b).length) return null;
+    const steps = [];
+    g.left--;
+    for (let chain = 1; ; chain++){
+      const hit = this.lines(b);
+      if (!hit.length) break;
+      const pts = hit.length * 10 * chain;
+      g.got += hit.length; g.score += pts;
+      for (const i of hit) b[i] = -1;
+      const fall = [], add = [];
+      for (let x = 0; x < W; x++){
+        let to = W - 1;
+        for (let y = W - 1; y >= 0; y--){
+          const i = y * W + x;
+          if (b[i] < 0) continue;
+          const t = to * W + x;
+          if (t !== i){ b[t] = b[i]; b[i] = -1; fall.push([i, t]); }
+          to--;
+        }
+        for (let y = to; y >= 0; y--){ const k = Math.floor(g.r() * PUZZLE.kinds); b[y * W + x] = k; add.push([y * W + x, k, to + 1]); }
+      }
+      steps.push({ hit, pts, chain, fall, add });
+    }
+    g.b = b;
+    if (g.got >= PUZZLE.goal){ g.end = true; g.clear = true; g.score += g.left * PUZZLE.leftBonus; }
+    else if (g.left <= 0) g.end = true;
+    else if (!this.hasMove(b)){ this.fill(g); steps.push({ shuffle:true }); }
+    return steps;
+  },
+  /* たねと 手順を 頭から 再生する（サーバーも 端末も ここだけで クリアと 点数を 決める）。そろわない手や 多すぎる手が あれば null */
+  replay(seed, moves){
+    if (!Array.isArray(moves) || moves.length > PUZZLE.moves) return null;
+    const g = this.start(seed);
+    for (const c of moves) if (g.end || !this.move(g, c)) return null;
+    return { end:g.end, clear:g.clear, score:g.score, got:g.got, used:PUZZLE.moves - g.left };
+  },
+};
+
 const Rules = {
   /* おなか・ごきげんは、前に計算した時刻（last）からの時間で減る */
   decay(st, t = now()){
@@ -439,6 +552,38 @@ const Rules = {
     return { ok:true };
   },
   season(st, p){ st.room.season = !!p.on; return { ok:true }; },
+  /* パズル：うけとるのは たね（seed）と 手順（moves）だけ。ここで 再生して クリアと 点数を決める。
+     ほうび（ごきげん・なかよし）は クリアしたか だけで、1日 PUZZLE.perDay 回まで。さいこう点は アルバムに（1日1つ） */
+  puzzleLeft(st){ const z = st.puzzle; return !z || z.day !== dayKey() ? PUZZLE.perDay : Math.max(0, PUZZLE.perDay - z.n); },
+  puzzle(st, p, ev){
+    const z = st.puzzle || (st.puzzle = { games:0, clears:0, best:0, n:0, day:null });
+    const seed = Puzzle.seed(st);
+    if (Number(p.seed) !== seed) return { ok:false, why:'stale' };
+    const g = Puzzle.replay(seed, p.moves);
+    if (!g || !g.end) return { ok:false, why:'bad' };
+    this.decay(st);
+    const day = dayKey();
+    if (z.day !== day){ z.day = day; z.n = 0; }
+    z.games++;
+    let reward = false;
+    if (g.clear){
+      z.clears++;
+      if (z.n < PUZZLE.perDay){
+        z.n++;
+        reward = true;
+        st.stats.mood = clamp(st.stats.mood + PUZZLE.mood, 0, 100);
+        this.gainLove(st, PUZZLE.love, ev);
+      }
+    }
+    const best = g.score > z.best;
+    if (best){
+      z.best = Math.min(PUZZLE.bestMax, g.score);
+      st.album = st.album.filter(a => !(a.k === 'puzzle' && dayKey(a.t) === day));
+      this.addAlbum(st, 'puzzle', `パズルで さいこう ${z.best}点！`, `おやつならべで ${g.got}こ けしたね`, 'puzzle');
+    }
+    this.first(st, 'puzzle', 'はじめての パズル', `${st.pet.name}と おやつならべで あそんだね`, 'puzzle');
+    return { ok:true, clear:g.clear, score:g.score, got:g.got, best, reward, left:PUZZLE.perDay - z.n };
+  },
 
   /* one entry for every action, here and on the server. `ctx.budget` is the stroke budget, `ctx.away` the time away */
   act(st, type, p, ctx){
@@ -461,6 +606,7 @@ const Rules = {
       case 'dress': r = this.dress(st, p, ev); break;
       case 'room': r = this.room(st, p, ev); break;
       case 'season': r = this.season(st, p, ev); break;
+      case 'puzzle': r = this.puzzle(st, p, ev); break;
       default: r = { ok:false, why:'unknown' };
     }
     r.ev = ev;

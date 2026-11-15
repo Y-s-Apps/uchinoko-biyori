@@ -94,18 +94,24 @@ function ensureState(st){
     if (w) for (const k of ['head','face','neck']) if (w[k]) st.firsts.wear[w[k]] = true;
   }
   st.firsts.wear = obj(st.firsts.wear) ? st.firsts.wear : {};
+  /* パズル（2026-11-15）：あそんだ回数（つぎの たね）・クリアの回数・さいこう点・きょうの ほうびの回数 */
+  const z = st.puzzle = obj(st.puzzle) ? st.puzzle : {};
+  for (const k of ['games','clears']) z[k] = Math.floor(num(z[k], 0, 0, 1e9));
+  z.best = Math.floor(num(z.best, 0, 0, PUZZLE.bestMax));
+  z.n = Math.floor(num(z.n, 0, 0, PUZZLE.perDay));
+  z.day = isDayKey(z.day) ? z.day : null;
   return st;
 }
 /* the subset of a move code that is safe to carry over */
 function carryExtras(o, st){
   const src = ensureState(JSON.parse(JSON.stringify({
     room:o.room, tricks:o.tricks, daily:null, stamps:o.stamps, streak:o.streak, souv:o.souv, events:o.events, rescued:o.rescued,
-    album:o.album, milestones:o.milestones, firsts:o.firsts, counts:st.counts, pet:st.pet,
+    album:o.album, milestones:o.milestones, firsts:o.firsts, counts:st.counts, pet:st.pet, puzzle:o.puzzle,
   })));
   const tricks = {}, trickIds = new Set(Object.values(TRICKS).flat().map(t => t.id));
   for (const [k, v] of Object.entries(src.tricks)) if (trickIds.has(k) && v && typeof v === 'object') tricks[k] = { p:clamp(Number(v.p) || 0, 0, 99), ok:!!v.ok };
   const firsts = { _init:true, wear:{} };
-  for (const k of ['meal','treat','play','pet','room','daily']) firsts[k] = !!src.firsts[k];
+  for (const k of ['meal','treat','play','pet','room','daily','puzzle']) firsts[k] = !!src.firsts[k];
   for (const k of Object.keys(src.firsts.wear)) if (hasId(WEAR_BY_ID, k) || hasId(WEAR_RENAMED, k)) firsts.wear[k] = true;
   const have = {};
   for (const [k, v] of Object.entries(src.souv.have)) if (hasId(SOUV_BY_ID, k)) have[k] = clamp(Number(v) || 0, 0, 1e6);
@@ -121,6 +127,8 @@ function carryExtras(o, st){
   st.album = src.album.map(a => ({ t:a.t, k:cleanText(a.k || '', 20), ti:cleanText(a.ti, 40), su:cleanText(a.su || '', 80), ic:cleanText(a.ic || '', 40) }));
   st.milestones = Object.fromEntries(Object.entries(src.milestones).filter(([k]) => /^[a-z0-9:_-]{1,30}$/.test(k)).map(([k, v]) => [k, !!v]));
   st.firsts = firsts;
+  /* パズル：さいこう点・回数と、きょうの ほうびの回数（日が ちがえば ルールが 0から 数えなおす） */
+  st.puzzle = { games:src.puzzle.games, clears:src.puzzle.clears, best:src.puzzle.best, n:src.puzzle.n, day:src.puzzle.day };
   return ensureState(st);
 }
 
@@ -177,6 +185,7 @@ function petCard(wear, cls = 'ex-happy wag-fast'){
 const MINI = {
   meal:'<path d="M3 12h18l-2 6a3 3 0 0 1-3 2H8a3 3 0 0 1-3-2z" fill="#EFB443"/><circle cx="9" cy="10" r="2.2" fill="#B97A3C"/><circle cx="13" cy="9" r="2.4" fill="#C98A48"/><circle cx="16.5" cy="10.5" r="2" fill="#B97A3C"/>',
   treat:'<path d="M12 20s-7-4.3-8.6-8.3C2.2 8.6 4 5.5 7 5.5c2 0 3.4 1 5 2.6 1.6-1.6 3-2.6 5-2.6 3 0 4.8 3.1 3.6 6.2C19 15.7 12 20 12 20z" fill="#E9B872"/><circle cx="9" cy="10" r="1.3" fill="#EC6C8A"/><circle cx="14.5" cy="9.5" r="1.3" fill="#EC6C8A"/><circle cx="12" cy="14" r="1.3" fill="#EC6C8A"/>',
+  puzzle:'<rect x="3" y="3" width="8" height="8" rx="2.5" fill="#F6D27A"/><rect x="13" y="3" width="8" height="8" rx="2.5" fill="#E9606A"/><rect x="3" y="13" width="8" height="8" rx="2.5" fill="#8E7CC3"/><rect x="13" y="13" width="8" height="8" rx="2.5" fill="#F6D27A"/>',
   play:'<circle cx="12" cy="12" r="8.5" fill="#6FABE3"/><path d="M4.5 9.5c5 2.5 10 2.5 15 0M4.5 14.5c5-2.5 10-2.5 15 0" stroke="#FFFFFF" stroke-width="1.8" fill="none"/>',
   pet:'<path d="M12 20s-7.5-4.6-9.6-9.2C.9 7.4 3 3.6 6.6 3.6c2.2 0 3.6 1.2 4.4 2.5.8-1.3 2.2-2.5 4.4-2.5 3.6 0 5.7 3.8 4.2 7.2C19.5 15.4 12 20 12 20z" fill="#F0728E"/>',
   trick:'<path d="M12 2.5l2.8 6 6.5.7-4.9 4.4 1.4 6.4L12 16.8 6.2 20l1.4-6.4L2.7 9.2l6.5-.7z" fill="#F5C843"/>',
@@ -656,5 +665,194 @@ const Features = {
     if (!open.length) return null;
     const r = pick(open);
     return reqText(r).replace(/ほしい$/, 'ほしいな').replace(/たい$/, 'たいな');
+  },
+};
+
+/* ===== パズル「おやつならべ」の画面（2026-11-15。ルールと 盤は js_rules.js の Puzzle） =====
+   「あそぶ」で えらぶ。おわったら たね（seed）と 手順（moves）だけを Act.run('puzzle') に わたし、
+   クリアしたか・点数・ほうびは ルール（LINE版は サーバー）が 再生して 決める。とちゅうで とじたら なにも おくらない */
+const PZ_TREATS = { dog:['bolo','apple','blueberry','milkgum','jerky'], cat:['kibble','paste','niboshi','maguro','catmilk'] };
+const PuzzleUI = {
+  g:null, seed:0, els:[], moves:[], sel:-1, busy:false, sh:null, box:null, swiped:false, cleared:false,
+  kinds(){ const sp = isCat() ? 'cat' : 'dog'; return PZ_TREATS[sp].map(id => TREATS[sp].find(t => t.id === id)); },
+  note(){
+    const left = Rules.puzzleLeft(S);
+    return (left ? `クリアの ほうび（ごきげん+${PUZZLE.mood}・♥+${PUZZLE.love}）は<br>きょう あと${left}回` : 'きょうの ほうびは おわり。<br>あそぶのは いつでも できるよ')
+      + (S.puzzle.best ? `・さいこう ${S.puzzle.best}点` : '');
+  },
+  open(){
+    if (!S || Pet.busy || Act.waiting()) return;
+    const html = `<p class="sheet-sub">となりの おやつと 入れかえて、3つ いじょう そろえよう。${PUZZLE.moves}手で ${PUZZLE.goal}こ けしたら クリア！</p>
+      <div class="pz">
+        <div class="pz-top">
+          <div class="pz-pet" id="pzPet">${renderPet(S.pet.look, { wear:petWear() })}</div>
+          <p class="pz-say" id="pzSay" role="status"></p>
+          <div class="pz-nums"><div><b id="pzGot">0</b><small>/${PUZZLE.goal}こ</small></div><div><b id="pzLeft">${PUZZLE.moves}</b><small>のこり手</small></div></div>
+        </div>
+        <div class="pz-board" id="pzBoard" aria-label="おやつの ばん"></div>
+        <div class="pz-end" id="pzEnd" hidden></div>
+        <p class="note" id="pzNote">${this.note()}</p>
+      </div>`;
+    openSheet('おやつならべ', html, sh => { this.sh = sh; this.box = sh.querySelector('#pzBoard'); this.bind(); this.start(); });
+  },
+  start(){
+    this.g = Puzzle.start(Puzzle.seed(S));
+    this.seed = this.g.seed; this.moves = []; this.sel = -1; this.busy = false; this.cleared = false;
+    this.box.innerHTML = '';
+    this.els = this.g.b.map((k, i) => this.tile(i, k));
+    this.sh.querySelector('#pzEnd').hidden = true;
+    this.sh.querySelector('#pzPet').className = 'pz-pet';
+    this.nums();
+    this.say(isCat() ? 'いっしょに がんばるにゃ！' : 'いっしょに がんばろ！');
+  },
+  tile(i, k, fromRow){
+    const t = this.kinds()[k];
+    const el = document.createElement('button');
+    el.type = 'button'; el.className = 'pz-t';
+    el.setAttribute('aria-label', t.ja);
+    el.innerHTML = `<svg viewBox="0 0 48 48" aria-hidden="true">${treatIcon(t)}</svg>`;
+    this.place(el, i, fromRow);
+    this.box.appendChild(el);
+    return el;
+  },
+  place(el, i, row){
+    const W = PUZZLE.w;
+    el.dataset.i = i;
+    el.style.left = (i % W) * 100 / W + '%';
+    el.style.top = (row == null ? Math.floor(i / W) : row) * 100 / W + '%';
+  },
+  say(text){ const b = this.sh && this.sh.querySelector('#pzSay'); if (b) b.textContent = text; },
+  hop(){ const p = this.sh.querySelector('#pzPet'); p.classList.remove('hop'); void p.offsetWidth; p.classList.add('hop'); },
+  nums(){
+    this.sh.querySelector('#pzGot').textContent = Math.min(this.g.got, PUZZLE.goal);
+    this.sh.querySelector('#pzLeft').textContent = this.g.left;
+  },
+  bind(){
+    let down = null;
+    this.box.addEventListener('pointerdown', e => {
+      const el = e.target.closest('.pz-t');
+      down = el && !this.busy && !this.g.end ? { i:+el.dataset.i, x:e.clientX, y:e.clientY } : null;
+    });
+    this.box.addEventListener('pointermove', e => {
+      if (!down) return;
+      const dx = e.clientX - down.x, dy = e.clientY - down.y;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < 16) return;
+      const W = PUZZLE.w, i = down.i, x = i % W, y = Math.floor(i / W);
+      down = null; this.swiped = true;
+      const j = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? (x < W - 1 ? i + 1 : -1) : (x > 0 ? i - 1 : -1))
+        : (dy > 0 ? (y < W - 1 ? i + W : -1) : (y > 0 ? i - W : -1));
+      this.pick(-1);
+      if (j >= 0) this.tryMove(i, j);
+    });
+    this.box.addEventListener('pointerup', () => { down = null; });
+    this.box.addEventListener('pointercancel', () => { down = null; });
+    /* タップ（と キーボード）：1つ えらんで、となりを えらぶと 入れかえ */
+    this.box.addEventListener('click', e => {
+      if (this.swiped){ this.swiped = false; return; }
+      const el = e.target.closest('.pz-t');
+      if (!el || this.busy || this.g.end) return;
+      const i = +el.dataset.i;
+      if (this.sel < 0 || this.sel === i) this.pick(this.sel === i ? -1 : i);
+      else if (Puzzle.code(this.sel, i) >= 0){ const a = this.sel; this.pick(-1); this.tryMove(a, i); }
+      else this.pick(i);
+    });
+  },
+  pick(i){
+    if (this.sel >= 0 && this.els[this.sel]){ this.els[this.sel].classList.remove('sel'); this.els[this.sel].removeAttribute('aria-pressed'); }
+    this.sel = i;
+    if (i >= 0){ this.els[i].classList.add('sel'); this.els[i].setAttribute('aria-pressed', 'true'); }
+  },
+  async tryMove(i, j){
+    const code = Puzzle.code(i, j);
+    if (code < 0 || this.busy || this.g.end) return;
+    this.busy = true;
+    const a = this.els[i], b = this.els[j];
+    this.place(a, j); this.place(b, i);
+    await sleep(190);
+    const steps = Puzzle.move(this.g, code);
+    if (!steps){
+      this.place(a, i); this.place(b, j);
+      await sleep(190);
+      this.say(pick(['そろわないみたい', 'ほかの ところは どうかな？']));
+      this.busy = false;
+      return;
+    }
+    this.els[i] = b; this.els[j] = a;
+    this.moves.push(code);
+    for (const st of steps) await this.animate(st);
+    this.nums();
+    this.busy = false;
+    if (this.g.end) this.finish();
+  },
+  async animate(st){
+    if (st.shuffle){
+      this.say('うごかせないから、ならべなおすね');
+      this.els.forEach(el => el && el.classList.add('pop'));
+      await sleep(260);
+      this.box.innerHTML = '';
+      this.els = this.g.b.map((k, i) => this.tile(i, k));
+      return;
+    }
+    for (const i of st.hit) this.els[i].classList.add('pop');
+    if (st.chain >= 2){ this.say(st.chain >= 3 ? 'すごい すごい！' : 'れんさだ！'); this.hop(); }
+    else if (st.hit.length >= 4){ this.say(pick(['たくさん けせたね！', 'じょうず！'])); this.hop(); }
+    else if (Math.random() < .35) this.say(pick(isCat() ? ['いいかんじにゃ', 'その ちょうし！', 'おいしそう…'] : ['いいね！', 'その ちょうし！', 'おいしそう…']));
+    this.sh.querySelector('#pzGot').textContent = Math.min(this.g.got, PUZZLE.goal);
+    await sleep(240);
+    for (const i of st.hit){ this.els[i].remove(); this.els[i] = null; }
+    for (const [from, to] of st.fall){ const el = this.els[from]; this.els[from] = null; this.els[to] = el; this.place(el, to); }
+    const W = PUZZLE.w, born = st.add.map(([i, k, n]) => { const el = this.tile(i, k, Math.floor(i / W) - n); this.els[i] = el; return [el, i]; });
+    void this.box.offsetWidth;
+    born.forEach(([el, i]) => this.place(el, i));
+    await sleep(260);
+  },
+  async finish(){
+    const g = this.g, end = this.sh.querySelector('#pzEnd'), pet = this.sh.querySelector('#pzPet');
+    this.cleared = g.clear;
+    pet.classList.add(g.clear ? 'joy' : 'hop');
+    this.say(g.clear ? (isCat() ? 'クリア！ やったにゃ！' : 'クリア！ やったね！') : 'おしかったね！ また あそぼ');
+    end.hidden = false;
+    end.innerHTML = '<p class="pz-res">きろく しているよ…</p>';
+    const r = await Act.run('puzzle', { seed:this.seed, moves:this.moves.slice() });
+    if (!this.sh || !this.sh.isConnected) return;
+    this.result(r);
+  },
+  result(r){
+    const end = this.sh.querySelector('#pzEnd');
+    let head, sub;
+    if (r && r.ok){
+      playEvents(r.ev);
+      commit();
+      head = r.clear ? `クリア！ ${r.score}点` : `${r.got}こ けしたよ・${r.score}点`;
+      sub = (r.best ? '<b class="pz-best">さいこう点！</b> ' : '')
+        + (r.reward ? `ごきげん+${PUZZLE.mood}・♥+${PUZZLE.love}` : r.clear ? 'きょうの ほうびは おわり。<br>あしたまた もらえるよ' : 'クリアまで あと すこし！');
+    } else if (r && r.why === 'offline'){
+      head = 'きろく できなかったよ';
+      sub = 'サーバーに つながらなかったみたい。<br>「もういちど おくる」で ためしてね';
+    } else {
+      head = 'これは きろく されなかったよ';
+      sub = r && r.why === 'stale' ? 'ほかの 端末で あそんだか、<br>もう きろく されていたみたい' : 'もういちど あそんでね';
+    }
+    end.innerHTML = `<p class="pz-res">${head}</p><p class="pz-sub">${sub}</p>
+      <div class="btnrow">${r && r.why === 'offline' ? '<button class="btn" type="button" data-pz="resend">もういちど おくる</button>' : '<button class="btn" type="button" data-pz="again">もういちど</button>'}<button class="btn primary" type="button" data-pz="close">おわる</button></div>`;
+    this.sh.querySelector('#pzNote').innerHTML = this.note();
+    end.querySelector('[data-pz="close"]').addEventListener('click', () => this.close());
+    const again = end.querySelector('[data-pz="again"]');
+    if (again) again.addEventListener('click', () => { if (!Act.waiting()) this.start(); });
+    const resend = end.querySelector('[data-pz="resend"]');
+    if (resend) resend.addEventListener('click', async () => {
+      end.innerHTML = '<p class="pz-res">きろく しているよ…</p>';
+      const r2 = await Act.run('puzzle', { seed:this.seed, moves:this.moves.slice() });
+      if (this.sh && this.sh.isConnected) this.result(r2);
+    });
+    end.querySelector('[data-pz="close"]').focus();
+  },
+  close(){
+    closeSheet();
+    if (this.cleared && S && !Pet.busy){
+      Pet.wake(); Pet.wag(1600); hearts(3);
+      Pet.say(isCat() ? 'パズル たのしかったにゃ！' : 'パズル たのしかった！');
+    }
+    this.cleared = false;
   },
 };

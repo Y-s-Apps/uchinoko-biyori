@@ -117,7 +117,7 @@ serve({ port:Number(PORT), hostname:'127.0.0.1', onListen(){ console.log('e2e se
   if (u.pathname === '/__debug/state'){
     const rows = await admin`select a.sub, m.id, m.imported_at is not null as imported, s.rev::int as rev,
       s.data->'pet'->>'name' as name, s.data->'pet'->'photo' as photo, (s.data->>'created')::bigint as created,
-      (s.data->'stats'->>'love')::float as love, (s.data->'counts'->>'meals')::int as meals, (s.data->'counts'->>'pets')::int as pets,
+      (s.data->'stats'->>'love')::float as love, (s.data->'counts'->>'meals')::int as meals, (s.data->'counts'->>'pets')::int as pets, s.data->'puzzle' as puzzle,
       (select b.data->'pet'->>'name' from app.save_backups b where b.member_id = m.id) as backup
       from app.line_accounts a join app.members m on m.id = a.member_id left join app.saves s on s.member_id = m.id order by a.sub`;
     return j(rows);
@@ -162,6 +162,13 @@ serve({ port:Number(PORT), hostname:'127.0.0.1', onListen(){ console.log('e2e se
     const { sub, name } = await req.json();
     await admin`update app.saves s set data = jsonb_set(jsonb_set(s.data, '{pet,name}', to_jsonb(${name}::text)), '{updated}', to_jsonb(${Date.now() + 3600e3}::bigint)),
       rev = rev + 1 from app.line_accounts a where a.member_id = s.member_id and a.sub = ${sub}`;
+    return j({ ok:true });
+  }
+  if (u.pathname === '/__debug/puzzle'){
+    /* ほかの端末で パズルを あそんだことにする：あそんだ回数（つぎの たね）を かえる */
+    const { sub, games } = await req.json();
+    await admin`update app.saves s set data = jsonb_set(s.data, '{puzzle,games}', to_jsonb(${games}::int)), rev = rev + 1
+      from app.line_accounts a where a.member_id = s.member_id and a.sub = ${sub}`;
     return j({ ok:true });
   }
   if (u.pathname === '/__debug/patch'){

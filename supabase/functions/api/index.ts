@@ -31,7 +31,9 @@
  * - おなか・ごきげんの減り、おやつの回数、おみやげ、きょうのおねがい、連続記録とおたすけ、季節のイベント、
  *   記念日、げいの上限、なでなでのなかよしは、ぜんぶここ（画面と同じ js_rules.js の Rules）で決める。
  *   画面の時計や数字は使わないので、端末の時計を動かしても得をしない。
- * - おせわ（ごはん・おやつ・あそぶ・げい）は、前のおせわから 2.5 秒あける（画面の動きより短い）。
+ * - パズル（2026-11-15）も ここで決める：画面から うけとるのは たね（seed）と 手順（moves）だけで、Rules が 再生して
+ *   クリアと 点数を決め、ほうびの 1日3回も セーブ（puzzle.day・puzzle.n）で 数える。点数や 回数は 画面から うけとらない。
+ * - おせわ（ごはん・おやつ・あそぶ・げい）は、前のおせわから 2.5 秒あける（画面の動きより短い。パズルは 数えない）。
  * - IDトークンは https://api.line.me/oauth2/v2.1/verify で検証し、sub だけを使う（プロフィールの値は使わない）。
  *   LINEミニアプリチャネルの中の 開発用・審査用・本番用（内部チャネル）は チャネルIDが べつなので、3つとも通す（LINE_CHANNEL_IDS）。
  *   sub はプロバイダーごとなので、どの内部チャネルから ひらいても 同じ会員になる。
@@ -455,7 +457,7 @@ async function act(req: Request, member: string) {
     if (overRate(srv, t)) return { ok:false, why:'busy', ev:[], save:saveOut(sv), now:t };
     const away = Math.max(0, t - Number(st.last || t));
     const p: Record<string, unknown> = {};
-    for (const k of ['id', 'n', 'slot', 'cat', 'on']) if (k in body) p[k] = body[k];
+    for (const k of ['id', 'n', 'slot', 'cat', 'on', 'seed', 'moves']) if (k in body) p[k] = body[k];   /* seed・moves：パズル（ルールが 再生して 決める） */
     const r = Rules.act(st, type, p, { away, budget:srv.pb }) as Record<string, unknown>;
     if (r.why === 'unknown') throw new HttpError(400, 'badtype');
     if (!r.ok && type !== 'open') return { ...r, save:saveOut(sv), now:t };

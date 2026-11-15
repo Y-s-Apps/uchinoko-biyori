@@ -238,6 +238,8 @@ async def main(args):
             ('album_souvenir', '#albumBtn', ['[data-at="souv"]']),
             ('album_stamp', '#albumBtn', ['[data-at="stamp"]']),
             ('profile', '#menuBtn', []),
+            ('play_pick', '#actPlay', []),
+            ('puzzle', '#actPlay', ['[data-play="puzzle"]']),
         ]
         for name, opener, clicks in steps:
             await page.click(opener); await page.wait_for_timeout(450)
@@ -254,6 +256,33 @@ async def main(args):
                 if pad < 22 + args.android_inset:
                     errors.append('シートの下のすき間が足りません（%spx）' % pad)
             await close_sheet()
+        # パズル（2026-11-15）：タップで 1手（えらぶ → となり）、のこりは いちばん多く けせる手で さいごまで。おわりの画面と ほうび
+        await page.click('#actPlay'); await page.wait_for_timeout(450)
+        await page.click('[data-play="puzzle"]'); await page.wait_for_timeout(500)
+        tap = await page.evaluate('''() => { for (let c = 0; c < 2 * PUZZLE.w * PUZZLE.w; c++){ const p = Puzzle.pair(c); if (p && Puzzle.lines(Puzzle.swapped(PuzzleUI.g.b, p[0], p[1])).length) return p; } return null; }''')
+        love0 = await page.evaluate('S.stats.love')
+        await page.click(f'.pz-t[data-i="{tap[0]}"]'); await page.wait_for_timeout(200)
+        await snap('puzzle_select')
+        await page.click(f'.pz-t[data-i="{tap[1]}"]'); await page.wait_for_timeout(1600)
+        played = await page.evaluate('''async () => {
+            const U = PuzzleUI, used = U.moves.length;
+            for (let guard = 0; guard < 40 && !U.g.end; guard++){
+              let best = -1, bn = 0;
+              for (let c = 0; c < 2 * PUZZLE.w * PUZZLE.w; c++){ const p = Puzzle.pair(c); if (!p) continue; const n = Puzzle.lines(Puzzle.swapped(U.g.b, p[0], p[1])).length; if (n > bn){ bn = n; best = c; } }
+              const p = Puzzle.pair(best); await U.tryMove(p[0], p[1]);
+            }
+            for (let i = 0; i < 60 && !document.querySelector('#pzEnd .btnrow'); i++) await new Promise(r => setTimeout(r, 100));
+            return { tapped: used, end: U.g.end, clear: U.g.clear, score: U.g.score, text: document.querySelector('#pzEnd').textContent, best: S.puzzle.best, n: S.puzzle.n, games: S.puzzle.games, left: document.querySelectorAll('.pz-t').length };
+        }''')
+        await page.wait_for_timeout(1500)
+        await close_popups()
+        await snap('puzzle_end')
+        love1 = await page.evaluate('S.stats.love')
+        print('パズル：', played, f'なかよし +{round(love1 - love0, 1)}')
+        if not (played['tapped'] == 1 and played['end'] and played['games'] == 1 and played['left'] == 36 and played['best'] == played['score']
+                and (played['n'] == 1) == played['clear'] and played['text'].startswith('クリア！') == played['clear']):
+            errors.append(f'パズルの おわりが ちがいます：{played}')
+        await page.click('#sheet [data-pz="close"]'); await page.wait_for_timeout(600)
         await page.click('#actFeed'); await page.wait_for_timeout(5500)
         await close_popups()
         await snap('after_meal')

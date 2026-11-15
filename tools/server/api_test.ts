@@ -778,6 +778,67 @@ ok(im3.status === 409 && im3.data.error === 'already', 'a new import with anothe
 r = await call('POST', '/act', { type:'open', rid:'rid-open-0001' }, rina.token);
 ok(r.data.ok && r.data.save.data.srv.rq.id === 'rid-open-0001' && !('save' in r.data.save.data.srv.rq.r), 'the save keeps only the last number and its answer (no save inside)', r.data.save && r.data.save.data.srv);
 
+console.log('puzzle (2026-11-15：パズル。たねと 手順だけ うけとり、サーバーが 再生して クリアと ほうびの 1日3回を 決める)');
+{
+  const { Puzzle, PUZZLE } = await import('uchinoko-game') as any;
+  const pz = await joiner('puzu');
+  const solveP = (seed: number) => {
+    const g = Puzzle.start(seed), moves: number[] = [];
+    while (!g.end){
+      let pickC = -1, pickN = 0;
+      for (let c = 0; c < 2 * PUZZLE.w * PUZZLE.w; c++){
+        const pr = Puzzle.pair(c); if (!pr) continue;
+        const n = Puzzle.lines(Puzzle.swapped(g.b, pr[0], pr[1])).length;
+        if (n > pickN){ pickN = n; pickC = c; }
+      }
+      Puzzle.move(g, pickC); moves.push(pickC);
+    }
+    return { moves, clear:g.clear, score:g.score };
+  };
+  const saveP = async () => (await call('GET', '/save', undefined, pz.token)).data.save;
+  /* つぎの 1回が クリアできる たねに なるまで 回数を すすめる（ためしの ため） */
+  const nextClear = async () => {
+    for (let i = 0; i < 400; i++){
+      const sv = await saveP(); const seed = Puzzle.seed(sv.data); const sl = solveP(seed);
+      if (sl.clear) return { seed, moves:sl.moves, score:sl.score };
+      await patch(pz.id, d => { d.puzzle.games++; });
+    }
+    throw new Error('no clearable seed');
+  };
+  const sv0 = await saveP();
+  ok(sv0.data.puzzle && sv0.data.puzzle.games === 0 && sv0.data.puzzle.n === 0, 'a new child has the puzzle record (ensureState)', sv0.data.puzzle);
+  const love0 = sv0.data.stats.love;
+  for (let i = 0; i < 4; i++){
+    const x = await nextClear();
+    const pr = await call('POST', '/act', { type:'puzzle', seed:x.seed, moves:x.moves, rid:'rid-puzzle-00' + i, score:999999, reward:true, n:0, left:3 }, pz.token);
+    ok(pr.data.ok && pr.data.clear && pr.data.score === x.score && pr.data.reward === (i < 3) && pr.data.save.data.puzzle.n === Math.min(3, i + 1)
+       && pr.data.save.data.puzzle.best >= x.score && pr.data.save.data.puzzle.best < 999999,
+       i < 3 ? `clear ${i + 1} → a reward (the score is the server's replay, not the one sent)` : 'clear 4 → no reward (still playable)', pr.data);
+  }
+  const sv1 = await saveP();
+  ok(Math.abs(sv1.data.stats.love - love0 - 3 * PUZZLE.love) < 1e-9 && sv1.data.album.some((a: any) => a.k === 'puzzle'), `love only for 3 clears (+${3 * PUZZLE.love})・the best score in the album`, { love:sv1.data.stats.love - love0 });
+  const x = await nextClear();
+  const d1 = await call('POST', '/act', { type:'puzzle', seed:x.seed, moves:x.moves, rid:'rid-puzzle-dup1' }, pz.token);
+  const d2 = await call('POST', '/act', { type:'puzzle', seed:x.seed, moves:x.moves, rid:'rid-puzzle-dup1' }, pz.token);
+  ok(d1.data.ok && d2.data.ok && d2.data.dup === true && d2.data.save.rev === d1.data.save.rev && d2.data.save.data.puzzle.games === d1.data.save.data.puzzle.games
+     && d2.data.score === d1.data.score, 'the same rid again → the first answer, counted once', { d1:d1.data.save.data.puzzle, d2:d2.data });
+  const d3 = await call('POST', '/act', { type:'puzzle', seed:x.seed, moves:x.moves, rid:'rid-puzzle-dup2' }, pz.token);
+  ok(d3.status === 200 && d3.data.ok === false && d3.data.why === 'stale' && d3.data.save.rev === d1.data.save.rev, 'the same game with another rid → stale (the seed moved on), nothing written', d3.data);
+  const d4 = await call('POST', '/act', { type:'puzzle', seed:Puzzle.seed(d1.data.save.data), moves:[0, 1, 2] }, pz.token);
+  ok(d4.data.ok === false && (d4.data.why === 'bad') && d4.data.save.rev === d1.data.save.rev, 'moves that do not end the game / do not match → bad, nothing written', d4.data);
+  /* 日本時間の 0時：きのうの 3回は もどる */
+  await patch(pz.id, d => { d.puzzle.day = jst(Date.now() - 864e5); d.puzzle.n = 3; });
+  const y = await nextClear();
+  const m1 = await call('POST', '/act', { type:'puzzle', seed:y.seed, moves:y.moves }, pz.token);
+  ok(m1.data.ok && m1.data.reward && m1.data.save.data.puzzle.n === 1 && m1.data.save.data.puzzle.day === jst(Date.now()), "yesterday's count (3) → today starts again (Japan time)", m1.data.save && m1.data.save.data.puzzle);
+  /* おせわの 2.5秒には 数えない（あそぶの すぐあとでも ことわらない） */
+  await patch(pz.id, d => { d.stats.full = 60; });
+  const pl = await call('POST', '/act', { type:'play' }, pz.token);
+  const z = await nextClear();
+  const m2 = await call('POST', '/act', { type:'puzzle', seed:z.seed, moves:z.moves }, pz.token);
+  ok(pl.data.ok && m2.data.ok && m2.data.why !== 'busy', 'right after a play → not busy (the puzzle is not a care action)', m2.data);
+}
+
 console.log('rate (1-5：会員ごとの 回数の制限)');
 const tom = await joiner('tom');
 Deno.env.set('ACT_PER_WINDOW', '5');

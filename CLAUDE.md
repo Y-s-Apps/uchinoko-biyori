@@ -20,9 +20,9 @@
 | `src/js_data3.js` | げい、季節イベント、おみやげ（22）、もようがえ（5カテゴリ） |
 | `src/js_pet.js` | ペットのSVG描画 `renderPet(look, {wear})` と色ユーティリティ |
 | `src/js_wear.js` | きせかえの描画 `wearSvg()` |
-| `src/js_rules.js` | おせわのルール `Rules`（画面にさわらない。セーブ `st` を変えて、できごと `ev` を返す）と時計 `Clock`（`now()`・`dayKey()`・乱数）。LINE版のサーバーでも同じものを使う |
+| `src/js_rules.js` | おせわのルール `Rules`（画面にさわらない。セーブ `st` を変えて、できごと `ev` を返す）と時計 `Clock`（`now()`・`dayKey()`・乱数）、パズル「おやつならべ」の盤 `Puzzle`（たねと 手順から 再生して クリアと 点数を 決める。2026-11-15）。LINE版のサーバーでも同じものを使う |
 | `src/js_app.js` | 状態 `S`、保存、ペットの動き、おせわの画面（`Act.run` で判定をたのみ、`playEvents` で出す）、シート、引っこしコード、`Game.start` |
-| `src/js_features.js` | `ensureState`（セーブの移行）、おねがい・おたすけ・おみやげ・イベント・記念日のポップアップ、もようがえ、げい、アルバム、よるの ひとこと `Nudge`（21時から おねがいが のこっていると うちのこが ふきだしで。1日1回） |
+| `src/js_features.js` | `ensureState`（セーブの移行）、おねがい・おたすけ・おみやげ・イベント・記念日のポップアップ、もようがえ、げい、アルバム、よるの ひとこと `Nudge`（21時から おねがいが のこっていると うちのこが ふきだしで。1日1回）、パズルの画面 `PuzzleUI`（「あそぶ」の `openPlay` から） |
 | `src/js_onboard.js` | 写真から迎える流れ、種類・色・名前の編集、起動処理（boot） |
 | `src/js_home.js` | ホーム画面版だけのJS（`build.sh` が `js_rules.js` のすぐあとに入れる）。いまは `HomeRescue`：前の きびしいルールで きょう れんぞくが1にもどった子に、おたすけを出しなおす |
 | `src/js_line.js` | LINE版だけのJS（LIFF の準備、サーバーでの本人確認とセーブ、AIの読みとり `LineAI`、やめる `LineLeave`、写真立ての イラスト `LineFrame`、うちのこカード `CardArt`・`LineCard`〈絵を PNG に → `POST /card` → `liff.shareTargetPicker()`〉、おしらせ `LineNotice`〈ポリシー・規約の 大事な変更などを 1回だけ。`LineNotice.list` に書く〉、よるの おしらせ `LineNotify`〈プロフィールの スイッチ・1回だけの さそい・`liff.requestFriendship()`。おくるのは サーバー〉。`LINE_CFG.liffIds`（内部チャネルごと。ひらいた場所 `/`・`/review/`・`/dev/` で えらぶ）・`LINE_CFG.api`） |
@@ -39,9 +39,9 @@
 | `supabase/functions/api/deno.json` | `uchinoko-game` が、push したコミットの `game.js` を指す（`--pin` で書きかえる） |
 | `tools/build_server.py` | `game.js` を作る・確かめる（`--check`）・コミットに固定する（`--pin <SHA>`） |
 | `tools/line_e2e.py` | LINE版のルール・サーバー・画面の通し確認（`tools/rules_test.mjs` も動かす。`tools/server/` の Deno と PGlite を使う。はじめに `cd tools/server && npm install`） |
-| `tools/rules_test.mjs` | ルール（`js_rules.js`）を時計を動かして確かめる（れんぞく・おたすけ・日本時間の0時・おみやげ・げい・イベント・記念日） |
+| `tools/rules_test.mjs` | ルール（`js_rules.js`）を時計を動かして確かめる（れんぞく・おたすけ・日本時間の0時・おみやげ・げい・イベント・記念日・パズル） |
 | `tools/compare_home.py` | ホーム画面版の動きが前の版と同じかをくらべる（`python3 tools/compare_home.py [コミット]`、既定は HEAD） |
-| `docs/REVIEW_PROMPT.md` | 約束①（Claude Fable 5.2 の診断とレビュー）の チャットに貼るプロンプト |
+| `docs/REVIEW_PROMPT.md` | Claude Fable 5.2 の レビューの チャットに貼るプロンプト（約束①の 診断・さいごのチェックの あと、2026-11-15 から パズルの レビュー用。前の版は git に） |
 | `.github/workflows/keepalive.yml` | GitHub Actions「サーバーを起こす」：3日ごとに LINE版のサーバーの `/health` と、DB を1回読む呼び出し（でたらめのセッションで 401）をして、Supabase の無料プランが止まらないようにする。`/health` の この3日の エラーの数が 10以上のときと、この3日に よるの おしらせが 止まった日（`notifyDays`）が あるときも 失敗にする（`docs/PROJECT.md` の10章） |
 | ルートの `index.html` `sw.js` `manifest.webmanifest` `*.png` | 公開ファイル（ビルド結果なので手で直さない） |
 

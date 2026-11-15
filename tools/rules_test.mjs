@@ -1,7 +1,7 @@
 /* おせわのルール（src/js_rules.js。サーバー用の game.js に入っているもの）を、時計を動かして確かめる。
  *   node tools/rules_test.mjs   （python3 tools/line_e2e.py からも動く）
  * 日をまたぐもの：れんぞく記録、おたすけ（1日だけ空いたとき、7日に1回。ホーム画面版は1日おき）、2日あいたとき、季節のイベント、記念日、
- * おみやげの1日3回、げいのなかよしの1日10、なでなでのなかよしの回復。日付は日本時間。 */
+ * おみやげの1日3回、げいのなかよしの1日10、なでなでのなかよしの回復、パズルの ほうびの1日3回。日付は日本時間。 */
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 
@@ -235,6 +235,94 @@ console.log('ピンチの日の 引っこしコード（診断 3-6）');
   st = pinchChild(); const c2 = code(st); nextDay();
   moved = g.readMoveCode(c2).st;
   ok(moved && !moved.streak.saved, 'つぎの日に 読みこむと、まっている れんぞくは のこらない', moved && moved.streak);
+}
+
+console.log('パズル（2026-11-15）：ほうびは クリアしたかだけ・1日3回・日本時間の0時で もどる・さいこう点は のこる');
+{
+  const { Puzzle, PUZZLE } = g;
+  /* 手が なくなるまで いちばん 多く けせる手を えらぶ（クリアしたい）／いちばん 少ない手（クリアしにくい） */
+  const solve = (seed, most = true) => {
+    const pz = Puzzle.start(seed), moves = [];
+    while (!pz.end){
+      let pickC = -1, pickN = most ? -1 : 99;
+      for (let c = 0; c < 2 * PUZZLE.w * PUZZLE.w; c++){
+        const pr = Puzzle.pair(c); if (!pr) continue;
+        const n = Puzzle.lines(Puzzle.swapped(pz.b, pr[0], pr[1])).length;
+        if (n && (most ? n > pickN : n < pickN)){ pickN = n; pickC = c; }
+      }
+      Puzzle.move(pz, pickC); moves.push(pickC);
+    }
+    return { moves, clear:pz.clear, score:pz.score };
+  };
+  /* つぎの 1回を クリアする（しない）手順。たねは セーブから */
+  const game = (s, clear = true) => {
+    const seed = Puzzle.seed(s);
+    const r = solve(seed, clear);
+    if (r.clear !== clear) return null;
+    return { seed, moves:r.moves, score:r.score };
+  };
+  /* クリアできる・できない たねに なるまで 回数を すすめる（ためしの ため） */
+  const findGame = (s, clear) => { for (let i = 0; i < 400; i++){ const x = game(s, clear); if (x) return x; s.puzzle.games++; } return null; };
+  T = Date.UTC(2026, 10, 3, 3, 0);
+  st = child(600);
+  ok(st.puzzle && st.puzzle.games === 0 && st.puzzle.best === 0 && Rules.puzzleLeft(st) === 3, 'はじめは 0回・さいこう点 0・ほうび のこり3', st.puzzle);
+  const love0 = st.stats.love;
+  let got = [];
+  for (let i = 0; i < 4; i++){
+    const x = findGame(st, true);
+    const games0 = st.puzzle.games;
+    st.stats.mood = 50; st.stats.full = 80; st.last = T;   /* おなか・ごきげんの へりを とめて くらべる */
+    const r = act(st, 'puzzle', x);
+    got.push(r);
+    ok(r.ok && r.clear && r.score === x.score && st.puzzle.games === games0 + 1, `${i + 1}回め：クリア（点数は ルールが 再生して 決める）`, r);
+    ok(r.reward === (i < 3) && st.stats.mood === (i < 3 ? 55 : 50) && r.left === Math.max(0, 2 - i), i < 3 ? `${i + 1}回め：ほうび（ごきげん+5）` : '4回め：ほうびなし（あそべる）', { r, mood:st.stats.mood });
+  }
+  ok(Math.abs(st.stats.love - love0 - 3 * PUZZLE.love) < 1e-9 && st.puzzle.n === 3 && st.puzzle.clears === 4 && Rules.puzzleLeft(st) === 0, `なかよしは 3回分（+${3 * PUZZLE.love}）だけ`, { love:st.stats.love - love0, z:st.puzzle });
+  const best = st.puzzle.best;
+  ok(best === Math.max(...got.map(r => r.score)) && st.album.filter(a => a.k === 'puzzle').length === 1 && st.firsts.puzzle, 'さいこう点は いちばん高い点・アルバムの さいこう点は 1日1つ・はじめての パズル', { best, album:st.album.filter(a => a.k === 'puzzle' || a.ic === 'puzzle').map(a => a.ti) });
+  /* クリアできなかった回：ほうびなし（回数は すすむ） */
+  T += H;
+  let x = findGame(st, false);
+  ok(!!x, 'クリアできない 手順を 用意できた');
+  if (x){
+    const n0 = st.puzzle.n, love1 = st.stats.love, g0 = st.puzzle.games;
+    const r = act(st, 'puzzle', x);
+    ok(r.ok && !r.clear && !r.reward && st.puzzle.n === n0 && st.stats.love === love1 && st.puzzle.games === g0 + 1, 'クリアできなかった回は ほうびなし（ペットは かなしまない）', r);
+  }
+  /* 画面から 数字は うけとらない：古い たね・そろわない手・多すぎる手・点数を つけても かわらない */
+  const g1 = st.puzzle.games;
+  x = findGame(st, true);
+  ok(act(st, 'puzzle', { seed:x.seed + 1, moves:x.moves }).why === 'stale', 'ちがう たねは ことわる（stale）');
+  ok(act(st, 'puzzle', { seed:x.seed, moves:x.moves.concat([0]) }).why === 'bad', '手が 多すぎる・おわったあとの手は ことわる（bad）');
+  ok(act(st, 'puzzle', { seed:x.seed, moves:x.moves.slice(0, 2) }).why === 'bad', 'とちゅうで おわった 手順は ことわる（bad）');
+  ok(act(st, 'puzzle', { seed:x.seed, moves:[71].concat(x.moves) }).why === 'bad', 'そろわない手が まじると ことわる（bad）');
+  ok(act(st, 'puzzle', { seed:x.seed, moves:'12' }).why === 'bad' && act(st, 'puzzle', { seed:x.seed, moves:[1.5] }).why === 'bad', '手順が 配列・整数で ないと ことわる');
+  const r5 = act(st, 'puzzle', Object.assign({ score:999999, clear:true, reward:true, n:0 }, x));
+  ok(r5.ok && r5.score === x.score && !r5.reward && st.puzzle.games === g1 + 1 && st.puzzle.best === Math.max(best, x.score), '点数・回数を つけて おくっても つかわない（4回め以降なので ほうびなし）', { r5, z:st.puzzle });
+  /* 日本時間の 0時で ほうびの回数が もどる（23:59 → 0:00） */
+  T = Date.UTC(2026, 10, 3, 14, 59);   /* 11-03 23:59 日本時間 */
+  ok(Rules.puzzleLeft(st) === 0, '23:59：のこり 0');
+  T = Date.UTC(2026, 10, 3, 15, 0);    /* 11-04 0:00 日本時間 */
+  ok(Rules.puzzleLeft(st) === 3, '0:00：のこり 3 に もどる');
+  x = findGame(st, true);
+  const r6 = act(st, 'puzzle', x);
+  ok(r6.reward && st.puzzle.day === jst(T) && st.puzzle.n === 1, 'つぎの日の 1回めは ほうびあり', { r6, z:st.puzzle });
+  /* 引っこしコード・取りこみ（carryExtras）で さいこう点・回数・きょうの回数が のこる */
+  const code = s => { const b = Buffer.from(JSON.stringify(s)).toString('base64'); return 'UCHINOKO2:' + b.length + ':' + b; };
+  const moved = g.readMoveCode(code(st)).st;
+  ok(moved && moved.puzzle.best === st.puzzle.best && moved.puzzle.games === st.puzzle.games && moved.puzzle.clears === st.puzzle.clears && moved.puzzle.n === 1 && moved.puzzle.day === jst(T) && moved.firsts.puzzle,
+     '引っこしコードで さいこう点・回数・きょうの ほうびの回数が のこる', moved && moved.puzzle);
+  const target = child(10);
+  g.carryExtras(JSON.parse(JSON.stringify(st)), target);
+  ok(target.puzzle.best === st.puzzle.best && target.puzzle.n === 1 && Puzzle.seed(target) !== 0, '取りこみ（carryExtras）でも のこる', target.puzzle);
+  /* こわれた パズルの きろくは ensureState が なおす */
+  const broken = ensureState(Object.assign(child(), { puzzle:{ games:-5, clears:'x', best:1e12, n:99, day:'きのう' } }));
+  ok(broken.puzzle.games === 0 && broken.puzzle.clears === 0 && broken.puzzle.best === PUZZLE.bestMax && broken.puzzle.n === 3 && broken.puzzle.day === null, 'こわれた きろくは ensureState が なおす', broken.puzzle);
+  const old = child(); delete old.puzzle; ensureState(old);
+  ok(old.puzzle && old.puzzle.games === 0 && old.puzzle.n === 0, '前の セーブ（puzzle なし）にも 既定値を 足す', old.puzzle);
+  /* 再生は いつも 同じ（サーバーと 画面で 同じ 盤） */
+  const sd = Puzzle.seed(st), a = Puzzle.start(sd).b.join(''), b = Puzzle.start(sd).b.join('');
+  ok(a === b && a.length === 36 && !Puzzle.lines(Puzzle.start(sd).b).length && Puzzle.hasMove(Puzzle.start(sd).b), '同じ たねは 同じ盤・はじめは そろっていない・うごかせる手が ある');
 }
 
 console.log('ホーム画面版：おたすけは1日おき（src/build.sh の HOME_RESCUE_EVERY で RESCUE_EVERY を置きかえる）');

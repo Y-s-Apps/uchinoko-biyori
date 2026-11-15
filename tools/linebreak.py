@@ -173,6 +173,16 @@ def scenes(line):
     for cat in ['floor', 'rug', 'bed', 'view']:
         add('room_' + cat, "dressSlot='room'; roomCat='%s'; openDress()" % cat, '#sheet')
     add('album_souv_all', "SOUVENIRS.forEach(x => S.souv.have[x.id] = 2); openAlbum('souv')", '#sheet')
+    # パズル（2026-11-15）：えらぶ・はじめ・おわり（クリア・ほうび おわり・クリアできない・つながらない・きろく されない）
+    add('play_pick', 'openPlay()', '#sheet')
+    add('play_pick_none', "S.puzzle.day=dayKey(); S.puzzle.n=3; openPlay()", '#sheet')
+    add('puzzle', 'PuzzleUI.open()', '#sheet', 600)
+    add('puzzle_none', "S.puzzle.day=dayKey(); S.puzzle.n=3; S.puzzle.best=1230; PuzzleUI.open()", '#sheet', 600)
+    for nm, r in [('clear', "{ok:true,clear:true,score:1230,got:56,best:true,reward:true,left:2,ev:[]}"),
+                  ('clear_done', "{ok:true,clear:true,score:880,got:55,best:false,reward:false,left:0,ev:[]}"),
+                  ('miss', "{ok:true,clear:false,score:640,got:47,best:false,reward:false,left:3,ev:[]}"),
+                  ('offline', "{ok:false,why:'offline',ev:[]}"), ('stale', "{ok:false,why:'stale',ev:[]}")]:
+        add('puzzle_' + nm, "PuzzleUI.open(); await new Promise(r => setTimeout(r, 300)); PuzzleUI.say('クリア！ やったね！'); PuzzleUI.sh.querySelector('#pzEnd').hidden=false; PuzzleUI.result(%s)" % r, '#sheet', 600)
     add('requests_pinch',"S.daily.rescue={type:'treat',n:2,got:0,done:false}; S.streak={last:Clock.dayKey(now()-2*864e5),n:12,best:20}; openRequests()", '#sheet')
     if line:
         on = ("LineSync.state='on'; LineServer.member={id:'x'}; LineSync.created=1; LineServer.card={on:true,left:2,perDay:3}; LineServer.importable=true;"

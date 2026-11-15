@@ -484,4 +484,31 @@ button{font:inherit;color:inherit}
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
 }
+/* パズル「おやつならべ」（2026-11-15） */
+.playpick{grid-template-columns:repeat(2,minmax(0,1fr))}
+.playpick .tile{padding-block:14px 12px}
+.playpick .tname small{display:block;font-size:11px;color:var(--ink-soft);font-weight:700}
+.pz-top{display:flex;align-items:center;gap:8px;margin:0 0 10px}
+.pz-pet{flex:0 0 60px;height:60px}
+.pz-pet .pet-svg{display:block;width:60px;height:60px}
+.pz-pet.hop{animation:pzHop .45s ease}
+.pz-pet.joy{animation:pzHop .45s ease 3}
+@keyframes pzHop{0%,100%{transform:none}40%{transform:translateY(-10px)}}
+.pz-say{flex:1 1 auto;min-width:0;position:relative;margin:0;background:var(--surface-2);border-radius:14px;padding:6px 10px;font-size:13px;font-weight:700;line-height:1.4;min-height:2.8em;display:flex;align-items:center}
+.pz-say::before{content:"";position:absolute;left:-6px;top:50%;margin-top:-6px;border:6px solid transparent;border-left:0;border-right-color:var(--surface-2)}
+.pz-nums{display:flex;gap:8px;text-align:center;flex:0 0 auto}
+.pz-nums div{display:flex;flex-direction:column;line-height:1.2;min-width:46px}
+.pz-nums b{font-size:20px;font-variant-numeric:tabular-nums}
+.pz-nums small{font-size:11px;color:var(--ink-soft);font-weight:700;white-space:nowrap}
+.pz-board{position:relative;width:100%;max-width:360px;margin:0 auto;aspect-ratio:1/1;background:var(--surface-2);border-radius:18px;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
+.pz-t{position:absolute;width:16.6667%;height:16.6667%;margin:0;padding:3px;border:0;border-radius:14px;background:none;color:inherit;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:top .22s ease-in,left .19s ease,transform .22s ease,opacity .22s ease}
+.pz-t svg{width:100%;height:100%;pointer-events:none}
+.pz-t.sel{background:color-mix(in srgb,var(--honey) 38%,transparent);transform:scale(1.06)}
+.pz-t.pop{transform:scale(1.3);opacity:0}
+.pz-t:focus-visible{outline:3px solid var(--sky);outline-offset:-3px}
+.pz-end{margin-top:12px;text-align:center}
+.pz-res{margin:0;font-size:18px;font-weight:900}
+.pz-sub{margin:2px 0 12px;font-size:13px;color:var(--ink-soft)}
+.pz-best{color:var(--berry-ink)}
+@media (prefers-reduced-motion: reduce){.pz-t{transition:none}.pz-pet.hop,.pz-pet.joy{animation:none}}
 </style>

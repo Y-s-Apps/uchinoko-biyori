@@ -106,7 +106,10 @@ async def run(browser, root, label):
     await page.click('#sheet [data-t]:not([aria-disabled="true"]) >> nth=1'); await tick(9000); await popups()
     step('play')
     for _ in range(3):
-        await act('#actPlay')
+        # 2026-11-15 から「あそぶ」は ボール／パズルを えらぶ（前の版は すぐ ボール）。同じ時刻に ボールを はじめる
+        await page.evaluate("() => { document.querySelector('#actPlay').click(); const b = document.querySelector('#sheet [data-play=\"ball\"]'); if (b) b.click(); }")
+        await tick(9000)
+        await popups()
     for _ in range(3):
         await page.click('#actTrick'); await tick(500)
         await page.click('#sheet [data-tk="paw"]'); await tick(7000); await popups()
@@ -143,6 +146,9 @@ def norm(st):
     o['recentTreats'] = len(o.get('recentTreats') or [])
     o['album'] = sorted((a['k'], a['ti'], a['su'], a['ic']) for a in o.get('album') or [])
     o['events']['seen'] = sorted(o['events']['seen'])
+    # パズル（2026-11-15）の きろくは あたらしい版の 既定値だけ（パズルを つかわないので かわらない はず）
+    if o.get('puzzle') == {'games': 0, 'clears': 0, 'best': 0, 'n': 0, 'day': None}:
+        o.pop('puzzle')
     return o
 
 
