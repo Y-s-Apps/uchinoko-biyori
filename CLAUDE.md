@@ -41,7 +41,7 @@
 | `tools/line_e2e.py` | LINE版のルール・サーバー・画面の通し確認（`tools/rules_test.mjs` も動かす。`tools/server/` の Deno と PGlite を使う。はじめに `cd tools/server && npm install`） |
 | `tools/rules_test.mjs` | ルール（`js_rules.js`）を時計を動かして確かめる（れんぞく・おたすけ・日本時間の0時・おみやげ・げい・イベント・記念日・パズル） |
 | `tools/compare_home.py` | ホーム画面版の動きが前の版と同じかをくらべる（`python3 tools/compare_home.py [コミット]`、既定は HEAD） |
-| `docs/REVIEW_PROMPT.md` | Claude Fable 5.2 の レビューの チャットに貼るプロンプト（約束①の 診断・さいごのチェックの あと、2026-11-15 から パズルの レビュー用。前の版は git に） |
+| `docs/REVIEW_PROMPT.md` | Claude Fable 5.2 の レビューの チャットに貼るプロンプト（約束①の 診断・さいごのチェックの あと、2026-11-15 から パズルの レビュー用＝2026-11-16 に 済み。前の版は git に） |
 | `.github/workflows/keepalive.yml` | GitHub Actions「サーバーを起こす」：3日ごとに LINE版のサーバーの `/health` と、DB を1回読む呼び出し（でたらめのセッションで 401）をして、Supabase の無料プランが止まらないようにする。`/health` の この3日の エラーの数が 10以上のときと、この3日に よるの おしらせが 止まった日（`notifyDays`）が あるときも 失敗にする（`docs/PROJECT.md` の10章） |
 | ルートの `index.html` `sw.js` `manifest.webmanifest` `*.png` | 公開ファイル（ビルド結果なので手で直さない） |
 
