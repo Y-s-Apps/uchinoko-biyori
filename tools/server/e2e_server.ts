@@ -179,5 +179,12 @@ serve({ port:Number(PORT), hostname:'127.0.0.1', onListen(){ console.log('e2e se
       from app.line_accounts a where a.member_id = s.member_id and a.sub = ${sub}`;
     return j({ ok:true });
   }
+  if (u.pathname === '/__debug/age'){
+    /* 前の おせわから hours 時間 たったことにする（サーバーの セーブの last を 前に。おなか・ごきげんは まだ へらさない＝サーバーに のこる形） */
+    const { sub, hours } = await req.json();
+    await admin`update app.saves s set data = jsonb_set(s.data, '{last}', to_jsonb((s.data->>'last')::bigint - ${Math.round(hours * 3600e3)}::bigint))
+      from app.line_accounts a where a.member_id = s.member_id and a.sub = ${sub}`;
+    return j({ ok:true });
+  }
   return handler(req);
 });

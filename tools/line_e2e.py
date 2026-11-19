@@ -144,8 +144,9 @@ async def browser_tests(srv_port):
     async with async_playwright() as p:
         browser = await p.chromium.launch()
 
-        async def open_page(sub, local=None, external=False, server_down=False, owner=None, skew_ms=0, keys=None, path='/', id_token=None, fail=None, lose=None, notice_seen=True):
+        async def open_page(sub, local=None, external=False, server_down=False, owner=None, skew_ms=0, keys=None, path='/', id_token=None, fail=None, lose=None, notice_seen=True, extra_init=None):
             """id_token：getIDToken() が返す JS の式（既定は sub の とおるトークン）。
+            extra_init：ページの スクリプトより 前に 入れる JS（ようすを 見る しかけ など）。
             notice_seen：アプリの中の おしらせ（LineNotice.list）を もう見たことにする（ふつうの場面で ポップアップが じゃまを しないように。20 は False で 見る）。
             fail：{'/import': 2} のように、その口への通信を はじめの N 回 とどかなくする（あとから 0 に できる）。
             lose：{'/act': 1} のように、サーバーには とどけて 返事だけ はじめの N 回 なくす（3-3）"""
@@ -203,6 +204,8 @@ async def browser_tests(srv_port):
                     init.append("localStorage.setItem(%s, %s);" % (json.dumps(k), json.dumps(v)))
             if init:
                 await page.add_init_script("if(!sessionStorage.getItem('e2e')){%s sessionStorage.setItem('e2e','1')}" % ''.join(init))
+            if extra_init:
+                await page.add_init_script(extra_init)
             await page.goto(f'http://127.0.0.1:{PAGE_PORT}{path}')
             await page.wait_for_timeout(2200)
             return ctx, page, errs, calls
@@ -428,6 +431,26 @@ async def browser_tests(srv_port):
         today = time.strftime('%Y-%m-%d', time.gmtime(time.time() + 9 * 3600))
         ok(i['day'] == today, 'きょうのおねがいは サーバーの日付（日本時間）', {'day': i['day'], 'today': today})
         ok(i['souv'] == 0, 'おみやげは出ない（あけた時間はサーバーの時計で）', i)
+        all_errs += errs; await ctx.close()
+
+        print('7c. ひらいたとき、サーバーの セーブの おなかを いまの時刻まで へらしてから 出す（2026-11-19）')
+        # まんぷく（97）で 6時間 たった：サーバーは 49（ちょうどいい）に へらして おみやげを 出す。
+        # 前は ログインの 返事（へらす前の 97）を いちど そのまま 出して、おみやげと いっしょに もどって見えた
+        dbg('/__debug/patch', {'sub': 'Uthree', 'full': 97})
+        dbg('/__debug/age', {'sub': 'Uthree', 'hours': 6})
+        three = state('Uthree')
+        mirror = sample('ほかの端末'); mirror['created'] = three['created']   # この端末にも 同じ子（ログインの 返事を apply する）
+        watch = ("document.addEventListener('DOMContentLoaded', () => { window.__fulls = [];"
+                 "new MutationObserver(() => window.__fulls.push(document.getElementById('sFull').textContent))"
+                 ".observe(document.getElementById('sFull'), { childList:true, characterData:true, subtree:true }); });")
+        ctx, page, errs, calls = await open_page('Uthree', local=mirror, owner=three['id'], extra_init=watch)
+        await page.wait_for_timeout(1500)
+        fulls = await page.evaluate('window.__fulls')
+        full = await page.evaluate('Math.round(S.stats.full)')
+        ok(any(c == 'POST /act' for c in calls) and 'まんぷく' not in fulls and fulls and fulls[-1] == 'ちょうどいい' and 45 <= full <= 52,
+           'メーターは ずっと いまの おなか（へらす前の「まんぷく」を 出さない）', {'fulls': fulls, 'full': full, 'calls': calls})
+        await snap(page, 'open_after_hours')
+        await close_popups(page)
         all_errs += errs; await ctx.close()
 
         print('8. サーバーに届かないとき（ゲストの子）')

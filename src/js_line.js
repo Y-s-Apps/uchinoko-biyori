@@ -589,6 +589,11 @@ const LineSync = {
     this.rev = save.rev;
     S = JSON.parse(JSON.stringify(data));
     S.pet.photo = photo;
+    /* サーバーの セーブの おなか・ごきげんは、サーバーが さいごに 計算した時刻（last）の 数字。そのまま 出すと、ひらいたとき
+       （ログインの 返事）に ゆうべの「まんぷく」が 出て、おみやげの ポップアップと いっしょに「ぺこぺこ」へ もどって見えた
+       （2026-11-19 オーナー）。画面に 出す前に、いまの時刻（サーバーの時計）まで へらす。サーバーの セーブは かえない
+       （つぎの おせわで サーバーも 同じ計算を する。ホーム画面版の Game.start の decay と 同じ） */
+    decay();
     this.know(S);
     Persist.base = Number(S.updated) || 0;
     Persist.saveLocal();

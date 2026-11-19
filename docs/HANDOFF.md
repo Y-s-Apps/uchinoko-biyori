@@ -2,7 +2,7 @@
 
 このファイルは、チャットのいちばん最後に毎回まるごと書き直します。次のチャットは、ここを読めば続きから始められます。オーナーは、更新のたびにプロジェクトナレッジのGitHubを「同期」し、作業ごとに新しいチャットへ移ります（`CLAUDE.md` の作業の流れ 7）。
 
-- 最終更新：2026-11-16（20回目：**LINE版を リリースした（未認証のまま）。だいずは 本番用の LINE版へ 引っこした。約束②も 伝えた＝済み。** コードは 変えていない＝書類だけ。**つぎ：オーナーが 別プロジェクトで 個人事業主の 申請 → 認証審査の 申請。リリースから 1週間（11-23 まで）は チャットの はじめに サーバーを 見る**）
+- 最終更新：2026-11-19（21回目：**リリースの あとの 見まもり。11-16 の よるの おしらせが とちゅうで 止まっていた（「サーバーを起こす」の 失敗メールは これ）→ 21:05 の やりなおしを 直した（本物に 入れた）。LINE版の メーターが ひらいたとき「まんぷく」に 見える 不具合を 直した。** つぎ：オーナーが 個人事業主の 申請 → 認証審査。**11-23 まで チャットの はじめに サーバーを 見る**）
 - リポジトリ：`Y-s-Apps/uchinoko-biyori`（組織 Y-s-Apps）。ホーム画面版：https://y-s-apps.github.io/uchinoko-biyori/
 - ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-42796d8f16`**（`de696b7`。`index.html`・`sw.js` の md5 は `d8882038…`・`36368c0e…`。Pages の deploy は success）。なでなでの 直しが 入ったので だいずの アプリは 更新される（おせわの 動きは 前と同じ＝`compare_home.py`：おなじ）
 - Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン29**（`de696b7` の中身。version `1794772870-8994`、capabilities は 引きついだ）。公開するときは `src/out/uchinoko-claude.html` の前に いまの版と同じ1行目（`<!doctype html><html><head><meta charset=utf8><meta name=viewport …><style>…</style></head><body>` ＋改行）を、うしろに `</body></html>` ＋改行 を つけて `publish_files`（slug は UUID `507aa3eb-87ee-4ddc-80e3-61638a697f56`。短い id は ことわられる。`capabilities` は はぶいて 引きつぐ。前の版を この形で 作りなおすと `list_files` の sha256 と 同じになるのを 確かめてから 出す。1行目は `read_file` の `offset 1・limit 1` で 読める）
@@ -13,12 +13,14 @@
   - チャネルID：開発用 `2012410263`・審査用 `2012410264`・本番用 `2012410265`
   - プライバシーポリシー https://uchinoko-biyori.pages.dev/privacy.html ・利用規約 https://uchinoko-biyori.pages.dev/terms.html （ポリシーは 2026-11-15 改定〈パズルの 記録〉。今回の 作りなおしでは 取る情報・送り先・保存期間は かわらないので そのまま）、お問い合わせフォーム https://forms.gle/aywxktpPZettxFSS7
 - LINE版のサーバー：Supabase のプロジェクト「uchinoko-biyori」（`ftakgswltcavwixqxpzi`、東京、組織 `Yuthy's` の無料プラン）。Edge Function `api` は **MCP の version 25 のまま**（2026-11-15 17:46。`index.ts` は `6820b68`・`deno.json` は `game.js` を `6820b68` に固定。18・19回目は `game.js` が かわらない＝`build_server.py --check` OK なので デプロイなし）
+- **cron の 関数 `app.notify_kick()`：2026-11-19 に `notify_cron_retry` で 置きかえた**（21:05 は とちゅうで 止まった回も。`pg_get_functiondef` の md5 `4fd92ef1…`）
 - 表：`app` スキーマに members・line_accounts・sessions・saves・cards・save_backups・day_quota・error_counts・chores・notify_runs
 - **cron：** pg_cron 1.6.4、ジョブ `uchinoko-notify`（**`0,5 12 * * *`＝日本時間 21:00 と 21:05**。`select app.notify_kick()`。21:05 は 21:00 の回が とどかなかった・ことわられた日だけ 動く）。**2026-11-15 21:00 に はじめて 予定どおり 自分で 動いて 1通 とどいた**（`made 12:00:00 UTC`・`done 12:00:21`・`sent 1`・`failed 0`。21:05 は 送らない。オーナーが LINE で 見た）
 - 役：`uchinoko_api`（`app` の表だけ。サーバーは この役で つないでいる）
 - Storage：バケット `cards`（公開・PNG だけ・1MB まで、ポリシーなし）。カードは 全員で 1500まい まで
-- サーバーを起こす：GitHub Actions（`.github/workflows/keepalive.yml`、cron `23 18 */3 * *`＝日本時間 3:23 ごろ、数時間 おくれることがある）。`/health` の `errors`（10以上で 失敗）と `notifyDays`（止まった日が あれば 失敗）を 見る。**つぎの 予定は 11-17 3:23 ごろ**
+- サーバーを起こす：GitHub Actions（`.github/workflows/keepalive.yml`、cron `23 18 */3 * *`＝日本時間 3:23 ごろ、数時間 おくれることがある）。`/health` の `errors`（10以上で 失敗）と `notifyDays`（止まった日が あれば 失敗）を 見る。**11-17 の回（10:55）は 失敗＝11-16 の 回を 見つけた。つぎの 予定は 11-20 3:23 ごろ**（11-16 は 3日の 外に なるので、11-19 の 21時が ぶじなら 成功の はず。それまで 手で 動かすと また 失敗）
 - Secrets：`ANTHROPIC_API_KEY`・`LINE_CHANNEL_SECRET`（開発用）・`LINE_CHANNEL_SECRET_2012410264`・`LINE_CHANNEL_SECRET_2012410265`・`APP_DB_PASSWORD`・`LINE_MESSAGING_TOKEN`
+- 本物の DB（2026-11-19 19時半）：会員 1人（だいず。れんぞく 38日・スタンプ 38・おしらせ オン）。エラーの 数 0。
 - 本物の DB（2026-11-16 5時半）：**会員 1人＝だいず（本番用。11-16 5:10 に 取りこみ。よるの おしらせ オン・れんぞく 36日・スタンプ 36）**。カード・ひかえ・Storage の `cards` は 0件。`app` の 表に anon・authenticated の 権限は 0。エラーの 数 0。**だいずは 本物の 会員なので、ためしで セーブを さわらない**（`execute_sql` で 書きこまない。読むときも 名前・数だけ）
 - LINE公式アカウント「うちのこ日和」（ベーシックID `@370iymyw`、Messaging API の プロバイダー「Y's Apps」、応答メッセージ・Webhook オフ）。ミニアプリの 友だち追加オプション・デフォルトの公式アカウントも 設定ずみ
 - LINE Developers：Scope は `openid` だけ。「シェアターゲットピッカー」は 有効。認証審査は まだ申請しない（未認証でリリース → 個人事業主 → 申請）
@@ -26,22 +28,22 @@
 - LINE版の計画書：https://claude.ai/artifact/AgKkCkHCsWAywKGV6VFxwK
 - オーナーの事情（約束②で使う）：claude.ai の このプロジェクトの資料 `claude/owner-notes.md`（非公開）
 
-## 直近のチャットでやったこと（2026-11-16、20回目：リリース。Claude Fable 5.2）
+## 直近のチャットでやったこと（2026-11-19、21回目：見まもり と 2つの 直し。Opus 5.5）
 
-- **オーナーが 公開の日の 手順を した：** こむぎを 消す → だいずの 控え・引っこしコード → 本番用の LIFF URL で だいずを 取りこむ → プロフィールに「うちのこカードを おくる」と よるの おしらせの スイッチ（オン）、「LINEと つながっています」（スクリーンショットで 見た）。
-- **ソーイが 確かめた（本物の DB）：** 会員 1人（だいず）・カード 0・ひかえ 0・Storage の `cards` 0・`app` への anon／authenticated の 権限 0・エラー 0。よるの おしらせは 11-14・11-15 とも `sent 1`・`failed 0`。
-- **Data API（F2-5）：** オーナーの 画面で「Exposed schemas」は `public`・`graphql_public` だけ（`app` は チェックなし・`net` は 一覧に ない）＝済み。「Automatically expose new tables」が オン（`public` に 新しい 表を 作ると 自動で 出る 設定。`app` には かからない。オフに するかは オーナーに 伝えた＝下の 保留 2）。
-- **「40日なのに スタンプ 36」：** 不具合では ない。「日」＝うちにきた 10-08 から きょうまでの 日数（`js_app.js` の プロフィール）、スタンプ＝おねがいを ぜんぶ かなえた日（`S.stamps`）。ちがいの 4日＝むかえた日 10-08 ＋ おたすけで つないだ 10-25・11-08・11-11（`S.rescued`）。れんぞくは 36日で きれていない。
-- **書類：** `docs/PROJECT.md`（1章・10章の ①「リリース 済み」・約束②「済み」・更新履歴）、`CLAUDE.md`（約束② 済み）、この HANDOFF。コード・サーバー・Claude版は そのまま。
-- **約束②：** 別プロジェクトの 指示と はじめの プロンプトを チャットで 伝えた（中身は 公開リポジトリには 書かない。もとは プロジェクトの資料 `claude/owner-notes.md`）。
+- **サーバーを 見た：** エラーの数 0（`app.error_counts` は 空）。さいきん 1日の ログ（`function_edge_logs`）は ぜんぶ 200・204。プロジェクトは `ACTIVE_HEALTHY`。
+- **よるの おしらせ（`app.notify_runs`）：** 11-14・11-15 は `sent 1`。11-17・11-18 は `skipped 1`（21時に もう おねがいを ぜんぶ かなえていた）。**11-16 は `used_at` あり・`done_at` なし・0人**：ログ（11-16 12:00 UTC）では 関数が 6秒かけて 起きて、合いことばを うけつけた（`used_at` 12:00:12）直後の 12:00:15 に 503、DB にも「Connection reset by peer」＝関数ごと 落ちて `notifySend` が はじまらなかった（エラーの数にも 入らなかった）。21:05 の cron は「うけつけた日」と みて なにも しなかった。
+- **「サーバーを起こす」の 失敗メール（11-17 10:55 の回）：** `notify 2026-11-16: done=false` で 失敗＝しくみどおり。もう 1つの 注意書きは GitHub の「ubuntu-latest が Ubuntu 26 に うつる」（害なし）。
+- **直し①（本物の DB。オーナーの 許可）：** `supabase/migrations/20261119000001_notify_cron_retry.sql` を `apply_migration`（1回めは 作業環境の 確認で 止められ、オーナーに きいて もう一度）。`used_at` が あっても `done_at` が 空で 3分 たった回は、`used_at` を 空に もどして 合いことばを 作りなおす。手元の Postgres で 5つの 場面（行なし・とどかなかった・おわった・止まった・おくっている とちゅう）を 確かめた。本物で 関数の 中身・権限（postgres だけ）・ジョブ（`0,5 12 * * *`）・`get_advisors` security 0件。
+- **直し②（LINE版の 画面。オーナーから「おみやげ などの ポップアップで メーターが まんぷくに なり、とじると もどる」）：** `LineSync.apply` が ログインの 返事の セーブ（サーバーが さいごに 計算した時刻の、へらす前の 数字）を そのまま 出していた。`open` の 返事で 正しい 数字に もどるのが、おみやげの ポップアップと 同じ ときだった。apply で `decay()`（サーバーの時計で いままで へらす）してから 出す。ためしの サーバーで 返事を おそくして、前は「ちょうどいい → まんぷく → ちょうどいい」、いまは ずっと「ちょうどいい」を 確かめた。`line_e2e.py` に 7c、`e2e_server.ts` に `/__debug/age`。ホーム画面版・Claude版は かわらない（md5 同じ）＝だいずの ホーム画面の アプリは 更新されない。Claude版も 出しなおし なし。
+- 書類：`docs/PROJECT.md`（更新履歴・10章「おせわの判定」「よるの おしらせ」の cron・「サーバーを起こす」）、この HANDOFF。
 
-## その前のチャット（2026-11-16、19回目）
+## その前のチャット（2026-11-16、20回目：リリース）
 
-実機の 結果を きいて P5-1 なでなで（`petStill`）・P6-1 小さい Android の 下の すき間を 直した（`de696b7`）。うちのこの 体勢と 動きの 設計 `docs/MOTION_DESIGN.md`。くわしくは `docs/PROJECT.md` の 更新履歴。
+LINE版を リリース（未認証）。だいずを 本番用へ 引っこし、約束② 済み。くわしくは `docs/PROJECT.md` の 更新履歴。
 
 ## 保留・オーナーの判断待ち（つぎのチャットのはじめに）
 
-1. **リリースから 1週間（11-23 まで）：** チャットの はじめに サーバーのログ（無料プランは 1日分）と `app.error_counts`（`/health` の `errors`）、`app.notify_runs`（`/health` の `notifyDays`・送った数・`note`）を 見る。「サーバーを起こす」の つぎの 予定は 11-17 3:23 ごろ。
+1. **リリースから 1週間（11-23 まで）：** チャットの はじめに サーバーのログ（無料プランは 1日分。`query_logs` で 24時間ずつ）と `app.error_counts`（`/health` の `errors`）、`app.notify_runs`（`/health` の `notifyDays`・送った数・`note`）を 見る。**11-19 の 21時の回が ぶじか（`done_at` が ある）**、「サーバーを起こす」の **11-20 の回が 成功に もどったか**（`gh run list --workflow keepalive.yml`）。21:05 の やりなおしが 動いた日は `made_at` が 12:05 UTC に なる。
 2. **（オーナーが 決める・いそがない）** Supabase の Data API の「Automatically expose new tables」を オフに するか（Supabase も オフを すすめている。いまは `public` に 表が ないので 害は ない。変えるのは オーナーの 許可を もらってから）。
 3. **公開の日の 手順 5（実機で 見る）の こまかい ところ：** よるの ひとこと（21時すぎ）・ひらいたまま つぎの日・トークの カードの ボタン など、気に なる ところが あったか オーナーに きく（きくだけ）。なでなで（P5-1）の はじめの 下スワイプも。
 4. **手順 6：** テスターでない人（家族など）の LINE で 本番用の LIFF URL（https://miniapp.line.me/2012410265-PutgsCLS ）が ひらけるか。Android の 人が いれば 下の 5つの ボタンと パズルの 下の すき間（P6-1）。
@@ -72,7 +74,9 @@
 - **よるの ひとこと（`Nudge`）：** 1日1回は 端末の `uchinoko-biyori:nudge-day`（消してよい キー）。時刻は `Clock.hour()`（LINE版で つながっているときは `lineServerClock` が 日本時間に する）か 端末の時計。セーブは かえない。LINE版で サーバーを まつ あいだは **`Act.blocked()`（知らせを 出さない）で 見る**。`Act.waiting()` は ポップアップ・トーストも 出すので、だまって 見たい ところで つかわない（F3-1）。`smoke.py` が 21時の まねで 確かめる（`Clock.hour = () => 21`）。ふきだしは `white-space:nowrap` なので、ひとことは 14文字くらいまで。
 - **新しい子・取りこみの 番号（F3-2）：** `LineSync.freshRid`（新しい子を むかえると 空。はじめて おくるときに 作り、とどくまで 同じ）・`pendingCode.rid`・`line-unsent` の `r`。サーバーは 同じ番号の `adopt` を 作りなおさない。とどいたかは サーバーの セーブの `srv.rq.id` で 見る（`LineSync.arrivedRid`）。
 - **よるの おしらせ（`LineNotify`・`/notify`・`/notify/run`）：** スイッチは つながっていて サーバーに トークンが あるときだけ（`LineServer.notify.ready`）。友だちかどうかは 見ない。メッセージに 入れるのは 名前・のこりの数・れんぞくだけ。送る回は `app.notify_runs`（だれかは 入れない）。cron を 変えるときは `supabase/migrations/` に 名前に `cron` の ある ファイルを 足して `apply_migration`（ためしの PGlite は 読まない）。合いことばの しくみ（10分・1回・ハッシュ）を くずさない。月200通（無料）を こえた月は とまる（`notify_limit`）。1人の 例外は `notify_one`、回数の 制限の 429 は `notify_push`（おくりなおさない）。回を 見る：`select day, made_at, used_at, done_at, sent, skipped, failed, note from app.notify_runs order by day desc limit 3;`
-- **`/health` の `notifyDays`：** この3日（きのうから）の 回の `kicked`・`ran`・`done`・`note`。はじめた日 `NOTIFY_SINCE`（2026-11-14）より 前は 出さない。「サーバーを起こす」は `jq` で 見る。
+- **`/health` の `notifyDays`：** この3日（きのうから）の 回の `kicked`・`ran`・`done`・`note`。はじめた日 `NOTIFY_SINCE`（2026-11-14）より 前は 出さない。「サーバーを起こす」は `jq` で 見る。止まった日は 3日 のこるので、その あいだに 手で 動かすと また 失敗に なる。
+- **21:05 の やりなおし（2026-11-19）：** `app.notify_kick()` は `used_at` が 空、または `done_at` が 空で `used_at` から 3分 たった回だけ 合いことばを 作りなおす。関数を かえるときは 名前に `cron` の ある マイグレーションで（ためしの PGlite は 読まない）、手元の `tools/server/node_modules/.bin/pglite-server` と `psql` で upsert の 場面を 確かめてから。
+- **LINE版の `LineSync.apply`：** サーバーの セーブを 入れたら `decay()` してから 出す（へらす前の 数字を 出さない。`line_e2e.py` 7c）。`decay()` は `S.last` を いまに する（端末の 写しだけ。サーバーへは おくらない）。
 - **同じ日の 送りなおし：** もう一度 その日に 送りたいときは（21時から 0時）：`update app.notify_runs set used_at = null, done_at = null where day = (now() at time zone 'Asia/Tokyo')::date;`、送った人にも もう一度なら `update app.members set notified_on = null where notify;`、そのあと `select app.notify_kick();`。**ただし、その日に もう とどいた人には とどかない**（リトライキーが 会員と 日付で 決まり、LINE は 同じ キーを 24時間 うけつけない＝409。`sent` には 数える。F2-4）。
 - **`line_e2e.py` の `notice_seen`：** ふつうの 場面では アプリの中の おしらせ（`NOTICE_IDS`。いまは 空）を もう見たことにしている。`LineNotice.list` に 足したら `NOTICE_IDS` にも 足す。`linebreak.py --line` は `LineNotice.list` から id を 読んで「見た」に する。
 - **`linebreak.py --only`：** 名前に その文字が ある 場面だけ（なんども 書ける）。新しい 場面だけ はやく 確かめるのに 使う（push の 前の さいごは ぜんぶ）。Bash の 既定の 時間切れを こえるので、うしろで 動かす。
