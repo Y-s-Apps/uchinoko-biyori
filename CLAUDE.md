@@ -42,6 +42,8 @@
 | `tools/rules_test.mjs` | ルール（`js_rules.js`）を時計を動かして確かめる（れんぞく・おたすけ・日本時間の0時・おみやげ・げい・イベント・記念日・パズル） |
 | `tools/compare_home.py` | ホーム画面版の動きが前の版と同じかをくらべる（`python3 tools/compare_home.py [コミット]`、既定は HEAD） |
 | `docs/MOTION_DESIGN.md` | うちのこの 体勢と 動きを ふやす 設計（2026-11-16。Opus 5.5 の チャットで 実装する。まだ 実装していない） |
+| `docs/RUN_DESIGN.md` | うちのこラン（仮）＝ChatGPT の「わんラン」（3D の レース＆アジリティ）を うちのこ日和の ミニゲームに する 設計（2026-11-21。まだ 実装していない。P1 から） |
+| `_ref/wanrun-v33/` | わんラン v33 の 原本（`wanrun-v33.zip`）と 仕様書（`spec.md`）。読むだけ。`_` の フォルダなので GitHub Pages には 出ない（`.nojekyll` を 足さない） |
 | `docs/REVIEW_PROMPT.md` | Claude Fable 5.2 の レビューの チャットに貼るプロンプト（約束①の 診断・さいごのチェックの あと、2026-11-15 から パズルの レビュー用＝2026-11-16 に 済み。前の版は git に） |
 | `.github/workflows/keepalive.yml` | GitHub Actions「サーバーを起こす」：3日ごとに LINE版のサーバーの `/health` と、DB を1回読む呼び出し（でたらめのセッションで 401）をして、Supabase の無料プランが止まらないようにする。`/health` の この3日の エラーの数が 10以上のときと、この3日に よるの おしらせが 止まった日（`notifyDays`）が あるときも 失敗にする（`docs/PROJECT.md` の10章） |
 | ルートの `index.html` `sw.js` `manifest.webmanifest` `*.png` | 公開ファイル（ビルド結果なので手で直さない） |
