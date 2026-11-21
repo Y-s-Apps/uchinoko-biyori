@@ -408,6 +408,13 @@ RUN_FIT_JS = r'''() => { const pg = document.querySelector('#runPage'), r = s =>
            xHit: !!x && !!document.elementFromPoint(x.left + x.width / 2, x.top + x.height / 2).closest('[data-run="x"]'),
            sheet: document.querySelector('#sheetWrap').classList.contains('open'), inert: !!document.querySelector('#app').inert,
            scroll: document.scrollingElement.scrollWidth > innerWidth + 1 }; }'''
+RUN_SEL_JS = r'''() => { const pg = document.querySelector('#runPage'), b = pg.querySelector('.run-sel-body'), x = pg.querySelector('[data-s="x"]').getBoundingClientRect();
+  const last = [...pg.querySelectorAll('.run-course')].pop().getBoundingClientRect();
+  return { title: (pg.querySelector('.run-title') || {}).textContent, courses: [...pg.querySelectorAll('[data-course]')].map(e => e.dataset.course),
+           maps: pg.querySelectorAll('.run-map svg').length, best: [...pg.querySelectorAll('.run-cb')].map(e => e.textContent.replace(/\s+/g, ' ').trim()),
+           note: (pg.querySelector('.run-sel-note') || {}).textContent, fit: last.bottom <= innerHeight && last.left >= 0 && last.right <= innerWidth,
+           scroll: document.scrollingElement.scrollWidth > innerWidth + 1 || b.scrollWidth > b.clientWidth + 1, inert: !!document.querySelector('#app').inert, ctl: !!RunUI.ctl,
+           canvas: pg.querySelectorAll('canvas').length, xHit: !!document.elementFromPoint(x.left + x.width / 2, x.top + x.height / 2).closest('[data-s="x"]') }; }'''
 RUN_TILE_JS = r'''() => { const b = document.querySelector('#sheet [data-play="run"]');
   return { off: b ? b.getAttribute('aria-disabled') : 'none', text: b ? b.textContent.replace(/\s+/g, ' ').trim() : '',
            note: [...document.querySelectorAll('#sheet .note')].map(n => n.textContent).join('|') }; }'''
@@ -421,8 +428,9 @@ NO_WEBGL_JS = "{ const g = HTMLCanvasElement.prototype.getContext; HTMLCanvasEle
 
 
 async def run_checks(page, ctx, snap, errors, args, port):
-    """うちのこラン（仮）（ホーム画面版だけ。2026-11-21 P2）：「あそぶ」の「ラン」→ ページ #runPage → スタート → 指の スワイプ・タップ →
-    アプリを はなれたら ひとやすみ → × → とじたら ぜんぶ 片づく。WebGL が ない 端末・ファイルが よめない（integrity が あわない）とき。
+    """うちのこラン（ホーム画面版だけ。2026-11-21 P2・2026-11-22 P3）：「あそぶ」の「ラン」→ ページ #runPage の コースを えらぶ 画面（3コース・あそびかた）→
+    こうえんの スタート → 指の スワイプ・タップ → アプリを はなれたら ひとやすみ → ゴール（ほうび・ベスト・アルバム。はやすぎる タイムは 切る）→
+    つぎの コースへ（うみべ）→ コースを えらぶ（ベストが 出る）→ こうえん → × → とじたら ぜんぶ 片づく。WebGL が ない 端末・ファイルが よめない（integrity が あわない）とき。
     ゴールまでの 通しは tools/run/run_shots.py（時計を とめて とる）"""
     if not await page.evaluate("typeof RunUI !== 'undefined'"):
         print('ラン：この版には ない（RUN_HOME=0）')
@@ -434,6 +442,24 @@ async def run_checks(page, ctx, snap, errors, args, port):
         await page.click('#sheet [data-close]'); await page.wait_for_timeout(350)
         return
     await page.click('[data-play="run"]')
+    if not await poll(page, "() => !!document.querySelector('#runPage .run-sel .run-course')", 90000):
+        errors.append('ランの コースを えらぶ 画面が 出ません：' + await page.evaluate("() => (document.querySelector('#runPage') || {}).textContent || ''"))
+        await page.evaluate('() => RunUI.close()')
+        return
+    await page.wait_for_timeout(300)
+    await snap('run_select')
+    sel = await page.evaluate(RUN_SEL_JS)
+    print('ランの コースを えらぶ 画面：', sel)
+    if not (sel['title'] == 'うちのこラン' and sel['courses'] == ['park', 'beach', 'forest'] and sel['maps'] == 3 and sel['fit'] and not sel['scroll']
+            and sel['inert'] and not sel['ctl'] and sel['xHit'] and 'まだ きろく なし' in sel['best'][0] and 'あと3回' in sel['note']):
+        errors.append(f'ランの コースを えらぶ 画面が ちがいます：{sel}')
+    await page.click('#runPage [data-s="help"]'); await page.wait_for_timeout(400)
+    await snap('run_select_help')
+    hp = await page.evaluate("() => { const c = document.querySelector('#runPage .run-over .run-card'), r = c && c.getBoundingClientRect(); return r ? [Math.round(r.top), Math.round(r.bottom), innerHeight] : null; }")
+    if not (hp and hp[0] >= 0 and hp[1] <= hp[2]):
+        errors.append(f'ランの あそびかた（コースを えらぶ 画面）が 入りきっていません：{hp}')
+    await page.click('#runPage [data-s="ok"]'); await page.wait_for_timeout(300)
+    await page.click('#runPage [data-course="park"]')
     if not await poll(page, '() => !!(RunUI.ctl && RunUI.ctl.frames > 1)', 90000):
         errors.append('ランが はじまりません：' + await page.evaluate("() => (document.querySelector('#runPage') || {}).textContent || ''"))
         await page.evaluate('() => RunUI.close()')
@@ -441,9 +467,10 @@ async def run_checks(page, ctx, snap, errors, args, port):
     await page.wait_for_timeout(300)
     await snap('run_ready')
     fit = await page.evaluate(RUN_FIT_JS)
+    fit['select'] = await page.evaluate("() => !!document.querySelector('#runPage [data-m=\"select\"]')")
     print('ランの 画面：', fit)
     if not (fit['card'] and fit['card'][0] >= 0 and fit['card'][2] <= fit['vw'] and fit['card'][3] <= fit['vh'] and fit['x'] and fit['x'][0] >= 0
-            and fit['xHit'] and not fit['sheet'] and fit['inert'] and not fit['scroll'] and fit['bottom'] <= fit['vh'] - args.android_inset):
+            and fit['xHit'] and not fit['sheet'] and fit['inert'] and not fit['scroll'] and fit['bottom'] <= fit['vh'] - args.android_inset and fit['select']):
         errors.append(f'ランの 画面が 入りきっていません：{fit}')
     await page.click('#runPage [data-run="help"]'); await page.wait_for_timeout(400)
     await snap('run_help')
@@ -497,6 +524,42 @@ async def run_checks(page, ctx, snap, errors, args, port):
     if not (t0[0] == 'paused' and t1[0] == 'paused' and t1[1] == t0[1]):
         errors.append(f'アプリを はなれても ランが とまりません：{t0} {t1}')
     await page.click('#runPage [data-m="resume"]'); await page.wait_for_timeout(500)
+    # ゴール（ゴールの すこし 前へ とばす＝タイムが ありえないほど はやい → いちばん はやい タイムに 切る）：ほうび・ベスト・アルバム・ゴールの カード
+    s0 = await page.evaluate('() => ({ love: S.stats.love, run: JSON.parse(JSON.stringify(S.run)), album: S.album.length, puzzle: Rules.puzzleLeft(S) })')
+    await page.evaluate('() => { const sim = RunUI.ctl.sim; sim.player.s = sim.layout.length - 1.5; sim.waitingTurn = null; }')
+    if not await poll(page, "() => RunUI.ctl.sim.status === 'finished' && !!document.querySelector('#runPage .run-rec .run-rec-h')", 60000, 30):
+        errors.append('ランが ゴールしません：' + await page.evaluate("() => RunUI.ctl.sim.status"))
+    await page.wait_for_timeout(300)
+    await snap('run_result')
+    fin = await page.evaluate('''() => ({ love: S.stats.love, run: JSON.parse(JSON.stringify(S.run)), min: RUN.courses.park.min, album: S.album.slice(0, 3).map(a => a.ti),
+        rec: document.querySelector('#runPage .run-rec').textContent.replace(/\\s+/g, ' ').trim(), puzzle: Rules.puzzleLeft(S),
+        next: (document.querySelector('#runPage [data-m="next"]') || {}).textContent || '', select: !!document.querySelector('#runPage [data-m="select"]'),
+        saved: JSON.parse(localStorage.getItem('uchinoko-biyori:v1') || '{}').run })''')
+    print('ランの ゴール：', {k: v for k, v in fin.items() if k != 'saved'})
+    if not (fin['run']['games'] == s0['run']['games'] + 1 and fin['run']['n'] == s0['run']['n'] + 1 and fin['run']['best'].get('park') == fin['min']
+            and abs(fin['love'] - s0['love'] - 2) < 1e-6 and 'はじめての きろく' in fin['rec'] and 'ごきげん+5' in fin['rec'] and fin['puzzle'] == s0['puzzle']
+            and 'はじめての ラン' in fin['album'] and any('こうえんで さいこう きろく' in a for a in fin['album']) and 'うみべ' in fin['next'] and fin['select']):
+        errors.append(f'ランの ゴールの ほうび・きろくが ちがいます：{s0} → {fin}')
+    # レベルアップの ポップアップが 出ていたら けす（ランの ページの 上に 出る）
+    await page.evaluate("() => { document.querySelectorAll('.levelup').forEach(e => e.remove()); Modal.q = []; Modal.busy = false; }")
+    # つぎの コースへ（うみべの スタート）→ コースを えらぶ（こうえんの ベストが 出る）→ こうえん
+    await page.click('#runPage [data-m="next"]')
+    if not await poll(page, "() => !!(RunUI.ctl && RunUI.ctl.course === 'beach' && RunUI.ctl.frames > 1)", 90000):
+        errors.append('つぎの コース（うみべ）が はじまりません')
+    await page.wait_for_timeout(300)
+    await snap('run_ready_beach')
+    await page.click('#runPage [data-m="select"]')
+    if not await poll(page, "() => !!document.querySelector('#runPage .run-sel .run-course') && !RunUI.ctl", 30000):
+        errors.append('「コースを えらぶ」で もどりません')
+    sel2 = await page.evaluate(RUN_SEL_JS)
+    if not (sel2['best'][0].startswith('ベスト') and 'まだ きろく なし' in sel2['best'][1] and sel2['canvas'] == 0 and 'あと2回' in sel2['note']):
+        errors.append(f'コースを えらぶ 画面に ベストが 出ません・3D が のこっています：{sel2}')
+    await page.click('#runPage [data-course="park"]')
+    if not await poll(page, '() => !!(RunUI.ctl && RunUI.ctl.frames > 1)', 90000):
+        errors.append('こうえんが もういちど はじまりません')
+    await page.click('#runPage [data-m="go"]')
+    if not await poll(page, "() => RunUI.ctl.sim.status === 'running'", 90000, 30):
+        errors.append('ランの 3・2・1 が おわりません（2回め）')
     st = await page.evaluate('() => RunUI.ctl.sim.status')
     # ×：走っている ときは ひとやすみ、もう1回で とじる。とじたら 描く ループ・WebGL・ページ・リスナーが のこらない
     await page.click('#runPage [data-run="x"]'); await page.wait_for_timeout(300)

@@ -1,4 +1,4 @@
-/* うちのこラン（仮）（2026-11-21 P2。docs/RUN_DESIGN.md）：ホーム画面版だけ（build.sh が RUN_HOME=1 のとき <head> に 入れる。head.html は 3つの 版で 同じなので さわらない）
+/* うちのこラン（2026-11-21 P2・2026-11-22 P3。docs/RUN_DESIGN.md）：ホーム画面版だけ（build.sh が RUN_HOME=1 のとき <head> に 入れる。head.html は 3つの 版で 同じなので さわらない）
    - 画面いっぱい（.run-page。重なりは パズルと 同じ 45：はじめての画面 40 ＜ ここ ＜ シート 50 ＜ ポップアップ 70）。うしろの #app は inert。
    - ページは うごかさない（overflow:hidden・touch-action:none・overscroll-behavior:none。指の うごきは ゲームが うけとる）。
    - 3D の 上の 文字は かならず 地を しく（var(--surface) の チップ・カード）。さわれるのは ボタンと カードだけ（ほかは pointer-events:none で、タップは 3D へ）。
@@ -87,10 +87,59 @@ html.run-open,html.run-open body{overflow:hidden;overscroll-behavior:none}
 .run-hrow strong{display:block;font-size:14px;line-height:1.35}
 .run-hrow span{display:block;font-size:12.5px;color:var(--ink-soft);line-height:1.5}
 .run-hnote{margin:10px 0 0;font-size:12px;color:var(--ink-soft)}
+/* ゴール：ほうびと ベストとの 差（ホストが 入れる）・つぎの コースへ・下の ボタン（コースを えらぶ・おわる） */
+.run-best{margin:6px 0 0;font-size:13px;font-weight:700;color:var(--ink-soft)}
+.run-best b{font-size:16px;font-weight:900;color:var(--ink);font-variant-numeric:tabular-nums}
+.run-rec{margin-top:8px;background:var(--surface-2);border-radius:14px;padding:8px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;font-weight:700;color:var(--ink-soft);line-height:1.45}
+.run-rec:empty{display:none}
+.run-rec-h{font-size:15px;font-weight:900;color:var(--ink)}
+.run-rec-h.best{color:var(--berry-ink)}
+.run-rec-g{color:var(--ink)}
+.run-card .btnrow.run-more{margin-top:8px}
+.run-card .run-more .btn{min-height:44px;font-size:13px;box-shadow:none}
+.run-card .btn.run-next{flex-direction:column;gap:0}
+.run-next small{font-size:11px;font-weight:700}
+/* コースを えらぶ 画面（題「うちのこラン」。アプリの 地の 色。一覧は たてに スクロールできる） */
+.run-root.run-sel{background:var(--ground)}
+.run-title{flex:1;min-width:0;margin:0;text-align:center;font-family:var(--f-display);font-weight:400;font-size:20px;line-height:1.2;color:var(--berry-ink)}
+.run-sel-body{position:absolute;left:0;right:0;top:calc(56px + env(safe-area-inset-top,0px));bottom:0;overflow:auto;touch-action:pan-y;overscroll-behavior:contain;
+  box-sizing:border-box;padding:4px 14px calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px}
+.run-sel-body > *{width:100%;max-width:440px;margin-left:auto;margin-right:auto}
+.run-sel-head{display:flex;align-items:center;gap:10px}
+.run-sel-pet{width:64px;height:64px;flex:none}
+.run-sel-pet .pet-svg{display:block;width:100%;height:100%;overflow:visible}
+.run-sel-say{position:relative;margin:0;flex:1;min-width:0;background:var(--surface);border-radius:16px;padding:8px 12px;box-shadow:var(--lift);font-size:16px;font-weight:900;line-height:1.35}
+.run-sel-say small{display:block;font-size:12px;font-weight:700;color:var(--ink-soft)}
+.run-sel-say::before{content:"";position:absolute;left:-7px;top:50%;margin-top:-7px;border:7px solid transparent;border-left:0;border-right-color:var(--surface)}
+.run-courses{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.run-course{display:flex;align-items:stretch;gap:12px;width:100%;box-sizing:border-box;margin:0;padding:10px;border:0;border-radius:20px;background:var(--surface);color:var(--ink);box-shadow:var(--lift);
+  text-align:left;font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.run-course:active{transform:translateY(2px)}
+.run-map{flex:none;width:84px;height:84px;align-self:center;border-radius:14px;overflow:hidden}
+.run-map svg{display:block;width:100%;height:100%}
+.run-ci{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.run-cn{display:flex;align-items:center;gap:6px;font-size:17px;font-weight:900;line-height:1.3}
+.run-cn b{flex:none;width:22px;height:22px;border-radius:50%;background:var(--mint);color:var(--on-mint);display:grid;place-items:center;font-size:13px}
+.run-cn i{margin-left:auto;flex:none;display:flex;align-items:center;gap:4px;font-style:normal;font-size:11px;font-weight:900;color:var(--ink-soft);background:var(--surface-2);border-radius:99px;padding:2px 8px}
+.run-cn i::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--mint)}
+.run-cn i.lv1::before{background:var(--honey)}
+.run-cn i.lv2::before{background:var(--berry)}
+.run-cd{font-size:12.5px;line-height:1.45;color:var(--ink-soft)}
+.run-tags{display:flex;flex-wrap:wrap;gap:4px}
+.run-tags i{font-style:normal;font-size:11px;font-weight:700;color:var(--ink-soft);background:var(--surface-2);border-radius:99px;padding:1px 7px}
+.run-cb{font-size:12px;font-weight:700;color:var(--ink-soft)}
+.run-cb b{font-size:15px;font-weight:900;color:var(--ink);font-variant-numeric:tabular-nums}
+.run-sel-note{margin:2px 0 0;text-align:center;font-size:12.5px;line-height:1.55;color:var(--ink-soft)}
+.run-sel-note b{color:var(--ink)}
+.run-sel .run-over{z-index:6}
 @media (max-height:620px){
   .run-cue{top:calc(100px + env(safe-area-inset-top,0px))}
   .run-over{padding-top:calc(54px + env(safe-area-inset-top,0px))}
   .run-card{padding:14px 14px 12px}
   .run-art{width:60px;height:60px}
   .run-rankbig b{font-size:44px}
+  .run-rec{padding:5px 8px;gap:0;line-height:1.35}
+  .run-card .btnrow{margin-top:10px}
+  .run-card .btnrow.run-more{margin-top:6px}
+  .run-stats div{padding:4px 8px}
 }

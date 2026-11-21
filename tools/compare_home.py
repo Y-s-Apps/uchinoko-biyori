@@ -149,6 +149,9 @@ def norm(st):
     # パズル（2026-11-15）の きろくは あたらしい版の 既定値だけ（パズルを つかわないので かわらない はず）
     if o.get('puzzle') == {'games': 0, 'clears': 0, 'best': 0, 'n': 0, 'day': None}:
         o.pop('puzzle')
+    # うちのこラン（2026-11-22 P3）の きろくも あたらしい版の 既定値だけ（ランを つかわないので かわらない はず）
+    if o.get('run') == {'games': 0, 'clears': 0, 'n': 0, 'day': None, 'best': {}}:
+        o.pop('run')
     return o
 
 

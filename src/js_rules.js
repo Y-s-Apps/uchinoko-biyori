@@ -169,6 +169,21 @@ const Puzzle = {
   },
 };
 
+/* ----- うちのこラン（3D の レース。2026-11-22 P3。docs/RUN_DESIGN.md 6章） -----
+   ゲームは 画面の 中（src/run/）で 自動で 前に すすみ、さいごまで 走れば かならず ゴールする。ここに くるのは ゴールした ときだけ
+   （コース・タイム〈ミリ秒〉・ミスの 数・順位）。ほうびは ゴールしたか だけで（順位・タイムでは かえない）、1日 perDay 回まで・パズルとは べつ。
+   min は そのコースの いちばん はやい タイム（ずっと ダッシュで 走った ときの シミュレーション＝tools/run/run_min.mjs が 確かめる）。
+   これより はやい タイムは ありえないので、さいこう記録は min に 切る（ランキングは 作らない。自分の 記録だけ）。 */
+const RUN = {
+  perDay:3, love:2, mood:5, maxMs:3600e3,
+  courses:{
+    park:{ mode:'race', ja:'こうえん', min:29620 },
+    beach:{ mode:'race', ja:'うみべ', min:29130 },
+    forest:{ mode:'race', ja:'もり', min:31480 },
+  },
+};
+const runSec = ms => (Math.round(ms / 10) / 100).toFixed(2) + '秒';
+
 const Rules = {
   /* おなか・ごきげんは、前に計算した時刻（last）からの時間で減る */
   decay(st, t = now()){
@@ -584,6 +599,44 @@ const Rules = {
     this.first(st, 'puzzle', 'はじめての パズル', `${st.pet.name}と おやつならべで あそんだね`, 'puzzle');
     return { ok:true, clear:g.clear, score:g.score, got:g.got, best, reward, left:PUZZLE.perDay - z.n };
   },
+  /* うちのこラン：ゴールした ときだけ くる（とちゅうで やめたら なにも 書かない）。うけとるのは コース・タイム（ms）・ミスの 数・順位だけ。
+     ほうび（ごきげん・なかよし）は ゴールしたか だけで、1日 RUN.perDay 回まで（パズルとは べつに 数える）。
+     タイムは そのコースの いちばん はやい タイム（RUN.courses[c].min）より はやければ そこに 切る。コースごとの さいこう記録は アルバムに（1日1つ） */
+  runLeft(st){ const z = st.run; return !z || z.day !== dayKey() ? RUN.perDay : Math.max(0, RUN.perDay - z.n); },
+  run(st, p, ev){
+    const c = typeof p.course === 'string' && hasId(RUN.courses, p.course) ? p.course : null;
+    if (!c) return { ok:false, why:'course' };
+    const C = RUN.courses[c];
+    let ms = Number(p.ms);
+    if (!Number.isFinite(ms) || ms <= 0) return { ok:false, why:'bad' };
+    ms = Math.round(clamp(ms, C.min, RUN.maxMs));
+    const misses = Math.floor(clamp(Number(p.misses) || 0, 0, 999));
+    const rank = Math.floor(Number(p.rank));
+    const z = st.run || (st.run = { games:0, clears:0, n:0, day:null, best:{} });
+    if (!z.best || typeof z.best !== 'object' || Array.isArray(z.best)) z.best = {};
+    this.decay(st);
+    const day = dayKey();
+    if (z.day !== day){ z.day = day; z.n = 0; }
+    z.games++;
+    if (!misses) z.clears++;
+    let reward = false;
+    if (z.n < RUN.perDay){
+      z.n++;
+      reward = true;
+      st.stats.mood = clamp(st.stats.mood + RUN.mood, 0, 100);
+      this.gainLove(st, RUN.love, ev);
+    }
+    const prev = hasId(z.best, c) && Number.isFinite(z.best[c]) ? z.best[c] : null;
+    const best = prev === null || ms < prev;
+    if (best){
+      z.best[c] = ms;
+      st.album = st.album.filter(a => !(a.k === 'run:' + c && dayKey(a.t) === day));
+      this.addAlbum(st, 'run:' + c, `${C.ja}で さいこう きろく ${runSec(ms)}！`,
+        rank >= 1 && rank <= 5 ? (rank === 1 ? 'ランで いちばんに ゴールしたね' : `ランで ${rank}位で ゴールしたね`) : 'ランで さいごまで はしったね', 'run');
+    }
+    this.first(st, 'run', 'はじめての ラン', `${st.pet.name}と ${C.ja}を はしったね`, 'run');
+    return { ok:true, course:c, ms, prev, best, reward, left:RUN.perDay - z.n };
+  },
 
   /* one entry for every action, here and on the server. `ctx.budget` is the stroke budget, `ctx.away` the time away */
   act(st, type, p, ctx){
@@ -607,6 +660,7 @@ const Rules = {
       case 'room': r = this.room(st, p, ev); break;
       case 'season': r = this.season(st, p, ev); break;
       case 'puzzle': r = this.puzzle(st, p, ev); break;
+      case 'run': r = this.run(st, p, ev); break;
       default: r = { ok:false, why:'unknown' };
     }
     r.ev = ev;

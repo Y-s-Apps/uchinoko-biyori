@@ -325,6 +325,71 @@ console.log('パズル（2026-11-15）：ほうびは クリアしたかだけ�
   ok(a === b && a.length === 36 && !Puzzle.lines(Puzzle.start(sd).b).length && Puzzle.hasMove(Puzzle.start(sd).b), '同じ たねは 同じ盤・はじめは そろっていない・うごかせる手が ある');
 }
 
+console.log('うちのこラン（2026-11-22 P3）：ほうびは ゴールしたかだけ・1日3回・パズルとは べつ・日本時間の0時で もどる・コースごとの さいこう記録・はやすぎる タイムは 切る');
+{
+  const { RUN, PUZZLE } = g;
+  T = Date.UTC(2026, 10, 5, 3, 0);   /* 11-05 12:00 日本時間 */
+  const st = child(300);
+  ok(st.run && st.run.games === 0 && st.run.clears === 0 && JSON.stringify(st.run.best) === '{}' && Rules.runLeft(st) === 3, 'はじめは 0回・記録なし・ほうび のこり3', st.run);
+  ok(Object.keys(RUN.courses).join() === 'park,beach,forest' && RUN.perDay === 3 && RUN.love === 2 && RUN.mood === 5, 'コースは こうえん・うみべ・もり、ほうびは 1日3回・♥+2・ごきげん+5', RUN);
+  const love0 = st.stats.love;
+  st.stats.mood = 50; st.last = T;
+  const r1 = act(st, 'run', { course:'park', ms:36580, misses:2, rank:3 });
+  ok(r1.ok && r1.reward && r1.best && r1.prev === null && r1.ms === 36580 && r1.left === 2 && st.run.best.park === 36580 && st.run.games === 1 && st.run.clears === 0,
+     '1回め：ほうび・はじめての 記録（ミスが あれば ノーミスに 数えない）', { r1, run:st.run });
+  ok(Math.abs(st.stats.love - love0 - RUN.love) < 1e-9 && st.stats.mood === 55, `なかよし+${RUN.love}・ごきげん+${RUN.mood}`, st.stats);
+  ok(st.firsts.run && st.album.some(a => a.k === 'first' && a.ti === 'はじめての ラン' && a.ic === 'run')
+     && st.album.some(a => a.k === 'run:park' && a.ti === 'こうえんで さいこう きろく 36.58秒！' && a.su === 'ランで 3位で ゴールしたね'), 'アルバム：はじめての ラン・さいこう記録', st.album.slice(0, 3));
+  /* 順位・タイムでは ほうびは かわらない（5位でも・おそくても） */
+  const love1 = st.stats.love;
+  const r2 = act(st, 'run', { course:'park', ms:61200, misses:0, rank:5 });
+  ok(r2.ok && r2.reward && !r2.best && r2.prev === 36580 && st.run.best.park === 36580 && st.run.clears === 1 && Math.abs(st.stats.love - love1 - RUN.love) < 1e-9, '5位・おそい タイムでも ほうびは 同じ・記録は かわらない', { r2, run:st.run });
+  /* べつの コースは べつの 記録・同じ日の 同じ コースの 記録は アルバムに 1つ */
+  const r3 = act(st, 'run', { course:'beach', ms:40125, misses:0, rank:1 });
+  ok(r3.ok && r3.reward && r3.best && r3.left === 0 && st.run.best.beach === 40125 && st.run.best.park === 36580, '3回め：うみべは べつの 記録', { r3, run:st.run });
+  const love2 = st.stats.love;
+  const r4 = act(st, 'run', { course:'park', ms:35010, misses:0, rank:1 });
+  ok(r4.ok && !r4.reward && r4.best && r4.prev === 36580 && r4.left === 0 && st.run.best.park === 35010 && st.stats.love === love2 && st.run.n === 3 && st.run.games === 4,
+     '4回めは ほうびなし（あそべる）・記録は のびる', { r4, run:st.run });
+  ok(st.album.filter(a => a.k === 'run:park').length === 1 && st.album.find(a => a.k === 'run:park').ti === 'こうえんで さいこう きろく 35.01秒！' && st.album.find(a => a.k === 'run:park').su === 'ランで いちばんに ゴールしたね',
+     '同じ日の さいこう記録は コースごとに 1つ（新しい ほう）', st.album.filter(a => (a.k || '').indexOf('run') === 0).map(a => a.ti));
+  /* パズルとは べつに 数える */
+  ok(Rules.puzzleLeft(st) === PUZZLE.perDay && st.puzzle.n === 0, 'パズルの ほうびは のこり3の まま（べつべつ）', st.puzzle);
+  /* はやすぎる タイムは いちばん はやい タイムに 切る・こわれた 値は ことわる */
+  const r5 = act(st, 'run', { course:'forest', ms:1200, misses:0, rank:1 });
+  ok(r5.ok && r5.ms === RUN.courses.forest.min && st.run.best.forest === RUN.courses.forest.min, `はやすぎる タイム（1.2秒）は もりの いちばん はやい タイム（${RUN.courses.forest.min}ms）に 切る`, { r5, best:st.run.best });
+  const r6 = act(st, 'run', { course:'beach', ms:9e9 });
+  ok(r6.ok && r6.ms === RUN.maxMs && st.run.best.beach === 40125, 'とても おそい タイムは 1時間で 切る（記録は かわらない）', r6);
+  const g0 = st.run.games, s0 = JSON.stringify(st.run);
+  ok(act(st, 'run', { course:'moon', ms:40000 }).why === 'course' && act(st, 'run', { course:'constructor', ms:40000 }).why === 'course' && act(st, 'run', { ms:40000 }).why === 'course', '知らない コースは ことわる');
+  ok(act(st, 'run', { course:'park', ms:'abc' }).why === 'bad' && act(st, 'run', { course:'park', ms:-5 }).why === 'bad' && act(st, 'run', { course:'park' }).why === 'bad', 'タイムが 数で ない・0 より 小さいと ことわる');
+  ok(st.run.games === g0 && JSON.stringify(st.run) === s0, 'ことわった ときは なにも 書かない', st.run);
+  const r7 = act(st, 'run', { course:'park', ms:50000, reward:true, n:0, love:999, left:3 });
+  ok(r7.ok && !r7.reward && st.run.n === 3, '回数・ほうびを つけて おくっても つかわない', { r7, run:st.run });
+  /* 日本時間の 0時で ほうびの回数が もどる */
+  T = Date.UTC(2026, 10, 5, 14, 59);   /* 11-05 23:59 日本時間 */
+  ok(Rules.runLeft(st) === 0, '23:59：のこり 0');
+  T = Date.UTC(2026, 10, 5, 15, 0);    /* 11-06 0:00 日本時間 */
+  ok(Rules.runLeft(st) === 3, '0:00：のこり 3 に もどる');
+  const r8 = act(st, 'run', { course:'park', ms:36000, rank:2 });
+  ok(r8.ok && r8.reward && st.run.day === jst(T) && st.run.n === 1, 'つぎの日の 1回めは ほうびあり', { r8, run:st.run });
+  /* 引っこしコード・取りこみ（carryExtras）で 回数・記録・きょうの回数が のこる */
+  const code = s => { const b = Buffer.from(JSON.stringify(s)).toString('base64'); return 'UCHINOKO2:' + b.length + ':' + b; };
+  const moved = g.readMoveCode(code(st)).st;
+  ok(moved && JSON.stringify(moved.run) === JSON.stringify(st.run) && moved.firsts.run && moved.album.some(a => a.k === 'run:park'), '引っこしコードで 回数・コースごとの 記録・きょうの ほうびの回数が のこる', moved && moved.run);
+  const target = child(10);
+  g.carryExtras(JSON.parse(JSON.stringify(st)), target);
+  ok(JSON.stringify(target.run) === JSON.stringify(st.run) && target.firsts.run, '取りこみ（carryExtras）でも のこる', target.run);
+  /* こわれた きろく・前の セーブ */
+  const broken = ensureState(Object.assign(child(), { run:{ games:-5, clears:'x', n:99, day:'きのう', best:{ park:5, beach:'40000', forest:-1, moon:30000, constructor:1, __proto__:{ park:1 } } } }));
+  ok(broken.run.games === 0 && broken.run.clears === 0 && broken.run.n === 3 && broken.run.day === null && broken.run.best.park === RUN.courses.park.min && broken.run.best.beach === 40000
+     && !('forest' in broken.run.best) && !('moon' in broken.run.best) && Object.keys(broken.run.best).length === 2, 'こわれた きろくは ensureState が なおす（知らない コースは すてる）', broken.run);
+  const arr = ensureState(Object.assign(child(), { run:{ best:['park'] } }));
+  ok(JSON.stringify(arr.run.best) === '{}', '記録が 配列なら 空に', arr.run);
+  const old = child(); delete old.run; ensureState(old);
+  ok(old.run && old.run.games === 0 && old.run.n === 0 && JSON.stringify(old.run.best) === '{}', '前の セーブ（run なし）にも 既定値を 足す', old.run);
+}
+
 console.log('ホーム画面版：おたすけは1日おき（src/build.sh の HOME_RESCUE_EVERY で RESCUE_EVERY を置きかえる）');
 {
   const fs = await import('node:fs');

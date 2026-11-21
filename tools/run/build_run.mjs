@@ -1,4 +1,4 @@
-/* うちのこラン（仮）：src/run/ の ゲームと Three.js を 1つの ファイル src/run_bundle.js に まとめる（docs/RUN_DESIGN.md 5章）。
+/* うちのこラン：src/run/ の ゲームと Three.js を 1つの ファイル src/run_bundle.js に まとめる（docs/RUN_DESIGN.md 5章）。
  *
  *   node tools/run/build_run.mjs           # src/run_bundle.js を 作りなおす
  *   node tools/run/build_run.mjs --check   # 作りなおして いまの src/run_bundle.js と 同じか（ちがえば 終了コード 1）
@@ -21,7 +21,7 @@ if (!fs.existsSync(path.join(mod, 'esbuild')) || !fs.existsSync(path.join(mod, '
 }
 const esbuild = await import(pathToFileURL(path.join(mod, 'esbuild', 'lib', 'main.js')).href).then(m => m.default || m);
 const three = JSON.parse(fs.readFileSync(path.join(mod, 'three', 'package.json'), 'utf8')).version;
-const banner = `/* うちのこ日和：うちのこラン（仮）の ゲーム（src/run/）と Three.js ${three}（MIT。ライセンスの 表示は さいご）を まとめた もの。
+const banner = `/* うちのこ日和：うちのこランの ゲーム（src/run/）と Three.js ${three}（MIT。ライセンスの 表示は さいご）を まとめた もの。
  * tools/run/build_run.mjs が 作る。手で 直さない（docs/RUN_DESIGN.md）。 */`;
 
 const res = await esbuild.build({

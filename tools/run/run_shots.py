@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""うちのこラン（仮）：ホーム画面版で レースの「こうえん」を 走らせて、iPhone の はばの スクリーンショットと 走る GIF を とる（P2〜）。
+"""うちのこラン：ホーム画面版で レースの 3コース（こうえん・うみべ・もり）を 走らせて、iPhone の はばの スクリーンショットと 走る GIF を とる（P2〜・P3）。
 
 ビルドずみの ルート（sh src/build.sh）を 手元で 配信して ひらき（CSP の ランの ファイルの URL だけ 手元に かえる＝tools/smoke.py と 同じ）、
-「あそぶ」→「ラン」→ はしる → 3・2・1 → 走る（自動の 操作：まがりかどで スワイプ・ハードルで ジャンプ・おやつの レーンへ・20こで ダッシュ）
-→ ゴール を とおす。時計は Playwright の clock で とめておき、レースは ページの 中で 1/60秒ずつ すすめてから 1こまだけ 描く
+「あそぶ」→「ラン」→ コースを えらぶ → こうえん → はしる → 3・2・1 → 走る（自動の 操作：まがりかどで スワイプ・ハードル・りゅうぼく・まるたで ジャンプ・
+おやつの レーンへ・20こで ダッシュ）→ ゴール（ほうび・ベスト）→ つぎの コースへ（うみべ）→ … → もり → コースを えらぶ（3つの ベスト）を とおす。時計は Playwright の clock で とめておき、レースは ページの 中で 1/60秒ずつ すすめてから 1こまだけ 描く
 （ヘッドレスの 3D〈SwiftShader〉は おそいので、こまを とばさずに 走る ところを とる ため）。
 
-  python3 tools/run/run_shots.py                 # smoke-out/run/ に 画面と run-park.gif
+  python3 tools/run/run_shots.py                 # smoke-out/run/ に 画面と run-park.gif・run-beach.gif・run-forest.gif
   python3 tools/run/run_shots.py --dark          # ダークで
   python3 tools/run/run_shots.py --size 375x667  # 画面の 大きさ
   python3 tools/run/run_shots.py --cat           # ねこの 子（キジトラ）で
   python3 tools/run/run_shots.py --no-gif        # GIF なし（はやい）
+  python3 tools/run/run_shots.py --gifs beach    # GIF は うみべだけ
 
 ページの エラー・CSP の 違反が 1件でも あれば 終了コード 1。
 """
@@ -30,7 +31,7 @@ AUTO_JS = r'''(() => {
     if (cue && cue.active && !cue.armed && !off['turn' + cue.id]) { sim.input(cue.direction); return; }
     const reach = p.boost > 0 ? 5.6 : 3.7;
     const o = sim.layout.obstacles.find(o => o.s > p.s && o.s - p.s < 12 && Math.abs(p.x - o.lane * 2) < 1.1);
-    if (o && o.type === 'hurdle' && o.s - p.s < reach && p.jumpElapsed === null) { sim.input('jump'); return; }
+    if (o && o.type !== 'tunnel' && o.s - p.s < reach && p.jumpElapsed === null) { sim.input('jump'); return; }
     if (sim.gauge >= 20 && !(p.boost > 0) && !cue && !off.dash) { sim.input('dash'); return; }
     if (cue || o || sim.inTunnel(p) || p.jumpElapsed !== null) return;
     const t = sim.layout.treats.find(t => t.s > p.s + 2.5 && !sim.collected.has(t.id));
@@ -110,78 +111,127 @@ async def main(a):
         ok = False
         for _ in range(200):
             await tick(100)
-            if await page.evaluate('() => !!(RunUI.ctl && RunUI.ctl.frames > 1)'):
+            if await page.evaluate("() => !!document.querySelector('#runPage .run-sel .run-course')"):
                 ok = True
                 break
         if not ok:
-            errors.append('ランが はじまりません')
-        await tick(400)
-        await snap('ready')
-        await page.click('#runPage [data-run="help"]'); await tick(400)
-        await snap('help')
-        await page.click('#runPage [data-m="ok"]'); await tick(300)
+            errors.append('コースを えらぶ 画面が 出ません')
+        await tick(300)
+        await snap('select')
         await page.evaluate(AUTO_JS)
-        if a.wait_turn:
-            await page.evaluate("() => { window.__autoOff.turn0 = true; }")
-        await page.click('#runPage [data-m="go"]'); await tick(17)
-        await ff(1300)
-        await snap('countdown')
-        await ff(1900); await tick(120)
-        await snap('start')
+
+        async def started(course):
+            for _ in range(200):
+                await tick(100)
+                if await page.evaluate('c => !!(RunUI.ctl && RunUI.ctl.course === c && RunUI.ctl.frames > 1)', course):
+                    return True
+            errors.append(f'{course}が はじまりません')
+            return False
 
         async def run_to(s):
             r = await ff(200000, s)
             await tick(120)   # HUD（0.08秒ごと）
             return r
 
-        await run_to(84)
-        await snap('turn_cue')
-        if a.wait_turn:
-            await run_to(91)
-            await ff(600)
-            await tick(120)
-            await snap('turn_wait')
-            await page.evaluate("() => { delete window.__autoOff.turn0; }")
-        await run_to(150)
-        info = await page.evaluate('() => { const m = RunUI.ctl.sim; return { s: m.player.s, treats: m.treatCount, gauge: m.gauge, hits: m.player.hits, rank: m.rank }; }')
-        print('とちゅう：', info)
-        # ひとやすみ（アプリを はなれた まね）
-        await page.evaluate("() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); }")
-        await tick(300)
-        paused = await page.evaluate('() => RunUI.ctl.sim.status')
-        await page.evaluate("() => { delete document.hidden; }")
-        await snap('pause')
-        if paused != 'paused':
-            errors.append(f'アプリを はなれても とまりません（{paused}）')
-        s0 = await page.evaluate('() => RunUI.ctl.sim.player.s')
-        await tick(1500)
-        s1 = await page.evaluate('() => RunUI.ctl.sim.player.s')
-        if s1 != s0:
-            errors.append('ひとやすみ なのに すすんでいます')
-        await page.click('#runPage [data-m="resume"]'); await tick(17)
-        await run_to(a.tunnel_at)
-        await snap('tunnel')
-        dash = await page.evaluate('() => RunUI.ctl.sim.dashCount')
-        await run_to(9999)
-        await tick(600)
-        res = await page.evaluate('() => { const m = RunUI.ctl.sim; return m.result; }')
-        print('ゴール：', json.dumps(res, ensure_ascii=False) if res else None, 'ダッシュ', dash)
-        if not res:
-            errors.append('ゴール できません')
-        await snap('result')
+        results = {}
+
+        async def race(course, points, first=False):
+            """コースの スタートの 画面 → はしる → points（きょり, 名前）で 画面 → ゴール → ゴールの 画面"""
+            await started(course)
+            await tick(400)
+            await snap(course + '_ready')
+            if first:
+                await page.click('#runPage [data-run="help"]'); await tick(400)
+                await snap(course + '_help')
+                await page.click('#runPage [data-m="ok"]'); await tick(300)
+                if a.wait_turn:
+                    await page.evaluate("() => { window.__autoOff.turn0 = true; }")
+            await page.click('#runPage [data-m="go"]'); await tick(17)
+            await ff(1300)
+            if first:
+                await snap('countdown')
+            await ff(1900); await tick(120)
+            await snap(course + '_start')
+            for at, name in points:
+                if name == 'pause':
+                    info = await page.evaluate('() => { const m = RunUI.ctl.sim; return { s: m.player.s, treats: m.treatCount, gauge: m.gauge, hits: m.player.hits, rank: m.rank }; }')
+                    print(course, 'とちゅう：', info)
+                    # ひとやすみ（アプリを はなれた まね）
+                    await page.evaluate("() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); }")
+                    await tick(300)
+                    paused = await page.evaluate('() => RunUI.ctl.sim.status')
+                    await page.evaluate("() => { delete document.hidden; }")
+                    await snap(course + '_pause')
+                    if paused != 'paused':
+                        errors.append(f'アプリを はなれても とまりません（{paused}）')
+                    s0 = await page.evaluate('() => RunUI.ctl.sim.player.s')
+                    await tick(1500)
+                    s1 = await page.evaluate('() => RunUI.ctl.sim.player.s')
+                    if s1 != s0:
+                        errors.append('ひとやすみ なのに すすんでいます')
+                    await page.click('#runPage [data-m="resume"]'); await tick(17)
+                    continue
+                await run_to(at)
+                await snap(course + '_' + name)
+                if name == 'turn_cue' and a.wait_turn and first:
+                    await run_to(91)
+                    await ff(600)
+                    await tick(120)
+                    await snap('turn_wait')
+                    await page.evaluate("() => { delete window.__autoOff.turn0; }")
+            dash = await page.evaluate('() => RunUI.ctl.sim.dashCount')
+            await run_to(9999)
+            await tick(600)
+            res = await page.evaluate('() => { const m = RunUI.ctl.sim; return m.result; }')
+            rec = await page.evaluate("() => { const r = document.querySelector('#runPage .run-rec'); return r ? r.textContent.replace(/\\s+/g, ' ').trim() : ''; }")
+            print(course, 'ゴール：', json.dumps({k: v for k, v in (res or {}).items() if k != 'standings'}, ensure_ascii=False) if res else None, 'ダッシュ', dash, '／', rec)
+            if not res:
+                errors.append(f'{course}：ゴール できません')
+            if not rec or 'きろく できなかった' in rec:
+                errors.append(f'{course}：ほうびと きろくが 出ません（{rec}）')
+            results[course] = res
+            await snap(course + '_result')
+            # レベルアップの ポップアップが 出ていたら とじる（ランの ページの 上に 出る）
+            for _ in range(4):
+                b = await page.query_selector('.levelup .btn.primary')
+                if not b:
+                    break
+                await b.click(); await tick(700)
+
+        await page.click('#runPage [data-course="park"]')
+        await race('park', [(84, 'turn_cue'), (150, 'pause'), (a.tunnel_at, 'tunnel')], first=True)
         await page.evaluate("() => { const d = document.querySelector('#runPage details'); if (d) d.open = true; }")
         await tick(200)
-        await snap('result_order')
-        await page.click('#runPage [data-m="exit"]'); await tick(800)
+        await snap('park_result_order')
+        await page.evaluate("() => { const d = document.querySelector('#runPage details'); if (d) d.open = false; }")
+        await page.click('#runPage [data-m="next"]')
+        await race('beach', [(30, 'log'), (128, 'sand'), (176, 'turn_cue')])
+        await page.click('#runPage [data-m="next"]')
+        await race('forest', [(28, 'log'), (100, 'log2'), (138, 'turn_cue')])
+        nxt = await page.evaluate("() => !!document.querySelector('#runPage [data-m=\"next\"]')")
+        if nxt:
+            errors.append('もりの あとに「つぎの コースへ」が あります')
+        await page.click('#runPage [data-m="select"]'); await tick(500)
+        await snap('select_best')
+        best = await page.evaluate("() => ({ best: [...document.querySelectorAll('#runPage .run-cb')].map(e => e.textContent.replace(/\\s+/g, ' ').trim()), run: S.run, canvas: document.querySelectorAll('canvas').length })")
+        print('コースを えらぶ（あと）：', best)
+        if not (all(b.startswith('ベスト') for b in best['best']) and best['run']['games'] == 3 and best['run']['n'] == 3 and best['canvas'] == 0):
+            errors.append(f'3コースの ベスト・ほうびの 回数が ちがいます：{best}')
+        await page.click('#runPage [data-s="x"]'); await tick(800)
         left = await page.evaluate("() => ({ page: !!document.querySelector('#runPage'), canvas: document.querySelectorAll('canvas').length, inert: !!document.querySelector('#app').inert, say: document.querySelector('#bubble').textContent })")
         print('とじた あと：', left)
         if left['page'] or left['canvas'] or left['inert']:
             errors.append(f'とじても のこっています：{left}')
         await snap('after')
-        # GIF：はじめの まがりかどの 前から あと（と ハードル）まで。15こ／秒。こまかさ 1 の べつの 画面で、時計を ほんとうに すすめて とる
-        # （ひとことの 1.3秒・カメラの うごきも ほんとうと 同じ）
-        frames = []
-        if not a.no_gif:
+        await page.click('#albumBtn'); await tick(600)
+        await page.wait_for_timeout(400)
+        await snap('album')
+        # GIF：コースごとに、はじめの 障害物・まがりかどの あたり。15こ／秒。こまかさ 1 の べつの 画面で、時計を ほんとうに すすめて とる
+        # （カメラの うごきも ほんとうと 同じ）
+        gifs = {}
+        gif_from = {'park': a.gif_from, 'beach': 26, 'forest': 24}
+        for course in ([] if a.no_gif else [c for c in a.gifs.split(',') if c in gif_from]):
+            frames = []
             g = await browser.new_context(viewport={'width': vw, 'height': vh}, device_scale_factor=1, is_mobile=True, has_touch=True,
                                           timezone_id='Asia/Tokyo', locale='ja-JP', color_scheme='dark' if a.dark else 'light', service_workers='block')
             gp = await g.new_page()
@@ -197,20 +247,26 @@ async def main(a):
             await gp.evaluate("() => { document.querySelectorAll('.levelup').forEach(e => e.remove()); Modal.q = []; Modal.busy = false; RunUI.open(); }")
             for _ in range(200):
                 await gp.clock.run_for(100)
+                if await gp.evaluate('() => !!RunUI.R'):
+                    break
+            await gp.evaluate('c => RunUI.start(c)', course)
+            for _ in range(200):
+                await gp.clock.run_for(100)
                 if await gp.evaluate('() => !!(RunUI.ctl && RunUI.ctl.frames > 1)'):
                     break
             await gp.evaluate(AUTO_JS)
             await gp.click('#runPage [data-m="go"]')
             await gp.clock.run_for(17)
-            await gp.evaluate('until => window.__ff(200000, until)', a.gif_from)
-            await gp.clock.run_for(1400)   # ひとこと（1.3秒）が きえて、HUD が いまの 数に なるまで
+            await gp.evaluate('until => window.__ff(200000, until)', gif_from[course])
+            await gp.clock.run_for(400)    # HUD が いまの 数に なるまで
             for _ in range(int(a.gif_seconds * 15)):
                 await gp.clock.run_for(66)
                 frames.append(await gp.screenshot(type='png'))
             await g.close()
+            gifs[course] = frames
         await browser.close()
     httpd.shutdown()
-    if frames:
+    for course, frames in gifs.items():
         from PIL import Image
         imgs = []
         for buf in frames:
@@ -218,7 +274,7 @@ async def main(a):
             w = 360
             imgs.append(im.resize((w, round(im.height * w / im.width)), Image.LANCZOS))
         pal = [im.quantize(colors=200, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE) for im in imgs]
-        gif = os.path.join(out, 'run-park.gif')
+        gif = os.path.join(out, f'run-{course}.gif')
         pal[0].save(gif, save_all=True, append_images=pal[1:], duration=66, loop=0, optimize=True)
         shots.append(gif)
     print('screenshots:')
@@ -240,7 +296,8 @@ if __name__ == '__main__':
     ap.add_argument('--size', default='390x844')
     ap.add_argument('--no-gif', action='store_true')
     ap.add_argument('--gif-seconds', type=float, default=5)
-    ap.add_argument('--gif-from', type=float, default=46, help='GIF を はじめる ところ（スタートからの きょり）')
+    ap.add_argument('--gifs', default='park,beach,forest', help='GIF を とる コース（,で）')
+    ap.add_argument('--gif-from', type=float, default=46, help='こうえんの GIF を はじめる ところ（スタートからの きょり）')
     ap.add_argument('--tunnel-at', type=float, default=314, help='トンネルの 画面を とる ところ')
     ap.add_argument('--wait-turn', action='store_true', help='はじめの まがりかどで わざと スワイプしない（「ストップ！」の 画面）')
     raise SystemExit(asyncio.run(main(ap.parse_args())))

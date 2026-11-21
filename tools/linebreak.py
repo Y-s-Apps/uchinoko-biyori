@@ -144,16 +144,32 @@ def toast_texts():
     return out
 
 
-# うちのこラン（仮）（ホーム画面版だけ）：ゲームを ひらいて 1こま 描くまで まつ・自動で ゴールまで（描かずに ルールだけ すすめる。fast は ジャンプと ダッシュも＝1位）
-RUN_OPEN = "RunUI.open(); for (let i = 0; i < 400 && !(RunUI.ctl && RunUI.ctl.frames > 0); i++) await new Promise(r => setTimeout(r, 100)); "
-RUN_GO = RUN_OPEN + "document.querySelector('#runPage [data-m=\"go\"]').click(); const sim = RunUI.ctl.sim; for (let i = 0; i < 200 && sim.status === 'countdown'; i++) sim.step(1 / 60); sim.drainEvents(); "
-RUN_FINISH = RUN_GO + """const fast = %s; for (let g = 0; g < 30000 && sim.status === 'running'; g++){
+# うちのこラン（ホーム画面版だけ）：ひらいて コースを えらぶ 画面まで まつ・コースの スタート（1こま 描くまで）・自動で ゴールまで
+# （描かずに ルールだけ すすめる。fast は ジャンプと ダッシュも＝1位）。pre は ゴールの 前に セーブを かえる JS（ベスト・きょうの 回数）
+RUN_SEL = "RunUI.open(); for (let i = 0; i < 400 && !document.querySelector('#runPage .run-sel'); i++) await new Promise(r => setTimeout(r, 100)); "
+RUN_FRESH = "S.run = { games:0, clears:0, n:0, day:null, best:{} }; "
+
+
+def run_open(c='park'):
+    return RUN_SEL + "RunUI.start('%s'); for (let i = 0; i < 400 && !(RunUI.ctl && RunUI.ctl.frames > 0); i++) await new Promise(r => setTimeout(r, 100)); " % c
+
+
+def run_go(c='park'):
+    return run_open(c) + "document.querySelector('#runPage [data-m=\"go\"]').click(); const sim = RunUI.ctl.sim; for (let i = 0; i < 200 && sim.status === 'countdown'; i++) sim.step(1 / 60); sim.drainEvents(); "
+
+
+def run_finish(fast, c='park', pre=''):
+    return RUN_FRESH + pre + run_go(c) + """const fast = %s; for (let g = 0; g < 30000 && sim.status === 'running'; g++){
   const p = sim.player, c = sim.turnCue;
   if (c && c.active && !c.armed) sim.input(c.direction);
   else if (fast){ const o = sim.layout.obstacles.find(o => o.s > p.s && o.s - p.s < (p.boost > 0 ? 5.6 : 3.7) && Math.abs(p.x - o.lane * 2) < 1.1);
-    if (o && o.type === 'hurdle' && p.jumpElapsed === null) sim.input('jump'); else if (sim.gauge >= 20 && !(p.boost > 0) && !c) sim.input('dash'); }
+    if (o && o.type !== 'tunnel' && p.jumpElapsed === null) sim.input('jump'); else if (sim.gauge >= 20 && !(p.boost > 0) && !c) sim.input('dash'); }
   sim.step(1 / 60); }
-await new Promise(r => setTimeout(r, 400)); """
+await new Promise(r => setTimeout(r, 400)); """ % ('true' if fast else 'false')
+
+
+RUN_OPEN = run_open()
+RUN_GO = run_go()
 
 
 def scenes(line, run=False):
@@ -211,18 +227,33 @@ def scenes(line, run=False):
         add('puzzle_say_%02d' % i, "PuzzleUI.open(); await new Promise(r => setTimeout(r, 200)); PuzzleUI.say(%s)" % json.dumps(t, ensure_ascii=False), '#pzPage', 250)
         add('puzzle_low_say_%02d' % i, low + "PuzzleUI.open(); await new Promise(r => setTimeout(r, 200)); PuzzleUI.say(%s)" % json.dumps(t, ensure_ascii=False), '#pzPage', 250)
     if run:
-        # うちのこラン（仮）（2026-11-21 P2。ホーム画面版だけ）：えらぶ（WebGL なしも）・スタート・あそびかた・ひとやすみ・ゴール（1位・ほか・じゅんいを ひらく）・
-        # じゅんび・よみこめない・3D が ひらけない・とまった・まがりかどの 合図（まんなかの ひとことは 出さない＝2026-11-22）
+        # うちのこラン（2026-11-21 P2・2026-11-22 P3。ホーム画面版だけ）：えらぶ（WebGL なしも）・コースを えらぶ 画面（ベスト・ほうびの のこり・あそびかた）・
+        # スタート（3コース・ベスト）・あそびかた（コースごと）・ひとやすみ・ゴール（1位・ほか・じゅんいを ひらく・はじめての きろく・ベスト こうしん・
+        # ベストまで・ほうびは おわり・さいごの コース）・じゅんび・よみこめない・3D が ひらけない・とまった・まがりかどの 合図（まんなかの ひとことは 出さない）
         add('play_pick_nogl', "RunUI.gl = false; openPlay()", '#sheet')
-        add('run_ready', RUN_OPEN, '#runPage', 600)
+        add('play_pick_run_over', "S.run.n = 3; S.run.day = Clock.dayKey(); openPlay()", '#sheet')
+        add('run_select', RUN_FRESH + RUN_SEL, '#runPage', 500)
+        add('run_select_best', "S.run = { games:5, clears:2, n:3, day:Clock.dayKey(), best:{ park:36580, beach:41230 } }; " + RUN_SEL, '#runPage', 500)
+        add('run_select_help', RUN_SEL + "document.querySelector('#runPage [data-s=\"help\"]').click()", '#runPage', 500)
+        add('run_ready', RUN_FRESH + RUN_OPEN, '#runPage', 600)
+        add('run_ready_best', "S.run.best = { park:36580 }; " + RUN_OPEN, '#runPage', 600)
+        add('run_ready_beach', run_open('beach'), '#runPage', 600)
+        add('run_ready_forest', run_open('forest'), '#runPage', 600)
         add('run_help', RUN_OPEN + "document.querySelector('#runPage [data-run=\"help\"]').click()", '#runPage', 600)
+        add('run_help_beach', run_open('beach') + "document.querySelector('#runPage [data-run=\"help\"]').click()", '#runPage', 600)
+        add('run_help_forest', run_open('forest') + "document.querySelector('#runPage [data-run=\"help\"]').click()", '#runPage', 600)
         add('run_pause', RUN_GO + "RunUI.ctl.pause()", '#runPage', 600)
-        add('run_result_first', RUN_FINISH % 'true', '#runPage', 600)
-        add('run_result_slow', RUN_FINISH % 'false', '#runPage', 600)
-        add('run_result_order', RUN_FINISH % 'false' + "document.querySelector('#runPage details').open = true", '#runPage', 600)
+        add('run_result_first', run_finish(True), '#runPage', 600)
+        add('run_result_slow', run_finish(False, pre='S.run.best.park = 30000; '), '#runPage', 600)
+        add('run_result_faster', run_finish(True, pre='S.run.best.park = 99000; '), '#runPage', 600)
+        add('run_result_over', run_finish(False, pre='S.run.n = 3; S.run.day = Clock.dayKey(); S.run.best.park = 30000; '), '#runPage', 600)
+        add('run_result_order', run_finish(False) + "document.querySelector('#runPage details').open = true", '#runPage', 600)
+        add('run_result_beach', run_finish(True, 'beach'), '#runPage', 600)
+        add('run_result_forest', run_finish(False, 'forest'), '#runPage', 600)
+        add('run_result_norec', "const AR = Act.run; Act.run = () => Promise.resolve({ ok:false, why:'bad' }); " + run_finish(True) + "Act.run = AR; ", '#runPage', 600)
         add('run_wait', "const L = RunUI.load; RunUI.load = () => new Promise(() => {}); RunUI.open(); RunUI.load = L", '#runPage', 400)
         add('run_loadfail', "const L = RunUI.load; RunUI.load = () => Promise.reject(new Error('t')); RunUI.open(); RunUI.load = L", '#runPage', 500)
-        add('run_glfail', "const L = RunUI.load; RunUI.load = () => Promise.resolve({ mountRace(){ throw new Error('gl'); } }); RunUI.open(); RunUI.load = L", '#runPage', 500)
+        add('run_glfail', RUN_SEL + "const M = RunUI.R.mountRace; RunUI.R.mountRace = () => { throw new Error('gl'); }; RunUI.start('park'); RunUI.R.mountRace = M", '#runPage', 500)
         add('run_lost', RUN_GO + "document.querySelector('#runPage canvas').dispatchEvent(new Event('webglcontextlost', { cancelable:true }))", '#runPage', 600)
         for nm, at, arm in [('ahead', 60, ''), ('swipe', 72, ''), ('ok', 75, "sim.input('right'); "), ('wait', 400, '')]:
             # はじめの まがりかど（90）の 合図：この さき・スワイプ・OK・とまって まつ（wait は スワイプしない）。走った まま うちのこの 足だけ とめる

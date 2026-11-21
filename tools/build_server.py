@@ -30,7 +30,7 @@ PICK = {
     'js_onboard.js': ['buildPrompt', 'parseAI'],
 }
 EXPORTS = ['cleanText', 'ensureState', 'carryExtras', 'readMoveCode', 'safePhoto', 'levelInfo', 'normalizeLook', 'dayKey', 'MOVE_MAX',
-           'Rules', 'Clock', 'newState', 'wearFrom', 'buildPrompt', 'parseAI', 'Puzzle', 'PUZZLE']
+           'Rules', 'Clock', 'newState', 'wearFrom', 'buildPrompt', 'parseAI', 'Puzzle', 'PUZZLE', 'RUN']
 
 DAYKEY_JST = '''/* サーバーの時計：日付は日本時間（UTC+9。夏時間はない）、偶然は crypto */
 Clock.dayKey = function(t){

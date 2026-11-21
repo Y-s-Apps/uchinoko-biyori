@@ -839,6 +839,19 @@ console.log('puzzle (2026-11-15：パズル。たねと 手順だけ うけと�
   ok(pl.data.ok && m2.data.ok && m2.data.why !== 'busy', 'right after a play → not busy (the puzzle is not a care action)', m2.data);
 }
 
+console.log('run (2026-11-22 P3：うちのこランは ホーム画面版だけ。LINE版に 出す P6 まで サーバーは うけつけない)');
+{
+  const rn = await joiner('runner');
+  const sv0 = (await call('GET', '/save', undefined, rn.token)).data.save;
+  ok(sv0.data.run && sv0.data.run.games === 0 && sv0.data.run.n === 0 && JSON.stringify(sv0.data.run.best) === '{}', 'a new child has the run record (ensureState)', sv0.data.run);
+  for (const type of ['run', 'runStart']){
+    const x = await call('POST', '/act', { type, course:'park', ms:36580, misses:0, rank:1, rid:'rid-run-' + type }, rn.token);
+    ok(x.status === 400 && x.data.error === 'badtype', `/act ${type} → 400 badtype (not yet on LINE)`, x);
+  }
+  const sv1 = (await call('GET', '/save', undefined, rn.token)).data.save;
+  ok(sv1.rev === sv0.rev && sv1.data.run.games === 0 && sv1.data.stats.love === sv0.data.stats.love, 'nothing written', { rev0:sv0.rev, rev1:sv1.rev, run:sv1.data.run });
+}
+
 console.log('rate (1-5：会員ごとの 回数の制限)');
 const tom = await joiner('tom');
 Deno.env.set('ACT_PER_WINDOW', '5');

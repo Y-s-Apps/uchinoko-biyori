@@ -34,6 +34,8 @@
  * - パズル（2026-11-15）も ここで決める：画面から うけとるのは たね（seed）と 手順（moves）だけで、Rules が 再生して
  *   クリアと 点数を決め、ほうびの 1日3回も セーブ（puzzle.day・puzzle.n）で 数える。点数や 回数は 画面から うけとらない。
  * - おせわ（ごはん・おやつ・あそぶ・げい）は、前のおせわから 2.5 秒あける（画面の動きより短い。パズルは 数えない）。
+ * - うちのこラン（2026-11-22 P3。ホーム画面版だけ）の ルール（Rules.act 'run'）は game.js に 入っているが、LINE版に 出す（P6）まで
+ *   /act は 'run' を うけつけない（NOT_YET。400 badtype）。P6 で 走りだしの 時刻（runStart）と いっしょに あける（docs/RUN_DESIGN.md 6章）。
  * - IDトークンは https://api.line.me/oauth2/v2.1/verify で検証し、sub だけを使う（プロフィールの値は使わない）。
  *   LINEミニアプリチャネルの中の 開発用・審査用・本番用（内部チャネル）は チャネルIDが べつなので、3つとも通す（LINE_CHANNEL_IDS）。
  *   sub はプロバイダーごとなので、どの内部チャネルから ひらいても 同じ会員になる。
@@ -108,6 +110,8 @@ const CARD_B64_MAX = Math.ceil(CARD_MAX / 3) * 4;
 const CARD_SIDE = { min:240, max:1024 } as const;   /* 画像の たて・よこ（px）。LINE の Flex Message の画像は 1024px まで */
 const BODY_MAX = { login:8_000, save:8_000, act:8_000, import:MOVE_MAX + 2_000, read:IMAGE_MAX + 2_000, leave:8_000, card:CARD_B64_MAX + 2_000, notify:2_000 } as const;
 const CARE = new Set(['feed', 'treat', 'play', 'trick']);
+/* まだ LINE版に 出していない あそび（ルールは game.js に あるが、うけつけない）。うちのこランは P6 で あける */
+const NOT_YET = new Set(['run', 'runStart']);
 const CARE_GAP_MS = 2_500;
 const STROKE_MAX = 12;
 /* 長く ひらかない人：最後に ひらいて（ログインして）から この日数で、会員ごと ぜんぶ消す（プライバシーポリシーの「2年」）。
@@ -444,6 +448,7 @@ async function act(req: Request, member: string) {
   const type = String(body.type || '');
   const rid = ridOf(body);
   if (type === 'adopt') return await adopt(member, cleanPet(body.pet), rid);
+  if (NOT_YET.has(type)) throw new HttpError(400, 'badtype');
   return await sql.begin(async tx => {
     const [sv] = await tx<SaveRow[]>`select data, rev::int as rev, updated_at from app.saves where member_id = ${member} for update`;
     if (!sv) throw new HttpError(409, 'nosave');

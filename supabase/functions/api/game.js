@@ -845,6 +845,21 @@ const Puzzle = {
   },
 };
 
+/* ----- うちのこラン（3D の レース。2026-11-22 P3。docs/RUN_DESIGN.md 6章） -----
+   ゲームは 画面の 中（src/run/）で 自動で 前に すすみ、さいごまで 走れば かならず ゴールする。ここに くるのは ゴールした ときだけ
+   （コース・タイム〈ミリ秒〉・ミスの 数・順位）。ほうびは ゴールしたか だけで（順位・タイムでは かえない）、1日 perDay 回まで・パズルとは べつ。
+   min は そのコースの いちばん はやい タイム（ずっと ダッシュで 走った ときの シミュレーション＝tools/run/run_min.mjs が 確かめる）。
+   これより はやい タイムは ありえないので、さいこう記録は min に 切る（ランキングは 作らない。自分の 記録だけ）。 */
+const RUN = {
+  perDay:3, love:2, mood:5, maxMs:3600e3,
+  courses:{
+    park:{ mode:'race', ja:'こうえん', min:29620 },
+    beach:{ mode:'race', ja:'うみべ', min:29130 },
+    forest:{ mode:'race', ja:'もり', min:31480 },
+  },
+};
+const runSec = ms => (Math.round(ms / 10) / 100).toFixed(2) + '秒';
+
 const Rules = {
   /* おなか・ごきげんは、前に計算した時刻（last）からの時間で減る */
   decay(st, t = now()){
@@ -1260,6 +1275,44 @@ const Rules = {
     this.first(st, 'puzzle', 'はじめての パズル', `${st.pet.name}と おやつならべで あそんだね`, 'puzzle');
     return { ok:true, clear:g.clear, score:g.score, got:g.got, best, reward, left:PUZZLE.perDay - z.n };
   },
+  /* うちのこラン：ゴールした ときだけ くる（とちゅうで やめたら なにも 書かない）。うけとるのは コース・タイム（ms）・ミスの 数・順位だけ。
+     ほうび（ごきげん・なかよし）は ゴールしたか だけで、1日 RUN.perDay 回まで（パズルとは べつに 数える）。
+     タイムは そのコースの いちばん はやい タイム（RUN.courses[c].min）より はやければ そこに 切る。コースごとの さいこう記録は アルバムに（1日1つ） */
+  runLeft(st){ const z = st.run; return !z || z.day !== dayKey() ? RUN.perDay : Math.max(0, RUN.perDay - z.n); },
+  run(st, p, ev){
+    const c = typeof p.course === 'string' && hasId(RUN.courses, p.course) ? p.course : null;
+    if (!c) return { ok:false, why:'course' };
+    const C = RUN.courses[c];
+    let ms = Number(p.ms);
+    if (!Number.isFinite(ms) || ms <= 0) return { ok:false, why:'bad' };
+    ms = Math.round(clamp(ms, C.min, RUN.maxMs));
+    const misses = Math.floor(clamp(Number(p.misses) || 0, 0, 999));
+    const rank = Math.floor(Number(p.rank));
+    const z = st.run || (st.run = { games:0, clears:0, n:0, day:null, best:{} });
+    if (!z.best || typeof z.best !== 'object' || Array.isArray(z.best)) z.best = {};
+    this.decay(st);
+    const day = dayKey();
+    if (z.day !== day){ z.day = day; z.n = 0; }
+    z.games++;
+    if (!misses) z.clears++;
+    let reward = false;
+    if (z.n < RUN.perDay){
+      z.n++;
+      reward = true;
+      st.stats.mood = clamp(st.stats.mood + RUN.mood, 0, 100);
+      this.gainLove(st, RUN.love, ev);
+    }
+    const prev = hasId(z.best, c) && Number.isFinite(z.best[c]) ? z.best[c] : null;
+    const best = prev === null || ms < prev;
+    if (best){
+      z.best[c] = ms;
+      st.album = st.album.filter(a => !(a.k === 'run:' + c && dayKey(a.t) === day));
+      this.addAlbum(st, 'run:' + c, `${C.ja}で さいこう きろく ${runSec(ms)}！`,
+        rank >= 1 && rank <= 5 ? (rank === 1 ? 'ランで いちばんに ゴールしたね' : `ランで ${rank}位で ゴールしたね`) : 'ランで さいごまで はしったね', 'run');
+    }
+    this.first(st, 'run', 'はじめての ラン', `${st.pet.name}と ${C.ja}を はしったね`, 'run');
+    return { ok:true, course:c, ms, prev, best, reward, left:RUN.perDay - z.n };
+  },
 
   /* one entry for every action, here and on the server. `ctx.budget` is the stroke budget, `ctx.away` the time away */
   act(st, type, p, ctx){
@@ -1283,6 +1336,7 @@ const Rules = {
       case 'room': r = this.room(st, p, ev); break;
       case 'season': r = this.season(st, p, ev); break;
       case 'puzzle': r = this.puzzle(st, p, ev); break;
+      case 'run': r = this.run(st, p, ev); break;
       default: r = { ok:false, why:'unknown' };
     }
     r.ev = ev;
@@ -1426,17 +1480,29 @@ function ensureState(st){
   z.best = Math.floor(num(z.best, 0, 0, PUZZLE.bestMax));
   z.n = Math.floor(num(z.n, 0, 0, PUZZLE.perDay));
   z.day = isDayKey(z.day) ? z.day : null;
+  /* うちのこラン（2026-11-22 P3）：ゴールした回数・ノーミスで ゴールした回数・きょうの ほうびの回数と その日・コースごとの さいこう記録（ミリ秒）。
+     知らない コースの 記録は すてる。記録は そのコースの いちばん はやい タイム（RUN.courses[c].min）から RUN.maxMs まで */
+  const rn = st.run = obj(st.run) ? st.run : {};
+  for (const k of ['games','clears']) rn[k] = Math.floor(num(rn[k], 0, 0, 1e9));
+  rn.n = Math.floor(num(rn.n, 0, 0, RUN.perDay));
+  rn.day = isDayKey(rn.day) ? rn.day : null;
+  const rb = obj(rn.best) ? rn.best : {};
+  rn.best = {};
+  for (const c of Object.keys(RUN.courses)){
+    const v = hasId(rb, c) ? Number(rb[c]) : NaN;
+    if (Number.isFinite(v) && v > 0) rn.best[c] = Math.round(clamp(v, RUN.courses[c].min, RUN.maxMs));
+  }
   return st;
 }
 function carryExtras(o, st){
   const src = ensureState(JSON.parse(JSON.stringify({
     room:o.room, tricks:o.tricks, daily:null, stamps:o.stamps, streak:o.streak, souv:o.souv, events:o.events, rescued:o.rescued,
-    album:o.album, milestones:o.milestones, firsts:o.firsts, counts:st.counts, pet:st.pet, puzzle:o.puzzle,
+    album:o.album, milestones:o.milestones, firsts:o.firsts, counts:st.counts, pet:st.pet, puzzle:o.puzzle, run:o.run,
   })));
   const tricks = {}, trickIds = new Set(Object.values(TRICKS).flat().map(t => t.id));
   for (const [k, v] of Object.entries(src.tricks)) if (trickIds.has(k) && v && typeof v === 'object') tricks[k] = { p:clamp(Number(v.p) || 0, 0, 99), ok:!!v.ok };
   const firsts = { _init:true, wear:{} };
-  for (const k of ['meal','treat','play','pet','room','daily','puzzle']) firsts[k] = !!src.firsts[k];
+  for (const k of ['meal','treat','play','pet','room','daily','puzzle','run']) firsts[k] = !!src.firsts[k];
   for (const k of Object.keys(src.firsts.wear)) if (hasId(WEAR_BY_ID, k) || hasId(WEAR_RENAMED, k)) firsts.wear[k] = true;
   const have = {};
   for (const [k, v] of Object.entries(src.souv.have)) if (hasId(SOUV_BY_ID, k)) have[k] = clamp(Number(v) || 0, 0, 1e6);
@@ -1454,6 +1520,8 @@ function carryExtras(o, st){
   st.firsts = firsts;
   /* パズル：さいこう点・回数と、きょうの ほうびの回数（日が ちがえば ルールが 0から 数えなおす） */
   st.puzzle = { games:src.puzzle.games, clears:src.puzzle.clears, best:src.puzzle.best, n:src.puzzle.n, day:src.puzzle.day };
+  /* うちのこラン：回数・コースごとの さいこう記録と、きょうの ほうびの回数（2026-11-22 P3） */
+  st.run = { games:src.run.games, clears:src.run.clears, n:src.run.n, day:src.run.day, best:Object.assign({}, src.run.best) };
   return ensureState(st);
 }
 
@@ -1507,4 +1575,4 @@ Clock.dayKey = function(t){
 Clock.rand = () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
 
 
-export { cleanText, ensureState, carryExtras, readMoveCode, safePhoto, levelInfo, normalizeLook, dayKey, MOVE_MAX, Rules, Clock, newState, wearFrom, buildPrompt, parseAI, Puzzle, PUZZLE };
+export { cleanText, ensureState, carryExtras, readMoveCode, safePhoto, levelInfo, normalizeLook, dayKey, MOVE_MAX, Rules, Clock, newState, wearFrom, buildPrompt, parseAI, Puzzle, PUZZLE, RUN };

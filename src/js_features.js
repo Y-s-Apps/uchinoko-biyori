@@ -100,18 +100,30 @@ function ensureState(st){
   z.best = Math.floor(num(z.best, 0, 0, PUZZLE.bestMax));
   z.n = Math.floor(num(z.n, 0, 0, PUZZLE.perDay));
   z.day = isDayKey(z.day) ? z.day : null;
+  /* うちのこラン（2026-11-22 P3）：ゴールした回数・ノーミスで ゴールした回数・きょうの ほうびの回数と その日・コースごとの さいこう記録（ミリ秒）。
+     知らない コースの 記録は すてる。記録は そのコースの いちばん はやい タイム（RUN.courses[c].min）から RUN.maxMs まで */
+  const rn = st.run = obj(st.run) ? st.run : {};
+  for (const k of ['games','clears']) rn[k] = Math.floor(num(rn[k], 0, 0, 1e9));
+  rn.n = Math.floor(num(rn.n, 0, 0, RUN.perDay));
+  rn.day = isDayKey(rn.day) ? rn.day : null;
+  const rb = obj(rn.best) ? rn.best : {};
+  rn.best = {};
+  for (const c of Object.keys(RUN.courses)){
+    const v = hasId(rb, c) ? Number(rb[c]) : NaN;
+    if (Number.isFinite(v) && v > 0) rn.best[c] = Math.round(clamp(v, RUN.courses[c].min, RUN.maxMs));
+  }
   return st;
 }
 /* the subset of a move code that is safe to carry over */
 function carryExtras(o, st){
   const src = ensureState(JSON.parse(JSON.stringify({
     room:o.room, tricks:o.tricks, daily:null, stamps:o.stamps, streak:o.streak, souv:o.souv, events:o.events, rescued:o.rescued,
-    album:o.album, milestones:o.milestones, firsts:o.firsts, counts:st.counts, pet:st.pet, puzzle:o.puzzle,
+    album:o.album, milestones:o.milestones, firsts:o.firsts, counts:st.counts, pet:st.pet, puzzle:o.puzzle, run:o.run,
   })));
   const tricks = {}, trickIds = new Set(Object.values(TRICKS).flat().map(t => t.id));
   for (const [k, v] of Object.entries(src.tricks)) if (trickIds.has(k) && v && typeof v === 'object') tricks[k] = { p:clamp(Number(v.p) || 0, 0, 99), ok:!!v.ok };
   const firsts = { _init:true, wear:{} };
-  for (const k of ['meal','treat','play','pet','room','daily','puzzle']) firsts[k] = !!src.firsts[k];
+  for (const k of ['meal','treat','play','pet','room','daily','puzzle','run']) firsts[k] = !!src.firsts[k];
   for (const k of Object.keys(src.firsts.wear)) if (hasId(WEAR_BY_ID, k) || hasId(WEAR_RENAMED, k)) firsts.wear[k] = true;
   const have = {};
   for (const [k, v] of Object.entries(src.souv.have)) if (hasId(SOUV_BY_ID, k)) have[k] = clamp(Number(v) || 0, 0, 1e6);
@@ -129,6 +141,8 @@ function carryExtras(o, st){
   st.firsts = firsts;
   /* パズル：さいこう点・回数と、きょうの ほうびの回数（日が ちがえば ルールが 0から 数えなおす） */
   st.puzzle = { games:src.puzzle.games, clears:src.puzzle.clears, best:src.puzzle.best, n:src.puzzle.n, day:src.puzzle.day };
+  /* うちのこラン：回数・コースごとの さいこう記録と、きょうの ほうびの回数（2026-11-22 P3） */
+  st.run = { games:src.run.games, clears:src.run.clears, n:src.run.n, day:src.run.day, best:Object.assign({}, src.run.best) };
   return ensureState(st);
 }
 
@@ -197,6 +211,7 @@ const MINI = {
   home:'<path d="M3 11L12 4l9 7v9H3z" fill="#F0A04B"/><path d="M12 18s-3.5-2-4.3-4c-.5-1.4.3-2.8 1.8-2.8 1 0 1.8.5 2.5 1.3.7-.8 1.5-1.3 2.5-1.3 1.5 0 2.3 1.4 1.8 2.8-.8 2-4.3 4-4.3 4z" fill="#FFFFFF"/>',
   days:'<rect x="3.5" y="5" width="17" height="15" rx="2.5" fill="#FFFFFF" stroke="#6FABE3" stroke-width="1.8"/><path d="M3.5 9.5h17" stroke="#6FABE3" stroke-width="1.8"/><path d="M8 3.5v3M16 3.5v3" stroke="#6FABE3" stroke-width="1.8" stroke-linecap="round"/><path d="M12 17.5s-3-1.7-3.6-3.3c-.4-1.1.3-2.2 1.4-2.2.9 0 1.6.5 2.2 1.1.6-.6 1.3-1.1 2.2-1.1 1.1 0 1.8 1.1 1.4 2.2-.6 1.6-3.6 3.3-3.6 3.3z" fill="#F0728E"/>',
   rescue:'<ellipse cx="12" cy="15" rx="5" ry="4.2" fill="#4FAE9A"/><circle cx="6" cy="9.5" r="2.2" fill="#4FAE9A"/><circle cx="10" cy="6" r="2.2" fill="#4FAE9A"/><circle cx="14" cy="6" r="2.2" fill="#4FAE9A"/><circle cx="18" cy="9.5" r="2.2" fill="#4FAE9A"/><path d="M12 18s-2.4-1.4-2.8-2.6c-.3-.9.2-1.7 1.1-1.7.7 0 1.2.4 1.7.9.5-.5 1-.9 1.7-.9.9 0 1.4.8 1.1 1.7-.4 1.2-2.8 2.6-2.8 2.6z" fill="#FFFFFF"/>',
+  run:'<path d="M2.5 8.5h5M1.5 12.5h5M3 16.5h4" stroke="#6FABE3" stroke-width="2" stroke-linecap="round"/><ellipse cx="15.6" cy="15.6" rx="4.7" ry="3.9" fill="#F0A04B"/><circle cx="10.4" cy="10.6" r="1.9" fill="#F0A04B"/><circle cx="13.6" cy="7.4" r="1.9" fill="#F0A04B"/><circle cx="17.7" cy="7.4" r="1.9" fill="#F0A04B"/><circle cx="20.8" cy="10.6" r="1.9" fill="#F0A04B"/>',
   souv:'<path d="M4 10h16v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" fill="#C9A97A"/><path d="M3 7h18v4H3z" fill="#B9824F"/><path d="M10 13h4" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>',
 };
 const mini = (k, cls = '') => `<svg class="mini ${cls}" viewBox="0 0 24 24" aria-hidden="true">${MINI[k] || MINI.pet}</svg>`;

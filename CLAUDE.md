@@ -20,12 +20,12 @@
 | `src/js_data3.js` | げい、季節イベント、おみやげ（22）、もようがえ（5カテゴリ） |
 | `src/js_pet.js` | ペットのSVG描画 `renderPet(look, {wear})` と色ユーティリティ |
 | `src/js_wear.js` | きせかえの描画 `wearSvg()` |
-| `src/js_rules.js` | おせわのルール `Rules`（画面にさわらない。セーブ `st` を変えて、できごと `ev` を返す）と時計 `Clock`（`now()`・`dayKey()`・乱数）、パズル「おやつならべ」の盤 `Puzzle`（たねと 手順から 再生して クリアと 点数を 決める。2026-11-15）。LINE版のサーバーでも同じものを使う |
+| `src/js_rules.js` | おせわのルール `Rules`（画面にさわらない。セーブ `st` を変えて、できごと `ev` を返す）と時計 `Clock`（`now()`・`dayKey()`・乱数）、パズル「おやつならべ」の盤 `Puzzle`（たねと 手順から 再生して クリアと 点数を 決める。2026-11-15）、うちのこランの ほうびと ベスト `RUN`・`Rules.run`（2026-11-22 P3。LINE版の サーバーは P6 まで うけつけない）。LINE版のサーバーでも同じものを使う |
 | `src/js_app.js` | 状態 `S`、保存、ペットの動き、おせわの画面（`Act.run` で判定をたのみ、`playEvents` で出す）、シート、引っこしコード、`Game.start` |
 | `src/js_features.js` | `ensureState`（セーブの移行）、おねがい・おたすけ・おみやげ・イベント・記念日のポップアップ、もようがえ、げい、アルバム、よるの ひとこと `Nudge`（21時から おねがいが のこっていると うちのこが ふきだしで。1日1回）、パズルの画面 `PuzzleUI`（「あそぶ」の `openPlay` から、ページごと うつる `#pzPage`。盤の 大きさは `fit()` が 画面の 高さから。2026-11-16 に 作りなおした） |
 | `src/js_onboard.js` | 写真から迎える流れ、種類・色・名前の編集、起動処理（boot） |
 | `src/js_home.js` | ホーム画面版だけのJS（`build.sh` が `js_rules.js` のすぐあとに入れる）。いまは `HomeRescue`：前の きびしいルールで きょう れんぞくが1にもどった子に、おたすけを出しなおす |
-| `src/js_run.js` | うちのこラン（仮）の アプリの 側（**ホーム画面版だけ**。`build.sh` の `RUN_HOME=1` で `js_features.js` の すぐあとに 入る）：`RunUI`（「あそぶ」の シートに「ラン」・WebGL 2 の 有無・ページ `#runPage`・ゲームの ファイル `RUN_SRC` を `integrity` つきで 読む・とじたら `dispose`）。`openPlay`・`Nudge.busy`・`Game.start` を 包む |
+| `src/js_run.js` | うちのこランの アプリの 側（**ホーム画面版だけ**。`build.sh` の `RUN_HOME=1` で `js_features.js` の すぐあとに 入る）：`RunUI`（「あそぶ」の シートに「ラン」・WebGL 2 の 有無・ページ `#runPage`・ゲームの ファイル `RUN_SRC` を `integrity` つきで 読む・コースを えらぶ 画面 `select()`・レース `start()`・ゴールで `Act.run('run')` の ほうびと ベストとの 差 `finish()`・とじたら `dispose`）。`openPlay`・`Nudge.busy`・`Game.start` を 包む |
 | `src/js_line.js` | LINE版だけのJS（LIFF の準備、サーバーでの本人確認とセーブ、AIの読みとり `LineAI`、やめる `LineLeave`、写真立ての イラスト `LineFrame`、うちのこカード `CardArt`・`LineCard`〈絵を PNG に → `POST /card` → `liff.shareTargetPicker()`〉、おしらせ `LineNotice`〈ポリシー・規約の 大事な変更などを 1回だけ。`LineNotice.list` に書く〉、よるの おしらせ `LineNotify`〈プロフィールの スイッチ・1回だけの さそい・`liff.requestFriendship()`。おくるのは サーバー〉。`LINE_CFG.liffIds`（内部チャネルごと。ひらいた場所 `/`・`/review/`・`/dev/` で えらぶ）・`LINE_CFG.api`） |
 | `src/sw.js` | オフライン用のService Worker（`__VER__` はビルド時に置きかわる） |
 | `src/build.sh` | 組み立て。`../index.html` と `../sw.js`（ホーム画面版。うちのこランの `../run-<ハッシュ>.js` も）、`out/uchinoko-claude.html`（Claude版）、`out/line/`（LINE版。本番用＝いちばん上、審査用＝`review/`、開発用＝`dev/` に同じページ。うちのこカードの メッセージに出す `line-icon.png` と、Cloudflare Pages の ヘッダー `_headers` も）を出力。うちのこランの ビルドの スイッチ `RUN_HOME=1`・`RUN_LINE=0`・`RUN_CLAUDE=0`（`docs/RUN_DESIGN.md` 9章・12章） |
@@ -43,10 +43,10 @@
 | `tools/rules_test.mjs` | ルール（`js_rules.js`）を時計を動かして確かめる（れんぞく・おたすけ・日本時間の0時・おみやげ・げい・イベント・記念日・パズル） |
 | `tools/compare_home.py` | ホーム画面版の動きが前の版と同じかをくらべる（`python3 tools/compare_home.py [コミット]`、既定は HEAD） |
 | `docs/MOTION_DESIGN.md` | うちのこの 体勢と 動きを ふやす 設計（2026-11-16。Opus 5.5 の チャットで 実装する。まだ 実装していない） |
-| `docs/RUN_DESIGN.md` | うちのこラン（仮）＝ChatGPT の「わんラン」（3D の レース＆アジリティ）を うちのこ日和の ミニゲームに する 設計（2026-11-21。P1・P2 済み＝オーナー OK・つぎは P3〈10章に プロンプト〉。11章に P1、12章に P2 で 作ったもの。名前は「うちのこラン」に 決まった） |
-| `src/run/` | うちのこラン（仮）の ゲーム（ES モジュール。`tools/run/build_run.mjs` が まとめる）：`main.js`（入口。`window.UchinokoRun`）、`race.js`（レースの 画面 `mountRace`。わんランの `race-game.js` を 作りなおした）、`pet3d.js`（3D の うちのこ `makePet3D`・`posePet3D`・`disposePet3D`）、`run.css`（ランの 画面の CSS。ホーム画面版の `<head>` に だけ 入る）、`wanrun/`（わんラン v33 から 持ってきた ルール・景色・カメラ。かえたのは `three` の import だけ。README） |
+| `docs/RUN_DESIGN.md` | うちのこラン＝ChatGPT の「わんラン」（3D の レース＆アジリティ）を うちのこ日和の ミニゲームに する 設計（2026-11-21。P1・P2 済み＝オーナー OK、P3 済み〈2026-11-22〉。10章に つぎの プロンプト。11章に P1、12章に P2、13章に P3 で 作ったもの） |
+| `src/run/` | うちのこランの ゲーム（ES モジュール。`tools/run/build_run.mjs` が まとめる）：`main.js`（入口。`window.UchinokoRun`）、`race.js`（レースの 画面 `mountRace`・3コース `COURSES`・小さな 地図 `courseMap`・`helpHtml`。わんランの `race-game.js` を 作りなおした）、`pet3d.js`（3D の うちのこ `makePet3D`・`posePet3D`・`disposePet3D`）、`run.css`（ランの 画面の CSS。ホーム画面版の `<head>` に だけ 入る）、`wanrun/`（わんラン v33 から 持ってきた ルール・景色・カメラ。かえたのは `three` の import だけ。README） |
 | `src/run_bundle.js` | `src/run/` と Three.js r170 を 1つに まとめた もの（`node tools/run/build_run.mjs` が 作る。**手で 直さない**。`--check` で 確かめる。コミットする）。`build.sh` が `run-<ハッシュ>.js` として ルートに 出す |
-| `tools/run/` | うちのこランの 道具：`package.json`・lockfile（Three.js r170・esbuild。はじめに `cd tools/run && npm install`）、`build_run.mjs`（まとめる・`--check`）、`run_shots.py`（ホーム画面版で ゴールまで 走らせて スクリーンショットと 走る GIF。`smoke-out/run/`。`--dark`・`--cat`・`--size`）、`pet3d_compare.py`（2D と 3D の 見くらべ）、`pet3d_test.mjs`（41種 × くびの きせかえで 3D を 確かめる） |
+| `tools/run/` | うちのこランの 道具：`package.json`・lockfile（Three.js r170・esbuild。はじめに `cd tools/run && npm install`）、`build_run.mjs`（まとめる・`--check`）、`run_shots.py`（ホーム画面版で 3コースを ゴールまで 走らせて スクリーンショットと 走る GIF。`smoke-out/run/`。`--dark`・`--cat`・`--size`・`--gifs`）、`run_min.mjs`（コースの いちばん はやい タイムと `RUN.min` を くらべる）、`pet3d_compare.py`（2D と 3D の 見くらべ）、`pet3d_test.mjs`（41種 × くびの きせかえで 3D を 確かめる） |
 | `_ref/wanrun-v33/` | わんラン v33 の 原本（`wanrun-v33.zip`）と 仕様書（`spec.md`）。読むだけ。`_` の フォルダなので GitHub Pages には 出ない（`.nojekyll` を 足さない） |
 | `docs/REVIEW_PROMPT.md` | Claude Fable 5.2 の レビューの チャットに貼るプロンプト（約束①の 診断・さいごのチェックの あと、2026-11-15 から パズルの レビュー用＝2026-11-16 に 済み。前の版は git に） |
 | `.github/workflows/keepalive.yml` | GitHub Actions「サーバーを起こす」：3日ごとに LINE版のサーバーの `/health` と、DB を1回読む呼び出し（でたらめのセッションで 401）をして、Supabase の無料プランが止まらないようにする。`/health` の この3日の エラーの数が 10以上のときと、この3日に よるの おしらせが 止まった日（`notifyDays`）が あるときも 失敗にする（`docs/PROJECT.md` の10章） |
