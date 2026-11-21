@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>うちのこラン P1：2D と 3D の 見くらべ</title>
+<!-- tools/run/pet3d_compare.py が リポジトリの ルートから 配信して ひらく（確認用。アプリには 入らない） -->
+<style>
+  :root{ --bg:#FBF6EE; --card:#FFFFFF; --ink:#3A2E3F; --soft:#6E657E; --line:#EADFD3; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:'Zen Maru Gothic','Noto Sans CJK JP',sans-serif; }
+  .sheet{ width:calc(var(--cell,172px) * 4 + 72px); padding:18px 18px 10px; background:var(--bg); }
+  .sheet h1{ font-size:20px; margin:0 0 4px; }
+  .sheet .sub{ font-size:13px; color:var(--soft); margin:0 0 10px; }
+  .heads, .row .cells{ display:grid; grid-template-columns:repeat(4, var(--cell,172px)); gap:8px; }
+  .heads{ font-size:13px; color:var(--soft); text-align:center; margin-bottom:4px; font-weight:700; }
+  .row{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:8px 8px 6px; margin-bottom:8px; }
+  .row .name{ font-size:15px; font-weight:700; margin:0 0 4px 4px; }
+  .row .name small{ font-weight:500; font-size:12px; color:var(--soft); margin-left:6px; }
+  .cell{ width:var(--cell,172px); height:var(--cell,172px); border-radius:10px; background:#F6F0E6; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+  .cell svg{ width:95%; height:95%; }
+  .cell img{ width:var(--cell,172px); height:var(--cell,172px); display:block; }
+  .run .cells{ grid-template-columns:repeat(4, 172px); }
+  #status{ position:fixed; right:8px; bottom:8px; font:12px monospace; background:#fff; padding:4px 6px; }
+  /* 2D の 絵（head.html と 同じ：ふだんの 顔だけ 出す） */
+  .pv-eyes-happy, .pv-eyes-closed, .pv-brow-sad, .pv-mouth-o{ display:none; }
+  .pv-cheek{ opacity:.45; }
+</style>
+<script type="importmap">{ "imports": { "three": "/tools/run/node_modules/three/build/three.module.js", "three/addons/": "/tools/run/node_modules/three/examples/jsm/" } }</script>
+</head>
+<body>
+<div id="out"></div>
+<div id="status">loading</div>
+<script src="/src/js_data.js"></script>
+<script src="/src/js_data2.js"></script>
+<script src="/src/js_data3.js"></script>
+<script src="/src/js_pet.js"></script>
+<script src="/src/js_wear.js"></script>
+<script>
+  /* 毛色を かえる（js_onboard.js の setMain・setSub と 同じ） */
+  function recolor(look, main, sub){
+    const L = JSON.parse(JSON.stringify(look)), c = L.colors;
+    if (main){ const old = c.main; ['main','body','ear','tail','face','chest','paws'].forEach(k => { if (c[k] === old) c[k] = main; }); }
+    if (sub){ const old = c.face; if (old === c.main){ c.face = sub; c.chest = sub; c.paws = sub; if (L.face === 'muzzle') L.face = 'lower'; } else ['face','chest','paws','tailTip'].forEach(k => { if (c[k] === old) c[k] = sub; }); }
+    return L;
+  }
+  const JA = {
+    ear:{ pointy:'立ち耳', big:'大きい立ち耳', small:'小さい耳', floppy:'たれ耳', long:'長い たれ耳', semi:'半たれ耳', fold:'折れ耳' },
+    coat:{ smooth:'', fluffy:'ふわふわ', curly:'巻き毛', long:'長い毛' },
+    muzzle:{ short:'はな みじかめ', medium:'', long:'はな ながめ' },
+    tail:{ curl:'巻き尾', plume:'ふさ尾', straight:'まっすぐ尾', stub:'みじかい尾', long:'長い尾', fluffy:'ふさふさ尾' },
+    face:{ muzzle:'', lower:'顔の下', mask:'マスク', hachiware:'ハチワレ', blaze:'まんなか白' },
+    legs:{ normal:'', short:'短い足' },
+  };
+  function describe(L){ return ['ear','coat','muzzle','tail','face','legs'].map(k => JA[k][L[k]]).filter(Boolean).join('・'); }
+</script>
+<script type="module">
+import * as T from 'three';
+import { makePet3D, posePet3D, disposePet3D } from '/src/run/pet3d.js';
+
+const status = document.getElementById('status');
+window.onerror = (m) => { if (!String(m).includes('__only__')) status.textContent = 'error: ' + m; };
+
+/* 見くらべる 子 */
+const cases = [];
+for (const b of BREEDS) cases.push({ name: b.ja, look: normalizeLook(Object.assign({ species: b.sp, breedId: b.id }, b.look)) });
+const coatSw = Object.fromEntries(COAT_SW.map(([n, h]) => [n, h]));
+const variant = (id, label, main, sub) => {
+  const b = BREED_BY_ID[id];
+  return { name: b.ja + '（' + label + '）', look: normalizeLook(recolor(Object.assign({ species: b.sp, breedId: b.id }, b.look), main, sub)) };
+};
+const variants = [
+  variant('toy_poodle', 'ブラック', coatSw['ブラック']),
+  variant('toy_poodle', 'ホワイト', coatSw['ホワイト']),
+  variant('shiba', 'ブラック', coatSw['ブラック']),
+  variant('pomeranian', 'ホワイト', coatSw['ホワイト'], coatSw['ホワイト']),
+  variant('chihuahua', 'チョコ', coatSw['チョコ']),
+  variant('mix_dog', 'グレー', coatSw['グレー']),
+  variant('mix_cat', 'ブラウン', coatSw['ブラウン']),
+  variant('kuro', 'グレー', coatSw['グレー']),
+];
+// だいず：クリームのポメラニアン（からだ クリーム #F3DDB3。ほんとうの だいずの みための 値は 見ていない）
+const daizuLook = normalizeLook(recolor(Object.assign({ species: 'dog', breedId: 'pomeranian' }, BREED_BY_ID.pomeranian.look), coatSw['クリーム']));
+const daizu = { name: 'だいず（クリームのポメラニアン）', look: daizuLook };
+const neckIds = ['scarf_tri', 'scarf_red', 'bandana_red', 'bandana_denim', 'bell_blue', 'bell_rainbow', 'bowtie_black', 'pearls', 'lei', 'ev_ukiwa'];
+
+/* 3D を 描く 道具 */
+const Q = new URLSearchParams(location.search);
+const SIZE = +(Q.get('size') || 344);
+const canvas = document.createElement('canvas'); canvas.width = canvas.height = SIZE;
+const renderer = new T.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(SIZE, SIZE, false);
+renderer.outputColorSpace = T.SRGBColorSpace; renderer.toneMapping = T.NeutralToneMapping; renderer.toneMappingExposure = 1;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap;
+const scene = new T.Scene(); scene.background = new T.Color('#F6F0E6');
+scene.add(new T.HemisphereLight('#fffaf0', '#c9c2b0', 1.9));
+const sun = new T.DirectionalLight('#fff7ea', 1.9); sun.position.set(-3, 6, 5); sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -2, right: 2, top: 2, bottom: -2 }); sun.shadow.normalBias = .025; sun.shadow.bias = -.0001;
+scene.add(sun);
+const ground = new T.Mesh(new T.CircleGeometry(1.15, 48), new T.MeshStandardMaterial({ color: '#DCE8C8', roughness: 1 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const camera = new T.PerspectiveCamera(27, 1, .1, 30);
+function shoot(pet, rotY, opts = {}){
+  pet.rotation.y = rotY;
+  const top = pet.userData.size.top;
+  const dist = opts.dist || 3.75, cy = opts.cy ?? top * .48;
+  camera.position.set(0, cy + .55, dist); camera.lookAt(0, cy, 0);
+  renderer.render(scene, camera);
+  return canvas.toDataURL('image/png');
+}
+const VIEWS = [0, -.78, Math.PI];   // 正面・ななめ（右うしろへ 回す＝むかって 右の くびの はしが 見える）・うしろ
+
+function cell(html){ const d = document.createElement('div'); d.className = 'cell'; d.innerHTML = html; return d; }
+function imgCell(src){ const d = document.createElement('div'); d.className = 'cell'; const i = new Image(); i.src = src; d.appendChild(i); return d; }
+function newSheet(title, sub, heads){
+  const s = document.createElement('section'); s.className = 'sheet';
+  s.innerHTML = `<h1>${title}</h1><p class="sub">${sub}</p>` + (heads ? `<div class="heads">${heads.map(h => `<div>${h}</div>`).join('')}</div>` : '');
+  document.getElementById('out').appendChild(s); return s;
+}
+function row(sheet, name, sub, cells){
+  const r = document.createElement('div'); r.className = 'row';
+  r.innerHTML = `<p class="name">${name}<small>${sub || ''}</small></p><div class="cells"></div>`;
+  cells.forEach(c => r.querySelector('.cells').appendChild(c)); sheet.appendChild(r);
+}
+function petRow(sheet, cs, neck){
+  const W = neck ? WEAR_BY_ID[neck] : null;
+  const pet = makePet3D(cs.look, W); scene.add(pet); posePet3D(pet, 0, false, { reduced: true });
+  const shots = VIEWS.map(v => shoot(pet, v));
+  disposePet3D(pet);
+  row(sheet, cs.name, W ? W.ja : describe(cs.look), [cell(renderPet(cs.look, { wear: { head: null, face: null, neck } })), ...shots.map(imgCell)]);
+}
+
+const HEADS = ['2D の 絵', '3D 正面', '3D ななめ', '3D うしろ'];
+if (Q.get('anim')){
+  // 走る アニメ（よこ と、うしろから 追う カメラ）。フレームを window.__frames に（pet3d_compare.py --gif が GIF に する）
+  status.hidden = true;
+  const [nm, neck] = Q.get('anim').split(':');
+  const pool = [daizu, ...cases];
+  const cs = nm === 'daizu' ? daizu : pool.find(c => c.look.breedId === nm);
+  const pet = makePet3D(cs.look, neck ? WEAR_BY_ID[neck] : null); scene.add(pet);
+  ground.visible = false;
+  const field = new T.Group(); scene.add(field);
+  field.add(Object.assign(new T.Mesh(new T.PlaneGeometry(8, 14), new T.MeshStandardMaterial({ color: '#CFE0B4', roughness: 1 })), { receiveShadow: true }));
+  field.children[0].rotation.x = -Math.PI / 2;
+  const dashMat = new T.MeshStandardMaterial({ color: '#B9D39A', roughness: 1 }), dashes = [];
+  for (let i = 0; i < 14; i++) for (const x of [-1.1, 1.1]){ const d = new T.Mesh(new T.BoxGeometry(.08, .01, .5), dashMat); d.position.set(x, .005, -6 + i); d.userData.z0 = i; d.receiveShadow = true; field.add(d); dashes.push(d); }
+  const out = document.createElement('canvas'); out.width = SIZE * 2; out.height = SIZE; const o2 = out.getContext('2d');
+  const frames = [], N = 24, cycle = Math.PI * 2 / 1.85;
+  for (let f = 0; f < N; f++){
+    const phase = f / N * cycle * 2, t = phase / 9;
+    pet.position.y = .025 * Math.abs(Math.sin(phase * 1.85));
+    posePet3D(pet, t, true, { phase });
+    dashes.forEach(d => { d.position.z = -6 + (d.userData.z0 - f / N * 2 + 14) % 14; });   // 地面の 線が うしろへ ながれる
+    // よこ
+    pet.rotation.y = Math.PI / 2; field.rotation.y = Math.PI / 2;
+    camera.position.set(0, 1.05, 4.6); camera.lookAt(0, .6, 0); renderer.render(scene, camera); o2.drawImage(canvas, 0, 0);
+    // うしろから
+    pet.rotation.y = 0; field.rotation.y = 0;
+    camera.position.set(0, 1.75, -3.7); camera.lookAt(0, .7, .8); renderer.render(scene, camera); o2.drawImage(canvas, SIZE, 0);
+    frames.push(out.toDataURL('image/png'));
+  }
+  window.__frames = frames; document.body.dataset.done = '1';
+  throw new Error('__only__');
+}
+if (Q.get('only')){
+  document.documentElement.style.setProperty('--cell', (SIZE / 2) + 'px');
+  const want = Q.get('only').split(',');
+  const pool = [daizu, ...cases, ...variants];
+  const s = newSheet('くわしく', '', HEADS);
+  for (const w of want){
+    const [nm, neck] = w.split(':');
+    const cs = nm === 'daizu' ? daizu : pool.find(c => c.look.breedId === nm && !c.name.includes('（')) || pool.find(c => c.name.includes(nm));
+    if (cs) petRow(s, cs, neck || null);
+  }
+  status.textContent = 'done'; status.hidden = true; document.body.dataset.done = '1';
+  throw new Error('__only__');
+}
+const groups = [];
+const all = [daizu, ...cases, ...variants];
+const PER = 9;
+const total = Math.ceil(all.length / PER) + 2;
+for (let i = 0; i < all.length; i += PER) groups.push(all.slice(i, i + PER));
+let n = 0;
+for (const g of groups){
+  n++;
+  const s = newSheet(`2D と 3D の 見くらべ（${n}/${total}）`, n === 1 ? 'だいずと 41しゅるい（犬22・ねこ19）、いくつかの 毛色。くびの きせかえは なし' : 'くびの きせかえは なし', HEADS);
+  for (const cs of g) petRow(s, cs);
+  status.textContent = `sheet ${n}`;
+  await new Promise(r => setTimeout(r, 0));
+}
+// くびの きせかえ（だいず）
+{
+  n++;
+  const s = newSheet(`くびの きせかえ（${n}/${total}）`, 'だいずに つけた ところ（2D と 3D）', HEADS);
+  for (const id of neckIds) petRow(s, daizu, id);
+}
+// 走る ポーズ（よこから・4コマ）
+{
+  n++;
+  const s = newSheet(`走る ポーズ（${n}/${total}）`, 'よこから 4コマ（あしの 位相 0・¼・½・¾）。走っている ときは べろを 出す', ['0', '¼', '½', '¾']);
+  const runners = [
+    Object.assign({}, daizu, { neck: 'scarf_tri' }),
+    { name: '柴犬', look: cases.find(c => c.name === '柴犬').look },
+    { name: 'ミニチュアダックスフンド', look: cases.find(c => c.name === 'ミニチュアダックスフンド').look },
+    { name: 'ゴールデンレトリーバー', look: cases.find(c => c.name === 'ゴールデンレトリーバー').look },
+    { name: 'トイプードル', look: cases.find(c => c.name === 'トイプードル').look },
+    { name: 'キジトラ', look: cases.find(c => c.name === 'キジトラ').look },
+    { name: 'マンチカン', look: cases.find(c => c.name === 'マンチカン').look },
+  ];
+  for (const r of runners){
+    const pet = makePet3D(r.look, r.neck ? WEAR_BY_ID[r.neck] : null); scene.add(pet);
+    const shots = [0, .25, .5, .75].map(f => {
+      const phase = f * Math.PI * 2 / 1.85;
+      pet.position.y = .02 * Math.abs(Math.sin(phase * 1.85));
+      posePet3D(pet, 1.3 + f, true, { phase });
+      return shoot(pet, Math.PI / 2, { dist: 3.9 });
+    });
+    disposePet3D(pet);
+    row(s, r.name, r.neck ? WEAR_BY_ID[r.neck].ja : describe(r.look), shots.map(imgCell));
+  }
+}
+status.textContent = 'done'; status.hidden = true;
+document.body.dataset.done = '1';
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "uchinoko-biyori-run",
+  "private": true,
+  "description": "うちのこラン（仮）の Three.js（わんラン v33 と同じ r170）と、まとめる道具 esbuild。cd tools/run && npm install（docs/RUN_DESIGN.md）",
+  "dependencies": {
+    "esbuild": "0.24.2",
+    "three": "0.170.0"
+  }
+}

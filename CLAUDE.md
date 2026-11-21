@@ -42,7 +42,9 @@
 | `tools/rules_test.mjs` | ルール（`js_rules.js`）を時計を動かして確かめる（れんぞく・おたすけ・日本時間の0時・おみやげ・げい・イベント・記念日・パズル） |
 | `tools/compare_home.py` | ホーム画面版の動きが前の版と同じかをくらべる（`python3 tools/compare_home.py [コミット]`、既定は HEAD） |
 | `docs/MOTION_DESIGN.md` | うちのこの 体勢と 動きを ふやす 設計（2026-11-16。Opus 5.5 の チャットで 実装する。まだ 実装していない） |
-| `docs/RUN_DESIGN.md` | うちのこラン（仮）＝ChatGPT の「わんラン」（3D の レース＆アジリティ）を うちのこ日和の ミニゲームに する 設計（2026-11-21。まだ 実装していない。P1 から） |
+| `docs/RUN_DESIGN.md` | うちのこラン（仮）＝ChatGPT の「わんラン」（3D の レース＆アジリティ）を うちのこ日和の ミニゲームに する 設計（2026-11-21。P1 済み・つぎは P2。11章に P1 で 作ったもの） |
+| `src/run/pet3d.js` | うちのこラン（仮）の 3D の うちのこ：`makePet3D(look, neckWear, { detail })`・`posePet3D`・`strideLegs`・`disposePet3D`（ES モジュール。`three` と `three/addons/utils/BufferGeometryUtils.js` を import。**まだ `build.sh` に 入っていない**＝アプリには 出ない。P2 で esbuild で まとめる） |
+| `tools/run/` | うちのこランの 道具：`package.json`・lockfile（Three.js r170・esbuild。はじめに `cd tools/run && npm install`）、`pet3d_compare.py`（2D と 3D の 見くらべの スクリーンショット・`--only 品種id,daizu:くびのid --size 600` で 大きく・`--gif daizu:scarf_tri` で 走る アニメ。保存先は `smoke-out/pet3d/`）、`pet3d_test.mjs`（41種 × くびの きせかえで 3D を 作って 確かめる。`node tools/run/pet3d_test.mjs`） |
 | `_ref/wanrun-v33/` | わんラン v33 の 原本（`wanrun-v33.zip`）と 仕様書（`spec.md`）。読むだけ。`_` の フォルダなので GitHub Pages には 出ない（`.nojekyll` を 足さない） |
 | `docs/REVIEW_PROMPT.md` | Claude Fable 5.2 の レビューの チャットに貼るプロンプト（約束①の 診断・さいごのチェックの あと、2026-11-15 から パズルの レビュー用＝2026-11-16 に 済み。前の版は git に） |
 | `.github/workflows/keepalive.yml` | GitHub Actions「サーバーを起こす」：3日ごとに LINE版のサーバーの `/health` と、DB を1回読む呼び出し（でたらめのセッションで 401）をして、Supabase の無料プランが止まらないようにする。`/health` の この3日の エラーの数が 10以上のときと、この3日に よるの おしらせが 止まった日（`notifyDays`）が あるときも 失敗にする（`docs/PROJECT.md` の10章） |

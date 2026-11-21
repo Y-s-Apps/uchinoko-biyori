@@ -1,6 +1,6 @@
 # うちのこラン（仮）：わんランを うちのこ日和の ミニゲームに する 設計
 
-- 作った日：2026-11-21（22回目の チャット、Claude Opus 5.5）。**まだ 実装していない。これは 設計だけ。**
+- 作った日：2026-11-21（22回目の チャット、Claude Opus 5.5）。**P1（3D の うちのこ）は 2026-11-21（23回目）に できて オーナー OK。つぎは P2**（10章の プロンプト）。P1 で 作ったものと P2 で 使う ときの 約束は 11章。
 - きっかけ（オーナーから、2026-11-21）：ChatGPT で 作った 3Dゲーム「わんラン v33」（レース＆アジリティ）を、そのまま 入れるのでは なく、うちのこ日和 用に 置きかえて 新しい 機能に したい。
 - もとの 資料：`_ref/wanrun-v33/`（`wanrun-v33.zip`＝ChatGPT が 出した 原本 一式〈`source/dist/` が 動く ソース 91ファイル・`source/tests/` 77件・分冊の 仕様書 `chap10/`〉、`spec.md`＝機能仕様書〈1〜9章〉）。`_` で はじまる フォルダなので GitHub Pages には 出ない（`.nojekyll` を 足さない）。
 - 読む人：これを 実装する Claude Opus 5.5 の チャット。作業の 前に `CLAUDE.md`・`docs/PROJECT.md`・`docs/HANDOFF.md` を 読み、そのあとに ここを 読む。わんランの くわしい 動きは `_ref/wanrun-v33/spec.md`（とくに 4章 データ・5章 ロジック・8章 組み込み・9章 受入試験）。
@@ -115,7 +115,7 @@
 | だんかい | 中身 | 出す 先 |
 | --- | --- | --- |
 | P0 | この 設計と 資料（`_ref/`）（22回目。済み） | ― |
-| P1 | **3Dの うちのこ**（`makePet3D`・走る ポーズ・くびの きせかえ）と 見くらべの スクリーンショット → オーナーの OK | どこにも 出さない |
+| P1 | **3Dの うちのこ**（`makePet3D`・走る ポーズ・くびの きせかえ）と 見くらべの スクリーンショット → オーナーの OK（**23回目。済み**） | どこにも 出さない |
 | P2 | まとめる しくみ（`tools/run/`・`src/run_bundle.js`・`build.sh`・CSP・SW）と、レースの「公園」1コースを ホーム画面版で 走れる（ほうび なし） | ホーム画面版だけ。**ビルドの スイッチ**（下）で LINE版・Claude版は かわらない |
 | P3 | レース3コース・結果・記録・ほうび（`Rules`・`S.run`）・アルバム | ホーム画面版 |
 | P4 | アジリティ4コース | ホーム画面版 |
@@ -127,17 +127,37 @@
 - **体勢と 動き（`docs/MOTION_DESIGN.md`）とは べつ**（あちらは 2Dの おへやの 絵。こちらは 3D）。どちらを 先に しても よい。
 - だいずの ホーム画面の アプリは P2 から 更新される（ランを 使わなければ 動きは 同じ＝`compare_home.py`）。
 
-## 10. 実装の チャットに 貼る プロンプト（P1）
+## 10. 実装の チャットに 貼る プロンプト（P2）
+
+（P1 の プロンプトは git の 履歴に）
 
 ```
-うちのこ日和の 新しい 機能「うちのこラン（仮）」の P1 を おねがい。
-CLAUDE.md・docs/PROJECT.md・docs/HANDOFF.md を 読んでから、docs/RUN_DESIGN.md（設計）を 読んで。
-もとに する ChatGPT の「わんラン v33」は _ref/wanrun-v33/（zip と spec.md）に あるよ。
+うちのこ日和の「うちのこラン（仮）」の P2 を おねがい。
+CLAUDE.md・docs/PROJECT.md・docs/HANDOFF.md を 読んでから、docs/RUN_DESIGN.md（設計。11章に P1 で 作った 3D の うちのこ）を 読んで。
+わんラン v33 は _ref/wanrun-v33/（zip と spec.md。とくに 5.3 レース・8.2 ホストの 画面に マウント・9.3 受入試験）。
+3D の うちのこは src/run/pet3d.js（P1 で OK 済み）。
 
-P1 で やること：
-- うちのこの look（normalizeLook の 値）と くびの きせかえから、3D の うちのこを 作る makePet3D と 走る ポーズ（Three.js。わんランの 犬モデルを 参考に、41種と ねこにも 対応）
-- 2D の 絵（renderPet）と 3D の 正面・ななめ・後ろを ならべた 見くらべの スクリーンショット（41種＋いくつかの 毛色・だいず〈クリームの ポメラニアン〉）
-- アプリには まだ 出さない（index.html・LINE版・Claude版は かえない）
-
-見くらべを 見せて、OK を もらったら P2 へ すすむ 準備（HANDOFF と つぎの プロンプト）まで。
+P2 で やること：
+- まとめる しくみ：tools/run/（esbuild）で src/run/ の ゲームと Three.js を 1つに まとめて src/run_bundle.js に（手で 直さない・--check で 確かめる）。build.sh が run-<ハッシュ>.js として ホーム画面版に 出す（integrity・CSP は その ファイルの URL だけ・SW で とっておく）。ビルドの スイッチ RUN_HOME=1・RUN_LINE=0・RUN_CLAUDE=0
+- 「あそぶ」の シートに「ラン」、ページ #runPage。レースの「公園」1コースを ホーム画面版で 走れる（ほうび なし）。わんランの race-sim.js・race-route.js・race-track.js・race-game.js などを 持ってきて、相棒を makePet3D の うちのこに（おともだちは detail 0.6）
+- WebGL が ない 端末の 表示、とじたら ぜんぶ 片づける、アプリを はなれたら 一時停止
+- LINE版・Claude版は かえない（out/line/index.html と Claude版の md5 が 同じ）。smoke.py・linebreak.py・compare_home.py、iPhone の 幅の スクリーンショットで 見た目を 確かめて
+- 走れたら スクリーンショット（と 走る ところ）を 見せて、OK を もらったら P3 の 準備（HANDOFF と つぎの プロンプト）まで
 ```
+
+## 11. P1 で 作ったもの（2026-11-21、23回目）
+
+- **`src/run/pet3d.js`**（ES モジュール。`three` と `three/addons/utils/BufferGeometryUtils.js` を import。`build.sh` には まだ 入っていない）
+  - `makePet3D(look, neckWear, { detail })` → `THREE.Group`。`look` は かならず `normalizeLook()` を とおした もの、`neckWear` は `WEAR_BY_ID[S.pet.wear.neck]`（`hasId` で 確かめて）か `null`。`detail`（0.4〜1。既定 1）は 球の 細かさ＝おともだちは 0.6。
+  - 向きと 単位：y が 上・あたまは +z・足の うらが y = 0、わんラン（`companions.js`）と 同じ 単位。高さは 耳まで 約1.3（わんランの 犬は レースで `scale` 0.62〜0.76。P2 で ためして 決める）。
+  - `userData`：`legs`（4本。`hip`・`phase`・`paw`）・`tail`・`height`（こしの 高さ）＝わんランと 同じ なので `dog-gait.js` の `poseLegs(dog, phase, running, airborne, heightAt)` が そのまま つかえる。ほかに `rig`（頭・耳・目・べろ・しっぽの ふりかた）と `size`（`H`・`BW`・`BH`・`BL`・`HR`・`headY`・`headZ`・`top`）。
+  - `posePet3D(pet, t, running, { phase, airborne, reduced, legs })`：まばたき・しっぽ・耳（たれ耳は 走ると ゆれる）・あたまの ゆれ・走ると べろ。`legs` を `false` に すると 足は さわらない（レースでは `poseLegs` で 坂・器具に 足を つけてから `posePet3D(..., { legs: false, phase })`）。`strideLegs` は 平らな 地面だけの `poseLegs`。
+  - `disposePet3D(pet)`：ジオメトリと マテリアルを 片づけて はずす（とじる とき・おともだちを 作りなおす とき）。
+  - 動かない 部品は、動く 入れもの（からだ・頭・目・耳・足・しっぽ）ごとに マテリアルで 1つに まとめている（`bake`）。足の うら（`paw`）と べろは のこす。
+- **2D と 同じ子に 見せる しかけ：** 頭の 正面に 2D の 絵の 座標を そのまま はる（2D の (x, y) → u = (x − 120)/60・v = (100 − y)/51 が 単位球の 正面の (x, y)）。色の 決め方（むね・口もと・耳の 内がわ・目の まわり・口の 色 など）は `renderPet` と 同じ。もようは 頂点の 色。2D は すわった 絵、3D は 走るので 立った すがた。
+- **色を 2D に そろえる 描き方（見くらべで 決めた）：** `NeutralToneMapping`・`toneMappingExposure` 1・`HemisphereLight('#fffaf0', '#c9c2b0', 1.9)`・`DirectionalLight('#fff7ea', 1.9)`。わんランの レースの 光（ACES・1.15、2.5 と 2.7）だと うちのこの 色が うすく 白っぽく なる。P2 では レースの 景色も この 光に するか、景色の 色を あわせて 確かめる。
+- **重さ：** 1ぴき 平均 約2.7万 三角形・描く 回数 26（`detail: .6` は 約1.3万）。いちばん 重いのは 長い毛＋花の くびかざり（約4.6万・36）。pet3d.js と Three.js の 使う ところを まとめて 小さく すると 約314KB（ゲームを 足すと ふえる）。
+- **オーナーの 見くらべで 決めた こと（2026-11-21）：** ①立ち耳は つけねを 頭の 中まで のばす（浮いて 見えた）。②からだの 色が 頭（`main`）と ちがう 子（いまは ヨークシャーテリア）は、からだの 色を せなかと わきの 上だけ（上着の ように）にして、おなか・足は 頭の 色（全身タイツに 見えた）。**2D の 絵の ヨーキーは そのまま**（2D を かえると 3つの 版が ぜんぶ かわる。かえるなら べつの 作業で）。③だいずの 色は クリームの ポメラニアン（からだ `#F3DDB3`）で 見た（ほんとうの みための 値は 見ていない）。
+- **道具：** `tools/run/`（`package.json`・lockfile。Three.js 0.170.0・esbuild 0.24.2。`cd tools/run && npm install`）、`python3 tools/run/pet3d_compare.py`（`smoke-out/pet3d/` に 8まい。`--only 品種id,daizu:くびのid --size 600` で 大きく、`--gif daizu:scarf_tri` で 走る アニメ）、`node tools/run/pet3d_test.mjs`（esbuild で まとめて よみこみ、41種 × くびの きせかえ ＋ こわれた みためで 作る・NaN・足 4本・立つ／走ると 足の うらが 地面・片づく。17,248 こ）。
+- **P2 で 気をつける こと：** アプリの スクリプトには 大きな 名前 `T`（`js_data2.js` の おやつの 表の 関数）や `clamp`・`mix` が ある。まとめる ファイルは モジュールの 中で 名前を とじる（esbuild の `iife`／`esm`）、`window.THREE` に たよらない。esbuild は `nodePaths: ['tools/run/node_modules']` で `three` を さがす（`pet3d_test.mjs` と 同じ）。`target` は `safari14` で とおった。
+- **まだの こと：** マフラーの はしは ゆれない、おともだちの 名前、おやつの 3D の 形（7章）。
