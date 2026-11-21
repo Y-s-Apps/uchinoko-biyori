@@ -43,7 +43,7 @@
 | `tools/rules_test.mjs` | ルール（`js_rules.js`）を時計を動かして確かめる（れんぞく・おたすけ・日本時間の0時・おみやげ・げい・イベント・記念日・パズル） |
 | `tools/compare_home.py` | ホーム画面版の動きが前の版と同じかをくらべる（`python3 tools/compare_home.py [コミット]`、既定は HEAD） |
 | `docs/MOTION_DESIGN.md` | うちのこの 体勢と 動きを ふやす 設計（2026-11-16。Opus 5.5 の チャットで 実装する。まだ 実装していない） |
-| `docs/RUN_DESIGN.md` | うちのこラン＝ChatGPT の「わんラン」（3D の レース＆アジリティ）を うちのこ日和の ミニゲームに する 設計（2026-11-21。P1・P2 済み＝オーナー OK、P3 済み〈2026-11-22〉。10章に つぎの プロンプト。11章に P1、12章に P2、13章に P3 で 作ったもの） |
+| `docs/RUN_DESIGN.md` | うちのこラン＝ChatGPT の「わんラン」（3D の レース＆アジリティ）を うちのこ日和の ミニゲームに する 設計（2026-11-21。P1〜P3 済み＝オーナー OK〈P3 は 2026-11-22〉・つぎは P4〈10章に プロンプト〉。11章に P1、12章に P2、13章に P3 で 作ったもの） |
 | `src/run/` | うちのこランの ゲーム（ES モジュール。`tools/run/build_run.mjs` が まとめる）：`main.js`（入口。`window.UchinokoRun`）、`race.js`（レースの 画面 `mountRace`・3コース `COURSES`・小さな 地図 `courseMap`・`helpHtml`。わんランの `race-game.js` を 作りなおした）、`pet3d.js`（3D の うちのこ `makePet3D`・`posePet3D`・`disposePet3D`）、`run.css`（ランの 画面の CSS。ホーム画面版の `<head>` に だけ 入る）、`wanrun/`（わんラン v33 から 持ってきた ルール・景色・カメラ。かえたのは `three` の import だけ。README） |
 | `src/run_bundle.js` | `src/run/` と Three.js r170 を 1つに まとめた もの（`node tools/run/build_run.mjs` が 作る。**手で 直さない**。`--check` で 確かめる。コミットする）。`build.sh` が `run-<ハッシュ>.js` として ルートに 出す |
 | `tools/run/` | うちのこランの 道具：`package.json`・lockfile（Three.js r170・esbuild。はじめに `cd tools/run && npm install`）、`build_run.mjs`（まとめる・`--check`）、`run_shots.py`（ホーム画面版で 3コースを ゴールまで 走らせて スクリーンショットと 走る GIF。`smoke-out/run/`。`--dark`・`--cat`・`--size`・`--gifs`）、`run_min.mjs`（コースの いちばん はやい タイムと `RUN.min` を くらべる）、`pet3d_compare.py`（2D と 3D の 見くらべ）、`pet3d_test.mjs`（41種 × くびの きせかえで 3D を 確かめる） |
