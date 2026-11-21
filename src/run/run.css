@@ -23,8 +23,8 @@ html.run-open,html.run-open body{overflow:hidden;overscroll-behavior:none}
 .run-mark{position:absolute;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:#7F8B87}
 .run-me{position:absolute;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:var(--berry);box-shadow:0 0 0 2.5px var(--surface)}
 .run-clock{height:30px;font-size:15px;font-weight:900;font-variant-numeric:tabular-nums}
-/* まがりかどの 合図・カウントダウン・ひとこと（3D の 上。さわれない） */
-.run-cue,.run-count,.run-msg,.run-bottom{position:absolute;z-index:2;pointer-events:none}
+/* まがりかどの 合図・カウントダウン（3D の 上。さわれない。まんなかの ひとことは 出さない＝2026-11-22 オーナー） */
+.run-cue,.run-count,.run-bottom{position:absolute;z-index:2;pointer-events:none}
 .run-cue{left:50%;top:calc(116px + env(safe-area-inset-top,0px));transform:translateX(-50%);display:flex;align-items:center;gap:10px;box-sizing:border-box;max-width:calc(100% - 24px);
   background:var(--surface);color:var(--ink);border-radius:18px;padding:7px 14px 7px 12px;box-shadow:var(--lift);white-space:nowrap}
 .run-cue strong{font-size:32px;line-height:1;font-weight:900;color:var(--ink)}
@@ -38,10 +38,7 @@ html.run-open,html.run-open body{overflow:hidden;overscroll-behavior:none}
 .run-count{left:50%;top:38%;width:104px;height:104px;margin:-52px 0 0 -52px;border-radius:50%;background:var(--surface);color:var(--berry-ink);box-shadow:var(--lift);
   font-family:var(--f-display);font-size:58px;line-height:104px;text-align:center;display:none}
 .run-count.show{display:block;animation:pop .35s cubic-bezier(.3,1.5,.5,1)}
-.run-msg{left:50%;top:52%;transform:translateX(-50%);box-sizing:border-box;max-width:calc(100% - 32px);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 16px;
-  box-shadow:var(--lift);font-weight:900;font-size:16px;line-height:1.35;text-align:center;display:none}
-.run-msg.show{display:block;animation:pop .3s cubic-bezier(.3,1.5,.5,1)}
-.run-root.menu .run-cue,.run-root.menu .run-count,.run-root.menu .run-msg{display:none}
+.run-root.menu .run-cue,.run-root.menu .run-count{display:none}
 /* ダッシュの ゲージ */
 .run-bottom{left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:10px;box-sizing:border-box;
   background:var(--surface);color:var(--ink);border-radius:18px;padding:8px 14px;box-shadow:var(--lift)}

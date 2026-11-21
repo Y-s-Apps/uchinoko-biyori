@@ -6,7 +6,7 @@
  * - 走るのは うちのこ（pet3d.js の makePet3D。look は normalizeLook() の あと、neckWear は くびの きせかえ か null）。
  *   おともだち 4ひきは rivals（{ look, label }。うちのこと 同じ 種類）を detail 0.6 で。
  * - ルール（race-sim.js）・道と 景色（race-track.js）・カメラ（park-camera.js）・足の 接地（dog-gait.js の poseLegs）は わんランの まま。
- * - 画面の 文字・ボタンは うちのこ日和の 書き方（やさしい ひらがな・文節の スペース）。色は head.html の トークン（CSS は src/run/run.css）。
+ * - 画面の 文字・ボタンは うちのこ日和の 書き方（やさしい ひらがな・文節の スペース）。走る あいだ、まんなかには 3・2・1 だけ（ひとことは 出さない）。色は head.html の トークン（CSS は src/run/run.css）。
  * - name・rivals[].label・art は ホストが 作った HTML（esc 済み）。ここでは そのまま 入れる。
  * - アプリを はなれたら（visibilitychange・blur・pagehide）一時停止。dispose() で 描く ループ・タイマー・リスナー・WebGL を ぜんぶ 片づける。
  * - P2 は「こうえん」1コース・ほうび なし（onFinish は P3 の ほうびの ため。いまは ホストが おへやの ひとことに つかうだけ）。 */
@@ -54,7 +54,7 @@ export function mountRace(opts){
   const point = sim.layout.point || routePoint, length = sim.layout.length || RACE.length, total = sim.cpus.length + 1;
   const petScale = opts.petScale || PET_SCALE;
   let renderer = null, scene = null, camera = null, light = null, track = null, frameId = 0, last = 0, drawn = 0, uiTime = 0;
-  let disposed = false, pointer = null, msgTimer = 0, helpBack = null, frames = 0, cameraOffset = 6, countLabel = '', cueKey = '', lost = false;
+  let disposed = false, pointer = null, helpBack = null, frames = 0, cameraOffset = 6, countLabel = '', cueKey = '', lost = false;
   const pets = [];
   /* 選手と 名前：[うちのこ, おともだち×4]（わんランの cpu0〜3 の じゅん） */
   const labels = new Map([[sim.player.id, `${name}<small>（うちのこ）</small>`], ...sim.cpus.map((c, i) => [c.id, rivals[i] ? rivals[i].label : 'おともだち'])]);
@@ -80,7 +80,6 @@ export function mountRace(opts){
     </div>
     <div class="run-cue" data-q="cue" role="status" hidden></div>
     <div class="run-count" data-q="count" aria-live="polite"></div>
-    <div class="run-msg" data-q="msg" role="status"></div>
     <div class="run-bottom">
       <div class="run-gauge-l">${biscuitIcon}<b data-q="hint">ダッシュ</b></div>
       <div class="run-gauge" role="meter" aria-label="ダッシュの ゲージ" aria-valuemin="0" aria-valuemax="${RACE.gaugeMax}" aria-valuenow="0"><i data-q="gauge"></i></div>
@@ -146,11 +145,6 @@ export function mountRace(opts){
   }
 
   /* ----- 画面の 上に 出す もの ----- */
-  function message(text){
-    clearTimeout(msgTimer);
-    const m = q('msg'); m.textContent = text; m.classList.toggle('show', !!text);
-    if (text) msgTimer = setTimeout(() => { const x = q('msg'); if (x){ x.textContent = ''; x.classList.remove('show'); } }, 1300);
-  }
   function menu(html, focusSel, kind){
     over.hidden = html == null;
     over.className = 'run-over' + (kind ? ' ' + kind : '');
@@ -196,7 +190,7 @@ export function mountRace(opts){
   }
   function resume(){ menu(null); sim.resume(); last = performance.now(); updateHUD(); syncButtons(); try { canvas.focus({ preventScroll:true }); } catch(e){} }
   function restart(){
-    sim.reset(); track.resetTreats(); camera.position.set(0, 2.8, 6); cameraOffset = 6; last = performance.now(); message('');
+    sim.reset(); track.resetTreats(); camera.position.set(0, 2.8, 6); cameraOffset = 6; last = performance.now();
     begin();
   }
   function result(){
@@ -263,14 +257,10 @@ export function mountRace(opts){
     /* ふつうの おそい こまでも 障害物を とばさない ように こまかく わける（わんランと 同じ） */
     const steps = Math.max(1, Math.ceil(dt / .05));
     for (let i = 0; i < steps; i++) sim.step(dt / steps);
+    /* まんなかに ひとこと（わんランの「スタート！」「ぶつかった！」「ダッシュ！」など）は 出さない（2026-11-22 オーナー。走る ところを かくさない）。
+       ダッシュは 下の ゲージ、まがりかどは 上の 合図で わかる */
     for (const e of sim.drainEvents()){
       if (e.type === 'treat') track.collectTreat(e.id);
-      else if (e.type === 'hit') message('ごつん！');
-      else if (e.type === 'dash') message('ダッシュ！');
-      else if (e.type === 'go') message('スタート！');
-      else if (e.type === 'ready') message('おやつ 20こ！ タップで ダッシュ');
-      else if (e.type === 'turn-wrong') message(e.direction === 'right' ? 'みぎだよ' : 'ひだりだよ');
-      else if (e.type === 'turn-missed') message('ストップ！');
       else if (e.type === 'finish') result();
     }
     const live = sim.status === 'running' || sim.status === 'countdown';
@@ -374,7 +364,7 @@ export function mountRace(opts){
     dispose(){
       if (disposed) return;
       disposed = true;
-      cancelAnimationFrame(frameId); clearTimeout(msgTimer);
+      cancelAnimationFrame(frameId);
       canvas.removeEventListener('webglcontextlost', lostGL);
       if (observer) observer.disconnect();
       document.removeEventListener('visibilitychange', hidden);

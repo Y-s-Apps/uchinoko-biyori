@@ -156,17 +156,6 @@ RUN_FINISH = RUN_GO + """const fast = %s; for (let g = 0; g < 30000 && sim.statu
 await new Promise(r => setTimeout(r, 400)); """
 
 
-def run_lines():
-    """ランの 画面で 出る ひとこと・まがりかどの 合図（src/run/race.js の message(...) の 文）"""
-    src = open(os.path.join(ROOT, 'src', 'run', 'race.js'), encoding='utf-8').read()
-    out = []
-    for m in re.finditer(r"message\(([^;]*?)\);", src):
-        for t in re.findall(r"'([^']+)'", m.group(1)):
-            if t not in out and re.search(r'[ぁ-んァ-ヶ]', t):
-                out.append(t)
-    return out
-
-
 def scenes(line, run=False):
     """(名前, 出すための JS, しらべる場所, 待つms, いまの子が いるか)"""
     S = []
@@ -223,7 +212,7 @@ def scenes(line, run=False):
         add('puzzle_low_say_%02d' % i, low + "PuzzleUI.open(); await new Promise(r => setTimeout(r, 200)); PuzzleUI.say(%s)" % json.dumps(t, ensure_ascii=False), '#pzPage', 250)
     if run:
         # うちのこラン（仮）（2026-11-21 P2。ホーム画面版だけ）：えらぶ（WebGL なしも）・スタート・あそびかた・ひとやすみ・ゴール（1位・ほか・じゅんいを ひらく）・
-        # じゅんび・よみこめない・3D が ひらけない・とまった・まがりかどの 合図・ひとこと
+        # じゅんび・よみこめない・3D が ひらけない・とまった・まがりかどの 合図（まんなかの ひとことは 出さない＝2026-11-22）
         add('play_pick_nogl', "RunUI.gl = false; openPlay()", '#sheet')
         add('run_ready', RUN_OPEN, '#runPage', 600)
         add('run_help', RUN_OPEN + "document.querySelector('#runPage [data-run=\"help\"]').click()", '#runPage', 600)
@@ -239,9 +228,6 @@ def scenes(line, run=False):
             # はじめの まがりかど（90）の 合図：この さき・スワイプ・OK・とまって まつ（wait は スワイプしない）。走った まま うちのこの 足だけ とめる
             add('run_cue_' + nm, RUN_GO + "for (let g = 0; g < 5000 && sim.player.s < %d && sim.waitingTurn === null; g++) sim.step(1 / 60); %ssim.drainEvents(); sim.player.speed = 0" % (at, arm),
                 '#runPage', 500)
-        for i, t in enumerate(run_lines()):
-            add('run_say_%02d' % i, RUN_GO + "sim.player.speed = 0; const m = document.querySelector('#runPage [data-q=\"msg\"]'); "
-                "m.textContent = %s; m.classList.add('show')" % json.dumps(t, ensure_ascii=False), '#runPage', 250)
     add('requests_pinch',"S.daily.rescue={type:'treat',n:2,got:0,done:false}; S.streak={last:Clock.dayKey(now()-2*864e5),n:12,best:20}; openRequests()", '#sheet')
     if line:
         on = ("LineSync.state='on'; LineServer.member={id:'x'}; LineSync.created=1; LineServer.card={on:true,left:2,perDay:3}; LineServer.importable=true;"

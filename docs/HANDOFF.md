@@ -4,7 +4,7 @@
 
 - 最終更新：2026-11-22（24回目：**うちのこランの P2＝まとめる しくみと レースの「こうえん」（ホーム画面版だけ・ほうび なし）。オーナー OK。** 名前は「うちのこラン」に 決まった（ほか 4つも 決めた＝`docs/RUN_DESIGN.md` 1章）。つぎ：**P3 を 新しい チャットで**（プロンプトは `docs/RUN_DESIGN.md` 10章）。オーナーは 個人事業主の 申請 → 認証審査。**11-23 まで チャットの はじめに サーバーを 見る**）
 - リポジトリ：`Y-s-Apps/uchinoko-biyori`（組織 Y-s-Apps）。ホーム画面版：https://y-s-apps.github.io/uchinoko-biyori/
-- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-40a66e5580`**（24回目の P2。`index.html`・`sw.js`・`run-a632764fe558.js` の md5 は `41f1d9f9…`・`ea71c1ff…`・`75151ff9…`）。Pages の deploy は success（`5e118ef`）。ランが 入ったので だいずの アプリは 更新される（おせわの 動きは 前と同じ＝`compare_home.py`：おなじ）
+- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-5f0b17e545`**（24回目の P2 の あと、まんなかの ひとことを けした 版。`index.html`・`sw.js`・`run-143eb664e57e.js` の md5 は `7576d47f…`・`259fe3c0…`・`f99da552…`）。ランが 入ったので だいずの アプリは 更新される（おせわの 動きは 前と同じ＝`compare_home.py`：おなじ）
 - Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン29**（`de696b7` の中身。version `1794772870-8994`、capabilities は 引きついだ）。公開するときは `src/out/uchinoko-claude.html` の前に いまの版と同じ1行目（`<!doctype html><html><head><meta charset=utf8><meta name=viewport …><style>…</style></head><body>` ＋改行）を、うしろに `</body></html>` ＋改行 を つけて `publish_files`（slug は UUID `507aa3eb-87ee-4ddc-80e3-61638a697f56`。短い id は ことわられる。`capabilities` は はぶいて 引きつぐ。前の版を この形で 作りなおすと `list_files` の sha256 と 同じになるのを 確かめてから 出す。1行目は `read_file` の `offset 1・limit 1` で 読める）
 - LINE版の画面：Cloudflare Pages（main の push で自動ビルド。`b34a30d` の ビルドで 3か所とも md5 `c31654d2…` を 確かめた＝メーターの 直し。**24回目の `5e118ef` の ビルドも success**＝ランは 入らない〈`RUN_LINE=0`〉ので 手元の md5 は `c31654d2…` の まま。`LINE_CFG.oaId` に `@370iymyw`）
   - 本番用 https://uchinoko-biyori.pages.dev/ 、審査用 https://uchinoko-biyori.pages.dev/review/ 、開発用 https://uchinoko-biyori.pages.dev/dev/ （同じページ。ひらいた場所で LIFF ID をえらぶ）
@@ -33,7 +33,7 @@
 - はじめに 23回目の P1 の パッチ（`uchinoko-run-p1.patch`）を `git am` で main に あてて push（`15f442e`。23回目は push できなかった）。
 - **P2（`docs/RUN_DESIGN.md` 12章。`5e118ef`）：** `tools/run/build_run.mjs`（esbuild → `src/run_bundle.js`・`--check`）、`build.sh` の スイッチ（`RUN_HOME=1`・`RUN_LINE=0`・`RUN_CLAUDE=0`）で ホーム画面版だけに `run-<ハッシュ>.js`・`integrity`・CSP（その URL だけ）・SW、`src/js_run.js`（「あそぶ」の「ラン」・`#runPage`・WebGL なし・こわれた ファイル）、`src/run/race.js`（わんランの レース画面を 作りなおし・相棒は `makePet3D`・おともだちは `detail` 0.6 で カメラとの あいだに 入ると すける）、`src/run/wanrun/`（わんランの ルール・景色・カメラ。かえたのは import だけ）、`src/run/run.css`。LINE版・Claude版の md5 は 同じ。セーブ・ルール・サーバーは かわらない。
 - 確かめ：`smoke.py`（ふつう・`--dark`・`--size 375x667`・`--fresh`・`--line --android-inset 48`・`--claude`）、`linebreak.py`（283場面 ×2・`--height 603`）、`compare_home.py`（おなじ）、`tools/run/run_shots.py`（ゴールまで 36.6秒・GIF。ねこ・ダークも）、`pet3d_test.mjs`（17,248 こ）。スクリーンショットと 走る GIF を オーナーに 見せた → **OK**。
-- **オーナー決定（P3 の 前に）：** 画面の 題は「うちのこラン」・シートの タイルは「ラン」、「おともだち（品種）」、おやつは わんランの 骨の ビスケットの まま、時計は 00:36.6（走る あいだ）・36.58秒（ゴール）、コースは ひらがな（こうえん・うみべ・もり）。`docs/RUN_DESIGN.md` 1章・7章、`docs/PROJECT.md` 7章。P3 の プロンプトを `docs/RUN_DESIGN.md` 10章に。
+- **オーナー決定（P3 の 前に）：** 画面の 題は「うちのこラン」・シートの タイルは「ラン」、「おともだち（品種）」、おやつは わんランの 骨の ビスケットの まま、時計は 00:36.6（走る あいだ）・36.58秒（ゴール）、コースは ひらがな（こうえん・うみべ・もり）。**GIF を 見て：走る あいだの まんなかの ひとこと（スタート！・ごつん！・ダッシュ！・おやつ 20こ！・みぎだよ・ストップ！）は 出さない**（`race.js`・`run.css` から けした。まんなかは 3・2・1 だけ）。`docs/RUN_DESIGN.md` 1章・7章、`docs/PROJECT.md` 7章。P3 の プロンプトを `docs/RUN_DESIGN.md` 10章に。
 - **見まもり（11-22 1時半）：** エラーの 数 0、よるの おしらせ 11-18〜21 は ぶじ、関数の ログは 200・204 だけ、「サーバーを起こす」11-20 は 成功。
 - 公開の サイト（`y-s-apps.github.io`）は この 作業環境から ひらけない（プロキシで ことわられる）ので、反映は Pages の deploy が success で 確かめた。
 
@@ -70,7 +70,7 @@
   - CSP は ランの ファイルの URL を パスまで（`build.sh` の `HOME_ORIGIN`）。手元の ためしは `smoke.Handler` が その はじめの 部分を 手元の URL に かえて 配信する。ヘッドレスでも WebGL が 動く ように `smoke.CHROMIUM_ARGS`（SwiftShader）。`page.wait_for_function` は CSP で とめられるので `smoke.poll`。`RunUI` は `const`（`window.RunUI` では 見えない）。
   - ヘッドレスの 3D は おそい（こまの あいだに 指の イベントが おくれる）。`smoke.py` の 指の ためしは うちのこの 足を とめてから。ゴールまでの 通しは `tools/run/run_shots.py`（時計を とめて ページの 中で レースを すすめる）。
   - 3D の 色は `NeutralToneMapping`・露出 1（P1）。`makePet3D` に わたす みためは かならず `normalizeLook()` の あと。`mountRace` の `name`・`rivals[].label`・`art` は `esc`・`softName` 済みの HTML。
-  - 決めたこと（2026-11-22）：題「うちのこラン」・タイル「ラン」・「おともだち（品種）」・おやつは 骨の ビスケット・時計 00:36.6／36.58秒・コースは ひらがな。
+  - 決めたこと（2026-11-22）：題「うちのこラン」・タイル「ラン」・「おともだち（品種）」・おやつは 骨の ビスケット・時計 00:36.6／36.58秒・コースは ひらがな・**まんなかに ひとことを 出さない**（P3 で わんランの 海辺・森を 持ってきても「ぶつかった！」などを 足さない）。
 - **なでなで（`#pet`）と LINE の 下スワイプ：** `petStill`（`touchstart`・`touchmove` の `preventDefault`）を はずさない。`#pet` の 中に ボタンや リンクを 足すと 指の `click` が 来ない（タッチを とめているので）。`smoke.py` の「なでる（指）」が 見る。
 - **LINE版の 下の すき間：** おへやの 画面は `html .app`、シート・ポップアップ・はじめての画面・パズルは それぞれ（`line_head.html`）。`:root` には あけない（P6-1）。新しい 画面いっぱいの 入れものを 足したら、そこにも 書く。
 - **パズルの 画面（`PuzzleUI`。2026-11-16）：**
