@@ -2,11 +2,11 @@
 
 このファイルは、チャットのいちばん最後に毎回まるごと書き直します。次のチャットは、ここを読めば続きから始められます。オーナーは、更新のたびにプロジェクトナレッジのGitHubを「同期」し、作業ごとに新しいチャットへ移ります（`CLAUDE.md` の作業の流れ 7）。
 
-- 最終更新：2026-11-22（24回目：**うちのこラン（仮）の P2＝まとめる しくみと レースの「こうえん」（ホーム画面版だけ・ほうび なし）。** push 済み・**オーナーの OK 待ち**（スクリーンショットと 走る GIF を 見せた）。OK が 出たら P3 の プロンプトを `docs/RUN_DESIGN.md` 10章に 書いて、この HANDOFF を 書きなおす。23回目の P1 の パッチも 24回目の はじめに main に 入れた。オーナーは 個人事業主の 申請 → 認証審査。**11-23 まで チャットの はじめに サーバーを 見る**）
+- 最終更新：2026-11-22（24回目：**うちのこランの P2＝まとめる しくみと レースの「こうえん」（ホーム画面版だけ・ほうび なし）。オーナー OK。** 名前は「うちのこラン」に 決まった（ほか 4つも 決めた＝`docs/RUN_DESIGN.md` 1章）。つぎ：**P3 を 新しい チャットで**（プロンプトは `docs/RUN_DESIGN.md` 10章）。オーナーは 個人事業主の 申請 → 認証審査。**11-23 まで チャットの はじめに サーバーを 見る**）
 - リポジトリ：`Y-s-Apps/uchinoko-biyori`（組織 Y-s-Apps）。ホーム画面版：https://y-s-apps.github.io/uchinoko-biyori/
-- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-40a66e5580`**（24回目の P2。`index.html`・`sw.js`・`run-a632764fe558.js` の md5 は `41f1d9f9…`・`ea71c1ff…`・`75151ff9…`）。ランが 入ったので だいずの アプリは 更新される（おせわの 動きは 前と同じ＝`compare_home.py`：おなじ）
+- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-40a66e5580`**（24回目の P2。`index.html`・`sw.js`・`run-a632764fe558.js` の md5 は `41f1d9f9…`・`ea71c1ff…`・`75151ff9…`）。Pages の deploy は success（`5e118ef`）。ランが 入ったので だいずの アプリは 更新される（おせわの 動きは 前と同じ＝`compare_home.py`：おなじ）
 - Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン29**（`de696b7` の中身。version `1794772870-8994`、capabilities は 引きついだ）。公開するときは `src/out/uchinoko-claude.html` の前に いまの版と同じ1行目（`<!doctype html><html><head><meta charset=utf8><meta name=viewport …><style>…</style></head><body>` ＋改行）を、うしろに `</body></html>` ＋改行 を つけて `publish_files`（slug は UUID `507aa3eb-87ee-4ddc-80e3-61638a697f56`。短い id は ことわられる。`capabilities` は はぶいて 引きつぐ。前の版を この形で 作りなおすと `list_files` の sha256 と 同じになるのを 確かめてから 出す。1行目は `read_file` の `offset 1・limit 1` で 読める）
-- LINE版の画面：Cloudflare Pages（main の push で自動ビルド。**`b34a30d` の ビルドは success、3か所とも md5 `c31654d2…` で 手元と同じ**＝メーターの 直しが 入った。`LINE_CFG.oaId` に `@370iymyw`）
+- LINE版の画面：Cloudflare Pages（main の push で自動ビルド。`b34a30d` の ビルドで 3か所とも md5 `c31654d2…` を 確かめた＝メーターの 直し。**24回目の `5e118ef` の ビルドも success**＝ランは 入らない〈`RUN_LINE=0`〉ので 手元の md5 は `c31654d2…` の まま。`LINE_CFG.oaId` に `@370iymyw`）
   - 本番用 https://uchinoko-biyori.pages.dev/ 、審査用 https://uchinoko-biyori.pages.dev/review/ 、開発用 https://uchinoko-biyori.pages.dev/dev/ （同じページ。ひらいた場所で LIFF ID をえらぶ）
   - ヘッダー（`_headers`）：ぜんぶ（`/*`）に `Referrer-Policy: no-referrer`・`X-Content-Type-Options: nosniff`・`Content-Security-Policy: frame-ancestors 'none'`・`X-Frame-Options: DENY`
   - LIFF URL：開発用 https://miniapp.line.me/2012410263-cuCI7vQS ／審査用 https://miniapp.line.me/2012410264-JD4WhzAb （審査担当者だけ）／本番用 https://miniapp.line.me/2012410265-PutgsCLS （未認証なので URL を知っている人は開ける）
@@ -18,9 +18,9 @@
 - **cron：** pg_cron 1.6.4、ジョブ `uchinoko-notify`（**`0,5 12 * * *`＝日本時間 21:00 と 21:05**。`select app.notify_kick()`。21:05 は 21:00 の回が とどかなかった・ことわられた日だけ 動く）。**2026-11-15 21:00 に はじめて 予定どおり 自分で 動いて 1通 とどいた**（`made 12:00:00 UTC`・`done 12:00:21`・`sent 1`・`failed 0`。21:05 は 送らない。オーナーが LINE で 見た）
 - 役：`uchinoko_api`（`app` の表だけ。サーバーは この役で つないでいる）
 - Storage：バケット `cards`（公開・PNG だけ・1MB まで、ポリシーなし）。カードは 全員で 1500まい まで
-- サーバーを起こす：GitHub Actions（`.github/workflows/keepalive.yml`、cron `23 18 */3 * *`＝日本時間 3:23 ごろ、数時間 おくれることがある）。`/health` の `errors`（10以上で 失敗）と `notifyDays`（止まった日が あれば 失敗）を 見る。**11-17 の回（10:55）は 失敗＝11-16 の 回を 見つけた。つぎの 予定は 11-20 3:23 ごろ**（11-16 は 3日の 外に なるので、11-19 の 21時が ぶじなら 成功の はず。それまで 手で 動かすと また 失敗）
+- サーバーを起こす：GitHub Actions（`.github/workflows/keepalive.yml`、cron `23 18 */3 * *`＝日本時間 3:23 ごろ、数時間 おくれることがある）。`/health` の `errors`（10以上で 失敗）と `notifyDays`（止まった日が あれば 失敗）を 見る。11-17 の回は 失敗（11-16 の 回を 見つけた）→ **11-20 の回（9:43）は 成功に もどった**（24回目に `gh api …/actions/workflows/keepalive.yml/runs` で 見た）。つぎの 予定は 11-23 3:23 ごろ
 - Secrets：`ANTHROPIC_API_KEY`・`LINE_CHANNEL_SECRET`（開発用）・`LINE_CHANNEL_SECRET_2012410264`・`LINE_CHANNEL_SECRET_2012410265`・`APP_DB_PASSWORD`・`LINE_MESSAGING_TOKEN`
-- 本物の DB（2026-11-19 19時半）：会員 1人（だいず。れんぞく 38日・スタンプ 38・おしらせ オン）。エラーの 数 0。
+- 本物の DB（2026-11-22 1時半）：エラーの 数 0（`app.error_counts` 0行）。よるの おしらせ 11-18〜21 は 4日とも 21:00 の 回で おわった（11-19・20 は 1通、11-18・21 は とばした）。さいきん 1日の 関数の ログは 200×20・204×2。（11-19 19時半：会員 1人＝だいず。れんぞく 38日・スタンプ 38・おしらせ オン）
 - 本物の DB（2026-11-16 5時半）：**会員 1人＝だいず（本番用。11-16 5:10 に 取りこみ。よるの おしらせ オン・れんぞく 36日・スタンプ 36）**。カード・ひかえ・Storage の `cards` は 0件。`app` の 表に anon・authenticated の 権限は 0。エラーの 数 0。**だいずは 本物の 会員なので、ためしで セーブを さわらない**（`execute_sql` で 書きこまない。読むときも 名前・数だけ）
 - LINE公式アカウント「うちのこ日和」（ベーシックID `@370iymyw`、Messaging API の プロバイダー「Y's Apps」、応答メッセージ・Webhook オフ）。ミニアプリの 友だち追加オプション・デフォルトの公式アカウントも 設定ずみ
 - LINE Developers：Scope は `openid` だけ。「シェアターゲットピッカー」は 有効。認証審査は まだ申請しない（未認証でリリース → 個人事業主 → 申請）
@@ -28,35 +28,28 @@
 - LINE版の計画書：https://claude.ai/artifact/AgKkCkHCsWAywKGV6VFxwK
 - オーナーの事情（約束②で使う）：claude.ai の このプロジェクトの資料 `claude/owner-notes.md`（非公開）
 
-## 直近のチャットでやったこと（2026-11-22、24回目：うちのこラン（仮）の P2。Opus 5.5）
+## 直近のチャットでやったこと（2026-11-22、24回目：うちのこランの P2。Opus 5.5）
 
-- はじめに 23回目の P1 の パッチ（`uchinoko-run-p1.patch`）を `git am` で main に あてて push（`15f442e`）。
-- **P2（`docs/RUN_DESIGN.md` 12章）：** `tools/run/build_run.mjs`（esbuild → `src/run_bundle.js`・`--check`）、`build.sh` の スイッチ（`RUN_HOME=1`・`RUN_LINE=0`・`RUN_CLAUDE=0`）で ホーム画面版だけに `run-<ハッシュ>.js`・`integrity`・CSP（その URL だけ）・SW、`src/js_run.js`（「あそぶ」の「ラン」・`#runPage`）、`src/run/race.js`（わんランの レース画面を 作りなおし・相棒は `makePet3D`）、`src/run/wanrun/`（わんランの ルール・景色・カメラ）、`src/run/run.css`。LINE版・Claude版の md5 は 同じ。セーブ・ルール・サーバーは かわらない。
-- 確かめ：`smoke.py`（ふつう・`--dark`・`--size 375x667`・`--fresh`・`--line --android-inset 48`・`--claude`）、`linebreak.py`（283場面 ×2・`--height 603`）、`compare_home.py`（おなじ）、`tools/run/run_shots.py`（ゴールまで・GIF）、`pet3d_test.mjs`。
-- **オーナーに きいた こと（P3 の 前に。12章の さいご）：** 名前・おともだちの 名前・おやつの 3D の 形・時計の 書き方・コースの 名前。
+- はじめに 23回目の P1 の パッチ（`uchinoko-run-p1.patch`）を `git am` で main に あてて push（`15f442e`。23回目は push できなかった）。
+- **P2（`docs/RUN_DESIGN.md` 12章。`5e118ef`）：** `tools/run/build_run.mjs`（esbuild → `src/run_bundle.js`・`--check`）、`build.sh` の スイッチ（`RUN_HOME=1`・`RUN_LINE=0`・`RUN_CLAUDE=0`）で ホーム画面版だけに `run-<ハッシュ>.js`・`integrity`・CSP（その URL だけ）・SW、`src/js_run.js`（「あそぶ」の「ラン」・`#runPage`・WebGL なし・こわれた ファイル）、`src/run/race.js`（わんランの レース画面を 作りなおし・相棒は `makePet3D`・おともだちは `detail` 0.6 で カメラとの あいだに 入ると すける）、`src/run/wanrun/`（わんランの ルール・景色・カメラ。かえたのは import だけ）、`src/run/run.css`。LINE版・Claude版の md5 は 同じ。セーブ・ルール・サーバーは かわらない。
+- 確かめ：`smoke.py`（ふつう・`--dark`・`--size 375x667`・`--fresh`・`--line --android-inset 48`・`--claude`）、`linebreak.py`（283場面 ×2・`--height 603`）、`compare_home.py`（おなじ）、`tools/run/run_shots.py`（ゴールまで 36.6秒・GIF。ねこ・ダークも）、`pet3d_test.mjs`（17,248 こ）。スクリーンショットと 走る GIF を オーナーに 見せた → **OK**。
+- **オーナー決定（P3 の 前に）：** 画面の 題は「うちのこラン」・シートの タイルは「ラン」、「おともだち（品種）」、おやつは わんランの 骨の ビスケットの まま、時計は 00:36.6（走る あいだ）・36.58秒（ゴール）、コースは ひらがな（こうえん・うみべ・もり）。`docs/RUN_DESIGN.md` 1章・7章、`docs/PROJECT.md` 7章。P3 の プロンプトを `docs/RUN_DESIGN.md` 10章に。
+- **見まもり（11-22 1時半）：** エラーの 数 0、よるの おしらせ 11-18〜21 は ぶじ、関数の ログは 200・204 だけ、「サーバーを起こす」11-20 は 成功。
+- 公開の サイト（`y-s-apps.github.io`）は この 作業環境から ひらけない（プロキシで ことわられる）ので、反映は Pages の deploy が success で 確かめた。
 
-## その前のチャット（2026-11-21、23回目：うちのこラン（仮）の P1。Opus 5.5）
+## その前のチャット（2026-11-21、23回目：うちのこラン（仮）の P1）
 
-- **見まもり：** よるの おしらせ `app.notify_runs` は 11-18〜21 の 4日とも 21:00 の 回で おわった（`done_at` あり。11-19・11-20 は 1通 とどけた、11-18・11-21 は とばした）。`app.error_counts` は 0行。さいきん 1日の 関数の ログは 200・204 だけ。**「サーバーを起こす」の 結果（`gh run list`）は、この チャットでは GitHub の API が つながって いなくて 見られなかった。**
-- **P1（`docs/RUN_DESIGN.md` 11章）：** `src/run/pet3d.js`（`makePet3D(look, neckWear, { detail })`・`posePet3D`・`strideLegs`・`disposePet3D`）。41種・ねこ・耳・毛・しっぽ・顔の もよう・くびの きせかえ 全しゅるい。わんランと 同じ 単位・userData（`poseLegs` が そのまま つかえる）。1ぴき 約2.7万 三角形（おともだち用 0.6 で 約1.3万）。
-- **道具：** `tools/run/`（Three.js r170・esbuild の `package.json`・lockfile。`node_modules` は `.gitignore` に 足した）、`pet3d_compare.py`（見くらべ 8まいと 走る GIF）、`pet3d_test.mjs`（17,248 こ ok）。
-- **オーナーの 見くらべ：** 「全体的に すごく 良くて OK」。直した 2つ：立ち耳が 頭から 浮いて 見える → つけねを 頭の 中まで のばした。ヨークシャーテリアが 全身タイツ みたい → からだの 色が 頭と ちがう 子は、せなかと わきの 上だけ からだの 色。2D の ヨーキーは そのまま（かえるなら べつの 作業）。
-- `index.html`・`sw.js`・LINE版・Claude版は かわらない（ビルドの 前後で md5 同じ）。書類：`docs/RUN_DESIGN.md`（ヘッダ・9章・10章＝P2 の プロンプト・11章）、`docs/PROJECT.md`（9章・更新履歴）、`CLAUDE.md`（ファイル構成）、この HANDOFF。
-- **GitHub への 書きこみ：** この チャットでは リポジトリを push できる 形で つなぐのが 作業環境の 確認で 止められた（`add_repo` の push）。読むのは できた。push できた・できなかったは この下の「保留」の 6。
-
-## その前のチャット（2026-11-21、22回目：うちのこラン（仮）の 設計）
-
-ChatGPT の「わんラン v33」を うちのこ日和の 3Dミニゲームに する 設計 `docs/RUN_DESIGN.md` と 原本 `_ref/wanrun-v33/`。オーナー決定：3D・レースと アジリティ・ねこも・ほうびは パズルと 同じ（べつに 数える）・くびの きせかえだけ 3D。
+`src/run/pet3d.js`（`makePet3D` など。41種・ねこ・くびの きせかえ）と 見くらべの 道具 `tools/run/`（`pet3d_compare.py`・`pet3d_test.mjs`）。オーナー OK（立ち耳の つけね・ヨーキーの 色を 直して）。22回目は うちのこランの 設計（`docs/RUN_DESIGN.md`・`_ref/wanrun-v33/`）。
 
 ## 保留・オーナーの判断待ち（つぎのチャットのはじめに）
 
-1. **リリースから 1週間（11-23 まで）：** チャットの はじめに サーバーのログ（無料プランは 1日分。`query_logs` で 24時間ずつ）と `app.error_counts`（`/health` の `errors`）、`app.notify_runs`（`/health` の `notifyDays`・送った数・`note`）を 見る。11-21 23時 までは ぜんぶ ぶじ（23回目）。「サーバーを起こす」は つぎの 予定が 11-23 3:23 ごろ → **11-23 の 回が 成功か**（`gh run list --workflow keepalive.yml`。23回目は 見られなかった）。21:05 の やりなおしが 動いた日は `made_at` が 12:05 UTC に なる。11-24 からは ふだんの 見まもりに もどす。
+1. **リリースから 1週間（11-23 まで）：** チャットの はじめに サーバーのログ（無料プランは 1日分。`query_logs` で 24時間ずつ。`select log_attributes['response.status_code'] as status, count(*) from logs where source = 'function_edge_logs' group by status`）と `app.error_counts`（`/health` の `errors`）、`app.notify_runs`（`/health` の `notifyDays`・送った数・`note`）を 見る。11-22 1時半 までは ぜんぶ ぶじ（24回目）。「サーバーを起こす」は 11-20 が 成功、つぎの 予定が 11-23 3:23 ごろ → **11-23 の 回が 成功か**（`gh run list` は GraphQL で とめられるので REST：`gh api "repos/Y-s-Apps/uchinoko-biyori/actions/workflows/keepalive.yml/runs?per_page=3"`）。21:05 の やりなおしが 動いた日は `made_at` が 12:05 UTC に なる。11-24 からは ふだんの 見まもりに もどす。
 2. **（オーナーが 決める・いそがない）** Supabase の Data API の「Automatically expose new tables」を オフに するか（Supabase も オフを すすめている。いまは `public` に 表が ないので 害は ない。変えるのは オーナーの 許可を もらってから）。
 3. **公開の日の 手順 5（実機で 見る）の こまかい ところ：** よるの ひとこと（21時すぎ）・ひらいたまま つぎの日・トークの カードの ボタン など、気に なる ところが あったか オーナーに きく（きくだけ）。なでなで（P5-1）の はじめの 下スワイプも。
 4. **手順 6：** テスターでない人（家族など）の LINE で 本番用の LIFF URL（https://miniapp.line.me/2012410265-PutgsCLS ）が ひらけるか。Android の 人が いれば 下の 5つの ボタンと パズルの 下の すき間（P6-1）。
-5. **うちのこラン（仮）（`docs/RUN_DESIGN.md`）：** P1・P2 済み（P2 は 24回目。**オーナーの OK 待ち**）。OK と 12章の さいごの 5つの こたえを もらったら、P3（レース3コース・ほうび・記録）の プロンプトを 10章に 書く。LINE版（P6）は 認証審査中を さけて。
+5. **うちのこラン（`docs/RUN_DESIGN.md`）：** P1・P2 済み（オーナー OK）。**つぎは P3**（レース3コース・コースを えらぶ 画面〈題は「うちのこラン」〉・ほうび・記録・アルバム。プロンプトは 10章）。**P3 の ほうびは 3つの 版と サーバーで 同じ ファイル（`js_rules.js`・`js_features.js`）なので LINE版の md5 と `game.js` も かわる**＝P3 の はじめに オーナーに LINE の 認証審査中か きく（審査中なら ホーム画面版だけの ファイルに。9章）。LINE版（P6）は 認証審査中を さけて。
 5b. **うちのこの 体勢と 動き（`docs/MOTION_DESIGN.md`）：** 実装は Opus 5.5 の 新しい チャットで（プロンプトは 設計の 8章）。**認証審査の「審査中」は LINE版を かえられないので、申請の 前か 認証の あとに 出す。**
-5c. **push：** 23回目の 作業は 24回目の はじめに main に 入れた（`15f442e`）＝済み。
+5e. **Dependabot の PR #1**（esbuild 0.24.2 → 0.28.1、`tools/run/`。2026-11-21）：開発用 サーバー（`serve`）の 注意で、うちのこは `build` だけ。**手で マージしない**（lockfile と `src/run_bundle.js` が ずれる）。上げるなら P3 で `npm install` → `build_run.mjs` → ためしを ぜんぶ とおして いっしょに コミットし、PR は とじる（`docs/RUN_DESIGN.md` 12章）。
 5d. **（オーナーが 決める・いそがない）** 2D の 絵の ヨークシャーテリアも 全身タイツの ように 見えるので、3D と 同じく「せなかだけ ブルー」に するか（`renderPet`。3つの 版が かわる）。
 6. **（あとで・情報）** P5-3 シートを いちばん上で 下に 引くと LINE の 最小化、P5-4 ダークで ブルーベリーが 見わけにくい、P5-5 高さ 500px より ひくい 画面は パズルが たてに スクロール、P5-6 `smoke.py --claude` は パズルを とおらない。
 - おたすけ：ホーム画面版は1日おき。LINE版は「前回から7日」（だいずは LINE版に うつったので 7日に 1回。前回は 11-11 → つぎは 11-18 から）。
@@ -66,12 +59,18 @@ ChatGPT の「わんラン v33」を うちのこ日和の 3Dミニゲームに 
 
 - オーナー：別プロジェクトで 個人事業主の 申請（開業届など）→ 認証審査の 申請（補足資料の文は `docs/PROJECT.md` 10章。申請の 前に 画面の 文言と あっているか 見なおす）。
 - 認証審査を申請したら：審査は1〜2週間、「審査中」は取り消しも変更も できない（画面とサーバーも変えない）。認証されたら：「検索可能にする」は 承認から30日以内に押す。リンクする公式アカウント・友だち追加オプションは 認証の前に すませておく（あとで変えると 再審査）。
-- うちのこラン（仮）の P2（Opus 5.5 の 新しい チャット。`docs/RUN_DESIGN.md` 10章の プロンプト）。
+- うちのこランの P3（Opus 5.5 の 新しい チャット。`docs/RUN_DESIGN.md` 10章の プロンプト）。
 - うちのこの 体勢と 動き（Opus 5.5）は 審査中を さけて。
 
 ## 気をつけること
 
-- **うちのこラン（`src/run/`・`tools/run/`）：** `src/run/pet3d.js` は まだ `build.sh` に 入っていない（アプリに 出ない）。ためすには `cd tools/run && npm install` → `node tools/run/pet3d_test.mjs`・`python3 tools/run/pet3d_compare.py`。3D の 色は `NeutralToneMapping`・露出 1・半球光 1.9・平行光 1.9 で 2D に そろえた（わんランの レースの 光だと うすく なる）。`makePet3D` に わたす みためは かならず `normalizeLook()` の あと。アプリの スクリプトには 大きな 名前 `T`（おやつの 表）が あるので、まとめる ファイルは 名前を とじる（`window.THREE` に たよらない）。くわしくは `docs/RUN_DESIGN.md` 11章。
+- **うちのこラン（`src/run/`・`src/js_run.js`・`tools/run/`。くわしくは `docs/RUN_DESIGN.md` 11・12章）：**
+  - はじめに `cd tools/run && npm install`。`src/run/` を かえたら `node tools/run/build_run.mjs` で `src/run_bundle.js` を 作りなおして いっしょに コミット（push の 前に `--check`）。そのあと `sh src/build.sh`（`run-<ハッシュ>.js` が かわり、前の `run-*.js` は 消える）。
+  - ホーム画面版だけ（`RUN_HOME=1`・`RUN_LINE=0`・`RUN_CLAUDE=0`）。`head.html`・`body.html`・共通の `js_*.js` を かえると LINE版・Claude版も かわる＝ランの ものは `js_run.js`・`src/run/run.css`・`src/run/` に。ビルドの 前後で `src/out/line/index.html`（`c31654d2…`）・`src/out/uchinoko-claude.html`（`1b6ecbe8…`）の md5 を くらべる。
+  - CSP は ランの ファイルの URL を パスまで（`build.sh` の `HOME_ORIGIN`）。手元の ためしは `smoke.Handler` が その はじめの 部分を 手元の URL に かえて 配信する。ヘッドレスでも WebGL が 動く ように `smoke.CHROMIUM_ARGS`（SwiftShader）。`page.wait_for_function` は CSP で とめられるので `smoke.poll`。`RunUI` は `const`（`window.RunUI` では 見えない）。
+  - ヘッドレスの 3D は おそい（こまの あいだに 指の イベントが おくれる）。`smoke.py` の 指の ためしは うちのこの 足を とめてから。ゴールまでの 通しは `tools/run/run_shots.py`（時計を とめて ページの 中で レースを すすめる）。
+  - 3D の 色は `NeutralToneMapping`・露出 1（P1）。`makePet3D` に わたす みためは かならず `normalizeLook()` の あと。`mountRace` の `name`・`rivals[].label`・`art` は `esc`・`softName` 済みの HTML。
+  - 決めたこと（2026-11-22）：題「うちのこラン」・タイル「ラン」・「おともだち（品種）」・おやつは 骨の ビスケット・時計 00:36.6／36.58秒・コースは ひらがな。
 - **なでなで（`#pet`）と LINE の 下スワイプ：** `petStill`（`touchstart`・`touchmove` の `preventDefault`）を はずさない。`#pet` の 中に ボタンや リンクを 足すと 指の `click` が 来ない（タッチを とめているので）。`smoke.py` の「なでる（指）」が 見る。
 - **LINE版の 下の すき間：** おへやの 画面は `html .app`、シート・ポップアップ・はじめての画面・パズルは それぞれ（`line_head.html`）。`:root` には あけない（P6-1）。新しい 画面いっぱいの 入れものを 足したら、そこにも 書く。
 - **パズルの 画面（`PuzzleUI`。2026-11-16）：**
