@@ -25,12 +25,13 @@
 | `src/js_features.js` | `ensureState`（セーブの移行）、おねがい・おたすけ・おみやげ・イベント・記念日のポップアップ、もようがえ、げい、アルバム、よるの ひとこと `Nudge`（21時から おねがいが のこっていると うちのこが ふきだしで。1日1回）、パズルの画面 `PuzzleUI`（「あそぶ」の `openPlay` から、ページごと うつる `#pzPage`。盤の 大きさは `fit()` が 画面の 高さから。2026-11-16 に 作りなおした） |
 | `src/js_onboard.js` | 写真から迎える流れ、種類・色・名前の編集、起動処理（boot） |
 | `src/js_home.js` | ホーム画面版だけのJS（`build.sh` が `js_rules.js` のすぐあとに入れる）。いまは `HomeRescue`：前の きびしいルールで きょう れんぞくが1にもどった子に、おたすけを出しなおす |
+| `src/js_run.js` | うちのこラン（仮）の アプリの 側（**ホーム画面版だけ**。`build.sh` の `RUN_HOME=1` で `js_features.js` の すぐあとに 入る）：`RunUI`（「あそぶ」の シートに「ラン」・WebGL 2 の 有無・ページ `#runPage`・ゲームの ファイル `RUN_SRC` を `integrity` つきで 読む・とじたら `dispose`）。`openPlay`・`Nudge.busy`・`Game.start` を 包む |
 | `src/js_line.js` | LINE版だけのJS（LIFF の準備、サーバーでの本人確認とセーブ、AIの読みとり `LineAI`、やめる `LineLeave`、写真立ての イラスト `LineFrame`、うちのこカード `CardArt`・`LineCard`〈絵を PNG に → `POST /card` → `liff.shareTargetPicker()`〉、おしらせ `LineNotice`〈ポリシー・規約の 大事な変更などを 1回だけ。`LineNotice.list` に書く〉、よるの おしらせ `LineNotify`〈プロフィールの スイッチ・1回だけの さそい・`liff.requestFriendship()`。おくるのは サーバー〉。`LINE_CFG.liffIds`（内部チャネルごと。ひらいた場所 `/`・`/review/`・`/dev/` で えらぶ）・`LINE_CFG.api`） |
 | `src/sw.js` | オフライン用のService Worker（`__VER__` はビルド時に置きかわる） |
-| `src/build.sh` | 組み立て。`../index.html` と `../sw.js`（ホーム画面版）、`out/uchinoko-claude.html`（Claude版）、`out/line/`（LINE版。本番用＝いちばん上、審査用＝`review/`、開発用＝`dev/` に同じページ。うちのこカードの メッセージに出す `line-icon.png` と、Cloudflare Pages の ヘッダー `_headers` も）を出力 |
+| `src/build.sh` | 組み立て。`../index.html` と `../sw.js`（ホーム画面版。うちのこランの `../run-<ハッシュ>.js` も）、`out/uchinoko-claude.html`（Claude版）、`out/line/`（LINE版。本番用＝いちばん上、審査用＝`review/`、開発用＝`dev/` に同じページ。うちのこカードの メッセージに出す `line-icon.png` と、Cloudflare Pages の ヘッダー `_headers` も）を出力。うちのこランの ビルドの スイッチ `RUN_HOME=1`・`RUN_LINE=0`・`RUN_CLAUDE=0`（`docs/RUN_DESIGN.md` 9章・12章） |
 | `src/icons/` | アイコンの元データ（1024px）と描画スクリプト。LINE用（130px）は `line_icon.js`・`render_line.py` → `line-icon-130.png` |
 | `src/legal/` | LINE版のプライバシーポリシー・利用規約（`build.sh` が お問い合わせ先 `CONTACT`＝Googleフォームの URL を入れて `out/line/` に出す。空なら出さない） |
-| `tools/smoke.py` | スマホ幅での動作確認とスクリーンショット。見た目（文字と地の色の差・11px より小さい文字・「とじる」の さわれる大きさ）も数える。ホーム画面版では オフラインで 自分の キャッシュから ひらくかも、パズルの 画面が スクロールなしで 入るかも、なでる（指の まね）で ブラウザの 動きを とめているかも（`--dark` ダーク、`--fresh` はじめて、`--line` LINE版、`--claude` Claude版の クラウドの子の まね、`--size 375x667` 画面の 大きさ） |
+| `tools/smoke.py` | スマホ幅での動作確認とスクリーンショット。見た目（文字と地の色の差・11px より小さい文字・「とじる」の さわれる大きさ）も数える。ホーム画面版では オフラインで 自分の キャッシュから ひらくかも、パズルの 画面が スクロールなしで 入るかも、なでる（指の まね）で ブラウザの 動きを とめているかも、うちのこラン（ページ・指の スワイプ・ひとやすみ・とじたら 片づく・WebGL なし・こわれた ファイル。3D は SwiftShader）も（`--dark` ダーク、`--fresh` はじめて、`--line` LINE版、`--claude` Claude版の クラウドの子の まね、`--size 375x667` 画面の 大きさ） |
 | `tools/linebreak.py` | 改行の確認：375・390px で シート・ポップアップ・トースト・はじめての画面を出し、ことばの まんなかの改行と 横はみだしを数える（`--line` LINE版、`--claude` Claude版、`--shots DIR` で スクリーンショット、`--height 603` ひくい 画面＝ポップアップの 上が 切れて とどかない ところ・パズルの 画面が 入りきらない ところも 数える） |
 | `tools/webfonts.py`・`tools/fonts/` | 確認用に Google Fonts と同じフォント（@fontsource）を手元から出す（はじめに `cd tools/fonts && npm install`。`linebreak.py` が使う） |
 | `supabase/migrations/` | LINE版のサーバー（Supabase「uchinoko-biyori」）の表。`app` スキーマ（Data API に出さない）。サーバーが つなぐ役 `uchinoko_api`（`app` の表だけ）も。よるの おしらせの cron（`*_notify_cron.sql`、pg_cron と pg_net。ためしでは 読まない）も |
@@ -42,20 +43,21 @@
 | `tools/rules_test.mjs` | ルール（`js_rules.js`）を時計を動かして確かめる（れんぞく・おたすけ・日本時間の0時・おみやげ・げい・イベント・記念日・パズル） |
 | `tools/compare_home.py` | ホーム画面版の動きが前の版と同じかをくらべる（`python3 tools/compare_home.py [コミット]`、既定は HEAD） |
 | `docs/MOTION_DESIGN.md` | うちのこの 体勢と 動きを ふやす 設計（2026-11-16。Opus 5.5 の チャットで 実装する。まだ 実装していない） |
-| `docs/RUN_DESIGN.md` | うちのこラン（仮）＝ChatGPT の「わんラン」（3D の レース＆アジリティ）を うちのこ日和の ミニゲームに する 設計（2026-11-21。P1 済み・つぎは P2。11章に P1 で 作ったもの） |
-| `src/run/pet3d.js` | うちのこラン（仮）の 3D の うちのこ：`makePet3D(look, neckWear, { detail })`・`posePet3D`・`strideLegs`・`disposePet3D`（ES モジュール。`three` と `three/addons/utils/BufferGeometryUtils.js` を import。**まだ `build.sh` に 入っていない**＝アプリには 出ない。P2 で esbuild で まとめる） |
-| `tools/run/` | うちのこランの 道具：`package.json`・lockfile（Three.js r170・esbuild。はじめに `cd tools/run && npm install`）、`pet3d_compare.py`（2D と 3D の 見くらべの スクリーンショット・`--only 品種id,daizu:くびのid --size 600` で 大きく・`--gif daizu:scarf_tri` で 走る アニメ。保存先は `smoke-out/pet3d/`）、`pet3d_test.mjs`（41種 × くびの きせかえで 3D を 作って 確かめる。`node tools/run/pet3d_test.mjs`） |
+| `docs/RUN_DESIGN.md` | うちのこラン（仮）＝ChatGPT の「わんラン」（3D の レース＆アジリティ）を うちのこ日和の ミニゲームに する 設計（2026-11-21。P1・P2 済み。11章に P1、12章に P2 で 作ったもの） |
+| `src/run/` | うちのこラン（仮）の ゲーム（ES モジュール。`tools/run/build_run.mjs` が まとめる）：`main.js`（入口。`window.UchinokoRun`）、`race.js`（レースの 画面 `mountRace`。わんランの `race-game.js` を 作りなおした）、`pet3d.js`（3D の うちのこ `makePet3D`・`posePet3D`・`disposePet3D`）、`run.css`（ランの 画面の CSS。ホーム画面版の `<head>` に だけ 入る）、`wanrun/`（わんラン v33 から 持ってきた ルール・景色・カメラ。かえたのは `three` の import だけ。README） |
+| `src/run_bundle.js` | `src/run/` と Three.js r170 を 1つに まとめた もの（`node tools/run/build_run.mjs` が 作る。**手で 直さない**。`--check` で 確かめる。コミットする）。`build.sh` が `run-<ハッシュ>.js` として ルートに 出す |
+| `tools/run/` | うちのこランの 道具：`package.json`・lockfile（Three.js r170・esbuild。はじめに `cd tools/run && npm install`）、`build_run.mjs`（まとめる・`--check`）、`run_shots.py`（ホーム画面版で ゴールまで 走らせて スクリーンショットと 走る GIF。`smoke-out/run/`。`--dark`・`--cat`・`--size`）、`pet3d_compare.py`（2D と 3D の 見くらべ）、`pet3d_test.mjs`（41種 × くびの きせかえで 3D を 確かめる） |
 | `_ref/wanrun-v33/` | わんラン v33 の 原本（`wanrun-v33.zip`）と 仕様書（`spec.md`）。読むだけ。`_` の フォルダなので GitHub Pages には 出ない（`.nojekyll` を 足さない） |
 | `docs/REVIEW_PROMPT.md` | Claude Fable 5.2 の レビューの チャットに貼るプロンプト（約束①の 診断・さいごのチェックの あと、2026-11-15 から パズルの レビュー用＝2026-11-16 に 済み。前の版は git に） |
 | `.github/workflows/keepalive.yml` | GitHub Actions「サーバーを起こす」：3日ごとに LINE版のサーバーの `/health` と、DB を1回読む呼び出し（でたらめのセッションで 401）をして、Supabase の無料プランが止まらないようにする。`/health` の この3日の エラーの数が 10以上のときと、この3日に よるの おしらせが 止まった日（`notifyDays`）が あるときも 失敗にする（`docs/PROJECT.md` の10章） |
-| ルートの `index.html` `sw.js` `manifest.webmanifest` `*.png` | 公開ファイル（ビルド結果なので手で直さない） |
+| ルートの `index.html` `sw.js` `manifest.webmanifest` `*.png` `run-*.js` | 公開ファイル（ビルド結果なので手で直さない） |
 
 JSは1つの `<script>` に `build.sh` の順でつなげられます。`const HOME = true/false` で、ホーム画面版とClaude版の差を切り替えます。LINE版は `HOME = true` に `js_line.js` を足したものです（`docs/PROJECT.md` の10章）。
 
 ## 作業の流れ
 
 1. `src/` だけを編集します。ルートの `index.html` は手で直しません。
-2. `sh src/build.sh` を実行します。`node --check` 相当の構文チェックは、ビルド結果を `node --check` に通して確認します。
+2. `sh src/build.sh` を実行します（`src/run/` を 変えたときは 先に `node tools/run/build_run.mjs`。push の 前に `--check`）。`node --check` 相当の構文チェックは、ビルド結果を `node --check` に通して確認します。
 3. `python3 tools/smoke.py` で、スマホ幅（390×844）の主要画面を確認します。スクリーンショットを見て、ページエラー（見た目の 数も ふくむ）が0件であることを確かめます。色や CSS を変えたときは `--dark` も、Claude版の保存や はじめての画面を変えたときは `--claude` も通します。文言や CSS を変えたときは `python3 tools/linebreak.py`（LINE版は `--line` も）で、ことばの まんなかの改行が0件か確かめます。LINE版にかかわる変更では `python3 tools/smoke.py --line --android-inset 48` と `python3 tools/line_e2e.py`（サーバーと画面の通し確認）も通します。
    - **おせわのルール（`js_rules.js`）や おせわの画面を、動きを変えるつもりなしに直したとき：** `python3 tools/compare_home.py` で、ホーム画面版の最後のセーブが前の版（HEAD）と同じか確かめます。
    - **サーバー（`supabase/`）や、サーバーでも使う関数（`ensureState`・`carryExtras`・引っこしコードの読みとり、`js_rules.js`、データのファイル）を変えたとき：** `python3 tools/build_server.py` → `python3 tools/line_e2e.py` → main に push → `python3 tools/build_server.py --pin <そのコミットのSHA>` → Supabase の MCP で `api` に `index.ts` と `deno.json` をデプロイ（`verify_jwt: false`、`import_map_path: deno.json`）→ `--check` → `execute_sql` から pg_net（`net.http_get` / `net.http_post`）で `/health` などを確かめる → deno.json を含めてもう一度 push。表を変えるときは `supabase/migrations/` に足して `apply_migration` し、`get_advisors` で確かめます（`docs/PROJECT.md` の10章）。
@@ -75,7 +77,7 @@ JSは1つの `<script>` に `build.sh` の順でつなげられます。`const H
 
 - **セーブをこわさない。** 保存データ `S` にフィールドを足すときは、`ensureState()` に既定値と移行を書きます。引っこしコードで運ぶものは `carryExtras()` にも足します。保存キー `uchinoko-biyori:v1` と引っこしコードの形式 `UCHINOKO2:<長さ>:<base64>` は変えません（`UCHINOKO1` も読めるまま残します）。端末の中には、毎日のひかえ `uchinoko-biyori:backup`（と `:backup-day`）と、読めなかったセーブの `uchinoko-biyori:broken` もあります。これらを消す処理は書きません。配列に上限をつけるときは、毎日たまるもの（スタンプなど）が何年使っても切れない大きさにします。
 - **ドメインは共有。** `*.github.io` は、同じアカウント（組織）のほかの Pages サイトと localStorage と Service Worker のキャッシュを共有します。保存キーとキャッシュ名はアプリ名ではじめ、`localStorage.clear()` や、ほかのアプリのキャッシュを消す処理は書きません。
-- **CSP。** ホーム画面版は CSP で、`index.html` の中のスクリプト1つと Google Fonts だけを読みこめます（ハッシュは `build.sh` が入れるので、`index.html` を手で直すと動かなくなります）。`onclick="…"` や `javascript:` は使わず `addEventListener` で書きます。外から読みこむものを足すときは `src/home_head.html` の CSP と `src/sw.js` もそろえ、`tools/smoke.py` で CSP の違反が0件か確かめます。
+- **CSP。** ホーム画面版は CSP で、`index.html` の中のスクリプト1つと、うちのこランの ゲームの ファイル（`run-<ハッシュ>.js`。URL を パスまで・`integrity` つき）と Google Fonts だけを読みこめます（ハッシュと URL は `build.sh` が入れるので、`index.html` を手で直すと動かなくなります。ヘッドレスの ためしでは `page.wait_for_function` が とめられるので `smoke.poll` を つかう）。`onclick="…"` や `javascript:` は使わず `addEventListener` で書きます。外から読みこむものを足すときは `src/home_head.html` の CSP と `src/sw.js` もそろえ、`tools/smoke.py` で CSP の違反が0件か確かめます。
 - **IDは消さない。** きせかえなどを入れ替えるときは、`WEAR_RENAMED` で古いIDを新しいIDへつなぎます。
 - **スマホ優先。** 390px幅で横スクロールが出ないこと。タップしやすい大きさにします。iPhoneのSafariで残像が出るので、体ごと大きく動くアニメは `#petArt` に付けます（SVG内のグループで枠の外まで動かさない）。
 - **文言。** やさしいひらがな多めにし、メインメニューの言葉にそろえます（例：「げい」「◯日」）。

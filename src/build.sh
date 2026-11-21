@@ -4,6 +4,7 @@
 #   out/uchinoko-claude.html       … Claude アーティファクト版
 #   out/line/                      … LINE版（LINEミニアプリ。Cloudflare Pages がこのフォルダを公開する。本番用＝いちばん上、審査用＝review/、開発用＝dev/。
 #                                    Cloudflare の ヘッダー _headers も）
+#   ../run-<ハッシュ>.js            … うちのこラン（仮）の ゲーム（RUN_HOME=1 のとき。中身は run_bundle.js）
 set -e
 cd "$(dirname "$0")"
 JS="js_data.js js_data2.js js_data3.js js_pet.js js_wear.js js_rules.js js_app.js js_features.js js_onboard.js"
@@ -12,7 +13,19 @@ sha256b64(){
   if command -v openssl >/dev/null 2>&1; then openssl dgst -sha256 -binary "$1" | base64 | tr -d '\n'
   else python3 -c 'import base64,hashlib,sys;print(base64.b64encode(hashlib.sha256(open(sys.argv[1],"rb").read()).digest()).decode(),end="")' "$1"; fi
 }
+sha256hex(){
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -c1-64
+  else python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest(),end="")' "$1"; fi
+}
 mkdir -p out
+
+# うちのこラン（仮）の ビルドの スイッチ（docs/RUN_DESIGN.md 9章）：出して よい 版だけに ランの 入口と ファイルを 入れる。
+# いまは ホーム画面版だけ（P2〜P4）。Claude版は P5、LINE版は P6（そのときに ここを 作る。いまは 1 に すると とめる）。
+# ためしに ランなしの ホーム画面版を 作るときは RUN_HOME=0 sh src/build.sh
+RUN_HOME="${RUN_HOME-1}"; RUN_LINE="${RUN_LINE-0}"; RUN_CLAUDE="${RUN_CLAUDE-0}"
+if [ "$RUN_LINE" != 0 ] || [ "$RUN_CLAUDE" != 0 ]; then echo 'ランは まだ LINE版（P6）・Claude版（P5）に 出せません（RUN_LINE=0・RUN_CLAUDE=0）' >&2; exit 1; fi
+HOME_ORIGIN='https://y-s-apps.github.io/uchinoko-biyori/'   # ホーム画面版の 公開 URL（CSP に ファイルの URL を パスまで 書く）
+rm -f ../run-*.js
 { cat head.html; cat body.html; echo '<script>'; echo 'const HOME = false;'; cat $JS; echo '</script>'; } > out/uchinoko-claude.html
 
 # ホーム画面版の <script> の中身。CSP はこの中身のハッシュだけを実行してよいものにする
@@ -21,17 +34,36 @@ mkdir -p out
 HOME_RESCUE_EVERY=2
 # ホーム画面版だけのJS（js_home.js）は js_rules.js のすぐあとに入れる
 HOME_JS=$(echo "$JS" | sed 's/js_rules\.js/js_rules.js js_home.js/')
-{ echo; echo 'const HOME = true;'; cat $HOME_JS | sed "s/^const RESCUE_EVERY = 7;\$/const RESCUE_EVERY = $HOME_RESCUE_EVERY;/";
+# うちのこラン（仮）：ゲームの ファイル（run_bundle.js。tools/run/build_run.mjs が 作る）を run-<ハッシュ>.js として ルートに 置き、
+# ランの 画面（js_run.js。js_features.js の すぐあと）・CSS（run/run.css）・ファイルの 名前と integrity（RUN_SRC・RUN_SRI）を ホーム画面版に 入れる。
+# CSP の script-src には その ファイルの URL だけを 足す（'self' に しない＝組織の ほかの Pages の スクリプトを 通さない）。sw.js も とっておく
+RUN_CSP=''; RUN_CORE=''; RUN_DEFS=''; RUN_CSS=''
+if [ "$RUN_HOME" = 1 ]; then
+  [ -s run_bundle.js ] || { echo 'run_bundle.js が ありません（node tools/run/build_run.mjs）' >&2; exit 1; }
+  RUN_FILE="run-$(sha256hex run_bundle.js | cut -c1-12).js"
+  cp run_bundle.js "../$RUN_FILE"
+  RUN_SRI="sha256-$(sha256b64 run_bundle.js)"
+  RUN_CSP=" $HOME_ORIGIN$RUN_FILE"
+  RUN_CORE=", '$RUN_FILE'"
+  RUN_DEFS="const RUN_SRC = '$RUN_FILE', RUN_SRI = '$RUN_SRI';"
+  RUN_CSS=run/run.css
+  HOME_JS=$(echo "$HOME_JS" | sed 's/js_features\.js/js_features.js js_run.js/')
+fi
+{ echo; echo 'const HOME = true;'; [ -n "$RUN_DEFS" ] && echo "$RUN_DEFS"; cat $HOME_JS | sed "s/^const RESCUE_EVERY = 7;\$/const RESCUE_EVERY = $HOME_RESCUE_EVERY;/";
   echo "if ('serviceWorker' in navigator && location.protocol === 'https:') addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));"; } > out/home-script.js
 grep -q "^const RESCUE_EVERY = $HOME_RESCUE_EVERY;\$" out/home-script.js && grep -q '^const HomeRescue = ' out/home-script.js || { echo 'ホーム画面版の RESCUE_EVERY の置きかえか js_home.js が入っていません（js_rules.js の行の形を確かめて）' >&2; exit 1; }
+if [ "$RUN_HOME" = 1 ]; then grep -q '^const RunUI = ' out/home-script.js || { echo 'js_run.js が 入っていません' >&2; exit 1; }; fi
 HASH="sha256-$(sha256b64 out/home-script.js)"
-# キャッシュ名の版番号（sw.js の __VER__）は、ホーム画面版に入る中身から作る（LINE版だけの変更では変わらない）
-VER=$(cat out/home-script.js head.html body.html home_head.html sw.js manifest.webmanifest | sha1sum | cut -c1-10)
-{ sed "s|__SCRIPT_HASH__|$HASH|" home_head.html; cat head.html; echo '</head>'; echo '<body>'; cat body.html;
+# キャッシュ名の版番号（sw.js の __VER__）は、ホーム画面版に入る中身から作る（LINE版だけの変更では変わらない。ランの ファイルは RUN_SRC の ハッシュで 入る）
+VER=$(cat out/home-script.js head.html body.html home_head.html $RUN_CSS sw.js manifest.webmanifest | sha1sum | cut -c1-10)
+{ sed -e "s|__SCRIPT_HASH__|$HASH|" -e "s|__RUN_CSP__|$RUN_CSP|" home_head.html; cat head.html;
+  if [ -n "$RUN_CSS" ]; then echo '<style>'; cat "$RUN_CSS"; echo '</style>'; fi
+  echo '</head>'; echo '<body>'; cat body.html;
   printf '<script>'; cat out/home-script.js; echo '</script>'; echo '</body>'; echo '</html>'; } > ../index.html
 grep -q "'$HASH'" ../index.html
+if [ "$RUN_HOME" = 1 ]; then grep -q "script-src '$HASH' $HOME_ORIGIN$RUN_FILE;" ../index.html || { echo 'CSP に ランの ファイルが 入っていません' >&2; exit 1; }; fi
 
-sed "s/__VER__/$VER/" sw.js > ../sw.js
+sed -e "s/__VER__/$VER/" -e "s|__RUN__|$RUN_CORE|" sw.js > ../sw.js
 cp manifest.webmanifest ../
 
 # LINE版：ホーム画面版と同じJS（端末保存・写真は端末の中だけ）に js_line.js を足す。
@@ -71,4 +103,4 @@ if [ "$DOCS" = true ]; then
   for f in privacy terms; do sed "s|__CONTACT__|$CONTACT|g" legal/$f.html > out/line/$f.html; done
   if grep -q '__CONTACT__' out/line/privacy.html out/line/terms.html; then echo 'お問い合わせ先が入っていません' >&2; exit 1; fi
 fi
-echo "built ($VER)"
+echo "built ($VER)${RUN_FILE:+ $RUN_FILE}"

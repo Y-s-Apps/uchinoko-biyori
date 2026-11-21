@@ -1,0 +1,99 @@
+/* うちのこラン（仮）（2026-11-21 P2。docs/RUN_DESIGN.md）：ホーム画面版だけ（build.sh が RUN_HOME=1 のとき <head> に 入れる。head.html は 3つの 版で 同じなので さわらない）
+   - 画面いっぱい（.run-page。重なりは パズルと 同じ 45：はじめての画面 40 ＜ ここ ＜ シート 50 ＜ ポップアップ 70）。うしろの #app は inert。
+   - ページは うごかさない（overflow:hidden・touch-action:none・overscroll-behavior:none。指の うごきは ゲームが うけとる）。
+   - 3D の 上の 文字は かならず 地を しく（var(--surface) の チップ・カード）。さわれるのは ボタンと カードだけ（ほかは pointer-events:none で、タップは 3D へ）。
+   - .run-hud には z-index を つけない（ボタンだけ メニューの 上〈5〉、チップは メニューの 下）。 */
+.playpick.run3{grid-template-columns:repeat(3,minmax(0,1fr))}
+html.run-open,html.run-open body{overflow:hidden;overscroll-behavior:none}
+.run-page{position:fixed;inset:0;z-index:45;background:#9ED9EE;color:var(--ink);overflow:hidden;overscroll-behavior:none;touch-action:none;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;outline:none;animation:pzIn .22s ease}
+.run-root{position:absolute;inset:0}
+.run-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+.run-hud{position:absolute;left:0;right:0;top:0;box-sizing:border-box;padding:calc(8px + env(safe-area-inset-top,0px)) 12px 0;display:flex;flex-direction:column;gap:7px;pointer-events:none}
+.run-top{display:flex;align-items:center;gap:8px}
+.run-gap{flex:1}
+.run-btn{pointer-events:auto;z-index:5;flex:none;width:40px;height:40px;background:var(--surface);color:var(--ink);box-shadow:var(--lift);font-weight:900;font-size:18px;line-height:1}
+.run-btn svg{width:20px;height:20px}
+.run-chip{box-sizing:border-box;display:flex;align-items:center;gap:4px;height:40px;padding:0 11px;border-radius:14px;background:var(--surface);color:var(--ink);box-shadow:var(--lift);font-weight:700;font-size:12px;line-height:1.2;white-space:nowrap}
+.run-chip b{font-size:21px;font-weight:900;font-variant-numeric:tabular-nums}
+.run-treat svg{width:28px;height:17px}
+.run-line{display:flex;align-items:center;gap:8px}
+.run-progress{position:relative;flex:1;height:12px;border-radius:99px;background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--line),var(--lift)}
+.run-fill{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:99px;background:var(--mint)}
+.run-mark{position:absolute;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:#7F8B87}
+.run-me{position:absolute;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:var(--berry);box-shadow:0 0 0 2.5px var(--surface)}
+.run-clock{height:30px;font-size:15px;font-weight:900;font-variant-numeric:tabular-nums}
+/* まがりかどの 合図・カウントダウン・ひとこと（3D の 上。さわれない） */
+.run-cue,.run-count,.run-msg,.run-bottom{position:absolute;z-index:2;pointer-events:none}
+.run-cue{left:50%;top:calc(116px + env(safe-area-inset-top,0px));transform:translateX(-50%);display:flex;align-items:center;gap:10px;box-sizing:border-box;max-width:calc(100% - 24px);
+  background:var(--surface);color:var(--ink);border-radius:18px;padding:7px 14px 7px 12px;box-shadow:var(--lift);white-space:nowrap}
+.run-cue strong{font-size:32px;line-height:1;font-weight:900;color:var(--ink)}
+.run-cue span{display:flex;flex-direction:column;line-height:1.25}
+.run-cue small{font-size:11px;font-weight:700;color:var(--ink-soft)}
+.run-cue b{font-size:17px;font-weight:900}
+.run-cue i{font-style:normal;font-weight:900;font-size:18px;color:var(--on-mint);background:var(--mint);width:28px;height:28px;border-radius:50%;display:grid;place-items:center}
+.run-cue[data-state="active"]{box-shadow:inset 0 0 0 3px var(--honey),var(--lift)}
+.run-cue[data-state="waiting"]{box-shadow:inset 0 0 0 3px var(--berry),var(--lift);animation:runNudge .6s ease infinite alternate}
+@keyframes runNudge{to{transform:translateX(-50%) scale(1.05)}}
+.run-count{left:50%;top:38%;width:104px;height:104px;margin:-52px 0 0 -52px;border-radius:50%;background:var(--surface);color:var(--berry-ink);box-shadow:var(--lift);
+  font-family:var(--f-display);font-size:58px;line-height:104px;text-align:center;display:none}
+.run-count.show{display:block;animation:pop .35s cubic-bezier(.3,1.5,.5,1)}
+.run-msg{left:50%;top:52%;transform:translateX(-50%);box-sizing:border-box;max-width:calc(100% - 32px);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 16px;
+  box-shadow:var(--lift);font-weight:900;font-size:16px;line-height:1.35;text-align:center;display:none}
+.run-msg.show{display:block;animation:pop .3s cubic-bezier(.3,1.5,.5,1)}
+.run-root.menu .run-cue,.run-root.menu .run-count,.run-root.menu .run-msg{display:none}
+/* ダッシュの ゲージ */
+.run-bottom{left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:10px;box-sizing:border-box;
+  background:var(--surface);color:var(--ink);border-radius:18px;padding:8px 14px;box-shadow:var(--lift)}
+.run-gauge-l{display:flex;align-items:center;gap:6px;flex:none;font-size:13px;font-weight:900;white-space:nowrap}
+.run-gauge-l svg{width:30px;height:18px}
+.run-gauge{position:relative;flex:1;min-width:40px;height:12px;border-radius:99px;background:var(--surface-2);box-shadow:inset 0 0 0 1.5px var(--line);overflow:hidden}
+.run-gauge i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--honey);border-radius:99px;transition:width .15s}
+.run-gauge-n{flex:none;font-size:14px;font-weight:900;font-variant-numeric:tabular-nums;white-space:nowrap}
+.run-root.dash-ready .run-bottom{box-shadow:inset 0 0 0 3px var(--honey),var(--lift);animation:runNudgeB .6s ease infinite alternate}
+.run-root.dash-ready .run-gauge-l b{color:var(--berry-ink)}
+.run-root.boosting .run-gauge i{background:var(--berry)}
+@keyframes runNudgeB{to{transform:translateY(-3px)}}
+/* メニュー（スタート・ひとやすみ・ゴール・あそびかた・じゅんび・こまったとき）：3D の 上に かさねる。上の ボタン（× ？）は この上 */
+/* まんなかに そろえるのは カードの margin:auto（入りきらない ほど ひくい 画面では 上から スクロールできる。grid の center だと 上が 切れて とどかない） */
+.run-over{position:absolute;inset:0;z-index:3;box-sizing:border-box;display:flex;flex-direction:column;overflow:auto;touch-action:pan-y;background:var(--scrim);
+  padding:calc(58px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px));animation:fadein .2s ease}
+.run-over[hidden]{display:none}
+/* スタートの 前は 3D の みんなが 見える ように、カードを 上に・うすい かげで */
+.run-over.top{background:rgba(34,28,46,.14);padding-top:calc(64px + env(safe-area-inset-top,0px))}
+.run-over.top .run-card{margin-top:0}
+.run-card{flex:none;margin:auto;box-sizing:border-box;width:100%;max-width:340px;background:var(--surface);color:var(--ink);border-radius:24px;padding:18px 16px 16px;text-align:center;box-shadow:0 6px 0 rgba(0,0,0,.08);animation:pop .35s cubic-bezier(.3,1.5,.5,1)}
+.run-card h2{margin:2px 0 8px;font-family:var(--f-display);font-weight:400;font-size:22px;line-height:1.35;color:var(--berry-ink)}
+.run-over-l{display:block;font-size:12px;font-weight:900;color:var(--ink-soft)}
+.run-sub{margin:4px 0 0;font-size:13px;color:var(--ink-soft);line-height:1.55}
+.run-card .btnrow{flex-wrap:nowrap;margin-top:14px}
+.run-card .btnrow .btn{flex:1 1 0;min-width:0;white-space:normal;line-height:1.25;padding:11px 6px;min-height:46px}
+.run-res{display:flex;align-items:center;justify-content:center;gap:10px;margin:2px 0 0}
+.run-art{width:76px;height:76px;flex:none}
+.run-art .pet-svg{display:block;width:100%;height:100%;overflow:visible}
+.run-rankbig{display:flex;align-items:baseline;gap:4px;font-weight:900;font-size:15px}
+.run-rankbig b{font-family:var(--f-display);font-weight:400;font-size:52px;line-height:1.1;color:var(--berry-ink)}
+.run-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:4px}
+.run-stats div{background:var(--surface-2);border-radius:12px;padding:6px 8px;line-height:1.25}
+.run-stats span{display:block;font-size:11px;font-weight:700;color:var(--ink-soft)}
+.run-stats b{font-size:17px;font-weight:900;font-variant-numeric:tabular-nums}
+.run-order{margin-top:10px;text-align:left;font-size:13px}
+.run-order summary{cursor:pointer;font-weight:900;text-align:center;padding:6px 0;list-style-position:inside}
+.run-order ol{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:3px}
+.run-order li{display:grid;grid-template-columns:2.6em minmax(0,1fr) auto;gap:6px;align-items:baseline;background:var(--surface-2);border-radius:10px;padding:4px 8px}
+.run-order li b{font-variant-numeric:tabular-nums}
+.run-order li small{font-size:11px;color:var(--ink-soft)}
+.run-order li.me{box-shadow:inset 0 0 0 2px var(--berry)}
+.run-hrows{display:flex;flex-direction:column;gap:8px;text-align:left}
+.run-hrow{display:flex;gap:10px;align-items:flex-start}
+.run-hrow > b{flex:none;width:30px;height:30px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;font-size:16px;font-weight:900}
+.run-hrow strong{display:block;font-size:14px;line-height:1.35}
+.run-hrow span{display:block;font-size:12.5px;color:var(--ink-soft);line-height:1.5}
+.run-hnote{margin:10px 0 0;font-size:12px;color:var(--ink-soft)}
+@media (max-height:620px){
+  .run-cue{top:calc(100px + env(safe-area-inset-top,0px))}
+  .run-over{padding-top:calc(54px + env(safe-area-inset-top,0px))}
+  .run-card{padding:14px 14px 12px}
+  .run-art{width:60px;height:60px}
+  .run-rankbig b{font-size:44px}
+}

@@ -1,6 +1,6 @@
 # うちのこラン（仮）：わんランを うちのこ日和の ミニゲームに する 設計
 
-- 作った日：2026-11-21（22回目の チャット、Claude Opus 5.5）。**P1（3D の うちのこ）は 2026-11-21（23回目）に できて オーナー OK。つぎは P2**（10章の プロンプト）。P1 で 作ったものと P2 で 使う ときの 約束は 11章。
+- 作った日：2026-11-21（22回目の チャット、Claude Opus 5.5）。P1（3D の うちのこ）は 2026-11-21（23回目）に できて オーナー OK。**P2（まとめる しくみ＋レースの「こうえん」を ホーム画面版で）は 2026-11-22（24回目）に できて push 済み・オーナーの OK 待ち**。P1 で 作ったものは 11章、P2 で 作ったものと P3 で 使う ときの 約束は 12章。
 - きっかけ（オーナーから、2026-11-21）：ChatGPT で 作った 3Dゲーム「わんラン v33」（レース＆アジリティ）を、そのまま 入れるのでは なく、うちのこ日和 用に 置きかえて 新しい 機能に したい。
 - もとの 資料：`_ref/wanrun-v33/`（`wanrun-v33.zip`＝ChatGPT が 出した 原本 一式〈`source/dist/` が 動く ソース 91ファイル・`source/tests/` 77件・分冊の 仕様書 `chap10/`〉、`spec.md`＝機能仕様書〈1〜9章〉）。`_` で はじまる フォルダなので GitHub Pages には 出ない（`.nojekyll` を 足さない）。
 - 読む人：これを 実装する Claude Opus 5.5 の チャット。作業の 前に `CLAUDE.md`・`docs/PROJECT.md`・`docs/HANDOFF.md` を 読み、そのあとに ここを 読む。わんランの くわしい 動きは `_ref/wanrun-v33/spec.md`（とくに 4章 データ・5章 ロジック・8章 組み込み・9章 受入試験）。
@@ -116,7 +116,7 @@
 | --- | --- | --- |
 | P0 | この 設計と 資料（`_ref/`）（22回目。済み） | ― |
 | P1 | **3Dの うちのこ**（`makePet3D`・走る ポーズ・くびの きせかえ）と 見くらべの スクリーンショット → オーナーの OK（**23回目。済み**） | どこにも 出さない |
-| P2 | まとめる しくみ（`tools/run/`・`src/run_bundle.js`・`build.sh`・CSP・SW）と、レースの「公園」1コースを ホーム画面版で 走れる（ほうび なし） | ホーム画面版だけ。**ビルドの スイッチ**（下）で LINE版・Claude版は かわらない |
+| P2 | まとめる しくみ（`tools/run/`・`src/run_bundle.js`・`build.sh`・CSP・SW）と、レースの「公園」1コースを ホーム画面版で 走れる（ほうび なし）（**24回目。済み・オーナーの OK 待ち**） | ホーム画面版だけ。**ビルドの スイッチ**（下）で LINE版・Claude版は かわらない |
 | P3 | レース3コース・結果・記録・ほうび（`Rules`・`S.run`）・アルバム | ホーム画面版 |
 | P4 | アジリティ4コース | ホーム画面版 |
 | P5 | Claude版 | Claude版 |
@@ -161,3 +161,31 @@ P2 で やること：
 - **道具：** `tools/run/`（`package.json`・lockfile。Three.js 0.170.0・esbuild 0.24.2。`cd tools/run && npm install`）、`python3 tools/run/pet3d_compare.py`（`smoke-out/pet3d/` に 8まい。`--only 品種id,daizu:くびのid --size 600` で 大きく、`--gif daizu:scarf_tri` で 走る アニメ）、`node tools/run/pet3d_test.mjs`（esbuild で まとめて よみこみ、41種 × くびの きせかえ ＋ こわれた みためで 作る・NaN・足 4本・立つ／走ると 足の うらが 地面・片づく。17,248 こ）。
 - **P2 で 気をつける こと：** アプリの スクリプトには 大きな 名前 `T`（`js_data2.js` の おやつの 表の 関数）や `clamp`・`mix` が ある。まとめる ファイルは モジュールの 中で 名前を とじる（esbuild の `iife`／`esm`）、`window.THREE` に たよらない。esbuild は `nodePaths: ['tools/run/node_modules']` で `three` を さがす（`pet3d_test.mjs` と 同じ）。`target` は `safari14` で とおった。
 - **まだの こと：** マフラーの はしは ゆれない、おともだちの 名前、おやつの 3D の 形（7章）。
+
+## 12. P2 で 作ったもの（2026-11-22、24回目）
+
+ホーム画面版だけに 出した（`RUN_HOME=1`・`RUN_LINE=0`・`RUN_CLAUDE=0`。LINE版 `out/line/index.html`・Claude版 `out/uchinoko-claude.html` の md5 は 前と 同じ）。ほうび・記録・セーブ（`S`）は まだ ない。
+
+- **まとめる しくみ：** `node tools/run/build_run.mjs` が `src/run/main.js` から ゲームと Three.js r170 を esbuild（iife・minify・`target` safari14・`legalComments: eof`＝Three.js の MIT の 表示は ファイルの さいご）で `src/run_bundle.js`（約 582KB・gzip 約 160KB）に まとめる。名前は ぜんぶ 中に とじ、外に 出るのは `window.UchinokoRun`（`mountRace` など）だけ。`--check` で 作りなおして 同じか（ちがえば 1）。**`src/run/` を かえたら かならず 作りなおして コミット**（Pages・Cloudflare の ビルドで npm を 動かさない）。
+- **`build.sh`：** スイッチ `RUN_HOME`（既定 1）・`RUN_LINE`・`RUN_CLAUDE`（既定 0。1 に すると「まだ 出せません」で とまる＝P5・P6 で 作る）。`RUN_HOME=1` の とき：`run_bundle.js` を ルートに `run-<sha256 の 12けた>.js` として コピー（前の `run-*.js` は 消す）、ホーム画面版の スクリプトの 先頭に `const RUN_SRC = 'run-….js', RUN_SRI = 'sha256-…';`、`js_run.js` を `js_features.js` の すぐあとに、`src/run/run.css` を `<head>` の `<style>` に、CSP の `script-src` に `https://y-s-apps.github.io/uchinoko-biyori/run-….js`（パスまで。`home_head.html` の `__RUN_CSP__`）、`sw.js` の `CORE` に その ファイル（`__RUN__`）。キャッシュ名の 版番号にも `run.css` と RUN_SRC が 入る。`RUN_HOME=0` で ランの ない ホーム画面版も 作れる。
+- **アプリの 側 `src/js_run.js`（`RunUI`。ホーム画面版だけ）：**
+  - 「あそぶ」の シートに 3つめ「ラン」（`openPlay` を 包み、`#actPlay` の リスナーも 付けかえ。シートは 3れつ `.playpick.run3`）。説明の 1行も 足す。WebGL 2 が ない（`canvas.getContext('webgl2')` が null）端末は タイルが うすく「この端末では あそべません」で ひらかない（ファイルも 読まない）。
+  - ひらくと ページ `#runPage`（`z-index` 45＝パズルと 同じ。`#app` は `inert`・`html.run-open`）。ゲームの ファイルは この とき はじめて `<script src=RUN_SRC integrity=RUN_SRI>` で 読む（1回だけ。こわれていた・とどかない ときは「よみこめませんでした」→ とじる。つぎに ひらくと また 読む）。読む あいだは「じゅんび しているよ…」。
+  - ページは うごかさない（`touchstart`〈ボタン・summary いがい〉・`touchmove`〈スクロールできる メニューの 中 いがい〉を `preventDefault`）。Esc：あそびかたを とじる → 走っていたら ひとやすみ → とじる。
+  - おともだち 4ひきは うちのこと 同じ 種類の ちがう 品種を 毎回 ランダム（品種の まま の 色）。名前は「おともだち（柴犬）」（`softName`）。うちのこは「だいず（うちのこ）」。
+  - 子が 入れかわったら（`Game.start`）とじる。よるの ひとこと（`Nudge.busy`）は ランの あいだ まつ。ゴールして とじると おへやの子が「ラン たのしかった！」。
+- **ゲーム `src/run/race.js`（`mountRace`）：** わんランの `race-game.js` を レースだけ 作りなおした。ルール（`race-sim.js`）・道と 景色（`race-track.js`・`park-art.js`）・カメラ（`park-camera.js`）・足の 接地（`dog-gait.js` の `poseLegs`）は わんランの まま（`src/run/wanrun/`。かえたのは `three` の import だけ。README あり）。
+  - 走るのは `makePet3D(normalizeLook(S.pet.look), くびの きせかえ)`、おともだちは `detail: .6`。大きさは わんランの 公園と 同じ `scale` 0.62（`PET_SCALE`）。光は P1 の 見くらべと 同じ `NeutralToneMapping`・露出 1（半球光・平行光は 2.1。景色も この 光で よかった）。空・霧は わんランの 公園。
+  - **うちのこの すぐ うしろ（カメラとの あいだ）に おともだちが 入ると すける**（opacity 0.32。スタートで 3ばんめの おともだちが まうしろに いて うちのこが かくれたため。おともだちの マテリアルは はじめから transparent）。かげを 落とすのは うちのこだけ。
+  - 画面：上に ×・順位（◯位 / 5ひき）・おやつの 数・？（走っている あいだは ひとやすみ Ⅱ）、すすみぐあいの バー（おともだちの 点・うちのこの ピンク）と 時計（00:12.3）。まんなかに まがりかどの 合図（この さき みぎカーブ → みぎへ スワイプ → みぎへ OK → みぎカーブ、とまったら ピンクの わくで ゆれる）・3・2・1・ひとこと（スタート！・ごつん！・ダッシュ！・おやつ 20こ！ タップで ダッシュ・みぎだよ／ひだりだよ・ストップ！）。下に ダッシュの ゲージ（20こで「タップで ダッシュ」、ダッシュちゅうは のこり 秒）。メニュー（スタート・ひとやすみ・ゴール・あそびかた）は 3D の 上に かさねる カード（`.run-over`。スタートの 前は 上に よせて うすい かげ＝みんなが 見える）。ゴール：2D の うちのこの 絵・◯位・「いちばんで ゴール！」か「さいごまで はしったね！」・タイム（36.58秒）・おやつ・ダッシュ・ごつん・まがりそこね・5ひきの じゅんい（ひらく）・もういちど／おわる。
+  - 操作は わんランと 同じ（指1本・28px で スワイプ・12px／350ms より みじかい タップで ダッシュ・やじるしと スペース）。
+  - アプリを はなれたら（`visibilitychange`・`blur`・`pagehide`）ひとやすみ（もどっても「つづける」まで とまった まま）。とまっている あいだ（スタート前・ひとやすみ・ゴール後）は 1秒に 10こまだけ 描く。WebGL が とちゅうで なくなったら「3Dの がめんが とまったよ」→ とじる。
+  - `dispose()`：描く ループ・タイマー・リスナー・`ResizeObserver`・ジオメトリ・マテリアル・`InstancedMesh`・レンダラー（`forceContextLoss`）を ぜんぶ 片づける。
+- **確かめ：** `tools/smoke.py`（ホーム画面版：ランの タイル・ページが 入るか・×が おせる・あそびかた・3・2・1・指の スワイプで レーン・ジャンプ・タップで ダッシュ〈20こ〉・ページが うごかない・アプリを はなれたら とまる・×で ひとやすみ→とじる・とじたら キャンバス・WebGL〈`isContextLost`〉・こま・`inert` が のこらない・WebGL が ない 端末・integrity が あわない ファイル・オフラインで ランの ファイルも キャッシュに。ヘッドレスでも WebGL が 動く ように SwiftShader〈`CHROMIUM_ARGS`〉。CSP の ランの URL だけ 手元の URL に かえて 配信＝`smoke.Handler`）、`tools/linebreak.py`（ランの 場面 23：えらぶ〈WebGL なしも〉・スタート・あそびかた・ひとやすみ・ゴール〈1位・5位・じゅんい〉・じゅんび・よみこめない・ひらけない・とまった・まがりかどの 合図 4・ひとこと 7。`--height 603` も）、`tools/compare_home.py`（ランを つかわなければ おなじ）、`tools/run/run_shots.py`（スクリーンショットと 走る GIF。下）。
+- **`python3 tools/run/run_shots.py`：** 時計を とめて、レースを ページの 中で 1/60秒ずつ すすめてから 描く（ヘッドレスの 3D は おそいので）。自動の 操作（まがりかどで スワイプ・ハードルで ジャンプ・おやつの レーンへ・20こで ダッシュ）で ゴールまで（だいず＝クリームの ポメラニアンで 36.6秒・1位）。`smoke-out/run/` に 画面 11まいと `run-park.gif`（はじめの まがりかどと ハードル。こまかさ 1 の 画面で 時計を ほんとうに すすめて）。`--dark`・`--cat`・`--size`・`--wait-turn`（まがりかどで わざと とまる）・`--no-gif`。
+- **P3 で 気をつける こと：**
+  - コースを ふやすと `race-sim.js`（海辺・森は もう 入っている）・`race-track.js`（景色も）は そのまま つかえる。`race.js` の `COURSES`・空の 色・霧（わんランの `race-game.js` の `setup` に 3コース ぶん ある）・カメラ（公園だけ `park-camera.js`、ほかは `chaseCameraPose` と トンネルの 寄せ）・`footingFor`（森は `forestTrail`）・海辺の 短い フリック（`allowShortFlick`）を 足す。
+  - ほうびは `onFinish`（いまは おへやの ひとことだけ）から `Act.run('run', …)` へ。ルール・セーブは 6章（`Rules`・`S.run`・`ensureState`・`carryExtras`）。ほうびが つくと `js_rules.js` が かわるので サーバー（`game.js`）も かわる＝ LINE版は P6 まで 出さないが `build_server.py --check` と `line_e2e.py` は とおす。
+  - `mountRace` の 引数 `name`・`rivals[].label`・`art` は ホスト（`js_run.js`）が 作った HTML（`esc`・`softName` 済み）。
+  - ヘッドレスの ためしは `page.wait_for_function` が CSP（unsafe-eval なし）に とめられるので `smoke.poll`（evaluate の くりかえし）で まつ。`RunUI` は `const` なので `window.RunUI` では 見えない。
+- **オーナーに きくこと（P3 の 前に）：** ①名前（「ラン」「うちのこラン」など。いまは シートも 画面も「ラン」）、②おともだちの 名前の 出し方（いまは「おともだち（品種）」）、③おやつの 3D の 形（いまは わんランの 骨の ビスケットの まま。たまごボーロ／カリカリに するか）、④時計の 書き方（いまは 走る あいだ「00:36.6」、ゴールで「36.58秒」）、⑤コースの 名前（いまは ひらがなの「こうえん」）。

@@ -21,13 +21,7 @@ import argparse, asyncio, json, os, re, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import webfonts  # noqa: E402
-from smoke import sample_state, ROOT  # noqa: E402
-import functools, http.server, socketserver, threading  # noqa: E402
-
-
-class Quiet(http.server.SimpleHTTPRequestHandler):
-    def log_message(self, *a):
-        pass
+from smoke import sample_state, ROOT, CHROMIUM_ARGS, serve  # noqa: E402
 
 
 def line_notice_ids():
@@ -38,11 +32,6 @@ def line_notice_ids():
         m = re.search(r'const LineNotice = \{.*?\n  list:\[(.*?)\],\n', f.read(), re.S)
     return re.findall(r"\bid:'([^']+)'", m.group(1)) if m else []
 
-
-def serve(root):
-    httpd = socketserver.TCPServer(('127.0.0.1', 0), functools.partial(Quiet, directory=root))
-    threading.Thread(target=httpd.serve_forever, daemon=True).start()
-    return httpd, httpd.server_address[1]
 
 # ----- ページの中で使う：改行を さがす -----
 AUDIT_JS = r"""
@@ -155,7 +144,30 @@ def toast_texts():
     return out
 
 
-def scenes(line):
+# うちのこラン（仮）（ホーム画面版だけ）：ゲームを ひらいて 1こま 描くまで まつ・自動で ゴールまで（描かずに ルールだけ すすめる。fast は ジャンプと ダッシュも＝1位）
+RUN_OPEN = "RunUI.open(); for (let i = 0; i < 400 && !(RunUI.ctl && RunUI.ctl.frames > 0); i++) await new Promise(r => setTimeout(r, 100)); "
+RUN_GO = RUN_OPEN + "document.querySelector('#runPage [data-m=\"go\"]').click(); const sim = RunUI.ctl.sim; for (let i = 0; i < 200 && sim.status === 'countdown'; i++) sim.step(1 / 60); sim.drainEvents(); "
+RUN_FINISH = RUN_GO + """const fast = %s; for (let g = 0; g < 30000 && sim.status === 'running'; g++){
+  const p = sim.player, c = sim.turnCue;
+  if (c && c.active && !c.armed) sim.input(c.direction);
+  else if (fast){ const o = sim.layout.obstacles.find(o => o.s > p.s && o.s - p.s < (p.boost > 0 ? 5.6 : 3.7) && Math.abs(p.x - o.lane * 2) < 1.1);
+    if (o && o.type === 'hurdle' && p.jumpElapsed === null) sim.input('jump'); else if (sim.gauge >= 20 && !(p.boost > 0) && !c) sim.input('dash'); }
+  sim.step(1 / 60); }
+await new Promise(r => setTimeout(r, 400)); """
+
+
+def run_lines():
+    """ランの 画面で 出る ひとこと・まがりかどの 合図（src/run/race.js の message(...) の 文）"""
+    src = open(os.path.join(ROOT, 'src', 'run', 'race.js'), encoding='utf-8').read()
+    out = []
+    for m in re.finditer(r"message\(([^;]*?)\);", src):
+        for t in re.findall(r"'([^']+)'", m.group(1)):
+            if t not in out and re.search(r'[ぁ-んァ-ヶ]', t):
+                out.append(t)
+    return out
+
+
+def scenes(line, run=False):
     """(名前, 出すための JS, しらべる場所, 待つms, いまの子が いるか)"""
     S = []
     add = lambda name, js, root, wait=450, pet=True: S.append((name, js, root, wait, pet))
@@ -209,6 +221,27 @@ def scenes(line):
     for i, t in enumerate(puzzle_lines()):
         add('puzzle_say_%02d' % i, "PuzzleUI.open(); await new Promise(r => setTimeout(r, 200)); PuzzleUI.say(%s)" % json.dumps(t, ensure_ascii=False), '#pzPage', 250)
         add('puzzle_low_say_%02d' % i, low + "PuzzleUI.open(); await new Promise(r => setTimeout(r, 200)); PuzzleUI.say(%s)" % json.dumps(t, ensure_ascii=False), '#pzPage', 250)
+    if run:
+        # うちのこラン（仮）（2026-11-21 P2。ホーム画面版だけ）：えらぶ（WebGL なしも）・スタート・あそびかた・ひとやすみ・ゴール（1位・ほか・じゅんいを ひらく）・
+        # じゅんび・よみこめない・3D が ひらけない・とまった・まがりかどの 合図・ひとこと
+        add('play_pick_nogl', "RunUI.gl = false; openPlay()", '#sheet')
+        add('run_ready', RUN_OPEN, '#runPage', 600)
+        add('run_help', RUN_OPEN + "document.querySelector('#runPage [data-run=\"help\"]').click()", '#runPage', 600)
+        add('run_pause', RUN_GO + "RunUI.ctl.pause()", '#runPage', 600)
+        add('run_result_first', RUN_FINISH % 'true', '#runPage', 600)
+        add('run_result_slow', RUN_FINISH % 'false', '#runPage', 600)
+        add('run_result_order', RUN_FINISH % 'false' + "document.querySelector('#runPage details').open = true", '#runPage', 600)
+        add('run_wait', "const L = RunUI.load; RunUI.load = () => new Promise(() => {}); RunUI.open(); RunUI.load = L", '#runPage', 400)
+        add('run_loadfail', "const L = RunUI.load; RunUI.load = () => Promise.reject(new Error('t')); RunUI.open(); RunUI.load = L", '#runPage', 500)
+        add('run_glfail', "const L = RunUI.load; RunUI.load = () => Promise.resolve({ mountRace(){ throw new Error('gl'); } }); RunUI.open(); RunUI.load = L", '#runPage', 500)
+        add('run_lost', RUN_GO + "document.querySelector('#runPage canvas').dispatchEvent(new Event('webglcontextlost', { cancelable:true }))", '#runPage', 600)
+        for nm, at, arm in [('ahead', 60, ''), ('swipe', 72, ''), ('ok', 75, "sim.input('right'); "), ('wait', 400, '')]:
+            # はじめの まがりかど（90）の 合図：この さき・スワイプ・OK・とまって まつ（wait は スワイプしない）。走った まま うちのこの 足だけ とめる
+            add('run_cue_' + nm, RUN_GO + "for (let g = 0; g < 5000 && sim.player.s < %d && sim.waitingTurn === null; g++) sim.step(1 / 60); %ssim.drainEvents(); sim.player.speed = 0" % (at, arm),
+                '#runPage', 500)
+        for i, t in enumerate(run_lines()):
+            add('run_say_%02d' % i, RUN_GO + "sim.player.speed = 0; const m = document.querySelector('#runPage [data-q=\"msg\"]'); "
+                "m.textContent = %s; m.classList.add('show')" % json.dumps(t, ensure_ascii=False), '#runPage', 250)
     add('requests_pinch',"S.daily.rescue={type:'treat',n:2,got:0,done:false}; S.streak={last:Clock.dayKey(now()-2*864e5),n:12,best:20}; openRequests()", '#sheet')
     if line:
         on = ("LineSync.state='on'; LineServer.member={id:'x'}; LineSync.created=1; LineServer.card={on:true,left:2,perDay:3}; LineServer.importable=true;"
@@ -317,6 +350,9 @@ REACH_JS = r"""() => {
   if (w && sh && sh.getBoundingClientRect().top < -1) out.push({ where:'#sheet', text:'シートが 画面の 上に ' + Math.round(-sh.getBoundingClientRect().top) + 'px はみだす' });
   const pz = document.querySelector('#pzPage');
   if (pz && !m && (pz.scrollHeight > pz.clientHeight + 1 || pz.classList.contains('tight'))) out.push({ where:'#pzPage', text:'パズルの 画面が 入りきらない（' + pz.scrollHeight + '／' + pz.clientHeight + '）' });
+  /* うちのこランの メニュー：カードが スクロールなしで 入るか（じゅんいを ひらいた ときは スクロールしてよい） */
+  const ro = document.querySelector('#runPage .run-over:not([hidden])');
+  if (ro && !m && !ro.querySelector('details[open]') && ro.scrollHeight > ro.clientHeight + 1) out.push({ where:'#runPage', text:'ランの カードが 入りきらない（' + ro.scrollHeight + '／' + ro.clientHeight + '）' });
   return out;
 }"""
 
@@ -338,7 +374,7 @@ async def run(args, width):
     if shots:
         os.makedirs(shots, exist_ok=True)
     async with async_playwright() as p:
-        browser = await p.chromium.launch()
+        browser = await p.chromium.launch(args=CHROMIUM_ARGS)
         ctx = await browser.new_context(viewport={'width': width, 'height': args.height}, device_scale_factor=2, is_mobile=True,
                                         has_touch=True, timezone_id='Asia/Tokyo', locale='ja-JP', service_workers='block')
         fonts = await webfonts.install(ctx)
@@ -372,6 +408,7 @@ async def run(args, width):
               if (typeof Modal !== 'undefined'){ Modal.q = []; Modal.busy = false; }
               try { closeSheet(); } catch(e){}
               try { if (typeof PuzzleUI !== 'undefined') PuzzleUI.close(); } catch(e){}
+              try { if (typeof RunUI !== 'undefined'){ RunUI.close(); RunUI.gl = null; } } catch(e){}
               try { delete window.visualViewport; } catch(e){}
               const t = document.getElementById('toast'); if (t) t.classList.remove('show'); }''')
             await page.wait_for_timeout(380)
@@ -394,7 +431,7 @@ async def run(args, width):
                 await page.screenshot(path=os.path.join(shots, f'{n_scenes:03d}_{name}.png'))
             await clear()
 
-        for name, js, root, wait, pet in scenes(args.line):
+        for name, js, root, wait, pet in scenes(args.line, run=not args.line and not args.claude):
             if args.only and not any(o in name for o in args.only):
                 continue
             # 子がいない画面と いる画面で ページを ひらきなおす。LINE版の「つれてくる？」なども 状態を変えるので 毎回

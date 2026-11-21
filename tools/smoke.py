@@ -26,14 +26,45 @@
 import argparse, asyncio, functools, http.server, json, os, socketserver, threading, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+HOME_ORIGIN = 'https://y-s-apps.github.io/uchinoko-biyori/'
+# ブラウザを うしろで 動かす ときも 3D（WebGL 2）が 動く ように（うちのこラン。SwiftShader）
+CHROMIUM_ARGS = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']
+
+
+class Handler(http.server.SimpleHTTPRequestHandler):
+    """ルートの ファイルを 出す。ホーム画面版の index.html だけ、CSP に 書いた うちのこランの ファイルの URL（公開 URL・パスまで）の
+    はじめの 部分を この 手元の URL に かえる（ファイルの 名前と integrity は そのまま。CSP の 形も 同じ）"""
+    def log_message(self, *a):
+        pass
+
+    def do_GET(self):
+        path = self.path.split('?')[0]
+        idx = os.path.join(self.directory, 'index.html')
+        if path in ('/', '/index.html') and os.path.isfile(idx):
+            body = open(idx, 'rb').read().replace((HOME_ORIGIN + 'run-').encode(), ('http://%s/run-' % self.headers.get('Host', '')).encode())
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        return super().do_GET()
 
 
 def serve(root=ROOT):
-    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=root)
-    handler.log_message = lambda *a, **k: None
-    httpd = socketserver.TCPServer(('127.0.0.1', 0), handler)
+    httpd = socketserver.ThreadingTCPServer(('127.0.0.1', 0), functools.partial(Handler, directory=root))
+    httpd.daemon_threads = True
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     return httpd, httpd.server_address[1]
+
+
+async def poll(page, js, timeout=60000, step=100):
+    """page.wait_for_function は CSP（unsafe-eval なし）に とめられるので、evaluate で くりかえし 見る"""
+    for _ in range(max(1, timeout // step)):
+        if await page.evaluate(js):
+            return True
+        await page.wait_for_timeout(step)
+    return False
 
 
 # 文字と地の色の差：テキストの まわりの 背景色を 親へ たどって 重ね（opacity も）、WCAG の比を出す。背景が 画像・グラデーションの所（おへや）は 見ない
@@ -139,7 +170,7 @@ async def main(args):
     httpd, port = serve(os.path.join(ROOT, 'src', 'out', 'line') if args.line else ROOT)
     errors, shots = [], []
     async with async_playwright() as p:
-        browser = await p.chromium.launch()
+        browser = await p.chromium.launch(args=CHROMIUM_ARGS)
         vw, vh = (int(x) for x in args.size.lower().split('x'))
         ctx = await browser.new_context(viewport={'width': vw, 'height': vh}, device_scale_factor=2,
                                         is_mobile=True, has_touch=True, timezone_id='Asia/Tokyo', locale='ja-JP',
@@ -315,6 +346,8 @@ async def main(args):
         await page.click('#pzPage [data-pz="close"]'); await page.wait_for_timeout(600)
         if await page.evaluate("!!document.querySelector('#pzPage') || document.documentElement.classList.contains('pz-open') || !!document.querySelector('#app').inert"):
             errors.append('パズルの 画面が とじません')
+        if not args.line:
+            await run_checks(page, ctx, snap, errors, args, port)
         await page.click('#actFeed'); await page.wait_for_timeout(5500)
         await close_popups()
         await snap('after_meal')
@@ -351,6 +384,11 @@ async def main(args):
             print('オフライン：', 'うちのこ日和' if app else ('ほかのアプリ' if other else 'ひらけない'), f'（キャッシュ {mine}）')
             if not mine or other or not app:
                 errors.append('オフラインで うちのこ日和が ひらけません（自分の キャッシュだけを 見ていない？）')
+            # うちのこランの ファイル（RUN_SRC）も とっておく（オフラインでも あそべる）
+            run_kept = await page.evaluate("async () => typeof RUN_SRC === 'undefined' ? 'なし' : !!(await (await caches.open(%s)).match(RUN_SRC))" % json.dumps(mine or ''))
+            print('オフライン：ランの ファイル', run_kept)
+            if run_kept is not True and run_kept != 'なし':
+                errors.append('ランの ファイルが Service Worker に とっておかれていません')
             await ctx.set_offline(False)
         await browser.close()
     httpd.shutdown()
@@ -361,6 +399,153 @@ async def main(args):
     for e in errors:
         print('  ' + e)
     return 1 if errors else 0
+
+
+RUN_FIT_JS = r'''() => { const pg = document.querySelector('#runPage'), r = s => { const e = pg.querySelector(s); return e && !e.hidden && e.getClientRects().length ? e.getBoundingClientRect() : null; };
+  const c = r('.run-card'), x = r('[data-run="x"]'), b = r('.run-bottom');
+  return { vh: innerHeight, vw: innerWidth, card: c ? [Math.round(c.left), Math.round(c.top), Math.round(c.right), Math.round(c.bottom)] : null,
+           x: x ? [Math.round(x.top), Math.round(x.bottom)] : null, bottom: b ? Math.round(b.bottom) : null,
+           xHit: !!x && !!document.elementFromPoint(x.left + x.width / 2, x.top + x.height / 2).closest('[data-run="x"]'),
+           sheet: document.querySelector('#sheetWrap').classList.contains('open'), inert: !!document.querySelector('#app').inert,
+           scroll: document.scrollingElement.scrollWidth > innerWidth + 1 }; }'''
+RUN_TILE_JS = r'''() => { const b = document.querySelector('#sheet [data-play="run"]');
+  return { off: b ? b.getAttribute('aria-disabled') : 'none', text: b ? b.textContent.replace(/\s+/g, ' ').trim() : '',
+           note: [...document.querySelectorAll('#sheet .note')].map(n => n.textContent).join('|') }; }'''
+RUN_SPY_JS = r'''() => { window.__rt = { ev: 0, still: 0, y0: scrollY, inputs: [] };
+  for (const t of ['touchstart', 'touchmove']) document.addEventListener(t, e => { __rt.ev++; if (e.defaultPrevented) __rt.still++; });
+  const sim = RunUI.ctl.sim, inp = sim.input.bind(sim); sim.input = a => { const r = inp(a); __rt.inputs.push(a + ':' + r); return r; }; }'''
+# タップ（ポインターの イベントを じかに。ヘッドレスの 3D が おそいと 指の イベントが おくれて 350ms を こえるため）
+RUN_TAP_JS = r'''() => { const c = document.querySelector('#runPage .run-canvas'), o = { pointerId: 77, isPrimary: true, pointerType: 'touch', clientX: 195, clientY: 520, bubbles: true };
+  c.dispatchEvent(new PointerEvent('pointerdown', o)); c.dispatchEvent(new PointerEvent('pointerup', o)); }'''
+NO_WEBGL_JS = "{ const g = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function(t, ...a){ return /webgl/i.test(t) ? null : g.call(this, t, ...a); }; }"
+
+
+async def run_checks(page, ctx, snap, errors, args, port):
+    """うちのこラン（仮）（ホーム画面版だけ。2026-11-21 P2）：「あそぶ」の「ラン」→ ページ #runPage → スタート → 指の スワイプ・タップ →
+    アプリを はなれたら ひとやすみ → × → とじたら ぜんぶ 片づく。WebGL が ない 端末・ファイルが よめない（integrity が あわない）とき。
+    ゴールまでの 通しは tools/run/run_shots.py（時計を とめて とる）"""
+    if not await page.evaluate("typeof RunUI !== 'undefined'"):
+        print('ラン：この版には ない（RUN_HOME=0）')
+        return
+    await page.click('#actPlay'); await page.wait_for_timeout(450)
+    tile = await page.evaluate(RUN_TILE_JS)
+    if tile['off'] is not None:
+        errors.append(f'「あそぶ」に ランが ありません：{tile}')
+        await page.click('#sheet [data-close]'); await page.wait_for_timeout(350)
+        return
+    await page.click('[data-play="run"]')
+    if not await poll(page, '() => !!(RunUI.ctl && RunUI.ctl.frames > 1)', 90000):
+        errors.append('ランが はじまりません：' + await page.evaluate("() => (document.querySelector('#runPage') || {}).textContent || ''"))
+        await page.evaluate('() => RunUI.close()')
+        return
+    await page.wait_for_timeout(300)
+    await snap('run_ready')
+    fit = await page.evaluate(RUN_FIT_JS)
+    print('ランの 画面：', fit)
+    if not (fit['card'] and fit['card'][0] >= 0 and fit['card'][2] <= fit['vw'] and fit['card'][3] <= fit['vh'] and fit['x'] and fit['x'][0] >= 0
+            and fit['xHit'] and not fit['sheet'] and fit['inert'] and not fit['scroll'] and fit['bottom'] <= fit['vh'] - args.android_inset):
+        errors.append(f'ランの 画面が 入りきっていません：{fit}')
+    await page.click('#runPage [data-run="help"]'); await page.wait_for_timeout(400)
+    await snap('run_help')
+    fit = await page.evaluate(RUN_FIT_JS)
+    if not (fit['card'] and fit['card'][1] >= 0 and fit['card'][3] <= fit['vh']):
+        errors.append(f'ランの あそびかたが 入りきっていません：{fit}')
+    await page.click('#runPage [data-m="ok"]'); await page.wait_for_timeout(300)
+    await page.click('#runPage [data-m="go"]')
+    await page.wait_for_timeout(700)
+    await snap('run_countdown')
+    if not await poll(page, "() => RunUI.ctl.sim.status === 'running'", 90000, 30):
+        errors.append('ランの 3・2・1 が おわりません')
+    # 指（ヘッドレスの 3D は おそく、指の イベントは こまに あわせて とどくので、この あいだだけ うちのこの 足を とめて まがりかどの 前で ためす）：左へ スワイプで レーンを うつる・うえへ スワイプで ジャンプ・タップ（おやつが たまっていないので ダッシュしない）。ページは うごかない
+    cdp = await ctx.new_cdp_session(page)
+
+    async def finger(kind, x, y):
+        await cdp.send('Input.dispatchTouchEvent', {'type': kind, 'touchPoints': [] if kind == 'touchEnd' else [{'x': x, 'y': y}]})
+
+    async def swipe(dx, dy):
+        cx, cy = 195, 520
+        await finger('touchStart', cx, cy)
+        for i in range(1, 6):
+            await finger('touchMove', cx + dx * i / 5, cy + dy * i / 5); await page.wait_for_timeout(12)
+        await finger('touchEnd', 0, 0); await page.wait_for_timeout(60)
+    await page.evaluate(RUN_SPY_JS)
+    await page.evaluate('() => { RunUI.ctl.sim.player.speed = 0; }')
+    lane0 = await page.evaluate('() => RunUI.ctl.sim.player.lane')
+    await swipe(-70, 6)
+    lane1 = await page.evaluate('() => RunUI.ctl.sim.player.lane')
+    await page.wait_for_timeout(80)
+    await swipe(4, -70)
+    await page.wait_for_timeout(80)
+    await page.evaluate(RUN_TAP_JS)                                      # おやつが たまっていない：ダッシュしない
+    await page.evaluate('() => { RunUI.ctl.sim.gauge = 20; }')
+    await page.evaluate(RUN_TAP_JS)                                      # 20こ：ダッシュ
+    rt = await page.evaluate('() => Object.assign(__rt, { y1: scrollY, dash: RunUI.ctl.sim.dashCount, boost: RunUI.ctl.sim.player.boost > 0, s: RunUI.ctl.sim.player.s })')
+    await page.evaluate('() => { RunUI.ctl.sim.player.speed = 9.6; }')
+    print('ランの 指：', {'lane': [lane0, lane1], **rt})
+    if not (rt['s'] < 58 and lane1 == max(-1, lane0 - 1) and rt['inputs'][:4] == ['left:true', 'jump:true', 'dash:false', 'dash:true'] and rt['dash'] == 1
+            and rt['boost'] and rt['ev'] >= 10 and rt['still'] == rt['ev'] and rt['y1'] == rt['y0']):
+        errors.append(f'ランの 指の 操作が ちがいます：lane {lane0}→{lane1} {rt}')
+    await snap('run_running')
+    # アプリを はなれた（visibilitychange）→ ひとやすみ。もどっても 時計は すすまない（「つづける」を おすまで）
+    await page.evaluate("() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); }")
+    await page.wait_for_timeout(300)
+    t0 = await page.evaluate('() => [RunUI.ctl.sim.status, RunUI.ctl.sim.time]')
+    await page.evaluate("() => { delete document.hidden; document.dispatchEvent(new Event('visibilitychange')); }")
+    await page.wait_for_timeout(900)
+    t1 = await page.evaluate('() => [RunUI.ctl.sim.status, RunUI.ctl.sim.time]')
+    await snap('run_pause')
+    if not (t0[0] == 'paused' and t1[0] == 'paused' and t1[1] == t0[1]):
+        errors.append(f'アプリを はなれても ランが とまりません：{t0} {t1}')
+    await page.click('#runPage [data-m="resume"]'); await page.wait_for_timeout(500)
+    st = await page.evaluate('() => RunUI.ctl.sim.status')
+    # ×：走っている ときは ひとやすみ、もう1回で とじる。とじたら 描く ループ・WebGL・ページ・リスナーが のこらない
+    await page.click('#runPage [data-run="x"]'); await page.wait_for_timeout(300)
+    st2 = await page.evaluate('() => RunUI.ctl.sim.status')
+    await page.evaluate('() => { window.__gl = RunUI.ctl.renderer.getContext(); window.__ctl = RunUI.ctl; }')
+    await page.click('#runPage [data-run="x"]'); await page.wait_for_timeout(500)
+    f0 = await page.evaluate('() => window.__ctl.frames')
+    await page.wait_for_timeout(600)
+    left = await page.evaluate('''() => ({ page: !!document.querySelector('#runPage'), canvas: document.querySelectorAll('canvas').length,
+        cls: document.documentElement.classList.contains('run-open'), inert: !!document.querySelector('#app').inert, ctl: !!RunUI.ctl,
+        lost: window.__gl.isContextLost(), frames: window.__ctl.frames, focus: document.activeElement && document.activeElement.id })''')
+    print('ランを とじた：', {'resume': st, 'x': st2, 'frames0': f0, **left})
+    if not (st == 'running' and st2 == 'paused' and not left['page'] and left['canvas'] == 0 and not left['cls'] and not left['inert'] and not left['ctl']
+            and left['lost'] and left['frames'] == f0 and left['focus'] == 'actPlay'):
+        errors.append(f'ランを とじても のこっています：{st} {st2} {f0} {left}')
+    # WebGL 2 が ない 端末：「この端末では あそべません」で ひらかない（ファイルも 読まない）
+    p2 = await ctx.new_page()
+    p2.on('pageerror', lambda e: errors.append('WebGLなし：' + str(e)))
+    await p2.add_init_script(NO_WEBGL_JS)
+    await p2.goto(f'http://127.0.0.1:{port}/'); await p2.wait_for_timeout(1500)
+    await p2.evaluate("() => { document.querySelectorAll('.levelup').forEach(e => e.remove()); Modal.q = []; Modal.busy = false; }")
+    await p2.click('#actPlay'); await p2.wait_for_timeout(500)
+    nogl = await p2.evaluate(RUN_TILE_JS)
+    await p2.screenshot(path=os.path.join(args.out, 'run_nogl.png'))
+    await p2.click('[data-play="run"]', force=True); await p2.wait_for_timeout(600)   # aria-disabled（Playwright は おせないと みる）
+    nogl['open'] = await p2.evaluate("() => !!document.querySelector('#runPage') || !!document.querySelector('script[src^=\"run-\"]')")
+    print('ラン（WebGL なし）：', nogl)
+    if not (nogl['off'] == 'true' and 'あそべません' in nogl['text'] and 'あそべません' in nogl['note'] and not nogl['open']):
+        errors.append(f'WebGL が ない ときの ランの 出かたが ちがいます：{nogl}')
+    await p2.close()
+    # ファイルが こわれていた（integrity が あわない）：読まずに「よみこめませんでした」→ とじる
+    p3 = await ctx.new_page()
+    p3.on('pageerror', lambda e: errors.append('こわれた ファイル：' + str(e)))
+
+    async def broken(route):
+        r = await route.fetch()
+        await route.fulfill(response=r, body=(await r.body()) + b'\n;window.__tampered = 1;\n')
+    await p3.route('**/run-*.js', broken)
+    await p3.goto(f'http://127.0.0.1:{port}/'); await p3.wait_for_timeout(1500)
+    await p3.evaluate("() => { document.querySelectorAll('.levelup').forEach(e => e.remove()); Modal.q = []; Modal.busy = false; RunUI.open(); }")
+    await poll(p3, "() => /よみこめません/.test((document.querySelector('#runPage') || {}).textContent || '')", 20000)
+    bad = await p3.evaluate("() => ({ text: (document.querySelector('#runPage') || {}).textContent || '', run: typeof UchinokoRun !== 'undefined', tampered: !!window.__tampered })")
+    await p3.screenshot(path=os.path.join(args.out, 'run_loadfail.png'))
+    await p3.click('#runPage .btn.primary'); await p3.wait_for_timeout(400)
+    bad['closed'] = not await p3.evaluate("() => !!document.querySelector('#runPage')")
+    print('ラン（ファイルが こわれていた）：', {k: (v.strip()[:30] if isinstance(v, str) else v) for k, v in bad.items()})
+    if not ('よみこめませんでした' in bad['text'] and not bad['run'] and not bad['tampered'] and bad['closed']):
+        errors.append(f'こわれた ランの ファイルを 止められません：{bad}')
+    await p3.close()
 
 
 # Claude版のクラウド（window.claude の db・user）の まね。__cloud.doc＝クラウドの セーブ、delay＝get の 返事まで（ミリ秒）、sets＝書いたもの

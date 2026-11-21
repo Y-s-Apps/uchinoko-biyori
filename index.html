@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-03+JjKLR4TpBckyDZdZq+tWr8kpI8uCiyHqA2IcgHx0='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-JzXcLFfMOjICAF//ueR9Hkw0WNE6++sMY2TCFnaic9A=' https://y-s-apps.github.io/uchinoko-biyori/run-a632764fe558.js; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="写真の犬や猫をそっくりなペットにして、ごはん・おやつ・なでなででのんびり育てるアプリ">
@@ -576,6 +576,107 @@ html.pz-open,html.pz-open body{overflow:hidden;overscroll-behavior:none}
 .pz-how{display:flex;justify-content:center;gap:6px;margin-bottom:2px}
 .pz-how svg{width:44px;height:44px}
 </style>
+<style>
+/* うちのこラン（仮）（2026-11-21 P2。docs/RUN_DESIGN.md）：ホーム画面版だけ（build.sh が RUN_HOME=1 のとき <head> に 入れる。head.html は 3つの 版で 同じなので さわらない）
+   - 画面いっぱい（.run-page。重なりは パズルと 同じ 45：はじめての画面 40 ＜ ここ ＜ シート 50 ＜ ポップアップ 70）。うしろの #app は inert。
+   - ページは うごかさない（overflow:hidden・touch-action:none・overscroll-behavior:none。指の うごきは ゲームが うけとる）。
+   - 3D の 上の 文字は かならず 地を しく（var(--surface) の チップ・カード）。さわれるのは ボタンと カードだけ（ほかは pointer-events:none で、タップは 3D へ）。
+   - .run-hud には z-index を つけない（ボタンだけ メニューの 上〈5〉、チップは メニューの 下）。 */
+.playpick.run3{grid-template-columns:repeat(3,minmax(0,1fr))}
+html.run-open,html.run-open body{overflow:hidden;overscroll-behavior:none}
+.run-page{position:fixed;inset:0;z-index:45;background:#9ED9EE;color:var(--ink);overflow:hidden;overscroll-behavior:none;touch-action:none;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;outline:none;animation:pzIn .22s ease}
+.run-root{position:absolute;inset:0}
+.run-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+.run-hud{position:absolute;left:0;right:0;top:0;box-sizing:border-box;padding:calc(8px + env(safe-area-inset-top,0px)) 12px 0;display:flex;flex-direction:column;gap:7px;pointer-events:none}
+.run-top{display:flex;align-items:center;gap:8px}
+.run-gap{flex:1}
+.run-btn{pointer-events:auto;z-index:5;flex:none;width:40px;height:40px;background:var(--surface);color:var(--ink);box-shadow:var(--lift);font-weight:900;font-size:18px;line-height:1}
+.run-btn svg{width:20px;height:20px}
+.run-chip{box-sizing:border-box;display:flex;align-items:center;gap:4px;height:40px;padding:0 11px;border-radius:14px;background:var(--surface);color:var(--ink);box-shadow:var(--lift);font-weight:700;font-size:12px;line-height:1.2;white-space:nowrap}
+.run-chip b{font-size:21px;font-weight:900;font-variant-numeric:tabular-nums}
+.run-treat svg{width:28px;height:17px}
+.run-line{display:flex;align-items:center;gap:8px}
+.run-progress{position:relative;flex:1;height:12px;border-radius:99px;background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--line),var(--lift)}
+.run-fill{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:99px;background:var(--mint)}
+.run-mark{position:absolute;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:#7F8B87}
+.run-me{position:absolute;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:var(--berry);box-shadow:0 0 0 2.5px var(--surface)}
+.run-clock{height:30px;font-size:15px;font-weight:900;font-variant-numeric:tabular-nums}
+/* まがりかどの 合図・カウントダウン・ひとこと（3D の 上。さわれない） */
+.run-cue,.run-count,.run-msg,.run-bottom{position:absolute;z-index:2;pointer-events:none}
+.run-cue{left:50%;top:calc(116px + env(safe-area-inset-top,0px));transform:translateX(-50%);display:flex;align-items:center;gap:10px;box-sizing:border-box;max-width:calc(100% - 24px);
+  background:var(--surface);color:var(--ink);border-radius:18px;padding:7px 14px 7px 12px;box-shadow:var(--lift);white-space:nowrap}
+.run-cue strong{font-size:32px;line-height:1;font-weight:900;color:var(--ink)}
+.run-cue span{display:flex;flex-direction:column;line-height:1.25}
+.run-cue small{font-size:11px;font-weight:700;color:var(--ink-soft)}
+.run-cue b{font-size:17px;font-weight:900}
+.run-cue i{font-style:normal;font-weight:900;font-size:18px;color:var(--on-mint);background:var(--mint);width:28px;height:28px;border-radius:50%;display:grid;place-items:center}
+.run-cue[data-state="active"]{box-shadow:inset 0 0 0 3px var(--honey),var(--lift)}
+.run-cue[data-state="waiting"]{box-shadow:inset 0 0 0 3px var(--berry),var(--lift);animation:runNudge .6s ease infinite alternate}
+@keyframes runNudge{to{transform:translateX(-50%) scale(1.05)}}
+.run-count{left:50%;top:38%;width:104px;height:104px;margin:-52px 0 0 -52px;border-radius:50%;background:var(--surface);color:var(--berry-ink);box-shadow:var(--lift);
+  font-family:var(--f-display);font-size:58px;line-height:104px;text-align:center;display:none}
+.run-count.show{display:block;animation:pop .35s cubic-bezier(.3,1.5,.5,1)}
+.run-msg{left:50%;top:52%;transform:translateX(-50%);box-sizing:border-box;max-width:calc(100% - 32px);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 16px;
+  box-shadow:var(--lift);font-weight:900;font-size:16px;line-height:1.35;text-align:center;display:none}
+.run-msg.show{display:block;animation:pop .3s cubic-bezier(.3,1.5,.5,1)}
+.run-root.menu .run-cue,.run-root.menu .run-count,.run-root.menu .run-msg{display:none}
+/* ダッシュの ゲージ */
+.run-bottom{left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:10px;box-sizing:border-box;
+  background:var(--surface);color:var(--ink);border-radius:18px;padding:8px 14px;box-shadow:var(--lift)}
+.run-gauge-l{display:flex;align-items:center;gap:6px;flex:none;font-size:13px;font-weight:900;white-space:nowrap}
+.run-gauge-l svg{width:30px;height:18px}
+.run-gauge{position:relative;flex:1;min-width:40px;height:12px;border-radius:99px;background:var(--surface-2);box-shadow:inset 0 0 0 1.5px var(--line);overflow:hidden}
+.run-gauge i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--honey);border-radius:99px;transition:width .15s}
+.run-gauge-n{flex:none;font-size:14px;font-weight:900;font-variant-numeric:tabular-nums;white-space:nowrap}
+.run-root.dash-ready .run-bottom{box-shadow:inset 0 0 0 3px var(--honey),var(--lift);animation:runNudgeB .6s ease infinite alternate}
+.run-root.dash-ready .run-gauge-l b{color:var(--berry-ink)}
+.run-root.boosting .run-gauge i{background:var(--berry)}
+@keyframes runNudgeB{to{transform:translateY(-3px)}}
+/* メニュー（スタート・ひとやすみ・ゴール・あそびかた・じゅんび・こまったとき）：3D の 上に かさねる。上の ボタン（× ？）は この上 */
+/* まんなかに そろえるのは カードの margin:auto（入りきらない ほど ひくい 画面では 上から スクロールできる。grid の center だと 上が 切れて とどかない） */
+.run-over{position:absolute;inset:0;z-index:3;box-sizing:border-box;display:flex;flex-direction:column;overflow:auto;touch-action:pan-y;background:var(--scrim);
+  padding:calc(58px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px));animation:fadein .2s ease}
+.run-over[hidden]{display:none}
+/* スタートの 前は 3D の みんなが 見える ように、カードを 上に・うすい かげで */
+.run-over.top{background:rgba(34,28,46,.14);padding-top:calc(64px + env(safe-area-inset-top,0px))}
+.run-over.top .run-card{margin-top:0}
+.run-card{flex:none;margin:auto;box-sizing:border-box;width:100%;max-width:340px;background:var(--surface);color:var(--ink);border-radius:24px;padding:18px 16px 16px;text-align:center;box-shadow:0 6px 0 rgba(0,0,0,.08);animation:pop .35s cubic-bezier(.3,1.5,.5,1)}
+.run-card h2{margin:2px 0 8px;font-family:var(--f-display);font-weight:400;font-size:22px;line-height:1.35;color:var(--berry-ink)}
+.run-over-l{display:block;font-size:12px;font-weight:900;color:var(--ink-soft)}
+.run-sub{margin:4px 0 0;font-size:13px;color:var(--ink-soft);line-height:1.55}
+.run-card .btnrow{flex-wrap:nowrap;margin-top:14px}
+.run-card .btnrow .btn{flex:1 1 0;min-width:0;white-space:normal;line-height:1.25;padding:11px 6px;min-height:46px}
+.run-res{display:flex;align-items:center;justify-content:center;gap:10px;margin:2px 0 0}
+.run-art{width:76px;height:76px;flex:none}
+.run-art .pet-svg{display:block;width:100%;height:100%;overflow:visible}
+.run-rankbig{display:flex;align-items:baseline;gap:4px;font-weight:900;font-size:15px}
+.run-rankbig b{font-family:var(--f-display);font-weight:400;font-size:52px;line-height:1.1;color:var(--berry-ink)}
+.run-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:4px}
+.run-stats div{background:var(--surface-2);border-radius:12px;padding:6px 8px;line-height:1.25}
+.run-stats span{display:block;font-size:11px;font-weight:700;color:var(--ink-soft)}
+.run-stats b{font-size:17px;font-weight:900;font-variant-numeric:tabular-nums}
+.run-order{margin-top:10px;text-align:left;font-size:13px}
+.run-order summary{cursor:pointer;font-weight:900;text-align:center;padding:6px 0;list-style-position:inside}
+.run-order ol{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:3px}
+.run-order li{display:grid;grid-template-columns:2.6em minmax(0,1fr) auto;gap:6px;align-items:baseline;background:var(--surface-2);border-radius:10px;padding:4px 8px}
+.run-order li b{font-variant-numeric:tabular-nums}
+.run-order li small{font-size:11px;color:var(--ink-soft)}
+.run-order li.me{box-shadow:inset 0 0 0 2px var(--berry)}
+.run-hrows{display:flex;flex-direction:column;gap:8px;text-align:left}
+.run-hrow{display:flex;gap:10px;align-items:flex-start}
+.run-hrow > b{flex:none;width:30px;height:30px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;font-size:16px;font-weight:900}
+.run-hrow strong{display:block;font-size:14px;line-height:1.35}
+.run-hrow span{display:block;font-size:12.5px;color:var(--ink-soft);line-height:1.5}
+.run-hnote{margin:10px 0 0;font-size:12px;color:var(--ink-soft)}
+@media (max-height:620px){
+  .run-cue{top:calc(100px + env(safe-area-inset-top,0px))}
+  .run-over{padding-top:calc(54px + env(safe-area-inset-top,0px))}
+  .run-card{padding:14px 14px 12px}
+  .run-art{width:60px;height:60px}
+  .run-rankbig b{font-size:44px}
+}
+</style>
 </head>
 <body>
 <div class="app" id="app">
@@ -676,6 +777,7 @@ html.pz-open,html.pz-open body{overflow:hidden;overscroll-behavior:none}
 <div class="onboard" id="onboard" hidden><div class="ob" id="ob"></div></div>
 <script>
 const HOME = true;
+const RUN_SRC = 'run-a632764fe558.js', RUN_SRI = 'sha256-pjJ2T+VYud+EUYJOa6gRmhc3+sUViQYH2JI7Cn3lppw=';
 /* ===== data: breeds, treats, accessories ===== */
 const DOG_D = { ear:'semi', coat:'smooth', muzzle:'medium', tail:'straight', face:'muzzle', legs:'normal' };
 const CAT_D = { ear:'pointy', coat:'smooth', muzzle:'medium', tail:'long', face:'muzzle', legs:'normal' };
@@ -4222,6 +4324,153 @@ const PuzzleUI = {
     this.cleared = false;
   },
 };
+/* ===== うちのこラン（仮）：ホーム画面版だけ（2026-11-21 P2。docs/RUN_DESIGN.md） =====
+ * build.sh の RUN_HOME=1 のとき js_features.js の すぐあとに 入る（LINE版・Claude版には 入らない＝RUN_LINE=0・RUN_CLAUDE=0。サーバーも つかわない）。
+ * 3D の ゲーム（Three.js と src/run/）は 1つの ファイル RUN_SRC（run-<ハッシュ>.js。中身は src/run_bundle.js）に まとめてあり、
+ * ランを ひらいた ときだけ 読みこむ。integrity は RUN_SRI、CSP は その ファイルの URL だけ（build.sh が 入れる）。Service Worker も とっておく。
+ * - 「あそぶ」の シートに 3つめ「ラン」（openPlay を 包む）。WebGL 2 が ない 端末は「この端末では あそべません」で ひらかない。
+ * - ページごと うつる #runPage（パズルと 同じ 重なり 45。うしろの #app は inert）。とじたら ゲームを ぜんぶ 片づける（dispose）。
+ * - 子が 入れかわったら（Game.start）とじる。よるの ひとこと（Nudge）は ランの あいだ まつ。
+ * - P2 は レースの「こうえん」1コースだけ・ほうび なし（セーブ S は かえない）。 */
+const RUN_ICON = '<path d="M2.5 8.5h5M1.5 12.5h5M3 16.5h4" stroke="#6FABE3" stroke-width="2" stroke-linecap="round"/><ellipse cx="15.6" cy="15.6" rx="4.7" ry="3.9" fill="#F0A04B"/><circle cx="10.4" cy="10.6" r="1.9" fill="#F0A04B"/><circle cx="13.6" cy="7.4" r="1.9" fill="#F0A04B"/><circle cx="17.7" cy="7.4" r="1.9" fill="#F0A04B"/><circle cx="20.8" cy="10.6" r="1.9" fill="#F0A04B"/>';
+const RunUI = {
+  page:null, ctl:null, back:null, tok:0, gl:null, loading:null, ran:false, onKey:null,
+  /* WebGL 2（Three.js r170 が つかう）が あるか。1回だけ 見て、ためしの 3D は すぐ 手ばなす */
+  canPlay(){
+    if (this.gl === null){
+      try {
+        const g = document.createElement('canvas').getContext('webgl2');
+        this.gl = !!g;
+        const x = g && g.getExtension('WEBGL_lose_context');
+        if (x) x.loseContext();
+      } catch(e){ this.gl = false; }
+    }
+    return this.gl;
+  },
+  /* ゲームの ファイルを 読む（1回だけ。しっぱいしたら つぎに また ためす） */
+  load(){
+    if (window.UchinokoRun) return Promise.resolve(window.UchinokoRun);
+    if (this.loading) return this.loading;
+    this.loading = new Promise((ok, ng) => {
+      const s = document.createElement('script');
+      s.src = RUN_SRC; s.integrity = RUN_SRI;
+      s.onload = () => window.UchinokoRun ? ok(window.UchinokoRun) : ng(new Error('run'));
+      s.onerror = () => { s.remove(); ng(new Error('load')); };   /* integrity が あわない・とどかない（つぎに ひらいたら また 読む） */
+      document.head.appendChild(s);
+    }).catch(e => { this.loading = null; throw e; });
+    return this.loading;
+  },
+  /* 「なにで あそぶ？」の シートに ラン を 足す（openPlay の あとに よぶ） */
+  addTile(){
+    const sh = $('#sheet'), tiles = $('#sheetWrap').classList.contains('open') && sh ? sh.querySelector('.playpick') : null;
+    if (!tiles || tiles.querySelector('[data-play="run"]')) return;
+    const ok = this.canPlay();
+    tiles.classList.add('run3');
+    tiles.insertAdjacentHTML('beforeend', `<button class="tile" type="button" data-play="run"${ok ? '' : ' aria-disabled="true"'}><svg viewBox="0 0 24 24" aria-hidden="true">${RUN_ICON}</svg><span class="tname">ラン<small>こうえんの レース</small></span><span class="gain">${ok ? 'おともだちと<br>きょうそう' : 'この端末では<br>あそべません'}</span></button>`);
+    const note = sh.querySelector('.note');
+    if (note) note.insertAdjacentHTML('afterend', `<p class="note">${ok ? 'ランは、うちのこが おともだちと こうえんを はしる レース。スワイプで よけて、ジャンプで とびこえよう！' : 'ランは 3Dの がめんを つかうので、この端末では あそべません。'}</p>`);
+    tiles.querySelector('[data-play="run"]').addEventListener('click', () => { if (this.canPlay()) this.open(); });
+  },
+  /* おともだち 4ひき：うちのこと 同じ 種類の、ちがう 品種（毎回 ランダム。見た目だけ） */
+  rivals(){
+    const sp = isCat() ? 'cat' : 'dog';
+    const pool = BREEDS.filter(b => b.sp === sp && b.id !== S.pet.breedId).map(b => [Math.random(), b]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
+    return pool.slice(0, 4).map(b => ({ look:normalizeLook(Object.assign({ species:b.sp, breedId:b.id }, b.look)), label:`おともだち<small>（${softName(b.ja)}）</small>` }));
+  },
+  open(){
+    if (!S || Pet.busy || this.page || PuzzleUI.page) return;
+    closeSheet();
+    this.back = document.activeElement;
+    this.ran = false;
+    const page = document.createElement('div');
+    page.className = 'run-page'; page.id = 'runPage'; page.tabIndex = -1;
+    page.setAttribute('role', 'dialog'); page.setAttribute('aria-modal', 'true'); page.setAttribute('aria-label', 'ラン');
+    page.innerHTML = '<div class="run-root"></div>';
+    document.body.appendChild(page);
+    this.page = page;
+    document.documentElement.classList.add('run-open');
+    const app = $('#app');
+    if (app){ app.setAttribute('aria-hidden', 'true'); app.inert = true; }
+    /* ページを うごかさない（パズルと 同じ。ボタンの 上の タップと、メニューの スクロールは そのまま） */
+    const still = e => {
+      if (!e.cancelable) return;
+      const o = e.target.closest && e.target.closest('.run-over');
+      if (e.type === 'touchmove' && o && o.scrollHeight > o.clientHeight + 1) return;
+      if (e.type === 'touchstart' && e.target.closest && e.target.closest('button,summary')) return;
+      e.preventDefault();
+    };
+    page.addEventListener('touchstart', still, { passive:false });
+    page.addEventListener('touchmove', still, { passive:false });
+    /* Esc：あそびかたを とじる → 走っていたら ひとやすみ → とじる（シート・ポップアップが 出ている あいだは なにも しない） */
+    this.onKey = e => {
+      if (e.key !== 'Escape' || !this.page || Modal.busy || $('#sheetWrap').classList.contains('open')) return;
+      e.preventDefault();
+      if (!(this.ctl && this.ctl.escape())) this.close();
+    };
+    document.addEventListener('keydown', this.onKey, true);
+    const tok = ++this.tok;
+    this.wait('じゅんび しているよ…', null);
+    this.load().then(R => { if (tok === this.tok && this.page) this.mount(R); },
+      () => { if (tok === this.tok && this.page) this.wait('よみこめませんでした', 'つながっている ところで、<br>もういちど ひらいてね'); });
+    try { page.focus({ preventScroll:true }); } catch(e){}
+  },
+  /* ゲームが はじまる 前の 画面（じゅんび・よみこめない）。sub が あれば「とじる」も */
+  wait(head, sub){
+    const root = this.page && this.page.querySelector('.run-root');
+    if (!root) return;
+    root.className = 'run-root';
+    root.innerHTML = `<div class="run-hud"><div class="run-top"><button class="closebtn run-btn" type="button" data-w="x" aria-label="ランを やめる">${ICON_X}</button></div></div>
+      <div class="run-over"><div class="run-card"><h2>${head}</h2>${sub ? `<p class="run-sub">${sub}</p><div class="btnrow"><button class="btn primary" type="button" data-w="x">とじる</button></div>` : ''}</div></div>`;
+    root.querySelectorAll('[data-w="x"]').forEach(b => b.addEventListener('click', () => this.close()));
+    const f = root.querySelector('.btn.primary');
+    if (f) try { f.focus({ preventScroll:true }); } catch(e){}
+  },
+  mount(R){
+    const root = this.page.querySelector('.run-root');
+    root.innerHTML = '';
+    const n = petWear().neck;
+    try {
+      this.ctl = R.mountRace({
+        container:root, look:normalizeLook(S.pet.look), neckWear:n && hasId(WEAR_BY_ID, n) ? WEAR_BY_ID[n] : null,
+        name:esc(S.pet.name), rivals:this.rivals(), art:renderPet(S.pet.look, { wear:petWear() }),
+        onExit:() => this.close(), onFinish:() => { this.ran = true; },
+      });
+    } catch(e){
+      this.ctl = null;
+      this.wait('3Dの がめんを ひらけませんでした', 'この端末では あそべないみたい');
+    }
+  },
+  pause(){ if (this.ctl) this.ctl.pause(); },
+  close(){
+    const page = this.page;
+    if (!page) return;
+    this.page = null; this.tok++;
+    if (this.ctl){ try { this.ctl.dispose(); } catch(e){} this.ctl = null; }
+    document.removeEventListener('keydown', this.onKey, true);
+    page.remove();
+    document.documentElement.classList.remove('run-open');
+    const app = $('#app');
+    if (app){ app.removeAttribute('aria-hidden'); app.inert = false; }
+    const back = this.back && this.back.isConnected ? this.back : $('#actPlay');
+    if (back && back.focus) try { back.focus({ preventScroll:true }); } catch(e){}
+    if (this.ran && S && !Pet.busy){
+      Pet.wake(); Pet.wag(1600); hearts(3);
+      Pet.say(isCat() ? 'ラン たのしかったにゃ！' : 'ラン たのしかった！');
+    }
+    this.ran = false;
+  },
+};
+{
+  /* 「あそぶ」：いままでの シート（ボール・パズル）に ラン を 足す */
+  const base = openPlay;
+  $('#actPlay').removeEventListener('click', openPlay);
+  openPlay = function(){ base(); RunUI.addTile(); };
+  $('#actPlay').addEventListener('click', openPlay);
+  const busy = Nudge.busy;
+  Nudge.busy = function(){ return busy.call(this) || !!RunUI.page; };
+  const start = Game.start;
+  Game.start = function(greet, away){ if (RunUI.page) RunUI.close(); return start.call(this, greet, away); };
+}
 /* ===== onboarding: photo → breed & colours → name ===== */
 const CAMERA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.3l1.4-2h5.6l1.4 2h1.3A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12.5" r="3.6" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
 const PAW = '<svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="16" rx="5" ry="4.2" fill="var(--mint)"/><circle cx="6" cy="10" r="2.2" fill="var(--mint)"/><circle cx="10" cy="6.5" r="2.2" fill="var(--mint)"/><circle cx="14" cy="6.5" r="2.2" fill="var(--mint)"/><circle cx="18" cy="10" r="2.2" fill="var(--mint)"/></svg>';

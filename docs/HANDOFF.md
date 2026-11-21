@@ -2,9 +2,9 @@
 
 このファイルは、チャットのいちばん最後に毎回まるごと書き直します。次のチャットは、ここを読めば続きから始められます。オーナーは、更新のたびにプロジェクトナレッジのGitHubを「同期」し、作業ごとに新しいチャットへ移ります（`CLAUDE.md` の作業の流れ 7）。
 
-- 最終更新：2026-11-21（23回目：**うちのこラン（仮）の P1＝3D の うちのこ。** `src/run/pet3d.js`（`makePet3D` など）と 見くらべの 道具 `tools/run/`。オーナー OK（耳と ヨーキーを 直して）。アプリは かわらない。つぎ：**P2 を 新しい チャットで**（プロンプトは `docs/RUN_DESIGN.md` 10章）。オーナーは 個人事業主の 申請 → 認証審査。**11-23 まで チャットの はじめに サーバーを 見る**）
+- 最終更新：2026-11-22（24回目：**うちのこラン（仮）の P2＝まとめる しくみと レースの「こうえん」（ホーム画面版だけ・ほうび なし）。** push 済み・**オーナーの OK 待ち**（スクリーンショットと 走る GIF を 見せた）。OK が 出たら P3 の プロンプトを `docs/RUN_DESIGN.md` 10章に 書いて、この HANDOFF を 書きなおす。23回目の P1 の パッチも 24回目の はじめに main に 入れた。オーナーは 個人事業主の 申請 → 認証審査。**11-23 まで チャットの はじめに サーバーを 見る**）
 - リポジトリ：`Y-s-Apps/uchinoko-biyori`（組織 Y-s-Apps）。ホーム画面版：https://y-s-apps.github.io/uchinoko-biyori/
-- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-42796d8f16`**（`de696b7`。`index.html`・`sw.js` の md5 は `d8882038…`・`36368c0e…`。Pages の deploy は success）。なでなでの 直しが 入ったので だいずの アプリは 更新される（おせわの 動きは 前と同じ＝`compare_home.py`：おなじ）
+- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-40a66e5580`**（24回目の P2。`index.html`・`sw.js`・`run-a632764fe558.js` の md5 は `41f1d9f9…`・`ea71c1ff…`・`75151ff9…`）。ランが 入ったので だいずの アプリは 更新される（おせわの 動きは 前と同じ＝`compare_home.py`：おなじ）
 - Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン29**（`de696b7` の中身。version `1794772870-8994`、capabilities は 引きついだ）。公開するときは `src/out/uchinoko-claude.html` の前に いまの版と同じ1行目（`<!doctype html><html><head><meta charset=utf8><meta name=viewport …><style>…</style></head><body>` ＋改行）を、うしろに `</body></html>` ＋改行 を つけて `publish_files`（slug は UUID `507aa3eb-87ee-4ddc-80e3-61638a697f56`。短い id は ことわられる。`capabilities` は はぶいて 引きつぐ。前の版を この形で 作りなおすと `list_files` の sha256 と 同じになるのを 確かめてから 出す。1行目は `read_file` の `offset 1・limit 1` で 読める）
 - LINE版の画面：Cloudflare Pages（main の push で自動ビルド。**`b34a30d` の ビルドは success、3か所とも md5 `c31654d2…` で 手元と同じ**＝メーターの 直しが 入った。`LINE_CFG.oaId` に `@370iymyw`）
   - 本番用 https://uchinoko-biyori.pages.dev/ 、審査用 https://uchinoko-biyori.pages.dev/review/ 、開発用 https://uchinoko-biyori.pages.dev/dev/ （同じページ。ひらいた場所で LIFF ID をえらぶ）
@@ -28,7 +28,14 @@
 - LINE版の計画書：https://claude.ai/artifact/AgKkCkHCsWAywKGV6VFxwK
 - オーナーの事情（約束②で使う）：claude.ai の このプロジェクトの資料 `claude/owner-notes.md`（非公開）
 
-## 直近のチャットでやったこと（2026-11-21、23回目：うちのこラン（仮）の P1。Opus 5.5）
+## 直近のチャットでやったこと（2026-11-22、24回目：うちのこラン（仮）の P2。Opus 5.5）
+
+- はじめに 23回目の P1 の パッチ（`uchinoko-run-p1.patch`）を `git am` で main に あてて push（`15f442e`）。
+- **P2（`docs/RUN_DESIGN.md` 12章）：** `tools/run/build_run.mjs`（esbuild → `src/run_bundle.js`・`--check`）、`build.sh` の スイッチ（`RUN_HOME=1`・`RUN_LINE=0`・`RUN_CLAUDE=0`）で ホーム画面版だけに `run-<ハッシュ>.js`・`integrity`・CSP（その URL だけ）・SW、`src/js_run.js`（「あそぶ」の「ラン」・`#runPage`）、`src/run/race.js`（わんランの レース画面を 作りなおし・相棒は `makePet3D`）、`src/run/wanrun/`（わんランの ルール・景色・カメラ）、`src/run/run.css`。LINE版・Claude版の md5 は 同じ。セーブ・ルール・サーバーは かわらない。
+- 確かめ：`smoke.py`（ふつう・`--dark`・`--size 375x667`・`--fresh`・`--line --android-inset 48`・`--claude`）、`linebreak.py`（283場面 ×2・`--height 603`）、`compare_home.py`（おなじ）、`tools/run/run_shots.py`（ゴールまで・GIF）、`pet3d_test.mjs`。
+- **オーナーに きいた こと（P3 の 前に。12章の さいご）：** 名前・おともだちの 名前・おやつの 3D の 形・時計の 書き方・コースの 名前。
+
+## その前のチャット（2026-11-21、23回目：うちのこラン（仮）の P1。Opus 5.5）
 
 - **見まもり：** よるの おしらせ `app.notify_runs` は 11-18〜21 の 4日とも 21:00 の 回で おわった（`done_at` あり。11-19・11-20 は 1通 とどけた、11-18・11-21 は とばした）。`app.error_counts` は 0行。さいきん 1日の 関数の ログは 200・204 だけ。**「サーバーを起こす」の 結果（`gh run list`）は、この チャットでは GitHub の API が つながって いなくて 見られなかった。**
 - **P1（`docs/RUN_DESIGN.md` 11章）：** `src/run/pet3d.js`（`makePet3D(look, neckWear, { detail })`・`posePet3D`・`strideLegs`・`disposePet3D`）。41種・ねこ・耳・毛・しっぽ・顔の もよう・くびの きせかえ 全しゅるい。わんランと 同じ 単位・userData（`poseLegs` が そのまま つかえる）。1ぴき 約2.7万 三角形（おともだち用 0.6 で 約1.3万）。
@@ -47,9 +54,9 @@ ChatGPT の「わんラン v33」を うちのこ日和の 3Dミニゲームに 
 2. **（オーナーが 決める・いそがない）** Supabase の Data API の「Automatically expose new tables」を オフに するか（Supabase も オフを すすめている。いまは `public` に 表が ないので 害は ない。変えるのは オーナーの 許可を もらってから）。
 3. **公開の日の 手順 5（実機で 見る）の こまかい ところ：** よるの ひとこと（21時すぎ）・ひらいたまま つぎの日・トークの カードの ボタン など、気に なる ところが あったか オーナーに きく（きくだけ）。なでなで（P5-1）の はじめの 下スワイプも。
 4. **手順 6：** テスターでない人（家族など）の LINE で 本番用の LIFF URL（https://miniapp.line.me/2012410265-PutgsCLS ）が ひらけるか。Android の 人が いれば 下の 5つの ボタンと パズルの 下の すき間（P6-1）。
-5. **うちのこラン（仮）（`docs/RUN_DESIGN.md`）：** P1 済み（23回目）。つぎは P2（まとめる しくみ＋レースの「公園」を ホーム画面版で。ほうび なし）。プロンプトは 設計の 10章。P2 から ホーム画面版に 出す（ビルドの スイッチで LINE版・Claude版は かえない）＝だいずの ホーム画面の アプリが 更新される。LINE版（P6）は 認証審査中を さけて。
+5. **うちのこラン（仮）（`docs/RUN_DESIGN.md`）：** P1・P2 済み（P2 は 24回目。**オーナーの OK 待ち**）。OK と 12章の さいごの 5つの こたえを もらったら、P3（レース3コース・ほうび・記録）の プロンプトを 10章に 書く。LINE版（P6）は 認証審査中を さけて。
 5b. **うちのこの 体勢と 動き（`docs/MOTION_DESIGN.md`）：** 実装は Opus 5.5 の 新しい チャットで（プロンプトは 設計の 8章）。**認証審査の「審査中」は LINE版を かえられないので、申請の 前か 認証の あとに 出す。**
-5c. **push：** 23回目の 作業（`src/run/`・`tools/run/`・書類・`.gitignore`）が main に 入ったか、`git log` で 確かめる（23回目の さいごに push できなかったときは、オーナーに ファイルを わたしている）。
+5c. **push：** 23回目の 作業は 24回目の はじめに main に 入れた（`15f442e`）＝済み。
 5d. **（オーナーが 決める・いそがない）** 2D の 絵の ヨークシャーテリアも 全身タイツの ように 見えるので、3D と 同じく「せなかだけ ブルー」に するか（`renderPet`。3つの 版が かわる）。
 6. **（あとで・情報）** P5-3 シートを いちばん上で 下に 引くと LINE の 最小化、P5-4 ダークで ブルーベリーが 見わけにくい、P5-5 高さ 500px より ひくい 画面は パズルが たてに スクロール、P5-6 `smoke.py --claude` は パズルを とおらない。
 - おたすけ：ホーム画面版は1日おき。LINE版は「前回から7日」（だいずは LINE版に うつったので 7日に 1回。前回は 11-11 → つぎは 11-18 から）。
