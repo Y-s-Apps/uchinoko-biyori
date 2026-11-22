@@ -129,7 +129,7 @@
 | P3 | レース3コース・結果・記録・ほうび（`Rules`・`S.run`）・アルバム（**25回目。済み＝オーナー OK**。認証審査は まだ 申請していない＝ルールと セーブは 共通の ファイルに 書いて `game.js` も デプロイ。`/act` は `run` を うけつけない） | ホーム画面版 |
 | P4 | アジリティ4コース（**26回目。済み＝オーナー OK**。認証審査は まだ 申請していない＝P3 と 同じく ルールは 共通の ファイル・`game.js` も デプロイ） | ホーム画面版 |
 | P5 | Claude版（**27回目・オーナー OK**。ゲームは アーティファクトの 2つめの ファイル。15章） | Claude版 |
-| P6 | LINE版（サーバーの `runStart`・`run`・デプロイ・`line_e2e.py`）。出す 前に レビュー（プロンプトは `docs/REVIEW_PROMPT.md` に。**2026-11-22 オーナー決定：Fable 5.2 では なく Opus 5.5 の あたらしい チャットで、うちのこラン P1〜P6 が 影響する 範囲 ぜんぶ**）（**28回目に 作った**。16章。レビューの 直し〈17章〉と いっしょに **30回目に 出した**＝main `d1211e1`・api version 28・Claude版 バージョン31。オーナーの iPhone の LINE での OK まち） | LINE版 |
+| P6 | LINE版（サーバーの `runStart`・`run`・デプロイ・`line_e2e.py`）。出す 前に レビュー（プロンプトは `docs/REVIEW_PROMPT.md` に。**2026-11-22 オーナー決定：Fable 5.2 では なく Opus 5.5 の あたらしい チャットで、うちのこラン P1〜P6 が 影響する 範囲 ぜんぶ**）（**28回目に 作った**。16章。レビューの 直し〈17章〉と いっしょに **30回目に 出した**＝main `d1211e1`・api version 28・Claude版 バージョン31。**オーナー OK＝済み**〈30回目〉） | LINE版 |
 
 - **ビルドの スイッチ：** `build.sh` に `RUN_HOME=1`・`RUN_LINE=0`・`RUN_CLAUDE=0` の ような 切りかえを 置き、出して よい 版だけに ランの 入口と ファイルを 入れる。LINE版を かえない あいだは、ビルドの 前後で `out/line/index.html` の md5 が 同じか 確かめる。
 - **LINE の 認証審査と かさねない：** 審査中（1〜2週間）は LINE版を かえられない。main に push すると Cloudflare が LINE版を 作りなおすので、審査中も `RUN_LINE=0` の まま（md5 同じ）なら ホーム画面版だけ すすめて よい。P6 は 審査の 前か 認証の あと。
@@ -168,7 +168,7 @@ P6 で やること（LINE版 https://uchinoko-biyori.pages.dev/ に うちの�
 - **色を 2D に そろえる 描き方（見くらべで 決めた）：** `NeutralToneMapping`・`toneMappingExposure` 1・`HemisphereLight('#fffaf0', '#c9c2b0', 1.9)`・`DirectionalLight('#fff7ea', 1.9)`。わんランの レースの 光（ACES・1.15、2.5 と 2.7）だと うちのこの 色が うすく 白っぽく なる。P2 では レースの 景色も この 光に するか、景色の 色を あわせて 確かめる。
 - **重さ：** 1ぴき 平均 約2.7万 三角形・描く 回数 26（`detail: .6` は 約1.3万）。いちばん 重いのは 長い毛＋花の くびかざり（約4.6万・36）。pet3d.js と Three.js の 使う ところを まとめて 小さく すると 約314KB（ゲームを 足すと ふえる）。
 - **オーナーの 見くらべで 決めた こと（2026-11-21）：** ①立ち耳は つけねを 頭の 中まで のばす（浮いて 見えた）。②からだの 色が 頭（`main`）と ちがう 子（いまは ヨークシャーテリア）は、からだの 色を せなかと わきの 上だけ（上着の ように）にして、おなか・足は 頭の 色（全身タイツに 見えた）。**2D の 絵の ヨーキーは そのまま**（2D を かえると 3つの 版が ぜんぶ かわる。かえるなら べつの 作業で）。③だいずの 色は クリームの ポメラニアン（からだ `#F3DDB3`）で 見た（ほんとうの みための 値は 見ていない）。
-- **道具：** `tools/run/`（`package.json`・lockfile。Three.js 0.170.0・esbuild 0.24.2。`cd tools/run && npm install`）、`python3 tools/run/pet3d_compare.py`（`smoke-out/pet3d/` に 8まい。`--only 品種id,daizu:くびのid --size 600` で 大きく、`--gif daizu:scarf_tri` で 走る アニメ）、`node tools/run/pet3d_test.mjs`（esbuild で まとめて よみこみ、41種 × くびの きせかえ ＋ こわれた みためで 作る・NaN・足 4本・立つ／走ると 足の うらが 地面・片づく。17,248 こ）。
+- **道具：** `tools/run/`（`package.json`・lockfile。Three.js 0.170.0・esbuild 0.28.1〈2026-11-22 に 0.24.2 から〉。`cd tools/run && npm install`）、`python3 tools/run/pet3d_compare.py`（`smoke-out/pet3d/` に 8まい。`--only 品種id,daizu:くびのid --size 600` で 大きく、`--gif daizu:scarf_tri` で 走る アニメ）、`node tools/run/pet3d_test.mjs`（esbuild で まとめて よみこみ、41種 × くびの きせかえ ＋ こわれた みためで 作る・NaN・足 4本・立つ／走ると 足の うらが 地面・片づく。17,248 こ）。
 - **P2 で 気をつける こと：** アプリの スクリプトには 大きな 名前 `T`（`js_data2.js` の おやつの 表の 関数）や `clamp`・`mix` が ある。まとめる ファイルは モジュールの 中で 名前を とじる（esbuild の `iife`／`esm`）、`window.THREE` に たよらない。esbuild は `nodePaths: ['tools/run/node_modules']` で `three` を さがす（`pet3d_test.mjs` と 同じ）。`target` は `safari14` で とおった。
 - **まだの こと：** マフラーの はしは ゆれない、おともだちの 名前、おやつの 3D の 形（7章）。
 
@@ -176,7 +176,7 @@ P6 で やること（LINE版 https://uchinoko-biyori.pages.dev/ に うちの�
 
 ホーム画面版だけに 出した（`RUN_HOME=1`・`RUN_LINE=0`・`RUN_CLAUDE=0`。LINE版 `out/line/index.html`・Claude版 `out/uchinoko-claude.html` の md5 は 前と 同じ）。ほうび・記録・セーブ（`S`）は まだ ない。
 
-- **まとめる しくみ：** `node tools/run/build_run.mjs` が `src/run/main.js` から ゲームと Three.js r170 を esbuild（iife・minify・`target` safari14・`legalComments: eof`＝Three.js の MIT の 表示は ファイルの さいご）で `src/run_bundle.js`（約 582KB・gzip 約 160KB）に まとめる。名前は ぜんぶ 中に とじ、外に 出るのは `window.UchinokoRun`（`mountRace` など）だけ。`--check` で 作りなおして 同じか（ちがえば 1）。**`src/run/` を かえたら かならず 作りなおして コミット**（Pages・Cloudflare の ビルドで npm を 動かさない）。
+- **まとめる しくみ：** `node tools/run/build_run.mjs` が `src/run/main.js` から ゲームと Three.js r170 を esbuild（iife・minify・`target` safari14.1〈2026-11-22 まで safari14。esbuild 0.28 は safari14 だと 分割代入を 書きかえられないと 止まる。ランは WebGL 2＝iOS 15 から〉・`legalComments: eof`＝Three.js の MIT の 表示は ファイルの さいご）で `src/run_bundle.js`（約 582KB・gzip 約 160KB）に まとめる。名前は ぜんぶ 中に とじ、外に 出るのは `window.UchinokoRun`（`mountRace` など）だけ。`--check` で 作りなおして 同じか（ちがえば 1）。**`src/run/` を かえたら かならず 作りなおして コミット**（Pages・Cloudflare の ビルドで npm を 動かさない）。
 - **`build.sh`：** スイッチ `RUN_HOME`（既定 1）・`RUN_LINE`・`RUN_CLAUDE`（既定 0。1 に すると「まだ 出せません」で とまる＝P5・P6 で 作る）。`RUN_HOME=1` の とき：`run_bundle.js` を ルートに `run-<sha256 の 12けた>.js` として コピー（前の `run-*.js` は 消す）、ホーム画面版の スクリプトの 先頭に `const RUN_SRC = 'run-….js', RUN_SRI = 'sha256-…';`、`js_run.js` を `js_features.js` の すぐあとに、`src/run/run.css` を `<head>` の `<style>` に、CSP の `script-src` に `https://y-s-apps.github.io/uchinoko-biyori/run-….js`（パスまで。`home_head.html` の `__RUN_CSP__`）、`sw.js` の `CORE` に その ファイル（`__RUN__`）。キャッシュ名の 版番号にも `run.css` と RUN_SRC が 入る。`RUN_HOME=0` で ランの ない ホーム画面版も 作れる。
 - **アプリの 側 `src/js_run.js`（`RunUI`。ホーム画面版だけ）：**
   - 「あそぶ」の シートに 3つめ「ラン」（`openPlay` を 包み、`#actPlay` の リスナーも 付けかえ。シートは 3れつ `.playpick.run3`）。説明の 1行も 足す。WebGL 2 が ない（`canvas.getContext('webgl2')` が null）端末は タイルが うすく「この端末では あそべません」で ひらかない（ファイルも 読まない）。
@@ -199,7 +199,7 @@ P6 で やること（LINE版 https://uchinoko-biyori.pages.dev/ に うちの�
   - `mountRace` の 引数 `name`・`rivals[].label`・`art` は ホスト（`js_run.js`）が 作った HTML（`esc`・`softName` 済み）。
   - ヘッドレスの ためしは `page.wait_for_function` が CSP（unsafe-eval なし）に とめられるので `smoke.poll`（evaluate の くりかえし）で まつ。`RunUI` は `const` なので `window.RunUI` では 見えない。
 - **オーナーの こたえ（2026-11-22。1章の 表）：** ①画面の 題は「うちのこラン」・シートの タイルは「ラン」、②「おともだち（品種）」の まま、③おやつは わんランの 骨の ビスケットの まま、④時計は このまま（00:36.6・36.58秒）、⑤コースは ひらがな（こうえん・うみべ・もり）。そのあと まんなかの ひとこと（「おやつ 20こ！ タップで ダッシュ」「ダッシュ！」など）を ぜんぶ なくした（`b0d1412` の つぎ。ゲージの「タップで ダッシュ」・上の まがりかどの 合図・3・2・1 は のこす）。P2 の 画面は「ラン」の まま（題の「うちのこラン」は P3 の コースを えらぶ 画面で 入れる）。
-- **Dependabot の PR #1（esbuild 0.24.2 → 0.28.1、`tools/run/`。2026-11-21）：** esbuild の 開発用 サーバー（`serve`）の 注意で、うちのこは `build` しか つかわない。マージすると lockfile と `run_bundle.js` が ずれるので、手で マージしない。上げるなら P3 で `npm install` → `build_run.mjs` → ためしを ぜんぶ とおして いっしょに コミット（PR は とじる）。
+- **Dependabot の PR #1（esbuild 0.24.2 → 0.28.1、`tools/run/`。2026-11-21）：** esbuild の 開発用 サーバー（`serve`）の 注意で、うちのこは `build` しか つかわない。マージすると lockfile と `run_bundle.js` が ずれるので、手で マージしない。上げるなら P3 で `npm install` → `build_run.mjs` → ためしを ぜんぶ とおして いっしょに コミット（PR は とじる）。 → **2026-11-22（30回目）に 上げた：** `npm install --save-exact esbuild@0.28.1`・`target` を safari14.1 に（`build_run.mjs`・`pet3d_test.mjs`）。まとめた ファイルの ちがいは 名前の つけかたと Three.js の 定数の うめこみ だけ（ちぢめない 形で くらべると 0.24.2／safari14 と 1文字も ちがわない）。ゲームの ファイルは `run-5d3805aee4a4.js`。PR #1 は とじた。
 
 ## 13. P3 で 作ったもの（2026-11-22、25回目。オーナー OK）
 
@@ -311,3 +311,4 @@ Claude版（https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs 、バージョン
 - **ためし：** `tools/rules_test.mjs`（つぎの日の ベストも アルバムは 1つ・400日 7コースで 7つ・こわれた 回数）、`tools/server/api_test.ts` の「run review」（ゴール → 走りだし → おくりなおしは `dup`・`open` が 入っても・おくれた 走りだしの じょうずな アジリティ〈`min − 1.5秒`〉は ほうび・`min − 2.5秒` は はやすぎる・こわれた `srv.rg`）。
 - **出し方：** 16章と 同じ。`game.js` が かわる（R1-1・R1-3）ので、main に push → `python3 tools/build_server.py --pin <SHA>` → `index.ts` と `deno.json` を デプロイ → `--check`。ゲームの ファイルの 名前が かわる（`run-9c1af66550eb.js` → `run-c705e8edb040.js`）ので Claude版も 出しなおす（前の `run-*.js` は `remove`）。ホーム画面版は だいずの 控えの アプリが 更新される。
 - **出した（2026-11-22、30回目）：** パッチを ブランチに あてて（`967d7ca`）生成物を 作りなおし（`d1211e1`）、ためしを ぜんぶ とおして main に → `--pin d1211e1…` → `api` を version 28 に デプロイ（`get_edge_function` と 手元が 同じ）→ `deno.json` を push（`812e644`）→ Claude版 バージョン31（前の `run-9c1af66550eb.js` は `remove`）。pg_net で ホーム画面版（`c7271f79…`・`sw.js` `6889e5df…`）・LINE版 3か所（`c2de436d…`）・`/run-c705e8edb040.js`（`3e35ed47…`・`immutable`）・`/health`（errors 0）・ポリシーの ページ（改定日 2026-11-22）を 確かめた。R7-1 は 出した 日が 2026-11-22 なので そのまま。
+- **オーナー OK（2026-11-22、30回目）：** iPhone の LINE で ほうび・ノーミスの アジリティでも ほうび・下に 引いても 小さく ならない・機内モードで スタートの カードに ことば・はやさ。そのあと esbuild を 0.28.1 に（12章の Dependabot の ところ）＝ゲームの ファイルは `run-5d3805aee4a4.js`・Claude版 バージョン32。

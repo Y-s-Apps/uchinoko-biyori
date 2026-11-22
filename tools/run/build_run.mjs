@@ -3,10 +3,11 @@
  *   node tools/run/build_run.mjs           # src/run_bundle.js を 作りなおす
  *   node tools/run/build_run.mjs --check   # 作りなおして いまの src/run_bundle.js と 同じか（ちがえば 終了コード 1）
  *
- * はじめに cd tools/run && npm install（Three.js r170・esbuild 0.24.2。lockfile で 固定）。
+ * はじめに cd tools/run && npm install（Three.js r170・esbuild 0.28.1。lockfile で 固定。0.24.2 から 上げたのは 2026-11-22＝開発用 サーバーの 注意〈Dependabot〉。うちのこは build だけ）。
  * src/run_bundle.js は コミットする（Cloudflare・GitHub Pages の ビルドで npm を 動かさない ため。game.js と 同じ 考え方）。手で 直さない。
  * build.sh が これを run-<ハッシュ>.js として ホーム画面版に 出す（RUN_HOME=1）。
- * - iife（名前は ぜんぶ 中に とじる。外に 出すのは window.UchinokoRun だけ）・minify・target safari14（古い iPhone。Object.hasOwn などは 書かない）
+ * - iife（名前は ぜんぶ 中に とじる。外に 出すのは window.UchinokoRun だけ）・minify・target safari14.1（古い iPhone。Object.hasOwn などは 書かない。
+ *   esbuild 0.28 は safari14 だと 分割代入〈const [a, b] = …〉を 書きかえられないと 止まる。ランは WebGL 2＝iOS 15 から なので 14.1 で よい）
  * - Three.js の 著作権と ライセンス（MIT）の 表示は ファイルの さいごに のこす（legalComments: eof） */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -26,7 +27,7 @@ const banner = `/* うちのこ日和：うちのこランの ゲーム（src/ru
 
 const res = await esbuild.build({
   entryPoints:[path.join(root, 'src', 'run', 'main.js')],
-  bundle:true, format:'iife', globalName:'UchinokoRun', minify:true, target:['safari14'],
+  bundle:true, format:'iife', globalName:'UchinokoRun', minify:true, target:['safari14.1'],
   nodePaths:[mod], legalComments:'eof', banner:{ js:banner }, write:false, logLevel:'warning',
 });
 const code = res.outputFiles[0].text;

@@ -23,7 +23,7 @@ const { BREEDS, WEAR, WEAR_BY_ID, normalizeLook } = ctx.__app;
 /* pet3d.js ＋ three を まとめる */
 const out = await esbuild.build({
   entryPoints: [path.join(root, 'src', 'run', 'pet3d.js')], bundle: true, format: 'esm', write: false, minify: true,
-  target: ['safari14'], nodePaths: [path.join(here, 'node_modules')], logLevel: 'silent',
+  target: ['safari14.1'], nodePaths: [path.join(here, 'node_modules')], logLevel: 'silent',
 });
 const code = out.outputFiles[0].text;
 const tmp = path.join(os.tmpdir(), 'uchinoko-pet3d-test.mjs');
