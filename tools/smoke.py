@@ -428,7 +428,7 @@ NO_WEBGL_JS = "{ const g = HTMLCanvasElement.prototype.getContext; HTMLCanvasEle
 
 
 async def run_checks(page, ctx, snap, errors, args, port):
-    """うちのこラン（ホーム画面版だけ。2026-11-21 P2・2026-11-22 P3）：「あそぶ」の「ラン」→ ページ #runPage の コースを えらぶ 画面（3コース・あそびかた）→
+    """うちのこラン（ホーム画面版だけ。2026-11-21 P2・2026-11-22 P3・P4）：「あそぶ」の「ラン」→ ページ #runPage の コースを えらぶ 画面（3コース・あそびかた）→
     こうえんの スタート → 指の スワイプ・タップ → アプリを はなれたら ひとやすみ → ゴール（ほうび・ベスト・アルバム。はやすぎる タイムは 切る）→
     つぎの コースへ（うみべ）→ コースを えらぶ（ベストが 出る）→ こうえん → × → とじたら ぜんぶ 片づく。WebGL が ない 端末・ファイルが よめない（integrity が あわない）とき。
     ゴールまでの 通しは tools/run/run_shots.py（時計を とめて とる）"""
@@ -575,6 +575,8 @@ async def run_checks(page, ctx, snap, errors, args, port):
     if not (st == 'running' and st2 == 'paused' and not left['page'] and left['canvas'] == 0 and not left['cls'] and not left['inert'] and not left['ctl']
             and left['lost'] and left['frames'] == f0 and left['focus'] == 'actPlay'):
         errors.append(f'ランを とじても のこっています：{st} {st2} {f0} {left}')
+    # アジリティ（P4）：えらぶ（切りかえ）→ バランス → シーソーで とまる（指）→ まつ → タップ（指）→ ゴール（ほうび・ベスト）
+    await agility_checks(page, ctx, snap, errors, args)
     # WebGL 2 が ない 端末：「この端末では あそべません」で ひらかない（ファイルも 読まない）
     p2 = await ctx.new_page()
     p2.on('pageerror', lambda e: errors.append('WebGLなし：' + str(e)))
@@ -609,6 +611,129 @@ async def run_checks(page, ctx, snap, errors, args, port):
     if not ('よみこめませんでした' in bad['text'] and not bad['run'] and not bad['tampered'] and bad['closed']):
         errors.append(f'こわれた ランの ファイルを 止められません：{bad}')
     await p3.close()
+
+
+RUN_AGI_JS = r"""() => { const c = RunUI.ctl, sim = c && c.sim, b = sim && sim.activeSeesaw, cue = document.querySelector('#runPage .run-cue'), stop = document.querySelector('#runPage .run-stop');
+  return c ? { mode: c.mode, course: c.course, status: sim.status, stopped: sim.stopped, phase: b ? b.state.phase : null, s: Math.round(sim.player.s * 100) / 100,
+    cue: cue && !cue.hidden ? cue.textContent.replace(/\s+/g, ' ').trim() : '', stop: !!stop && !stop.hidden, steps: [...document.querySelectorAll('#runPage .run-step')].map(e => e.dataset.state),
+    results: [...sim.results.entries()] } : null; }"""
+RUN_AGI_HOLD_JS = r"""() => { const sim = RunUI.ctl.sim, o = sim.layout.obstacles[1], st = sim.seesaws.get(o.id), step = sim.step.bind(sim);
+  window.__agiHold = true; sim.step = dt => { if (!window.__agiHold) step(dt); };
+  sim.results.set(0, true); sim.cleared = 1;
+  st.phase = 'approach'; Object.assign(sim.player, { s: o.s - .3, lane: o.lane, x: o.lane * 2 });
+  /* 1こまだけ すすめて いたの 上の 高さ・かたむきを いれる */
+  window.__agiHold = false; sim.step(.001); window.__agiHold = true; }"""
+RUN_AGI_FIN_JS = r"""() => ({ love: S.stats.love, run: JSON.parse(JSON.stringify(S.run)), min: RUN.courses.balance.min, album: S.album.slice(0, 2).map(a => a.ti + '／' + a.su),
+  card: document.querySelector('#runPage .run-card').textContent.replace(/\s+/g, ' ').trim(), puzzle: Rules.puzzleLeft(S), result: RunUI.ctl.sim.result,
+  next: (document.querySelector('#runPage [data-m="next"]') || {}).textContent || '', saved: JSON.parse(localStorage.getItem('uchinoko-biyori:v1') || '{}').run })"""
+
+
+async def agility_checks(page, ctx, snap, errors, args):
+    """アジリティ（2026-11-22 P4。ホーム画面版だけ）：ひらく → 「アジリティ」に 切りかえ（4コース）→ バランスの スタート → はしる →
+    シーソーの 手前で したに スワイプ（指）で とまる → いたが さがるまで まつ → タップ（指）で すすむ → シーソーは クリア → したで とまる（「とまっているよ」）→
+    ゴール（合計は いちばん はやい タイムに 切る・ほうび・ノーミス・ベスト・アルバム）→ コースを えらぶ（アジリティの まま・ベスト）→ とじる"""
+    await page.evaluate("() => { document.querySelectorAll('.levelup').forEach(e => e.remove()); Modal.q = []; Modal.busy = false; RunUI.open(); }")
+    if not await poll(page, "() => !!document.querySelector('#runPage .run-sel .run-course')", 90000):
+        errors.append('アジリティ：コースを えらぶ 画面が 出ません')
+        await page.evaluate('() => RunUI.close()')
+        return
+    await page.click('#runPage [data-mode="agility"]'); await page.wait_for_timeout(400)
+    await snap('agi_select')
+    sel = await page.evaluate(RUN_SEL_JS)
+    sel['pressed'] = await page.evaluate("() => [...document.querySelectorAll('#runPage [data-mode]')].map(b => b.dataset.mode + ':' + b.getAttribute('aria-pressed'))")
+    print('アジリティの コースを えらぶ 画面：', sel)
+    if not (sel['courses'] == ['first-field', 'zigzag', 'balance', 'hill-field'] and sel['maps'] == 4 and not sel['scroll'] and sel['xHit'] and not sel['ctl']
+            and sel['pressed'] == ['race:false', 'agility:true'] and all('まだ きろく なし' in b for b in sel['best'])):
+        errors.append(f'アジリティの コースを えらぶ 画面が ちがいます：{sel}')
+    await page.click('#runPage [data-course="balance"]')
+    if not await poll(page, "() => !!(RunUI.ctl && RunUI.ctl.mode === 'agility' && RunUI.ctl.course === 'balance' && RunUI.ctl.frames > 1)", 90000):
+        errors.append('アジリティ（バランス）が はじまりません')
+        await page.evaluate('() => RunUI.close()')
+        return
+    await page.wait_for_timeout(300)
+    await snap('agi_ready')
+    fit = await page.evaluate(RUN_FIT_JS)
+    print('アジリティの 画面：', fit)
+    if not (fit['card'] and fit['card'][0] >= 0 and fit['card'][2] <= fit['vw'] and fit['card'][3] <= fit['vh'] and fit['xHit'] and fit['inert'] and not fit['scroll']
+            and fit['bottom'] <= fit['vh'] - args.android_inset):
+        errors.append(f'アジリティの 画面が 入りきっていません：{fit}')
+    await page.click('#runPage [data-m="go"]')
+    if not await poll(page, "() => RunUI.ctl.sim.status === 'running'", 90000, 30):
+        errors.append('アジリティの 3・2・1 が おわりません')
+    # ヘッドレスの 3D は おそいので、はじめの 障害物（わっか）は クリアした ことにして、シーソーの いたの 上（まんなかの すこし 手前）へ。
+    # 指の あいだは うちのこを とめておく（step を とめる。指の 入力は すぐ ルールに とどく）
+    await page.evaluate(RUN_AGI_HOLD_JS)
+    await page.wait_for_timeout(400)
+    await snap('agi_seesaw_brake')
+    a0 = await page.evaluate(RUN_AGI_JS)
+    cdp = await ctx.new_cdp_session(page)
+
+    async def finger(kind, x, y):
+        await cdp.send('Input.dispatchTouchEvent', {'type': kind, 'touchPoints': [] if kind == 'touchEnd' else [{'x': x, 'y': y}]})
+    cx, cy = 195, 520
+    await finger('touchStart', cx, cy)
+    for i in range(1, 6):
+        await finger('touchMove', cx + 2 * i / 5, cy + 70 * i / 5); await page.wait_for_timeout(12)
+    await finger('touchEnd', 0, 0); await page.wait_for_timeout(300)
+    a1 = await page.evaluate(RUN_AGI_JS)
+    await snap('agi_seesaw_wait')                                       # とまった まま（いたが さがるまで まってね）
+    await page.evaluate('() => { window.__agiHold = false; }')
+    if not await poll(page, "() => { const b = RunUI.ctl.sim.activeSeesaw; return !!b && b.state.phase === 'ready'; }", 60000, 30):
+        errors.append('シーソーの いたが さがりません')
+    await page.wait_for_timeout(250)
+    await snap('agi_seesaw_tap')
+    a3 = await page.evaluate(RUN_AGI_JS)
+    await page.evaluate(RUN_TAP_JS)                                      # タップ：また すすむ
+    await page.wait_for_timeout(100)
+    a4 = await page.evaluate(RUN_AGI_JS)
+    if not await poll(page, '() => RunUI.ctl.sim.results.has(1)', 60000, 30):
+        errors.append('シーソーを とおりぬけません')
+    await page.wait_for_timeout(250)
+    a5 = await page.evaluate(RUN_AGI_JS)
+    print('アジリティの シーソー：', {'brake': a0, 'swipe': a1, 'ready': a3, 'tap': a4, 'after': a5})
+    if not (a0['phase'] == 'approach' and 'したに スワイプ' in a0['cue'] and a1['stopped'] and a1['phase'] == 'hold' and not a1['stop'] and 'まってね' in a1['cue']
+            and a3['phase'] == 'ready' and 'タップで すすむ' in a3['cue'] and not a3['stop']
+            and not a4['stopped'] and a4['phase'] in ('exit', None) and [1, True] in a5['results'] and a5['steps'][:2] == ['clear', 'clear'] and a5['steps'][2] == 'next'):
+        errors.append(f'シーソー（とまる・まつ・タップ）が ちがいます：{a0} {a1} {a3} {a4} {a5}')
+    # したで とまる（シーソーの 外）→「とまっているよ タップで すすむ」→ タップで また すすむ（この あいだも うちのこの 足は とめておく。
+    # ヘッドレスは おそく、そのあいだに つぎの 障害物〈トンネル〉を とおりすぎて ミスに なるため）
+    await page.evaluate("() => { window.__agiHold = true; RunUI.ctl.sim.input('brake'); }")
+    await page.wait_for_timeout(300)
+    a6 = await page.evaluate(RUN_AGI_JS)
+    await snap('agi_stopped')
+    await page.evaluate(RUN_TAP_JS)
+    await page.wait_for_timeout(150)
+    a7 = await page.evaluate(RUN_AGI_JS)
+    if not (a6['stopped'] and a6['stop'] and not a7['stopped'] and not a7['stop']):
+        errors.append(f'「とまっているよ」が ちがいます：{a6} {a7}')
+    # ゴール（ゴールの すこし 前へ とばす＝合計が ありえないほど はやい → バランスの いちばん はやい タイムに 切る）
+    s0 = await page.evaluate('() => ({ love: S.stats.love, run: JSON.parse(JSON.stringify(S.run)), puzzle: Rules.puzzleLeft(S) })')
+    # ゴールの すこし 前へ とばすので、とちゅうの 障害物は クリアした ことに する（とばした シーソーは「とまれなかった」ミスに なるため）
+    await page.evaluate('() => { const sim = RunUI.ctl.sim; for (const o of sim.layout.obstacles) if (!sim.results.has(o.id)){ sim.results.set(o.id, true); sim.cleared++; } sim.player.s = sim.layout.length - 1.5; window.__agiHold = false; }')
+    if not await poll(page, "() => RunUI.ctl.sim.status === 'finished' && !!document.querySelector('#runPage .run-rec .run-rec-h')", 60000, 30):
+        errors.append('アジリティが ゴールしません：' + await page.evaluate("() => RunUI.ctl.sim.status"))
+    await page.wait_for_timeout(300)
+    await snap('agi_result')
+    fin = await page.evaluate(RUN_AGI_FIN_JS)
+    print('アジリティの ゴール：', {k: v for k, v in fin.items() if k not in ('saved', 'card')}, fin['card'][:90])
+    ok_reward = (fin['run']['n'] == s0['run']['n'] + 1 and abs(fin['love'] - s0['love'] - 2) < 1e-6) if s0['run']['n'] < 3 else fin['run']['n'] == 3
+    if not (fin['run']['games'] == s0['run']['games'] + 1 and fin['run']['clears'] == s0['run']['clears'] + 1 and fin['run']['best'].get('balance') == fin['min']
+            and ok_reward and fin['puzzle'] == s0['puzzle'] and 'ノーミスで ゴール！' in fin['card'] and 'ごうけい' in fin['card'] and 'はじめての きろく' in fin['card']
+            and any(a.startswith('バランスで さいこう きろく') and 'ノーミス' in a for a in fin['album']) and 'おかの ひろば' in fin['next']
+            and fin['saved'] and fin['saved']['best'].get('balance') == fin['min']):
+        errors.append(f'アジリティの ゴールの ほうび・きろくが ちがいます：{s0} → {fin}')
+    await page.evaluate("() => { document.querySelectorAll('.levelup').forEach(e => e.remove()); Modal.q = []; Modal.busy = false; }")
+    # コースを えらぶ（アジリティの まま・ベスト）→ とじる（ぜんぶ 片づく）
+    await page.click('#runPage [data-m="select"]')
+    if not await poll(page, "() => !!document.querySelector('#runPage .run-sel .run-course') && !RunUI.ctl", 30000):
+        errors.append('アジリティ：「コースを えらぶ」で もどりません')
+    sel2 = await page.evaluate(RUN_SEL_JS)
+    if not (sel2['courses'] == ['first-field', 'zigzag', 'balance', 'hill-field'] and sel2['best'][2].startswith('ベスト') and sel2['canvas'] == 0):
+        errors.append(f'アジリティの コースを えらぶ 画面に ベストが 出ません：{sel2}')
+    await page.click('#runPage [data-s="x"]'); await page.wait_for_timeout(500)
+    left = await page.evaluate("() => ({ page: !!document.querySelector('#runPage'), canvas: document.querySelectorAll('canvas').length, inert: !!document.querySelector('#app').inert, ctl: !!RunUI.ctl })")
+    if left['page'] or left['canvas'] or left['inert'] or left['ctl']:
+        errors.append(f'アジリティを とじても のこっています：{left}')
 
 
 # Claude版のクラウド（window.claude の db・user）の まね。__cloud.doc＝クラウドの セーブ、delay＝get の 返事まで（ミリ秒）、sets＝書いたもの

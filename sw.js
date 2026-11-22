@@ -1,8 +1,8 @@
 /* うちのこ日和: offline cache */
-const CACHE = 'uchinoko-eee0da3ebb';
+const CACHE = 'uchinoko-0e28001d96';
 const PREFIX = 'uchinoko-';
 /* CORE の さいごの 印は build.sh が うちのこラン（仮）の ゲームの ファイル（, 'run-<ハッシュ>.js'）に 置きかえる（RUN_HOME=0 なら 空） */
-const CORE = ['./', 'index.html', 'manifest.webmanifest', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'favicon-32.png', 'favicon-64.png', 'run-2740ab14bc65.js'];
+const CORE = ['./', 'index.html', 'manifest.webmanifest', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'favicon-32.png', 'favicon-64.png', 'run-f7d2e3b4e304.js'];
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 const SCOPE = self.registration.scope;                /* e.g. https://y-s-apps.github.io/uchinoko-biyori/ */
 const APP_PAGES = [SCOPE, SCOPE + 'index.html'];      /* the only pages kept for offline use */

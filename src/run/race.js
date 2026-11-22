@@ -4,7 +4,7 @@
  *     → { pause, escape, dispose, sim, renderer, frames, status, course }
  *   COURSES（3コースの 名前・むずかしさ・説明・景色の 色）・courseMap(id)（コースを えらぶ 画面の 小さな 地図 SVG）・helpHtml(id)・formatTime
  *
- * わんラン v33 の race-game.js（mountRace）を、うちのこ日和 用に 作りなおした もの（レースだけ。アジリティは P4）。
+ * わんラン v33 の race-game.js（mountRace）を、うちのこ日和 用に 作りなおした もの（レースだけ。アジリティは agility.js〈P4〉）。
  * - 走るのは うちのこ（pet3d.js の makePet3D。look は normalizeLook() の あと、neckWear は くびの きせかえ か null）。
  *   おともだち 4ひきは rivals（{ look, label }。うちのこと 同じ 種類）を detail 0.6 で。
  * - ルール（race-sim.js）・道と 景色（race-track.js）・カメラ（park-camera.js）・足の 接地（dog-gait.js の poseLegs）は わんランの まま。
@@ -26,18 +26,18 @@ import { biscuitIcon } from './wanrun/park-biscuit.js';
 
 /* コース（わんランの courses.js と race-game.js の setup を うちのこ日和の ことばで）。じゅんばんは「つぎの コースへ」の じゅん。
    sky・fog・zenith・horizon は わんランの 空、scale・shadow は うちのこの 大きさと かげ（わんランは 公園 0.62・ほか 0.76）、
-   flick は みじかい フリックでも うごく（うみべ）、ground は 半球光の 地面がわの 色 */
+   flick は みじかい フリックでも うごく（うみべ）、ground は 半球光の 地面がわの 色、lv は むずかしさの 色（0 やさしい・1 ふつう・2 むずかしい） */
 export const COURSES = [
-  { id:'park', name:'こうえん', level:'やさしい', color:'#a9bd87', desc:'4つの まがりかどを ぬけて、こうえんを かけまわろう', tags:['まがりかど', 'ハードル', 'トンネル'],
+  { id:'park', name:'こうえん', level:'やさしい', lv:0, color:'#a9bd87', desc:'4つの まがりかどを ぬけて、こうえんを かけまわろう', tags:['まがりかど', 'ハードル', 'トンネル'],
     sky:'#9ed9ee', fog:[32, 107], zenith:[.26, .67, .88], horizon:[.73, .91, .89], ground:'#a9b792', scale:.62, shadow:.55 },
-  { id:'beach', name:'うみべ', level:'ふつう', color:'#d4bf88', desc:'おやつの れつを おいかけて、すなはまの りゅうぼくを とびこえよう', tags:['りゅうぼく', 'すなはま', 'みち えらび'],
+  { id:'beach', name:'うみべ', level:'ふつう', lv:1, color:'#d4bf88', desc:'おやつの れつを おいかけて、すなはまの りゅうぼくを とびこえよう', tags:['りゅうぼく', 'すなはま', 'みち えらび'],
     sky:'#b5dce4', fog:[85, 175], zenith:[.20, .66, .85], horizon:[.91, .93, .81], ground:'#c4bc98', scale:.76, shadow:.8, flick:true },
-  { id:'forest', name:'もり', level:'むずかしい', color:'#6d9273', desc:'木の あいだを はしって、カーブと まるたを のりこえよう', tags:['まるた', 'つづく カーブ', 'タイミング'],
+  { id:'forest', name:'もり', level:'むずかしい', lv:2, color:'#6d9273', desc:'木の あいだを はしって、カーブと まるたを のりこえよう', tags:['まるた', 'つづく カーブ', 'タイミング'],
     sky:'#c1cfb0', fog:[42, 110], zenith:[.42, .69, .70], horizon:[.81, .89, .78], ground:'#97a585', scale:.76, shadow:.8 },
 ];
 const courseOf = id => COURSES.find(c => c.id === id) || COURSES[0];
-const ICON_X = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>';
-const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 6v12M15.5 6v12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>';
+export const ICON_X = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>';
+export const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 6v12M15.5 6v12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>';
 /* うちのこの 大きさ（わんランの 犬は 公園で 0.62。3D の うちのこは 耳まで 約1.3 なので 同じ くらい。うみべ・もりは 0.76） */
 export const PET_SCALE = .62;
 

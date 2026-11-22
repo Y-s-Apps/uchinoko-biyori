@@ -1,4 +1,4 @@
-/* うちのこラン（2026-11-21 P2・2026-11-22 P3。docs/RUN_DESIGN.md）：ホーム画面版だけ（build.sh が RUN_HOME=1 のとき <head> に 入れる。head.html は 3つの 版で 同じなので さわらない）
+/* うちのこラン（2026-11-21 P2・2026-11-22 P3・P4。docs/RUN_DESIGN.md）：ホーム画面版だけ（build.sh が RUN_HOME=1 のとき <head> に 入れる。head.html は 3つの 版で 同じなので さわらない）
    - 画面いっぱい（.run-page。重なりは パズルと 同じ 45：はじめての画面 40 ＜ ここ ＜ シート 50 ＜ ポップアップ 70）。うしろの #app は inert。
    - ページは うごかさない（overflow:hidden・touch-action:none・overscroll-behavior:none。指の うごきは ゲームが うけとる）。
    - 3D の 上の 文字は かならず 地を しく（var(--surface) の チップ・カード）。さわれるのは ボタンと カードだけ（ほかは pointer-events:none で、タップは 3D へ）。
@@ -99,6 +99,32 @@ html.run-open,html.run-open body{overflow:hidden;overscroll-behavior:none}
 .run-card .run-more .btn{min-height:44px;font-size:13px;box-shadow:none}
 .run-card .btn.run-next{flex-direction:column;gap:0}
 .run-next small{font-size:11px;font-weight:700}
+/* アジリティ（P4）：上の ミスの チップ・下の 障害物の 1〜6（まだ＝番号・つぎ＝きいろの わく・クリア＝✓・ミス＝−）・「とまっているよ タップで すすむ」・ゴールの 合計 */
+.run-miss span{font-size:12px}
+.run-steps{justify-content:space-between;gap:6px;padding:8px 12px}
+.run-step{flex:none;box-sizing:border-box;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2);color:var(--ink);
+  box-shadow:inset 0 0 0 1.5px var(--line);font-size:16px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1}
+.run-step[data-state="next"]{box-shadow:inset 0 0 0 3px var(--honey);transform:scale(1.08)}
+.run-step[data-state="clear"]{background:var(--mint);color:var(--on-mint);box-shadow:none}
+.run-step[data-state="miss"]{color:var(--berry-ink);box-shadow:inset 0 0 0 2px var(--berry);font-size:20px}
+.run-step.pop{animation:pop .35s cubic-bezier(.3,1.5,.5,1)}
+.run-stop{position:absolute;z-index:2;pointer-events:none;left:50%;bottom:calc(72px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);box-sizing:border-box;max-width:calc(100% - 24px);
+  background:var(--surface);color:var(--ink);border-radius:18px;padding:9px 16px;box-shadow:inset 0 0 0 3px var(--berry),var(--lift);font-size:14px;font-weight:900;white-space:nowrap;
+  animation:runNudgeS .6s ease infinite alternate}
+.run-stop[hidden]{display:none}
+.run-stop b{color:var(--berry-ink)}
+@keyframes runNudgeS{to{transform:translateX(-50%) translateY(-3px)}}
+.run-root.menu .run-stop{display:none}
+.run-total{display:flex;flex-direction:column;align-items:flex-start;min-width:0;line-height:1.1}
+.run-total small{font-size:12px;font-weight:900;color:var(--ink-soft)}
+.run-total span{display:flex;align-items:baseline;gap:3px;white-space:nowrap;font-weight:900;font-size:15px}
+.run-total b{font-family:var(--f-display);font-weight:400;font-size:44px;line-height:1.1;color:var(--berry-ink);font-variant-numeric:tabular-nums}
+.run-card h2 small{display:block;font-family:var(--f-body,inherit);font-size:12px;font-weight:900;color:var(--ink-soft);line-height:1.4}
+/* コースを えらぶ 画面の「レース／アジリティ」の 切りかえ（P4） */
+.run-modes{display:flex;gap:4px;padding:4px;box-sizing:border-box;background:var(--surface);border-radius:99px;box-shadow:var(--lift)}
+.run-modes button{flex:1 1 0;min-width:0;min-height:40px;margin:0;padding:6px 8px;border:0;border-radius:99px;background:transparent;color:var(--ink-soft);
+  font:inherit;font-size:15px;font-weight:900;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.run-modes button[aria-pressed="true"]{background:var(--mint);color:var(--on-mint)}
 /* コースを えらぶ 画面（題「うちのこラン」。アプリの 地の 色。一覧は たてに スクロールできる） */
 .run-root.run-sel{background:var(--ground)}
 .run-title{flex:1;min-width:0;margin:0;text-align:center;font-family:var(--f-display);font-weight:400;font-size:20px;line-height:1.2;color:var(--berry-ink)}
@@ -138,6 +164,7 @@ html.run-open,html.run-open body{overflow:hidden;overscroll-behavior:none}
   .run-card{padding:14px 14px 12px}
   .run-art{width:60px;height:60px}
   .run-rankbig b{font-size:44px}
+  .run-total b{font-size:38px}
   .run-rec{padding:5px 8px;gap:0;line-height:1.35}
   .run-card .btnrow{margin-top:10px}
   .run-card .btnrow.run-more{margin-top:6px}

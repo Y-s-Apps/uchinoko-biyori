@@ -331,7 +331,8 @@ console.log('うちのこラン（2026-11-22 P3）：ほうびは ゴールし�
   T = Date.UTC(2026, 10, 5, 3, 0);   /* 11-05 12:00 日本時間 */
   const st = child(300);
   ok(st.run && st.run.games === 0 && st.run.clears === 0 && JSON.stringify(st.run.best) === '{}' && Rules.runLeft(st) === 3, 'はじめは 0回・記録なし・ほうび のこり3', st.run);
-  ok(Object.keys(RUN.courses).join() === 'park,beach,forest' && RUN.perDay === 3 && RUN.love === 2 && RUN.mood === 5, 'コースは こうえん・うみべ・もり、ほうびは 1日3回・♥+2・ごきげん+5', RUN);
+  ok(Object.keys(RUN.courses).join() === 'park,beach,forest,first-field,zigzag,balance,hill-field' && RUN.perDay === 3 && RUN.love === 2 && RUN.mood === 5,
+     'コースは レース（こうえん・うみべ・もり）と アジリティ（はじめての ひろば・ジグザグ・バランス・おかの ひろば）、ほうびは 1日3回・♥+2・ごきげん+5', RUN);
   const love0 = st.stats.love;
   st.stats.mood = 50; st.last = T;
   const r1 = act(st, 'run', { course:'park', ms:36580, misses:2, rank:3 });
@@ -388,6 +389,51 @@ console.log('うちのこラン（2026-11-22 P3）：ほうびは ゴールし�
   ok(JSON.stringify(arr.run.best) === '{}', '記録が 配列なら 空に', arr.run);
   const old = child(); delete old.run; ensureState(old);
   ok(old.run && old.run.games === 0 && old.run.n === 0 && JSON.stringify(old.run.best) === '{}', '前の セーブ（run なし）にも 既定値を 足す', old.run);
+}
+
+console.log('うちのこラン：アジリティ（2026-11-22 P4）：タイムは 合計（走った タイム＋ミス×5秒）・ノーミスだけ clears・レースと あわせて 1日3回・コースごとの ベスト・いちばん はやい タイム');
+{
+  const { RUN } = g;
+  T = Date.UTC(2026, 10, 7, 3, 0);   /* 11-07 12:00 日本時間 */
+  const st = child(300);
+  const agi = Object.keys(RUN.courses).filter(c => RUN.courses[c].mode === 'agility');
+  ok(agi.join() === 'first-field,zigzag,balance,hill-field' && agi.map(c => RUN.courses[c].ja).join('・') === 'はじめての ひろば・ジグザグ・バランス・おかの ひろば'
+     && agi.every(c => RUN.courses[c].min > 15000 && RUN.courses[c].min < 30000), 'アジリティ 4コース（ひらがなの 名前・いちばん はやい タイム）', agi.map(c => RUN.courses[c]));
+  st.stats.mood = 50; st.last = T;
+  const love0 = st.stats.love;
+  /* 1回め：ミス 2回（走った 24.31秒 ＋ 10秒 ＝ 合計 34.31秒）→ ほうび・はじめての 記録・ノーミスに 数えない */
+  const a1 = act(st, 'run', { course:'first-field', ms:34310, misses:2 });
+  ok(a1.ok && a1.reward && a1.best && a1.prev === null && a1.ms === 34310 && a1.left === 2 && st.run.best['first-field'] === 34310 && st.run.games === 1 && st.run.clears === 0,
+     '1回め（ミス 2回・合計 34.31秒）：ほうび・はじめての 記録・ノーミスに 数えない', { a1, run:st.run });
+  ok(Math.abs(st.stats.love - love0 - RUN.love) < 1e-9 && st.stats.mood === 55, `なかよし+${RUN.love}・ごきげん+${RUN.mood}（レースと 同じ）`, st.stats);
+  ok(st.album.some(a => a.k === 'run:first-field' && a.ti === 'はじめての ひろばで さいこう きろく 34.31秒！' && a.su === 'アジリティで ミス 2回、さいごまで はしったね' && a.ic === 'run')
+     && st.album.some(a => a.ti === 'はじめての ラン' && a.su.indexOf('はじめての ひろばを はしったね') > 0), 'アルバム：アジリティの さいこう記録（ミスの 数）・はじめての ラン', st.album.slice(0, 3));
+  /* 2回め：ノーミス・はやい → clears・ベスト こうしん（同じ日・同じ コースの アルバムは 1つ） */
+  const a2 = act(st, 'run', { course:'first-field', ms:23450, misses:0 });
+  ok(a2.ok && a2.reward && a2.best && a2.prev === 34310 && st.run.best['first-field'] === 23450 && st.run.clears === 1 && a2.left === 1, '2回め（ノーミス）：ベスト こうしん・clears', { a2, run:st.run });
+  ok(st.album.filter(a => a.k === 'run:first-field').length === 1 && st.album.find(a => a.k === 'run:first-field').su === 'アジリティを ノーミスで ゴールしたね', 'アルバム：ノーミス（同じ日は 1つ）', st.album.filter(a => a.k === 'run:first-field'));
+  /* 3回め：レース（こうえん）→ レースと あわせて 3回で おわり。べつの コースの ベストは べつ */
+  const a3 = act(st, 'run', { course:'park', ms:36580, misses:0, rank:1 });
+  ok(a3.ok && a3.reward && a3.left === 0 && st.run.best.park === 36580 && st.run.best['first-field'] === 23450, '3回め（レース）：レースと あわせて 1日3回・べつの コースの ベストは べつ', { a3, run:st.run });
+  const love3 = st.stats.love;
+  const a4 = act(st, 'run', { course:'balance', ms:40000, misses:1 });
+  ok(a4.ok && !a4.reward && a4.best && st.run.best.balance === 40000 && st.stats.love === love3 && st.run.n === 3 && st.run.games === 4, '4回め（バランス）：ほうびなし・記録は のこる', { a4, run:st.run });
+  /* はやすぎる 合計は その コースの いちばん はやい タイムに 切る（ジグザグ・おかの ひろば） */
+  const a5 = act(st, 'run', { course:'zigzag', ms:5000, misses:0 });
+  const a6 = act(st, 'run', { course:'hill-field', ms:17000 });
+  ok(a5.ms === RUN.courses.zigzag.min && st.run.best.zigzag === RUN.courses.zigzag.min && a6.ms === RUN.courses['hill-field'].min && st.run.best['hill-field'] === RUN.courses['hill-field'].min,
+     `はやすぎる 合計は ジグザグ ${RUN.courses.zigzag.min}ms・おかの ひろば ${RUN.courses['hill-field'].min}ms に 切る`, { a5, a6 });
+  const a7 = act(st, 'run', { course:'hill-field', ms:RUN.courses['hill-field'].min + 5000, misses:1 });
+  ok(a7.ok && !a7.best && a7.prev === RUN.courses['hill-field'].min && st.run.best['hill-field'] === RUN.courses['hill-field'].min, 'ミスで おそい 合計は ベストを かえない', a7);
+  ok(act(st, 'run', { course:'first_field', ms:30000 }).why === 'course' && act(st, 'run', { course:'hill', ms:30000 }).why === 'course', '知らない コース（にた 名前）は ことわる');
+  /* セーブの 移行・引っこしコード：アジリティの ベストも のこる。知らない コースだけ すてる */
+  const code = s => { const b = Buffer.from(JSON.stringify(s)).toString('base64'); return 'UCHINOKO2:' + b.length + ':' + b; };
+  const moved = g.readMoveCode(code(st)).st;
+  const sorted = o => JSON.stringify(Object.keys(o).sort().map(k => [k, o[k]]));
+  ok(moved && sorted(moved.run.best) === sorted(st.run.best) && Object.keys(moved.run.best).length === 5, '引っこしコードで アジリティの ベストも のこる', moved && moved.run.best);
+  const fixed = ensureState(Object.assign(child(), { run:{ best:{ 'first-field':100, zigzag:'25000', balance:-3, 'hill-field':1e12, 'moon-field':20000 } } }));
+  ok(fixed.run.best['first-field'] === RUN.courses['first-field'].min && fixed.run.best.zigzag === 25000 && !('balance' in fixed.run.best) && fixed.run.best['hill-field'] === RUN.maxMs
+     && !('moon-field' in fixed.run.best), 'こわれた アジリティの きろくは ensureState が なおす', fixed.run.best);
 }
 
 console.log('ホーム画面版：おたすけは1日おき（src/build.sh の HOME_RESCUE_EVERY で RESCUE_EVERY を置きかえる）');

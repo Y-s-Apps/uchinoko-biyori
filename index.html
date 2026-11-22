@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-XLg1jIHiIqQ7Lp47TRrrhAS3PV/bsZx7FQHYDge+wlc=' https://y-s-apps.github.io/uchinoko-biyori/run-2740ab14bc65.js; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-tfNj7gbwVHZPVeKgo5m9Jm/ns9RHdrLPDtpY1q1RZoM=' https://y-s-apps.github.io/uchinoko-biyori/run-f7d2e3b4e304.js; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="写真の犬や猫をそっくりなペットにして、ごはん・おやつ・なでなででのんびり育てるアプリ">
@@ -577,7 +577,7 @@ html.pz-open,html.pz-open body{overflow:hidden;overscroll-behavior:none}
 .pz-how svg{width:44px;height:44px}
 </style>
 <style>
-/* うちのこラン（2026-11-21 P2・2026-11-22 P3。docs/RUN_DESIGN.md）：ホーム画面版だけ（build.sh が RUN_HOME=1 のとき <head> に 入れる。head.html は 3つの 版で 同じなので さわらない）
+/* うちのこラン（2026-11-21 P2・2026-11-22 P3・P4。docs/RUN_DESIGN.md）：ホーム画面版だけ（build.sh が RUN_HOME=1 のとき <head> に 入れる。head.html は 3つの 版で 同じなので さわらない）
    - 画面いっぱい（.run-page。重なりは パズルと 同じ 45：はじめての画面 40 ＜ ここ ＜ シート 50 ＜ ポップアップ 70）。うしろの #app は inert。
    - ページは うごかさない（overflow:hidden・touch-action:none・overscroll-behavior:none。指の うごきは ゲームが うけとる）。
    - 3D の 上の 文字は かならず 地を しく（var(--surface) の チップ・カード）。さわれるのは ボタンと カードだけ（ほかは pointer-events:none で、タップは 3D へ）。
@@ -678,6 +678,32 @@ html.run-open,html.run-open body{overflow:hidden;overscroll-behavior:none}
 .run-card .run-more .btn{min-height:44px;font-size:13px;box-shadow:none}
 .run-card .btn.run-next{flex-direction:column;gap:0}
 .run-next small{font-size:11px;font-weight:700}
+/* アジリティ（P4）：上の ミスの チップ・下の 障害物の 1〜6（まだ＝番号・つぎ＝きいろの わく・クリア＝✓・ミス＝−）・「とまっているよ タップで すすむ」・ゴールの 合計 */
+.run-miss span{font-size:12px}
+.run-steps{justify-content:space-between;gap:6px;padding:8px 12px}
+.run-step{flex:none;box-sizing:border-box;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2);color:var(--ink);
+  box-shadow:inset 0 0 0 1.5px var(--line);font-size:16px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1}
+.run-step[data-state="next"]{box-shadow:inset 0 0 0 3px var(--honey);transform:scale(1.08)}
+.run-step[data-state="clear"]{background:var(--mint);color:var(--on-mint);box-shadow:none}
+.run-step[data-state="miss"]{color:var(--berry-ink);box-shadow:inset 0 0 0 2px var(--berry);font-size:20px}
+.run-step.pop{animation:pop .35s cubic-bezier(.3,1.5,.5,1)}
+.run-stop{position:absolute;z-index:2;pointer-events:none;left:50%;bottom:calc(72px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);box-sizing:border-box;max-width:calc(100% - 24px);
+  background:var(--surface);color:var(--ink);border-radius:18px;padding:9px 16px;box-shadow:inset 0 0 0 3px var(--berry),var(--lift);font-size:14px;font-weight:900;white-space:nowrap;
+  animation:runNudgeS .6s ease infinite alternate}
+.run-stop[hidden]{display:none}
+.run-stop b{color:var(--berry-ink)}
+@keyframes runNudgeS{to{transform:translateX(-50%) translateY(-3px)}}
+.run-root.menu .run-stop{display:none}
+.run-total{display:flex;flex-direction:column;align-items:flex-start;min-width:0;line-height:1.1}
+.run-total small{font-size:12px;font-weight:900;color:var(--ink-soft)}
+.run-total span{display:flex;align-items:baseline;gap:3px;white-space:nowrap;font-weight:900;font-size:15px}
+.run-total b{font-family:var(--f-display);font-weight:400;font-size:44px;line-height:1.1;color:var(--berry-ink);font-variant-numeric:tabular-nums}
+.run-card h2 small{display:block;font-family:var(--f-body,inherit);font-size:12px;font-weight:900;color:var(--ink-soft);line-height:1.4}
+/* コースを えらぶ 画面の「レース／アジリティ」の 切りかえ（P4） */
+.run-modes{display:flex;gap:4px;padding:4px;box-sizing:border-box;background:var(--surface);border-radius:99px;box-shadow:var(--lift)}
+.run-modes button{flex:1 1 0;min-width:0;min-height:40px;margin:0;padding:6px 8px;border:0;border-radius:99px;background:transparent;color:var(--ink-soft);
+  font:inherit;font-size:15px;font-weight:900;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.run-modes button[aria-pressed="true"]{background:var(--mint);color:var(--on-mint)}
 /* コースを えらぶ 画面（題「うちのこラン」。アプリの 地の 色。一覧は たてに スクロールできる） */
 .run-root.run-sel{background:var(--ground)}
 .run-title{flex:1;min-width:0;margin:0;text-align:center;font-family:var(--f-display);font-weight:400;font-size:20px;line-height:1.2;color:var(--berry-ink)}
@@ -717,6 +743,7 @@ html.run-open,html.run-open body{overflow:hidden;overscroll-behavior:none}
   .run-card{padding:14px 14px 12px}
   .run-art{width:60px;height:60px}
   .run-rankbig b{font-size:44px}
+  .run-total b{font-size:38px}
   .run-rec{padding:5px 8px;gap:0;line-height:1.35}
   .run-card .btnrow{margin-top:10px}
   .run-card .btnrow.run-more{margin-top:6px}
@@ -823,7 +850,7 @@ html.run-open,html.run-open body{overflow:hidden;overscroll-behavior:none}
 <div class="onboard" id="onboard" hidden><div class="ob" id="ob"></div></div>
 <script>
 const HOME = true;
-const RUN_SRC = 'run-2740ab14bc65.js', RUN_SRI = 'sha256-J0CrFLxl9BDj3sma9uZlULylDT3eEGzeHwM8Jq3WRGg=';
+const RUN_SRC = 'run-f7d2e3b4e304.js', RUN_SRI = 'sha256-99LjtOMEPJv+NfnqgHc7C3BHUWy1ajYovOP73vyYQuw=';
 /* ===== data: breeds, treats, accessories ===== */
 const DOG_D = { ear:'semi', coat:'smooth', muzzle:'medium', tail:'straight', face:'muzzle', legs:'normal' };
 const CAT_D = { ear:'pointy', coat:'smooth', muzzle:'medium', tail:'long', face:'muzzle', legs:'normal' };
@@ -1842,14 +1869,19 @@ const Puzzle = {
 /* ----- うちのこラン（3D の レース。2026-11-22 P3。docs/RUN_DESIGN.md 6章） -----
    ゲームは 画面の 中（src/run/）で 自動で 前に すすみ、さいごまで 走れば かならず ゴールする。ここに くるのは ゴールした ときだけ
    （コース・タイム〈ミリ秒〉・ミスの 数・順位）。ほうびは ゴールしたか だけで（順位・タイムでは かえない）、1日 perDay 回まで・パズルとは べつ。
-   min は そのコースの いちばん はやい タイム（ずっと ダッシュで 走った ときの シミュレーション＝tools/run/run_min.mjs が 確かめる）。
-   これより はやい タイムは ありえないので、さいこう記録は min に 切る（ランキングは 作らない。自分の 記録だけ）。 */
+   min は そのコースの いちばん はやい タイム（レースは ずっと ダッシュ、アジリティは ミスなしで いちばん はやい 走りの シミュレーション＝tools/run/run_min.mjs が 確かめる）。
+   これより はやい タイムは ありえないので、さいこう記録は min に 切る（ランキングは 作らない。自分の 記録だけ）。
+   アジリティ（2026-11-22 P4）の タイムは 合計（走った タイム＋ミス×5秒）。わざと ミスして はやく 走っても 合計は min より おそい（run_min.mjs）。 */
 const RUN = {
   perDay:3, love:2, mood:5, maxMs:3600e3,
   courses:{
     park:{ mode:'race', ja:'こうえん', min:29620 },
     beach:{ mode:'race', ja:'うみべ', min:29130 },
     forest:{ mode:'race', ja:'もり', min:31480 },
+    'first-field':{ mode:'agility', ja:'はじめての ひろば', min:21580 },
+    zigzag:{ mode:'agility', ja:'ジグザグ', min:23280 },
+    balance:{ mode:'agility', ja:'バランス', min:26300 },
+    'hill-field':{ mode:'agility', ja:'おかの ひろば', min:17420 },
   },
 };
 const runSec = ms => (Math.round(ms / 10) / 100).toFixed(2) + '秒';
@@ -2269,7 +2301,8 @@ const Rules = {
     this.first(st, 'puzzle', 'はじめての パズル', `${st.pet.name}と おやつならべで あそんだね`, 'puzzle');
     return { ok:true, clear:g.clear, score:g.score, got:g.got, best, reward, left:PUZZLE.perDay - z.n };
   },
-  /* うちのこラン：ゴールした ときだけ くる（とちゅうで やめたら なにも 書かない）。うけとるのは コース・タイム（ms）・ミスの 数・順位だけ。
+  /* うちのこラン：ゴールした ときだけ くる（とちゅうで やめたら なにも 書かない）。うけとるのは コース・タイム（ms）・ミスの 数・順位だけ
+     （アジリティは タイムが 合計〈走った タイム＋ミス×5秒〉、順位は ない）。
      ほうび（ごきげん・なかよし）は ゴールしたか だけで、1日 RUN.perDay 回まで（パズルとは べつに 数える）。
      タイムは そのコースの いちばん はやい タイム（RUN.courses[c].min）より はやければ そこに 切る。コースごとの さいこう記録は アルバムに（1日1つ） */
   runLeft(st){ const z = st.run; return !z || z.day !== dayKey() ? RUN.perDay : Math.max(0, RUN.perDay - z.n); },
@@ -2302,7 +2335,8 @@ const Rules = {
       z.best[c] = ms;
       st.album = st.album.filter(a => !(a.k === 'run:' + c && dayKey(a.t) === day));
       this.addAlbum(st, 'run:' + c, `${C.ja}で さいこう きろく ${runSec(ms)}！`,
-        rank >= 1 && rank <= 5 ? (rank === 1 ? 'ランで いちばんに ゴールしたね' : `ランで ${rank}位で ゴールしたね`) : 'ランで さいごまで はしったね', 'run');
+        C.mode === 'agility' ? (misses ? `アジリティで ミス ${misses}回、さいごまで はしったね` : 'アジリティを ノーミスで ゴールしたね')
+          : rank >= 1 && rank <= 5 ? (rank === 1 ? 'ランで いちばんに ゴールしたね' : `ランで ${rank}位で ゴールしたね`) : 'ランで さいごまで はしったね', 'run');
     }
     this.first(st, 'run', 'はじめての ラン', `${st.pet.name}と ${C.ja}を はしったね`, 'run');
     return { ok:true, course:c, ms, prev, best, reward, left:RUN.perDay - z.n };
@@ -4439,18 +4473,20 @@ const PuzzleUI = {
     this.cleared = false;
   },
 };
-/* ===== うちのこラン：ホーム画面版だけ（2026-11-21 P2・2026-11-22 P3。docs/RUN_DESIGN.md） =====
+/* ===== うちのこラン：ホーム画面版だけ（2026-11-21 P2・2026-11-22 P3・P4。docs/RUN_DESIGN.md） =====
  * build.sh の RUN_HOME=1 のとき js_features.js の すぐあとに 入る（LINE版・Claude版には 入らない＝RUN_LINE=0・RUN_CLAUDE=0）。
  * 3D の ゲーム（Three.js と src/run/）は 1つの ファイル RUN_SRC（run-<ハッシュ>.js。中身は src/run_bundle.js）に まとめてあり、
  * ランを ひらいた ときだけ 読みこむ。integrity は RUN_SRI、CSP は その ファイルの URL だけ（build.sh が 入れる）。Service Worker も とっておく。
  * - 「あそぶ」の シートに 3つめ「ラン」（openPlay を 包む）。WebGL 2 が ない 端末は「この端末では あそべません」で ひらかない。
  * - ページごと うつる #runPage（パズルと 同じ 重なり 45。うしろの #app は inert）。とじたら ゲームを ぜんぶ 片づける（dispose）。
- * - ひらくと コースを えらぶ 画面（題「うちのこラン」・こうえん／うみべ／もりの カード・ベスト・きょうの ほうび）→ レース（src/run/race.js）。
- * - ゴールで Act.run('run')：ほうび（ごきげん・なかよし。1日 RUN.perDay 回・パズルとは べつ）と コースごとの ベスト・アルバム（ルールは js_rules.js）。
+ * - ひらくと コースを えらぶ 画面（題「うちのこラン」・「レース／アジリティ」の 切りかえ・コースの カード・ベスト・きょうの ほうび）
+ *   → レース（こうえん・うみべ・もり。src/run/race.js）か アジリティ（はじめての ひろば・ジグザグ・バランス・おかの ひろば。src/run/agility.js。P4）。
+ * - ゴールで Act.run('run')：ほうび（ごきげん・なかよし。レースと アジリティ あわせて 1日 RUN.perDay 回・パズルとは べつ）と コースごとの ベスト・アルバム
+ *   （ルールは js_rules.js。アジリティの タイムは 合計＝走った タイム＋ミス×5秒）。
  *   ゴールの カードに ほうびと ベストとの 差を 出す。LINE に ほぞんしている子が つながっていない ときは きろく しない（Act.blocked。P6 まで LINE版には 出ない）。
  * - 子が 入れかわったら（Game.start）とじる。よるの ひとこと（Nudge）は ランの あいだ まつ。 */
 const RunUI = {
-  page:null, ctl:null, back:null, tok:0, gl:null, loading:null, ran:false, onKey:null, R:null, course:null, helpOn:false,
+  page:null, ctl:null, back:null, tok:0, gl:null, loading:null, ran:false, onKey:null, R:null, course:null, helpOn:false, mode:'race',
   /* WebGL 2（Three.js r170 が つかう）が あるか。1回だけ 見て、ためしの 3D は すぐ 手ばなす */
   canPlay(){
     if (this.gl === null){
@@ -4482,9 +4518,9 @@ const RunUI = {
     if (!tiles || tiles.querySelector('[data-play="run"]')) return;
     const ok = this.canPlay(), left = Rules.runLeft(S);
     tiles.classList.add('run3');
-    tiles.insertAdjacentHTML('beforeend', `<button class="tile" type="button" data-play="run"${ok ? '' : ' aria-disabled="true"'}><svg viewBox="0 0 24 24" aria-hidden="true">${MINI.run}</svg><span class="tname">ラン<small>3Dの レース</small></span><span class="gain">${!ok ? 'この端末では<br>あそべません' : left ? `ほうび あと${left}回` : 'ほうびは<br>また あした'}</span></button>`);
+    tiles.insertAdjacentHTML('beforeend', `<button class="tile" type="button" data-play="run"${ok ? '' : ' aria-disabled="true"'}><svg viewBox="0 0 24 24" aria-hidden="true">${MINI.run}</svg><span class="tname">ラン<small>3Dで はしる</small></span><span class="gain">${!ok ? 'この端末では<br>あそべません' : left ? `ほうび あと${left}回` : 'ほうびは<br>また あした'}</span></button>`);
     const note = sh.querySelectorAll('.note');
-    if (note.length) note[note.length - 1].insertAdjacentHTML('afterend', `<p class="note">${ok ? 'ランは、うちのこが おともだちと はしる 3Dの レース。こうえん・うみべ・もりの 3コース！' : 'ランは 3Dの がめんを つかうので、この端末では あそべません。'}</p>`);
+    if (note.length) note[note.length - 1].insertAdjacentHTML('afterend', `<p class="note">${ok ? 'ランは、うちのこが 3Dで はしる ゲーム。おともだちと きそう レース（3コース）と、しょうがいぶつの アジリティ（4コース）！' : 'ランは 3Dの がめんを つかうので、この端末では あそべません。'}</p>`);
     tiles.querySelector('[data-play="run"]').addEventListener('click', () => { if (this.canPlay()) this.open(); });
   },
   /* おともだち 4ひき：うちのこと 同じ 種類の、ちがう 品種（毎回 ランダム。見た目だけ） */
@@ -4539,72 +4575,88 @@ const RunUI = {
     const root = this.root();
     if (!root) return;
     root.className = 'run-root';
+    root.removeAttribute('data-course');
     root.innerHTML = `<div class="run-hud"><div class="run-top"><button class="closebtn run-btn" type="button" data-w="x" aria-label="ランを やめる">${ICON_X}</button></div></div>
       <div class="run-over"><div class="run-card"><h2>${head}</h2>${sub ? `<p class="run-sub">${sub}</p><div class="btnrow"><button class="btn primary" type="button" data-w="x">とじる</button></div>` : ''}</div></div>`;
     root.querySelectorAll('[data-w="x"]').forEach(b => b.addEventListener('click', () => this.close()));
     const f = root.querySelector('.btn.primary');
     if (f) try { f.focus({ preventScroll:true }); } catch(e){}
   },
-  /* コースを えらぶ 画面：題「うちのこラン」・3コースの カード（小さな 地図・むずかしさ・せつめい・とくちょう・ベスト）・きょうの ほうび。
-     カードを おすと その コースの スタートの 画面へ（はしるまでは なにも 数えない） */
-  select(help){
+  /* コースを えらぶ 画面：題「うちのこラン」・「レース／アジリティ」の 切りかえ（P4。えらんだ ほうは アプリを ひらいている あいだ おぼえる。セーブには 書かない）・
+     コースの カード（小さな 地図・むずかしさ・せつめい・とくちょう・ベスト）・きょうの ほうび。カードを おすと その コースの スタートの 画面へ
+     （はしるまでは なにも 数えない）。focus は 切りかえた あとの ボタンへ もどす ときに 'mode' */
+  select(help, focus){
     const root = this.root(), R = this.R;
     if (!root || !R) return;
     this.drop();
     this.helpOn = !!help;
+    const agi = this.mode === 'agility' && R.AGILITY_COURSES ? true : false;
+    if (!agi) this.mode = 'race';
+    const list = agi ? R.AGILITY_COURSES : R.COURSES, map = agi ? R.agilityMap : R.courseMap;
     const best = (S.run && S.run.best) || {}, left = Rules.runLeft(S);
-    const cards = R.COURSES.map((c, i) => {
+    const cards = list.map((c, i) => {
       const b = hasId(best, c.id) ? best[c.id] : null;
       return `<li><button class="run-course" type="button" data-course="${c.id}" aria-label="${i + 1}. ${c.name}（${c.level}）。${b ? `ベスト ${runSec(b)}` : 'まだ きろく なし'}">
-        <span class="run-map">${R.courseMap(c.id)}</span>
-        <span class="run-ci"><span class="run-cn"><b>${i + 1}</b>${c.name}<i class="lv${i}">${c.level}</i></span>
+        <span class="run-map">${map(c.id)}</span>
+        <span class="run-ci"><span class="run-cn"><b>${i + 1}</b>${c.name}<i class="lv${c.lv == null ? i : c.lv}">${c.level}</i></span>
           <span class="run-cd">${c.desc}</span>
           <span class="run-tags">${c.tags.map(t => `<i>${t}</i>`).join('')}</span>
           <span class="run-cb">${b ? `ベスト <b>${runSec(b)}</b>` : 'まだ きろく なし'}</span></span></button></li>`;
     }).join('');
+    const tab = (m, label) => `<button type="button" data-mode="${m}" aria-pressed="${(m === 'agility') === agi}">${label}</button>`;
     root.className = 'run-root run-sel';
+    root.removeAttribute('data-course');   /* ゲームが つけた しるし（コースの カードの [data-course] と まぎれない ように） */
     root.innerHTML = `<div class="run-hud"><div class="run-top">
         <button class="closebtn run-btn" type="button" data-s="x" aria-label="ランを やめる">${ICON_X}</button>
         <h2 class="run-title">うちのこラン</h2>
         <button class="closebtn run-btn" type="button" data-s="help" aria-label="あそびかた">？</button></div></div>
       <div class="run-sel-body">
         <div class="run-sel-head"><div class="run-sel-pet" aria-hidden="true">${renderPet(S.pet.look, { wear:petWear() })}</div>
-          <p class="run-sel-say">どこを はしる？<small>おともだち 4ひきと きょうそう！</small></p></div>
+          <p class="run-sel-say">どこを はしる？<small>${agi ? '6つの しょうがいぶつに ちょうせん！' : 'おともだち 4ひきと きょうそう！'}</small></p></div>
+        ${R.AGILITY_COURSES ? `<div class="run-modes" role="group" aria-label="ランの しゅるい">${tab('race', 'レース')}${tab('agility', 'アジリティ')}</div>` : ''}
         <ol class="run-courses">${cards}</ol>
-        <p class="run-sel-note">ゴールすると ごきげん+${RUN.mood}・♥+${RUN.love}（1日${RUN.perDay}回）<br><b>${left ? `きょうの ほうび あと${left}回` : 'きょうの ほうびは また あした'}</b></p>
+        <p class="run-sel-note">ゴールすると ごきげん+${RUN.mood}・♥+${RUN.love}（レースと アジリティ あわせて 1日${RUN.perDay}回）<br><b>${left ? `きょうの ほうび あと${left}回` : 'きょうの ほうびは また あした'}</b></p>
       </div>
-      ${help ? `<div class="run-over" role="dialog" aria-modal="true" aria-label="あそびかた"><div class="run-card"><h2>あそびかた</h2>${R.helpHtml()}
+      ${help ? `<div class="run-over" role="dialog" aria-modal="true" aria-label="あそびかた"><div class="run-card"><h2>あそびかた<small>${agi ? 'アジリティ' : 'レース'}</small></h2>${agi ? R.agilityHelpHtml() : R.helpHtml()}
         <p class="run-hnote">ゴールすると ほうび（ごきげん+${RUN.mood}・♥+${RUN.love}）。<br>1日${RUN.perDay}回まで。はしるのは 何回でも。</p>
         <div class="btnrow"><button class="btn primary" type="button" data-s="ok">わかった</button></div></div></div>` : ''}`;
     root.querySelector('[data-s="x"]').addEventListener('click', () => this.close());
     root.querySelector('[data-s="help"]').addEventListener('click', () => this.select(true));
     const okb = root.querySelector('[data-s="ok"]');
     if (okb) okb.addEventListener('click', () => this.select());
+    root.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
+      if (this.helpOn || b.dataset.mode === this.mode) return;
+      this.mode = b.dataset.mode === 'agility' ? 'agility' : 'race';
+      this.select(false, 'mode');
+    }));
     root.querySelectorAll('[data-course]').forEach(b => b.addEventListener('click', () => { if (!this.helpOn) this.start(b.dataset.course); }));
-    /* フォーカスは ページ（あそびかたの ときは「わかった」）。指で ひらいた ときに カードに わくが 出ない ように。Tab で カードへ */
-    const f = okb || this.page;
+    /* フォーカスは ページ（あそびかたの ときは「わかった」、切りかえた ときは その ボタン）。指で ひらいた ときに カードに わくが 出ない ように。Tab で カードへ */
+    const f = okb || (focus === 'mode' && root.querySelector('[data-mode][aria-pressed="true"]')) || this.page;
     if (f) try { f.focus({ preventScroll:true }); } catch(e){}
   },
-  /* コースの レース（スタートの 画面から） */
+  /* コースの レース・アジリティ（スタートの 画面から）。「つぎの コースへ」は 同じ しゅるいの 中で */
   start(id){
     const root = this.root(), R = this.R;
     if (!root || !R) return;
     this.drop();
     this.helpOn = false;
-    const list = R.COURSES.map(c => c.id), i = list.indexOf(id);
-    if (i < 0) return;
-    this.course = id;
+    const race = R.COURSES.map(c => c.id), agi = (R.AGILITY_COURSES || []).map(c => c.id);
+    const mode = race.indexOf(id) >= 0 ? 'race' : agi.indexOf(id) >= 0 ? 'agility' : null;
+    if (!mode) return;
+    const list = mode === 'race' ? race : agi, i = list.indexOf(id);
+    this.course = id; this.mode = mode;
     root.className = 'run-root';
     root.innerHTML = '';
     const n = petWear().neck, b = S.run && hasId(S.run.best, id) ? S.run.best[id] : null;
+    const o = {
+      container:root, course:id, look:normalizeLook(S.pet.look), neckWear:n && hasId(WEAR_BY_ID, n) ? WEAR_BY_ID[n] : null,
+      name:esc(S.pet.name), art:renderPet(S.pet.look, { wear:petWear() }),
+      best:b ? b / 1000 : null, next:list[i + 1] || null,
+      onExit:() => this.close(), onSelect:() => this.select(), onNext:next => this.start(next),
+      onFinish:info => this.finish(info),
+    };
     try {
-      this.ctl = R.mountRace({
-        container:root, course:id, look:normalizeLook(S.pet.look), neckWear:n && hasId(WEAR_BY_ID, n) ? WEAR_BY_ID[n] : null,
-        name:esc(S.pet.name), rivals:this.rivals(), art:renderPet(S.pet.look, { wear:petWear() }),
-        best:b ? b / 1000 : null, next:list[i + 1] || null,
-        onExit:() => this.close(), onSelect:() => this.select(), onNext:next => this.start(next),
-        onFinish:info => this.finish(info),
-      });
+      this.ctl = mode === 'race' ? R.mountRace(Object.assign(o, { rivals:this.rivals() })) : R.mountAgility(o);
     } catch(e){
       this.ctl = null;
       this.wait('3Dの がめんを ひらけませんでした', 'この端末では あそべないみたい');
@@ -4613,7 +4665,9 @@ const RunUI = {
   /* ゴール：ルールに ほうびと 記録を たのみ（LINE に ほぞんしている子が つながっていない ときは たのまない）、ゴールの カードに 出す HTML を かえす */
   async finish(info){
     this.ran = true;
-    const r = Act.blocked() ? { ok:false, why:'offline' } : await Act.run('run', { course:info.course, ms:info.ms, misses:info.misses, rank:info.rank });
+    const p = { course:info.course, ms:info.ms, misses:info.misses };
+    if (info.rank != null) p.rank = info.rank;   /* アジリティは 順位が ない（タイムは 合計） */
+    const r = Act.blocked() ? { ok:false, why:'offline' } : await Act.run('run', p);
     if (r && r.ok){ playEvents(r.ev); commit(); }
     return this.record(r);
   },

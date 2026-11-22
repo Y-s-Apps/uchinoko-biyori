@@ -172,14 +172,19 @@ const Puzzle = {
 /* ----- うちのこラン（3D の レース。2026-11-22 P3。docs/RUN_DESIGN.md 6章） -----
    ゲームは 画面の 中（src/run/）で 自動で 前に すすみ、さいごまで 走れば かならず ゴールする。ここに くるのは ゴールした ときだけ
    （コース・タイム〈ミリ秒〉・ミスの 数・順位）。ほうびは ゴールしたか だけで（順位・タイムでは かえない）、1日 perDay 回まで・パズルとは べつ。
-   min は そのコースの いちばん はやい タイム（ずっと ダッシュで 走った ときの シミュレーション＝tools/run/run_min.mjs が 確かめる）。
-   これより はやい タイムは ありえないので、さいこう記録は min に 切る（ランキングは 作らない。自分の 記録だけ）。 */
+   min は そのコースの いちばん はやい タイム（レースは ずっと ダッシュ、アジリティは ミスなしで いちばん はやい 走りの シミュレーション＝tools/run/run_min.mjs が 確かめる）。
+   これより はやい タイムは ありえないので、さいこう記録は min に 切る（ランキングは 作らない。自分の 記録だけ）。
+   アジリティ（2026-11-22 P4）の タイムは 合計（走った タイム＋ミス×5秒）。わざと ミスして はやく 走っても 合計は min より おそい（run_min.mjs）。 */
 const RUN = {
   perDay:3, love:2, mood:5, maxMs:3600e3,
   courses:{
     park:{ mode:'race', ja:'こうえん', min:29620 },
     beach:{ mode:'race', ja:'うみべ', min:29130 },
     forest:{ mode:'race', ja:'もり', min:31480 },
+    'first-field':{ mode:'agility', ja:'はじめての ひろば', min:21580 },
+    zigzag:{ mode:'agility', ja:'ジグザグ', min:23280 },
+    balance:{ mode:'agility', ja:'バランス', min:26300 },
+    'hill-field':{ mode:'agility', ja:'おかの ひろば', min:17420 },
   },
 };
 const runSec = ms => (Math.round(ms / 10) / 100).toFixed(2) + '秒';
@@ -599,7 +604,8 @@ const Rules = {
     this.first(st, 'puzzle', 'はじめての パズル', `${st.pet.name}と おやつならべで あそんだね`, 'puzzle');
     return { ok:true, clear:g.clear, score:g.score, got:g.got, best, reward, left:PUZZLE.perDay - z.n };
   },
-  /* うちのこラン：ゴールした ときだけ くる（とちゅうで やめたら なにも 書かない）。うけとるのは コース・タイム（ms）・ミスの 数・順位だけ。
+  /* うちのこラン：ゴールした ときだけ くる（とちゅうで やめたら なにも 書かない）。うけとるのは コース・タイム（ms）・ミスの 数・順位だけ
+     （アジリティは タイムが 合計〈走った タイム＋ミス×5秒〉、順位は ない）。
      ほうび（ごきげん・なかよし）は ゴールしたか だけで、1日 RUN.perDay 回まで（パズルとは べつに 数える）。
      タイムは そのコースの いちばん はやい タイム（RUN.courses[c].min）より はやければ そこに 切る。コースごとの さいこう記録は アルバムに（1日1つ） */
   runLeft(st){ const z = st.run; return !z || z.day !== dayKey() ? RUN.perDay : Math.max(0, RUN.perDay - z.n); },
@@ -632,7 +638,8 @@ const Rules = {
       z.best[c] = ms;
       st.album = st.album.filter(a => !(a.k === 'run:' + c && dayKey(a.t) === day));
       this.addAlbum(st, 'run:' + c, `${C.ja}で さいこう きろく ${runSec(ms)}！`,
-        rank >= 1 && rank <= 5 ? (rank === 1 ? 'ランで いちばんに ゴールしたね' : `ランで ${rank}位で ゴールしたね`) : 'ランで さいごまで はしったね', 'run');
+        C.mode === 'agility' ? (misses ? `アジリティで ミス ${misses}回、さいごまで はしったね` : 'アジリティを ノーミスで ゴールしたね')
+          : rank >= 1 && rank <= 5 ? (rank === 1 ? 'ランで いちばんに ゴールしたね' : `ランで ${rank}位で ゴールしたね`) : 'ランで さいごまで はしったね', 'run');
     }
     this.first(st, 'run', 'はじめての ラン', `${st.pet.name}と ${C.ja}を はしったね`, 'run');
     return { ok:true, course:c, ms, prev, best, reward, left:RUN.perDay - z.n };

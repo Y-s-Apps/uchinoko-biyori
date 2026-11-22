@@ -171,6 +171,28 @@ await new Promise(r => setTimeout(r, 400)); """ % ('true' if fast else 'false')
 RUN_OPEN = run_open()
 RUN_GO = run_go()
 
+# アジリティ（P4）の 自動の 操作（描かずに ルールだけ）：つぎの 障害物の レーンへ・ハードルと わっかは ジャンプ（miss は はじめの 2つを とばない）・
+# スラロームは めじるしの ほう・シーソーは まんなかで とまって、いたが さがったら タップ。noLane・noBrake・noTap で その 操作を しない
+AGI_AUTO = """const p = sim.player, o = sim.nextObstacle, b = sim.activeSeesaw, sl = sim.activeSlalom;
+  if (b){ const ph = b.state.phase; if (ph === 'approach' && !sim.stopped && p.s - b.obstacle.s >= -0.7 && !noBrake) sim.input('brake'); else if (ph === 'ready' && !noTap) sim.input('dash'); }
+  else if (sl){ const i = sl.state.index; if (i < 6){ const w = (sl.obstacle.startSide == null ? -1 : sl.obstacle.startSide) * (i % 2 ? -1 : 1); if (sl.state.side !== w) sim.input(w < 0 ? 'left' : 'right'); } }
+  else if (o){ if (p.lane !== o.lane && !sim.rampPass && !sim.inTunnel()){ if (!noLane) sim.input(o.lane < p.lane ? 'left' : 'right'); }
+    else if ((o.type === 'hurdle' || o.type === 'hoop') && p.jumpElapsed === null && o.s - p.s > 0 && o.s - p.s <= 5.2 && !(miss && o.id < 2)) sim.input('jump'); }
+  sim.step(1 / 60);"""
+
+
+def agi_flags(miss=False, lane=True, brake=True, tap=True):
+    return 'const miss = %s, noLane = %s, noBrake = %s, noTap = %s; ' % tuple('true' if v else 'false' for v in (miss, not lane, not brake, not tap))
+
+
+def agi_until(c, cond, then='', **kw):
+    """アジリティの コース c を cond（sim を つかう JS）まで すすめて、とめる（step を からに＝合図の まま のこす）"""
+    return run_go(c) + agi_flags(**kw) + "for (let g = 0; g < 30000 && sim.status === 'running' && !(%s); g++){ %s } %s sim.drainEvents(); sim.step = () => {}; " % (cond, AGI_AUTO, then)
+
+
+def agi_finish(miss, c='first-field', pre=''):
+    return RUN_FRESH + pre + run_go(c) + agi_flags(miss) + "for (let g = 0; g < 40000 && sim.status === 'running'; g++){ %s }\nawait new Promise(r => setTimeout(r, 400)); " % AGI_AUTO
+
 
 def scenes(line, run=False):
     """(名前, 出すための JS, しらべる場所, 待つms, いまの子が いるか)"""
@@ -259,6 +281,42 @@ def scenes(line, run=False):
             # はじめの まがりかど（90）の 合図：この さき・スワイプ・OK・とまって まつ（wait は スワイプしない）。走った まま うちのこの 足だけ とめる
             add('run_cue_' + nm, RUN_GO + "for (let g = 0; g < 5000 && sim.player.s < %d && sim.waitingTurn === null; g++) sim.step(1 / 60); %ssim.drainEvents(); sim.player.speed = 0" % (at, arm),
                 '#runPage', 500)
+    if run:
+        # アジリティ（2026-11-22 P4）：コースを えらぶ（切りかえ・ベスト・あそびかた）・スタート（4コース）・あそびかた（4コース）・ひとやすみ・
+        # 合図（つぎの 障害物・ジャンプ・レーン・トンネル・スラローム・シーソー〈のる・とまる・まつ・タップ・すすむ〉・Aフレーム）・「とまっているよ」・
+        # ゴール（ノーミス・ミス・はやい・おそい・ほうび おわり・さいごの コース・きろく できない）
+        AGI = "RunUI.mode = 'agility'; "
+        add('agi_select', RUN_FRESH + AGI + RUN_SEL, '#runPage', 500)
+        add('agi_select_best', AGI + "S.run = { games:5, clears:2, n:3, day:Clock.dayKey(), best:{ 'first-field':22540, zigzag:28520, balance:31460, 'hill-field':17420 } }; " + RUN_SEL, '#runPage', 500)
+        add('agi_select_help', AGI + RUN_SEL + "document.querySelector('#runPage [data-s=\"help\"]').click()", '#runPage', 500)
+        add('agi_select_back', AGI + RUN_SEL + "document.querySelector('#runPage [data-mode=\"race\"]').click(); await new Promise(r => setTimeout(r, 200)); document.querySelector('#runPage [data-mode=\"agility\"]').click()", '#runPage', 500)
+        for c in ['first-field', 'zigzag', 'balance', 'hill-field']:
+            add('agi_ready_' + c, RUN_FRESH + run_open(c), '#runPage', 600)
+            add('agi_help_' + c, run_open(c) + "document.querySelector('#runPage [data-run=\"help\"]').click()", '#runPage', 600)
+        add('agi_ready_best', "S.run.best = { balance:31460 }; " + run_open('balance'), '#runPage', 600)
+        add('agi_pause', run_go('zigzag') + "RunUI.ctl.pause()", '#runPage', 600)
+        for nm, c, cond, kw, then in [
+                ('ahead', 'first-field', 'sim.player.s >= 5', {}, ''), ('jump', 'first-field', 'sim.player.s >= 20', {}, ''),
+                ('lane', 'first-field', 'sim.player.s >= 70', {'lane': False}, ''), ('tunnel', 'first-field', 'sim.player.s >= 124', {}, ''),
+                ('stopped', 'first-field', 'sim.player.s >= 40', {}, "sim.input('brake'); for (let g = 0; g < 20; g++) sim.step(1 / 60);"),
+                ('slalom', 'zigzag', 'sim.player.s >= 78', {}, ''), ('slalom_out', 'zigzag', 'sim.activeSlalom && sim.activeSlalom.state.index >= 6', {}, ''),
+                ('seesaw_in', 'balance', 'sim.player.s >= 73', {}, ''), ('seesaw_brake', 'balance', 'sim.player.s >= 75.5', {'brake': False}, ''),
+                ('seesaw_wait', 'balance', "sim.activeSeesaw && sim.activeSeesaw.state.phase === 'tipping'", {}, ''),
+                ('seesaw_tap', 'balance', "sim.activeSeesaw && sim.activeSeesaw.state.phase === 'ready'", {'tap': False}, ''),
+                ('seesaw_go', 'balance', "sim.activeSeesaw && sim.activeSeesaw.state.phase === 'exit'", {}, ''),
+                ('seesaw_early', 'balance', 'sim.player.s >= 73', {}, "sim.input('brake'); for (let g = 0; g < 20; g++) sim.step(1 / 60);"),
+                ('aframe', 'hill-field', 'sim.player.s >= 9', {}, ''), ('aframe_on', 'hill-field', 'sim.player.s >= 15', {}, ''),
+                ('aframe_off', 'hill-field', 'sim.player.s >= 9', {}, "sim.input('right'); for (let g = 0; g < 30; g++) sim.step(1 / 60);")]:
+            add('agi_cue_' + nm, agi_until(c, cond, then, **kw), '#runPage', 500)
+        add('agi_result_first', agi_finish(False), '#runPage', 600)
+        add('agi_result_miss', agi_finish(True), '#runPage', 600)
+        add('agi_result_slow', agi_finish(True, pre="S.run.best['first-field'] = 21600; "), '#runPage', 600)
+        add('agi_result_faster', agi_finish(False, pre="S.run.best['first-field'] = 99000; "), '#runPage', 600)
+        add('agi_result_over', agi_finish(True, pre="S.run.n = 3; S.run.day = Clock.dayKey(); S.run.best['first-field'] = 21600; "), '#runPage', 600)
+        add('agi_result_zigzag', agi_finish(True, 'zigzag'), '#runPage', 600)
+        add('agi_result_balance', agi_finish(False, 'balance'), '#runPage', 600)
+        add('agi_result_hill', agi_finish(False, 'hill-field'), '#runPage', 600)
+        add('agi_result_norec', "const AR = Act.run; Act.run = () => Promise.resolve({ ok:false, why:'bad' }); " + agi_finish(False) + "Act.run = AR; ", '#runPage', 600)
     add('requests_pinch',"S.daily.rescue={type:'treat',n:2,got:0,done:false}; S.streak={last:Clock.dayKey(now()-2*864e5),n:12,best:20}; openRequests()", '#sheet')
     if line:
         on = ("LineSync.state='on'; LineServer.member={id:'x'}; LineSync.created=1; LineServer.card={on:true,left:2,perDay:3}; LineServer.importable=true;"
