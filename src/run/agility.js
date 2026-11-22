@@ -2,7 +2,7 @@
  *
  *   mountAgility({ container, course, look, neckWear, name, art, best, next, onExit, onSelect, onNext, onFinish })
  *     → { pause, escape, dispose, sim, renderer, frames, status, course, mode }
- *   AGILITY_COURSES（4コースの 名前・むずかしさ・説明）・agilityMap(id)（コースを えらぶ 画面の 小さな 地図 SVG）・agilityHelpHtml(id)
+ *   AGILITY_COURSES（4コースの 名前・むずかしさ・説明）・agilityMap(id)（コースを えらぶ 画面の 全体図 SVG＝さくの ある 広場と 障害物）・agilityHelpHtml(id)
  *
  * わんラン v33 の race-game.js の アジリティの ところを、うちのこ日和 用に 作りなおした もの（レースは race.js）。
  * - ひとりで 走る（おともだちは 出ない）。走るのは うちのこ（pet3d.js の makePet3D）。大きさは わんランの 広場と 同じ 0.76。
@@ -38,41 +38,77 @@ const courseOf = id => AGILITY_COURSES.find(c => c.id === id) || AGILITY_COURSES
 const SKY = { sky:'#bad7e3', fog:[85, 175], zenith:[.26, .67, .88], horizon:[.73, .91, .89], ground:'#a3b48a', scale:.76, shadow:.8 };
 const NAMES = { hurdle:'ハードル', hoop:'わっか', tunnel:'トンネル', slalom:'スラローム', seesaw:'シーソー', 'a-frame':'Aフレーム' };
 const LANES = ['ひだり', 'まんなか', 'みぎ'];
-const DOT = { hurdle:'#c78465', hoop:'#d9a63e', tunnel:'#5f8ea6', slalom:'#4f7fb0', seesaw:'#7b6aa8', 'a-frame':'#3f7f86' };
 
-/* コースを えらぶ 画面の 小さな 地図（ほんとうの 広場の 道から。スタートは 左下・ゴールは まんなか）。障害物は しゅるいごとの 形：
-   ハードル＝よこの ぼう・わっか＝わ・トンネル＝たての ふとい ぼう・スラローム＝6この 点・シーソー＝ながい いた・Aフレーム＝さんかく */
+/* コースを えらぶ 画面の 全体図（2026-11-22 オーナー：「コース」では なく ドッグアジリティの 広場に 見える ように。
+   全体図は イメージなので、6つ ぜんぶでは なく その コースに ある 種目を 1つずつ。かさならない・さくから はみださない）。
+   さくで かこんだ 芝生の 広場を すこし ななめ 上から 見た 絵に、種目（ハードル・わっか・トンネル・スラロームの ポール・シーソー・Aフレーム）を
+   きめた 場所（SLOTS）に たてた 形で 置く。その コースの 目玉（スラローム・シーソー・Aフレーム）は 手前の 左。旗は スタート（みどり）と ゴール（ピンク）。
+   道は かかない。芝生・木の 色は 3D の 広場（agility-field.js）と 同じ */
+const FIELD_ART = {
+  'first-field':{ lawn:'#a5c27a', leaves:'#85ab59', tree:'round' },
+  zigzag:{ lawn:'#9cc39a', leaves:'#528d78', tree:'pine' },
+  balance:{ lawn:'#bec682', leaves:'#96a451', tree:'round' },
+  'hill-field':{ lawn:'#99be80', leaves:'#679b71', tree:'pine', hill:'#9dbcb3' },
+};
 export function agilityMap(id){
-  const c = courseOf(id), lay = new AgilitySimulation(c.id).layout, point = lay.point, len = lay.length;
-  const pts = [];
-  for (let s = 0; s <= len; s += 2) pts.push(point(Math.min(s, len), 0));
-  pts.push(point(len, 0));
-  const xs = pts.map(p => p.x), zs = pts.map(p => p.z);
-  const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs);
-  const k = 70 / Math.max(x1 - x0, z1 - z0, 1), ox = 50 - (x0 + x1) / 2 * k, oz = 50 - (z0 + z1) / 2 * k;
-  const X = p => (p.x * k + ox), Y = p => (p.z * k + oz), f = v => v.toFixed(1);
-  const d = 'M' + pts.map(p => `${f(X(p))} ${f(Y(p))}`).join('L');
-  const glyph = o => {
-    const p = point(o.s, o.lane * 2), cx = X(p), cy = Y(p), fx = Math.sin(p.heading), fy = -Math.cos(p.heading), px = -fy, py = fx;
-    const line = (a, b, w, col) => `<path d="M${f(cx + a[0])} ${f(cy + a[1])}L${f(cx + b[0])} ${f(cy + b[1])}" stroke="#fff" stroke-width="${w + 1.8}" stroke-linecap="round"/>`
-      + `<path d="M${f(cx + a[0])} ${f(cy + a[1])}L${f(cx + b[0])} ${f(cy + b[1])}" stroke="${col}" stroke-width="${w}" stroke-linecap="round"/>`;
-    if (o.type === 'hurdle') return line([-px * 3, -py * 3], [px * 3, py * 3], 2.4, DOT.hurdle);
-    if (o.type === 'hoop') return `<circle cx="${f(cx)}" cy="${f(cy)}" r="2.9" fill="none" stroke="#fff" stroke-width="3.4"/><circle cx="${f(cx)}" cy="${f(cy)}" r="2.9" fill="none" stroke="${DOT.hoop}" stroke-width="1.8"/>`;
-    if (o.type === 'tunnel') return line([-fx * 3 * k, -fy * 3 * k], [fx * 3 * k, fy * 3 * k], 4.4, DOT.tunnel);
-    if (o.type === 'seesaw') return line([-fx * 3.9 * k, -fy * 3.9 * k], [fx * 3.9 * k, fy * 3.9 * k], 2.8, DOT.seesaw) + `<circle cx="${f(cx)}" cy="${f(cy)}" r="1.4" fill="#fff"/>`;
-    if (o.type === 'slalom') return Array.from({ length:SLALOM.count }, (_, i) => { const q = point(slalomPoleS(o, i), o.lane * 2); return `<circle cx="${f(X(q))}" cy="${f(Y(q))}" r="1.5" fill="${DOT.slalom}" stroke="#fff" stroke-width=".9"/>`; }).join('');
-    if (o.type === 'a-frame'){ const a = 3.6, b = 2.8; return `<path d="M${f(cx + fx * a)} ${f(cy + fy * a)}L${f(cx - fx * a + px * b)} ${f(cy - fy * a + py * b)}L${f(cx - fx * a - px * b)} ${f(cy - fy * a - py * b)}z" fill="${DOT['a-frame']}" stroke="#fff" stroke-width="1.1" stroke-linejoin="round"/>`; }
-    return `<circle cx="${f(cx)}" cy="${f(cy)}" r="3" fill="#c78465"/>`;
+  const c = courseOf(id), F = FIELD_ART[c.id] || FIELD_ART['first-field'], lay = new AgilitySimulation(c.id).layout;
+  const f = v => (Math.round(v * 10) / 10).toString();
+  /* 広場の さく（ななめ 上から：おくが せまい 台形）。v＝おく 0 → 手前 1 */
+  const FT = 22, FB = 95, inX = v => 15 - 12 * v, outX = v => 85 + 12 * v;
+  /* 大きさは おくほど 小さく（y＝足もとの 高さ） */
+  const at = (x, y) => ({ x, y, k:(.72 + .42 * (y - FT) / (FB - FT)) * 1.3 });
+  const shadow = w => `<ellipse cx="0" cy=".4" rx="${w}" ry="1.6" fill="#2d4a2a" opacity=".16"/>`;
+  const icon = o => {
+    switch (o.type){
+      case 'hurdle': return shadow(8) + '<rect x="-7.5" y="-8.5" width="1.6" height="8.5" rx=".5" fill="#3f6fa8"/><rect x="5.9" y="-8.5" width="1.6" height="8.5" rx=".5" fill="#3f6fa8"/>'
+        + '<rect x="-6" y="-6.2" width="12" height="2" fill="#fff6e4"/>' + [-5, -1.2, 2.6].map(x => `<rect x="${x}" y="-6.2" width="1.9" height="2" fill="#d4654f"/>`).join('')
+        + '<rect x="-8.6" y="-.9" width="3.8" height="1.1" rx=".4" fill="#3f6fa8"/><rect x="4.8" y="-.9" width="3.8" height="1.1" rx=".4" fill="#3f6fa8"/>';
+      case 'hoop': return shadow(7) + '<rect x="-6.6" y="-14" width="1.4" height="14" rx=".5" fill="#3f6fa8"/><rect x="5.2" y="-14" width="1.4" height="14" rx=".5" fill="#3f6fa8"/>'
+        + '<circle cx="0" cy="-8.6" r="4.6" fill="none" stroke="#e8893a" stroke-width="1.9"/><rect x="-7.4" y="-.9" width="3" height="1.1" rx=".4" fill="#3f6fa8"/><rect x="4.4" y="-.9" width="3" height="1.1" rx=".4" fill="#3f6fa8"/>';
+      case 'tunnel': return shadow(9) + '<path d="M-8.5 0A8.5 7.5 0 0 1 8.5 0Z" fill="#3f78b8"/>'
+        + [-4.5, 0, 4.5].map(x => `<path d="M${x} 0V${f(-Math.sqrt(Math.max(0, 1 - (x / 8.5) ** 2)) * 7.5)}" stroke="#2f5f96" stroke-width=".7"/>`).join('')
+        + '<path d="M-8.5 0A8.5 7.5 0 0 1 8.5 0" fill="none" stroke="#f2c94c" stroke-width="1.3"/><path d="M-4.6 0A4.6 4.4 0 0 1 4.6 0Z" fill="#1d3557"/>';
+      case 'slalom': {
+        /* ポール 6本：道の むきに ならべる（ななめ 上から 見た むき） */
+        const ux = 3, uy = -.9;   /* ななめに ならべる */
+        const poles = Array.from({ length:SLALOM.count }, (_, i) => ({ x:(i - 2.5) * ux, y:(i - 2.5) * uy })).sort((a, b) => a.y - b.y);
+        return poles.map(q => `<g transform="translate(${f(q.x)} ${f(q.y)})"><ellipse cx="0" cy=".3" rx="1.6" ry=".7" fill="#2d4a2a" opacity=".16"/>`
+          + '<rect x="-.65" y="-10" width="1.3" height="10" rx=".5" fill="#fffdf4"/><rect x="-.65" y="-7.4" width="1.3" height="2.2" fill="#3f6fa8"/><rect x="-.65" y="-3.2" width="1.3" height="1.6" fill="#3f6fa8"/></g>').join('');
+      }
+      case 'seesaw': return shadow(9.5) + '<path d="M-3.4 0L0 -5.4L3.4 0Z" fill="#3f6fa8"/>'
+        + '<g transform="translate(0 -5.4) rotate(-13)"><rect x="-10" y="-1.1" width="20" height="2.2" rx=".6" fill="#4a86c0"/><rect x="-10" y="-1.1" width="4" height="2.2" rx=".6" fill="#f2c94c"/><rect x="6" y="-1.1" width="4" height="2.2" rx=".6" fill="#f2c94c"/></g>';
+      case 'a-frame': return shadow(10) + '<path d="M-9 0L0 -11L0 0Z" fill="#4b8f95"/><path d="M0 -11L9 0L0 0Z" fill="#3c777d"/>'
+        + '<path d="M-9 0L-6.6 -2.9L6.6 -2.9L9 0Z" fill="#edc65e"/><path d="M0 -11V0" stroke="#2f6166" stroke-width=".6"/>';
+    }
+    return shadow(4) + '<circle cx="0" cy="-3" r="3" fill="#c78465"/>';
   };
-  const tree = c.tree === 'pine' ? (x, y) => `<path d="M${x} ${y - 6}l5 10h-10z" fill="#4f7d63"/>` : (x, y) => `<circle cx="${x}" cy="${y}" r="5" fill="#7f9f5f"/>`;
-  const st = pts[0], en = pts[pts.length - 1];
-  return `<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path d="M0 0h100v100H0z" fill="${c.color}"/>
-    <rect x="7" y="7" width="86" height="86" rx="10" fill="none" stroke="#efe3c4" stroke-width="1.6" stroke-dasharray="4 3"/>
-    ${[[4, 4], [96, 4], [4, 96], [96, 96]].map(([x, y]) => tree(x, y)).join('')}
-    <path d="${d}" fill="none" stroke="#f3e9cf" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>
-    <path d="${d}" fill="none" stroke="#d8c79f" stroke-width="1.3" stroke-dasharray="3 4" stroke-linecap="round"/>${lay.obstacles.map(glyph).join('')}
-    <circle cx="${f(X(st))}" cy="${f(Y(st))}" r="4.6" fill="#4fae9a" stroke="#fff" stroke-width="1.6"/>
-    <circle cx="${f(X(en))}" cy="${f(Y(en))}" r="4.6" fill="#ec6c8a" stroke="#fff" stroke-width="1.6"/></svg>`;
+  const flag = (p, col) => `<g transform="translate(${f(p.x)} ${f(p.y)}) scale(${f(p.k)})"><ellipse cx="0" cy=".3" rx="2" ry=".8" fill="#2d4a2a" opacity=".16"/>`
+    + `<path d="M0 0V-12" stroke="#fffdf4" stroke-width="1"/><path d="M.4 -12L6.4 -9.8L.4 -7.6Z" fill="${col}"/></g>`;
+  /* 置く もの（おくから 手前の じゅんに かく） */
+  /* その コースに ある 種目（目玉を さきに。のこりは 出てくる じゅん）を、きめた 場所に 1つずつ */
+  const STAR = ['slalom', 'seesaw', 'a-frame'], types = [...new Set(lay.obstacles.map(o => o.type))];
+  types.sort((a, b) => (STAR.includes(b) ? 1 : 0) - (STAR.includes(a) ? 1 : 0));
+  const SLOTS = types.length >= 4 ? [[38, 82], [68, 50], [31, 48], [73, 80]] : [[52, 80], [32, 50], [68, 52]];
+  const items = types.slice(0, SLOTS.length).map((t, i) => { const p = at(...SLOTS[i]); return { y:p.y, svg:`<g transform="translate(${f(p.x)} ${f(p.y)}) scale(${f(p.k)})">${icon({ type:t })}</g>` }; });
+  const ps = at(11, 91), pe = at(types.length >= 4 ? 47 : 75, types.length >= 4 ? 35 : 34);
+  items.push({ y:ps.y, svg:flag(ps, '#4fae9a') }, { y:pe.y, svg:flag(pe, '#ec6c8a') });
+  items.sort((a, b) => a.y - b.y);
+  /* さく：台形の ふちに 白い レールと くい */
+  const fence = [];
+  const post = (x, y, h) => fence.push(`<path d="M${f(x)} ${f(y)}v${f(-h)}" stroke="#fffaf0" stroke-width="1.2" stroke-linecap="round"/>`);
+  for (let i = 0; i <= 8; i++){ const x = inX(0) + (outX(0) - inX(0)) * i / 8; post(x, FT, 4); }
+  for (let i = 0; i <= 6; i++){ const v = i / 6, y = FT + (FB - FT) * v, h = 4 + 2.5 * v; post(inX(v), y, h); post(outX(v), y, h); }
+  const rails = [`M${inX(0)} ${FT - 3}H${outX(0)}`, `M${inX(0)} ${FT - 1.4}H${outX(0)}`, `M${inX(0)} ${FT - 3}L${inX(1)} ${FB - 5.5}`, `M${outX(0)} ${FT - 3}L${outX(1)} ${FB - 5.5}`,
+    `M${inX(0)} ${FT - 1.4}L${inX(1)} ${FB - 2.6}`, `M${outX(0)} ${FT - 1.4}L${outX(1)} ${FB - 2.6}`].map(d => `<path d="${d}" stroke="#fffaf0" stroke-width=".9" fill="none" opacity=".95"/>`).join('');
+  const tree = (x, y, r) => F.tree === 'pine' ? `<path d="M${x} ${y - r * 1.5}l${r} ${r * 2}h${-2 * r}z" fill="${F.leaves}"/><path d="M${x} ${y - r * .4}v${r * .8}" stroke="#8c7c57" stroke-width="1"/>`
+    : `<circle cx="${x}" cy="${y - r * .6}" r="${r}" fill="${F.leaves}"/><path d="M${x} ${y - r * .2}v${r * .6}" stroke="#8c7c57" stroke-width="1"/>`;
+  const stripes = Array.from({ length:7 }, (_, i) => `<path d="M${-20 + i * 18} 100L${-2 + i * 18} 14H${7 + i * 18}L${-11 + i * 18} 100Z" fill="#fff" opacity=".07"/>`).join('');
+  return `<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path d="M0 0h100v100H0z" fill="${F.lawn}"/>
+    <path d="M0 0h100v15H0z" fill="#cfe6ee"/>${F.hill ? `<path d="M-5 16Q20 2 45 14T105 13V16H-5z" fill="${F.hill}"/>` : '<path d="M-5 16Q30 9 60 14T105 12V16H-5z" fill="#b8d3b6"/>'}
+    <path d="M0 15h100v85H0z" fill="${F.lawn}"/>${stripes}
+    ${[[6, 15, 4.5], [17, 14, 3.5], [83, 14, 3.8], [94, 15, 4.5], [50, 13.5, 3]].map(([x, y, r]) => tree(x, y, r)).join('')}
+    <path d="M${inX(0)} ${FT}L${outX(0)} ${FT}L${outX(1)} ${FB}L${inX(1)} ${FB}Z" fill="#fff" opacity=".08"/>
+    ${rails}${fence.join('')}${items.map(i => i.svg).join('')}</svg>`;
 }
 
 /* あそびかた（わんランの help-content.js の アジリティを やさしく 書きなおした）。id が なければ（コースを えらぶ 画面）4コース ぶん */

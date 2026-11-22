@@ -2,17 +2,17 @@
 
 このファイルは、チャットのいちばん最後に毎回まるごと書き直します。次のチャットは、ここを読めば続きから始められます。オーナーは、更新のたびにプロジェクトナレッジのGitHubを「同期」し、作業ごとに新しいチャットへ移ります（`CLAUDE.md` の作業の流れ 7）。
 
-- 最終更新：2026-11-22（25回目：**うちのこランの P3＝レース 3コース（こうえん・うみべ・もり）・コースを えらぶ 画面・ほうび・ベスト・アルバム（ホーム画面版だけ）。オーナー OK。** はじめに きいた：LINE の 認証審査は まだ 申請していない → ルールと セーブは 共通の ファイル、サーバーも デプロイ（`/act` は `run` を うけつけない）。つぎ：**P4（アジリティ）を 新しい チャットで**（プロンプトは `docs/RUN_DESIGN.md` 10章）。オーナーは 個人事業主の 申請 → 認証審査。**11-23 の「サーバーを起こす」の 回だけ 見る**）
+- 最終更新：2026-11-22（26回目：**うちのこランの P4＝アジリティ 4コース（はじめての ひろば・ジグザグ・バランス・おかの ひろば。ホーム画面版だけ）。オーナー OK。** はじめに きいた：LINE の 認証審査は まだ 申請していない → P3 と 同じく ルールは 共通の ファイル、サーバーも デプロイ（`/act` は `run` を うけつけない）。コースを えらぶ 画面の アジリティの 全体図は オーナーの 見なおしで ドッグアジリティの 広場の 絵に。つぎ：**P5（Claude版）を 新しい チャットで**（プロンプトは `docs/RUN_DESIGN.md` 10章）。オーナーは 個人事業主の 申請 → 認証審査。**11-23 の「サーバーを起こす」の 回だけ 見る**）
 - リポジトリ：`Y-s-Apps/uchinoko-biyori`（組織 Y-s-Apps）。ホーム画面版：https://y-s-apps.github.io/uchinoko-biyori/
-- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-eee0da3ebb`**（25回目の P3。`index.html`・`sw.js`・`run-2740ab14bc65.js` の md5 は `8d13f00d…`・`0f160dc8…`・`6532304f…`）。ランを つかわなければ おせわの 動きは 前と同じ（`compare_home.py`：おなじ）
-- Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン29**（`de696b7` の中身。**25回目の P3 で 手元の Claude版は ルールの ファイルの ぶんだけ かわった〈md5 `8369a657…`。画面は 同じ・ランの 入口なし〉が 出しなおしは P5 で まとめて**。version `1794772870-8994`、capabilities は 引きついだ）。公開するときは `src/out/uchinoko-claude.html` の前に いまの版と同じ1行目（`<!doctype html><html><head><meta charset=utf8><meta name=viewport …><style>…</style></head><body>` ＋改行）を、うしろに `</body></html>` ＋改行 を つけて `publish_files`（slug は UUID `507aa3eb-87ee-4ddc-80e3-61638a697f56`。短い id は ことわられる。`capabilities` は はぶいて 引きつぐ。前の版を この形で 作りなおすと `list_files` の sha256 と 同じになるのを 確かめてから 出す。1行目は `read_file` の `offset 1・limit 1` で 読める）
-- LINE版の画面：Cloudflare Pages（main の push で自動ビルド。**25回目の `5e70368` の ビルドで 本番用・開発用の md5 `25d4da43…` を pg_net で 確かめた**＝P3 の ルール・セーブの ファイルが 入った〈ランの 入口は 入らない＝`RUN_LINE=0`〉。`LINE_CFG.oaId` に `@370iymyw`）
+- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-4743ccd0f9`**（26回目の P4＋全体図の 見なおし。`index.html`・`sw.js`・`run-9c1af66550eb.js` の md5 は `cc997302…`・`43263950…`・`cb49db20…`）。ランを つかわなければ おせわの 動きは 前と同じ（`compare_home.py`：おなじ）
+- Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン29**（`de696b7` の中身。**P3・P4 で 手元の Claude版は ルールの ファイルの ぶんだけ かわった〈26回目の md5 `b27fda95…`。画面は 同じ・ランの 入口なし〉が 出しなおしは P5 で まとめて**。version `1794772870-8994`、capabilities は 引きついだ）。公開するときは `src/out/uchinoko-claude.html` の前に いまの版と同じ1行目（`<!doctype html><html><head><meta charset=utf8><meta name=viewport …><style>…</style></head><body>` ＋改行）を、うしろに `</body></html>` ＋改行 を つけて `publish_files`（slug は UUID `507aa3eb-87ee-4ddc-80e3-61638a697f56`。短い id は ことわられる。`capabilities` は はぶいて 引きつぐ。前の版を この形で 作りなおすと `list_files` の sha256 と 同じになるのを 確かめてから 出す。1行目は `read_file` の `offset 1・limit 1` で 読める）
+- LINE版の画面：Cloudflare Pages（main の push で自動ビルド。**26回目の `824da76`・`70abb35` の ビルドで 本番用・開発用の md5 `8644251e…` を pg_net で 確かめた**＝P4 の ルールの ファイルが 入った〈ランの 入口は 入らない＝`RUN_LINE=0`。全体図の 見なおしでは かわらない〉。`LINE_CFG.oaId` に `@370iymyw`）
   - 本番用 https://uchinoko-biyori.pages.dev/ 、審査用 https://uchinoko-biyori.pages.dev/review/ 、開発用 https://uchinoko-biyori.pages.dev/dev/ （同じページ。ひらいた場所で LIFF ID をえらぶ）
   - ヘッダー（`_headers`）：ぜんぶ（`/*`）に `Referrer-Policy: no-referrer`・`X-Content-Type-Options: nosniff`・`Content-Security-Policy: frame-ancestors 'none'`・`X-Frame-Options: DENY`
   - LIFF URL：開発用 https://miniapp.line.me/2012410263-cuCI7vQS ／審査用 https://miniapp.line.me/2012410264-JD4WhzAb （審査担当者だけ）／本番用 https://miniapp.line.me/2012410265-PutgsCLS （未認証なので URL を知っている人は開ける）
   - チャネルID：開発用 `2012410263`・審査用 `2012410264`・本番用 `2012410265`
   - プライバシーポリシー https://uchinoko-biyori.pages.dev/privacy.html ・利用規約 https://uchinoko-biyori.pages.dev/terms.html （ポリシーは 2026-11-15 改定〈パズルの 記録〉。今回の 作りなおしでは 取る情報・送り先・保存期間は かわらないので そのまま）、お問い合わせフォーム https://forms.gle/aywxktpPZettxFSS7
-- LINE版のサーバー：Supabase のプロジェクト「uchinoko-biyori」（`ftakgswltcavwixqxpzi`、東京、組織 `Yuthy's` の無料プラン）。Edge Function `api` は **MCP の version 26**（2026-11-22 25回目。`index.ts` は `13a1999`〈`NOT_YET`＝`run`・`runStart` は 400 `badtype`〉・`deno.json` は `game.js` を `13a1999` に固定。`get_edge_function` と 手元が 同じ・`/health` は 200・errors 0）
+- LINE版のサーバー：Supabase のプロジェクト「uchinoko-biyori」（`ftakgswltcavwixqxpzi`、東京、組織 `Yuthy's` の無料プラン）。Edge Function `api` は **MCP の version 27**（2026-11-22 26回目。`index.ts` は `13a1999` の まま〈`NOT_YET`＝`run`・`runStart` は 400 `badtype`〉・`deno.json` は `game.js` を `824da76`〈アジリティの `RUN`〉に固定。`get_edge_function` と 手元が 同じ・`/health` は 200・errors 0）
 - **cron の 関数 `app.notify_kick()`：2026-11-19 に `notify_cron_retry` で 置きかえた**（21:05 は とちゅうで 止まった回も。`pg_get_functiondef` の md5 `4fd92ef1…`）
 - 表：`app` スキーマに members・line_accounts・sessions・saves・cards・save_backups・day_quota・error_counts・chores・notify_runs
 - **cron：** pg_cron 1.6.4、ジョブ `uchinoko-notify`（**`0,5 12 * * *`＝日本時間 21:00 と 21:05**。`select app.notify_kick()`。21:05 は 21:00 の回が とどかなかった・ことわられた日だけ 動く）。**2026-11-15 21:00 に はじめて 予定どおり 自分で 動いて 1通 とどいた**（`made 12:00:00 UTC`・`done 12:00:21`・`sent 1`・`failed 0`。21:05 は 送らない。オーナーが LINE で 見た）
@@ -20,6 +20,7 @@
 - Storage：バケット `cards`（公開・PNG だけ・1MB まで、ポリシーなし）。カードは 全員で 1500まい まで
 - サーバーを起こす：GitHub Actions（`.github/workflows/keepalive.yml`、cron `23 18 */3 * *`＝日本時間 3:23 ごろ、数時間 おくれることがある）。`/health` の `errors`（10以上で 失敗）と `notifyDays`（止まった日が あれば 失敗）を 見る。11-17 の回は 失敗（11-16 の 回を 見つけた）→ **11-20 の回（9:43）は 成功に もどった**（24回目に `gh api …/actions/workflows/keepalive.yml/runs` で 見た）。つぎの 予定は 11-23 3:23 ごろ
 - Secrets：`ANTHROPIC_API_KEY`・`LINE_CHANNEL_SECRET`（開発用）・`LINE_CHANNEL_SECRET_2012410264`・`LINE_CHANNEL_SECRET_2012410265`・`APP_DB_PASSWORD`・`LINE_MESSAGING_TOKEN`
+- 本物の DB（2026-11-22 8時・9時）：エラーの 数 0・会員 1人。よるの おしらせ 11-19〜21 は 3日とも おわった（`/health` の `notifyDays`）。
 - 本物の DB（2026-11-22 2時・4時）：エラーの 数 0（`app.error_counts` 0行）・会員 1人。よるの おしらせ 11-19〜21 は 3日とも 21:00 の 回で おわった（11-19・20 は 1通、11-21 は とばした）。関数の ログ（24時間）は 200×37・204×4。「サーバーを起こす」11-20 は 成功。
 - 本物の DB（2026-11-16 5時半）：**会員 1人＝だいず（本番用。11-16 5:10 に 取りこみ。よるの おしらせ オン・れんぞく 36日・スタンプ 36）**。カード・ひかえ・Storage の `cards` は 0件。`app` の 表に anon・authenticated の 権限は 0。エラーの 数 0。**だいずは 本物の 会員なので、ためしで セーブを さわらない**（`execute_sql` で 書きこまない。読むときも 名前・数だけ）
 - LINE公式アカウント「うちのこ日和」（ベーシックID `@370iymyw`、Messaging API の プロバイダー「Y's Apps」、応答メッセージ・Webhook オフ）。ミニアプリの 友だち追加オプション・デフォルトの公式アカウントも 設定ずみ
@@ -28,16 +29,17 @@
 - LINE版の計画書：https://claude.ai/artifact/AgKkCkHCsWAywKGV6VFxwK
 - オーナーの事情（約束②で使う）：claude.ai の このプロジェクトの資料 `claude/owner-notes.md`（非公開）
 
-## 直近のチャットでやったこと（2026-11-22、25回目：うちのこランの P3。Opus 5.5）
+## 直近のチャットでやったこと（2026-11-22、26回目：うちのこランの P4。Opus 5.5）
 
-- はじめに オーナーに きいた：**LINE の 認証審査は まだ 申請していない**（審査中で ない）→ 設計どおり ルールと セーブは 共通の ファイル。サーバーの 見まもり（11-22 2時）：エラー 0・よるの おしらせ ぶじ・ログは 200・204 だけ。
-- **P3（`docs/RUN_DESIGN.md` 13章。`13a1999`・`5e70368`）：** ルール `RUN`・`Rules.run`・`Rules.runLeft`・`Rules.act 'run'`（ゴールしたかだけで ほうび・1日3回・パズルと べつ・ありえない タイムは `RUN.courses[*].min`〈ずっと ダッシュ：こうえん 29.62・うみべ 29.13・もり 31.48秒〉に 切る・コースごとの ベスト・アルバム）、セーブ `S.run{games, clears, n, day, best}`（`ensureState`・`carryExtras`・`firsts.run`・`MINI.run`）、コースを えらぶ 画面（`RunUI.select`。題「うちのこラン」・小さな 地図・ベスト・きょうの ほうび・あそびかた）、`race.js` の 3コース（`COURSES`・`courseMap`・`helpHtml(id)`・うみべ・もりの 空・霧・カメラ・砂地・みじかい フリック）、ゴールの ほうびと ベストとの 差・「つぎの コースへ」・「コースを えらぶ」、すける おともだちの 頭の うらが すけない ように（ふかさだけ 書く 子 `renderOrder` 1）。サーバー：`game.js` に `RUN`、`index.ts` に `NOT_YET`、api version 26。
-- 確かめ：`rules_test.mjs`（ラン 24こ）・`api_test.ts`（run は 400）・`tools/run/run_min.mjs`・`smoke.py`（ふつう・`--dark`・`--size 375x667`・`--fresh`・`--line --android-inset 48`・`--claude`）・`linebreak.py`（290場面 ×2・`--height 603`）・`line_e2e.py`・`compare_home.py`（おなじ）・`run_shots.py`（3コース・GIF 3つ・ダーク）。スクリーンショットと 走る GIF を 見せて **オーナー OK**。
-- しなかったこと：コースを えらぶ 画面の 立体プレビュー（3D を もう1つ ひらくと おもいので 小さな 地図に。オーナーには 伝えた。ほしければ P4 で）、Dependabot の PR #1（esbuild。そのまま）、Claude版の 出しなおし（P5）。
+- はじめに オーナーに きいた：**LINE の 認証審査は まだ 申請していない** → P3 と 同じく ルールは 共通の ファイル・サーバーも デプロイ。**アジリティの 名前は 案の まま**（はじめての ひろば・ジグザグ・バランス・おかの ひろば）。
+- **P4（`docs/RUN_DESIGN.md` 14章。`824da76`・`70abb35`・全体図の 見なおし）：** わんランの `agility-sim.js`・`agility-route.js`・`agility-field.js`・`slalom.js` を `src/run/wanrun/` へ。`src/run/agility.js`（`mountAgility`：ひとりで 6つの 障害物・上に クリア ◯/6・ミス・つぎの 障害物の 合図〈シーソーは とまる → まつ → タップ〉・下に 1〜6〈✓・−〉と「とまっているよ タップで すすむ」・ゴールは ごうけい〈走った タイム＋ミス×5秒〉・クリア・ミス・「ノーミスで ゴール！」・つぎの コースへ）。`js_run.js` の コースを えらぶ 画面に「レース／アジリティ」の 切りかえ。ルール `RUN.courses` に アジリティ 4つ（`min`：21580・23280・26300・17420。ミスなしで いちばん はやい 走り）と アルバムの ことば。サーバー：`game.js` を 作りなおして api version 27。
+- **オーナーの 見なおし：** コースを えらぶ 画面の アジリティの 全体図を「コース」の 地図から ドッグアジリティの 広場の 絵に（さくの ある 芝生・その コースの 種目を 1つずつ・旗。見本を 2回 見せて OK）。
+- 確かめ：`rules_test.mjs`（アジリティ 13こ）・`run_min.mjs`（ミスなし・わざと ミス）・`smoke.py`（ふつう・`--dark`・`--size 375x667`・`--fresh`・`--line --android-inset 48`・`--claude`。アジリティは バランスで 指で とまる → まつ → タップ → ゴール）・`linebreak.py`（329場面 ×2・`--height 603`）・`line_e2e.py`・`compare_home.py`（おなじ）・`run_shots.py`（7コース・GIF 7つ）。スクリーンショットと 走る GIF を 見せて **オーナー OK**。公開の ファイル（Pages・Cloudflare）は 手元と 同じ md5（pg_net）。
+- しなかったこと：Claude版の 出しなおし（P5）、Dependabot の PR #1（そのまま）、カードの 全体図を 大きく する（84px の まま。オーナーは いまの 大きさで OK）。
 
-## その前のチャット（2026-11-22、24回目：うちのこランの P2）
+## その前のチャット（2026-11-22、25回目：うちのこランの P3）
 
-まとめる しくみ（`build_run.mjs`・`RUN_HOME=1`・`run-<ハッシュ>.js`・CSP）と レースの「こうえん」。オーナー決定：題「うちのこラン」・タイル「ラン」・おともだち（品種）・時計 00:36.6／36.58秒・コースは ひらがな・**走る あいだの まんなかの ひとことは 出さない**。23回目は P1（3D の うちのこ）、22回目は 設計。
+レース 3コース（こうえん・うみべ・もり）・コースを えらぶ 画面・ほうび（1日3回・パズルと べつ）・ベスト・アルバム。`RUN`・`Rules.run`・`S.run`。サーバー api version 26（`NOT_YET`）。24回目は P2（まとめる しくみ・こうえん。オーナー決定：題「うちのこラン」・タイル「ラン」・まんなかの ひとことは 出さない）、23回目は P1（3D の うちのこ）、22回目は 設計。
 
 ## 保留・オーナーの判断待ち（つぎのチャットのはじめに）
 
@@ -45,7 +47,7 @@
 2. **（オーナーが 決める・いそがない）** Supabase の Data API の「Automatically expose new tables」を オフに するか（Supabase も オフを すすめている。いまは `public` に 表が ないので 害は ない。変えるのは オーナーの 許可を もらってから）。
 3. **公開の日の 手順 5（実機で 見る）の こまかい ところ：** よるの ひとこと（21時すぎ）・ひらいたまま つぎの日・トークの カードの ボタン など、気に なる ところが あったか オーナーに きく（きくだけ）。なでなで（P5-1）の はじめの 下スワイプも。
 4. **手順 6：** テスターでない人（家族など）の LINE で 本番用の LIFF URL（https://miniapp.line.me/2012410265-PutgsCLS ）が ひらけるか。Android の 人が いれば 下の 5つの ボタンと パズルの 下の すき間（P6-1）。
-5. **うちのこラン（`docs/RUN_DESIGN.md`）：** P1〜P3 済み（オーナー OK）。**つぎは P4**（アジリティ 4コース。プロンプトは 10章）。**P4 の はじめに オーナーに LINE の 認証審査中か きく**（`RUN.courses` に アジリティを 足すと `js_rules.js` が かわる＝LINE版の md5 と `game.js` も かわる。審査中なら ホーム画面版だけの ファイルに。9章）と、**アジリティ 4コースの ひらがなの 名前**（案：はじめての ひろば・ジグザグ・バランス・おかの ひろば）。LINE版（P6）は 認証審査中を さけて。
+5. **うちのこラン（`docs/RUN_DESIGN.md`）：** P1〜P4 済み（オーナー OK）。**つぎは P5（Claude版）**（プロンプトは 10章。Claude版は LINE版と 関係ないので 審査中でも よい。ホーム画面版・LINE版の md5 は かえない）。**P6（LINE版）の はじめに オーナーに LINE の 認証審査中か きく**（審査中は LINE版を かえられない。9章）。
 5b. **うちのこの 体勢と 動き（`docs/MOTION_DESIGN.md`）：** 実装は Opus 5.5 の 新しい チャットで（プロンプトは 設計の 8章）。**認証審査の「審査中」は LINE版を かえられないので、申請の 前か 認証の あとに 出す。**
 5e. **Dependabot の PR #1**（esbuild 0.24.2 → 0.28.1、`tools/run/`。2026-11-21）：開発用 サーバー（`serve`）の 注意で、うちのこは `build` だけ。**手で マージしない**（lockfile と `src/run_bundle.js` が ずれる）。P3 でも 上げなかった。上げるなら `npm install` → `build_run.mjs` → ためしを ぜんぶ とおして いっしょに コミットし、PR は とじる。
 5d. **（オーナーが 決める・いそがない）** 2D の 絵の ヨークシャーテリアも 全身タイツの ように 見えるので、3D と 同じく「せなかだけ ブルー」に するか（`renderPet`。3つの 版が かわる）。
@@ -57,7 +59,7 @@
 
 - オーナー：別プロジェクトで 個人事業主の 申請（開業届など）→ 認証審査の 申請（補足資料の文は `docs/PROJECT.md` 10章。申請の 前に 画面の 文言と あっているか 見なおす）。
 - 認証審査を申請したら：審査は1〜2週間、「審査中」は取り消しも変更も できない（画面とサーバーも変えない）。認証されたら：「検索可能にする」は 承認から30日以内に押す。リンクする公式アカウント・友だち追加オプションは 認証の前に すませておく（あとで変えると 再審査）。
-- うちのこランの P4（Opus 5.5 の 新しい チャット。`docs/RUN_DESIGN.md` 10章の プロンプト）→ P5（Claude版）→ P6（LINE版。審査中を さけて）。
+- うちのこランの P5（Claude版。Opus 5.5 の 新しい チャット。`docs/RUN_DESIGN.md` 10章の プロンプト）→ P6（LINE版。審査中を さけて。出す 前に Fable 5.2 の レビュー）。
 - うちのこの 体勢と 動き（Opus 5.5）は 審査中を さけて。
 
 ## 気をつけること
@@ -72,6 +74,8 @@
   - **ルールと セーブ（P3。`docs/RUN_DESIGN.md` 13章）：** ほうび・回数・ベストは `js_rules.js` の `RUN`・`Rules.run`（3つの 版と サーバーで 同じ）。`RUN.courses` に コースを 足すと `ensureState` が その ベストを のこす（知らない コースは すてる）。`min` を 足したら `node tools/run/run_min.mjs`。サーバーの `/act` は P6 まで `run`・`runStart` を うけつけない（`index.ts` の `NOT_YET`。P6 で 走りだしの 時刻と いっしょに あける）。ランの ほうびは レースも アジリティも あわせて 1日3回（`S.run.n`）。
   - **画面（P3）：** `RunUI.select()`（コースを えらぶ）→ `start(id)`（`mountRace({ course, best, next, onSelect, onNext, onFinish })`）→ ゴールで `finish(info)`（`Act.blocked()` を 見てから `Act.run('run', …)`）→ `record(r)` の HTML を `race.js` が `.run-rec` に 入れる。`race.js` の `formatTime` は 100分の1秒に 丸めてから・記録は `timeMs`（画面と 記録の 数を そろえる）。すける おともだちは ふかさだけ 書く 子（`depthOnly`・`renderOrder` 1）を すける あいだだけ 見せる。
   - **ためし（P3）：** `smoke.py` の ランは えらぶ → こうえん → 指 → ひとやすみ → ゴール（ゴールの 前へ とばす＝`min` に 切られる）→ つぎの コース → えらぶ → こうえん → ×。`linebreak.py` の `run_open(c)`・`run_go(c)`・`run_finish(fast, c, pre)`（pre で ベスト・回数を かえる）。`run_shots.py` は 3コースを つづけて（`--gifs park,beach,forest`）。ヘッドレスの 3D は おそいので `run_shots.py` は 1回 10分ほど。
+  - **アジリティ（P4。`docs/RUN_DESIGN.md` 14章）：** `src/run/agility.js`（`mountAgility`・`AGILITY_COURSES`・全体図 `agilityMap`・`agilityHelpHtml`）。`race.js` から `ICON_X`・`ICON_PAUSE`・`formatClock`・`formatTime`・`timeMs` を import。`RunUI.mode`（'race'／'agility'。セーブに 書かない）・`start(id)` は コースの しゅるいで `mountRace`／`mountAgility`。ゲームは `.run-root` に `data-course` を つけるので、えらぶ 画面・`wait()` で けしている（カードの `[data-course]` と まぎれる）。アジリティの タイムは ごうけい（`timeMs(total)`）・`rank` は おくらない。`RUN.courses` の ID は `'first-field'`・`zigzag`・`balance`・`'hill-field'`（`run_min.mjs` の 正規表現は クォートつきも 読む）。
+  - **アジリティの ためし：** `smoke.py` の `agility_checks`（シーソーの 上へ とばして `sim.step` を とめてから 指で 下スワイプ。とばすと とちゅうの シーソーは「とまれなかった」ミスに なるので、ゴールの 前へ とばす ときは のこりを クリアに する）。`linebreak.py` の `agi_until(c, cond, then, lane/brake/tap)`・`agi_finish(miss, c, pre)`。`run_shots.py --mode agility`（1分ほど。`--no-gif`）、GIF は `--gifs balance` など。Mochiy の 数字は はばが ひろいので、大きい 数字の となりに 字を ならべない（ゴールの ごうけいは ラベルを 上に）。
 - **なでなで（`#pet`）と LINE の 下スワイプ：** `petStill`（`touchstart`・`touchmove` の `preventDefault`）を はずさない。`#pet` の 中に ボタンや リンクを 足すと 指の `click` が 来ない（タッチを とめているので）。`smoke.py` の「なでる（指）」が 見る。
 - **LINE版の 下の すき間：** おへやの 画面は `html .app`、シート・ポップアップ・はじめての画面・パズルは それぞれ（`line_head.html`）。`:root` には あけない（P6-1）。新しい 画面いっぱいの 入れものを 足したら、そこにも 書く。
 - **パズルの 画面（`PuzzleUI`。2026-11-16）：**
