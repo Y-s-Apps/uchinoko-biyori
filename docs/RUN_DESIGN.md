@@ -1,6 +1,6 @@
 # うちのこラン（仮）：わんランを うちのこ日和の ミニゲームに する 設計
 
-- 作った日：2026-11-21（22回目の チャット、Claude Opus 5.5）。P1（3D の うちのこ）は 2026-11-21（23回目）、P2（まとめる しくみ＋レースの「こうえん」を ホーム画面版で）は 2026-11-22（24回目）に できて オーナー OK。P3（レース 3コース・コースを えらぶ 画面・ほうび・ベスト・アルバム）は 2026-11-22（25回目）に できて オーナー OK。P4（アジリティ 4コース）は 2026-11-22（26回目）に できて オーナー OK。**つぎは P5（Claude版）**（10章の プロンプト）。P1 で 作ったものは 11章、P2 は 12章、P3 は 13章、P4 で 作ったものと P5 で 気をつける ことは 14章。
+- 作った日：2026-11-21（22回目の チャット、Claude Opus 5.5）。P1（3D の うちのこ）は 2026-11-21（23回目）、P2（まとめる しくみ＋レースの「こうえん」を ホーム画面版で）は 2026-11-22（24回目）に できて オーナー OK。P3（レース 3コース・コースを えらぶ 画面・ほうび・ベスト・アルバム）は 2026-11-22（25回目）に できて オーナー OK。P4（アジリティ 4コース）は 2026-11-22（26回目）に できて オーナー OK。P5（Claude版）は 2026-11-22（27回目）に できて オーナー OK（iPhone の 実機でも 確かめた）。**つぎは P6（LINE版）**（10章の プロンプト）。P1 で 作ったものは 11章、P2 は 12章、P3 は 13章、P4 は 14章、P5 で 作ったものと P6 で 気をつける ことは 15章。
 - きっかけ（オーナーから、2026-11-21）：ChatGPT で 作った 3Dゲーム「わんラン v33」（レース＆アジリティ）を、そのまま 入れるのでは なく、うちのこ日和 用に 置きかえて 新しい 機能に したい。
 - もとの 資料：`_ref/wanrun-v33/`（`wanrun-v33.zip`＝ChatGPT が 出した 原本 一式〈`source/dist/` が 動く ソース 91ファイル・`source/tests/` 77件・分冊の 仕様書 `chap10/`〉、`spec.md`＝機能仕様書〈1〜9章〉）。`_` で はじまる フォルダなので GitHub Pages には 出ない（`.nojekyll` を 足さない）。
 - 読む人：これを 実装する Claude Opus 5.5 の チャット。作業の 前に `CLAUDE.md`・`docs/PROJECT.md`・`docs/HANDOFF.md` を 読み、そのあとに ここを 読む。わんランの くわしい 動きは `_ref/wanrun-v33/spec.md`（とくに 4章 データ・5章 ロジック・8章 組み込み・9章 受入試験）。
@@ -81,7 +81,7 @@
   - `build.sh` が それを `run-<ハッシュ>.js` として ホーム画面版（ルート）と LINE版（`out/line/`）に 出す。読みこむ ときは `<script src>` に `integrity` を つける。
   - **CSP：** ホーム画面版は `script-src` に その ファイルの URL（パスまで。`https://y-s-apps.github.io/uchinoko-biyori/run-<ハッシュ>.js`）だけを 足す（`'self'` に しない＝組織の ほかの Pages の スクリプトを 通さない）。LINE版も 同じく `https://uchinoko-biyori.pages.dev/run-<ハッシュ>.js`。`build.sh` が 入れる。
   - Service Worker：ホーム画面版は `run-<ハッシュ>.js` も とっておく（オフラインでも あそべる。キャッシュ名の 版番号にも 入れる）。
-  - Claude版：アーティファクトに 2つめの ファイルとして のせるか、そこだけ 中に 入れるか を、はじめに `publish_files` で ためして 決める。
+  - Claude版：アーティファクトに 2つめの ファイルとして のせるか、そこだけ 中に 入れるか を、はじめに `publish_files` で ためして 決める。→ **2つめの ファイル**（2026-11-22 P5。15章）。
   - Three.js の 著作権と ライセンス（MIT）の 表示を のこす。
 - **WebGL 2 が 使えない 端末：** シートの「ラン」に「この端末では あそべません」と 出して ひらかない。ほうびも ない。
 - **こわさない・のこさない：** とじる ときに わんランの `dispose()` と 同じく、描く ループ・タイマー・リスナー・WebGL を ぜんぶ 片づける。アプリを はなれた（`visibilitychange`）ら 一時停止。
@@ -128,7 +128,7 @@
 | P2 | まとめる しくみ（`tools/run/`・`src/run_bundle.js`・`build.sh`・CSP・SW）と、レースの「公園」1コースを ホーム画面版で 走れる（ほうび なし）（**24回目。済み**） | ホーム画面版だけ。**ビルドの スイッチ**（下）で LINE版・Claude版は かわらない（**オーナー OK 2026-11-22**） |
 | P3 | レース3コース・結果・記録・ほうび（`Rules`・`S.run`）・アルバム（**25回目。済み＝オーナー OK**。認証審査は まだ 申請していない＝ルールと セーブは 共通の ファイルに 書いて `game.js` も デプロイ。`/act` は `run` を うけつけない） | ホーム画面版 |
 | P4 | アジリティ4コース（**26回目。済み＝オーナー OK**。認証審査は まだ 申請していない＝P3 と 同じく ルールは 共通の ファイル・`game.js` も デプロイ） | ホーム画面版 |
-| P5 | Claude版 | Claude版 |
+| P5 | Claude版（**27回目・オーナー OK**。ゲームは アーティファクトの 2つめの ファイル。15章） | Claude版 |
 | P6 | LINE版（サーバーの `runStart`・`run`・デプロイ・`line_e2e.py`）。出す 前に Fable 5.2 の レビュー（パズルと 同じ。プロンプトは `docs/REVIEW_PROMPT.md` に） | LINE版 |
 
 - **ビルドの スイッチ：** `build.sh` に `RUN_HOME=1`・`RUN_LINE=0`・`RUN_CLAUDE=0` の ような 切りかえを 置き、出して よい 版だけに ランの 入口と ファイルを 入れる。LINE版を かえない あいだは、ビルドの 前後で `out/line/index.html` の md5 が 同じか 確かめる。
@@ -137,22 +137,22 @@
 - **体勢と 動き（`docs/MOTION_DESIGN.md`）とは べつ**（あちらは 2Dの おへやの 絵。こちらは 3D）。どちらを 先に しても よい。
 - だいずの ホーム画面の アプリは P2 から 更新される（ランを 使わなければ 動きは 同じ＝`compare_home.py`）。
 
-## 10. 実装の チャットに 貼る プロンプト（P5）
+## 10. 実装の チャットに 貼る プロンプト（P6）
 
-（P1〜P4 の プロンプトは git の 履歴に）
+（P1〜P5 の プロンプトは git の 履歴に）
 
 ```
-うちのこ日和の「うちのこラン」の P5 を おねがい。
-CLAUDE.md・docs/PROJECT.md・docs/HANDOFF.md を 読んでから、docs/RUN_DESIGN.md（設計。5章 技術の 決めごと〈Claude版〉・9章、12章に P2〈build.sh の スイッチ〉、13章に P3、14章に P4 で 作ったもの と P5 で 気をつける こと）を 読んで。
+うちのこ日和の「うちのこラン」の P6 を おねがい。
+CLAUDE.md・docs/PROJECT.md・docs/HANDOFF.md を 読んでから、docs/RUN_DESIGN.md（設計。6章 ルール・セーブ・サーバー〈runStart・run〉・9章、12章に P2〈build.sh の スイッチ〉、13章に P3〈ルールと サーバーの NOT_YET〉、14章に P4、15章に P5 で 作ったもの と P6 で 気をつける こと）を 読んで。
 
-はじめに：HANDOFF の「保留」1（11-23 の「サーバーを起こす」が 成功か）を 見て。
+はじめに：LINE の 認証審査中か きいて（審査中は LINE版を かえられないので、P6 は 審査の 前か 認証の あとに。9章）。HANDOFF の「保留」も 見て。
 
-P5 で やること（Claude版 https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs に うちのこランを 出す。ホーム画面版・LINE版は かえない＝ビルドの 前後で index.html・sw.js・src/out/line/index.html の md5 が 同じ）：
-- build.sh の RUN_CLAUDE=1：Claude版にも「あそぶ」の「ラン」・js_run.js・run.css・ゲーム（run_bundle.js）を。アーティファクトに 2つめの ファイル（run-<ハッシュ>.js）で のせるか、ページの 中に 入れるかを、はじめに 手元と publish_files で ためして 決める（Claude版での 読みこみ・integrity・WebGL 2・ひらく はやさ。ホーム画面版の CSP の URL は Claude版では つかえない）
-- Claude版の ちがい（HOME=false：Service Worker なし・クラウドの 保存）を 見る。S.run（ベスト・ほうびの 回数）が クラウドの 保存に 入って、ひらきなおしても のこるか。レース 3コースと アジリティ 4コースが 走れて、ほうび・ベスト・アルバム・コースを えらぶ 画面（レース／アジリティ・全体図）が ホーム画面版と 同じか
-- ためし：smoke.py --claude（ランの ところ：えらぶ → レースの こうえん と アジリティの バランス〈シーソー〉→ ゴール → ほうび・ベストが クラウドの 保存に）・linebreak.py --claude（ランの 場面）・tools/run/run_shots.py に --claude（Claude版で レースと アジリティ）・compare_home.py。iPhone の 幅の スクリーンショットで 見た目を 確かめて
-- Claude版を 同じ URL の まま 出しなおす（P3・P4 の ルールの ファイルの ぶんも いっしょに。HANDOFF の Claude版の 出し方：1行目と うしろの 行・capabilities は はぶいて 引きつぐ・前の 版を 作りなおして list_files の sha256 と 同じか 確かめてから）
-- できたら Claude版の スクリーンショット（と 走る ところ）を 見せて、OK を もらったら P6（LINE版）の 準備（HANDOFF と つぎの プロンプト）まで。P6 の はじめには LINE の 認証審査中か きく（9章）
+P6 で やること（LINE版 https://uchinoko-biyori.pages.dev/ に うちのこランを 出す。ホーム画面版・Claude版は かえない＝ビルドの 前後で index.html・sw.js・src/out/claude/index.html の md5 が 同じ）：
+- サーバー：/act の runStart（srv.run = { c, t }。サーバーの 時計）と run（runStart から RUN.courses[c].min より はやい ゴールは ほうびなし・rid の しくみ・おせわの 2.5秒〈CARE〉には 数えない）。index.ts の NOT_YET を はずす。build_server.py → line_e2e.py → push → --pin → デプロイ（CLAUDE.md の 流れ）。api_test.ts・line_e2e.py に runStart・run（はやすぎる・runStart なし・同じ rid・つながっていない）
+- 画面：build.sh の RUN_LINE=1（CSP に https://uchinoko-biyori.pages.dev/run-<ハッシュ>.js〈パスまで〉・out/line/ と review/・dev/ に ファイル）。LINE版だけの ことは js_line.js で RunUI を 包む（js_run.js を かえると ホーム画面版・Claude版も かわる）：走りだしで runStart、ゴールは LineSync.send の 形（rid）、Act.blocked()。line_head.html に html .run-page（Android の 下の すき間）。LINE の 下スワイプ（ミニアプリの 最小化）
+- ためし：smoke.py --line --android-inset 48（ランの ところ）・linebreak.py --line（ランの 場面）・run_shots.py に --line・line_e2e.py・compare_home.py。iPhone の 幅の スクリーンショットで 見た目を 確かめて
+- 出す 前に Claude Fable 5.2 の レビュー（パズルと 同じ。プロンプトを docs/REVIEW_PROMPT.md に 作って わたす）。見つかった ことを 直してから 出す
+- できたら スクリーンショット（と 走る ところ）を 見せて、OK を もらったら つぎの 準備（HANDOFF と つぎの プロンプト）まで
 ```
 
 ## 11. P1 で 作ったもの（2026-11-21、23回目）
@@ -232,3 +232,30 @@ P5 で やること（Claude版 https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnq
 - **画面（`src/js_run.js`＝`RunUI`）：** `select(help, focus)` に「レース／アジリティ」の 切りかえ（`.run-modes`・`aria-pressed`・`RunUI.mode`〈アプリを ひらいている あいだ おぼえる。セーブには 書かない〉）。カードは 同じ 形（`lv` で むずかしさの 色）。ふきだしの 下の 字・あそびかた（`R.agilityHelpHtml()`）・下の ほうびの 字（「レースと アジリティ あわせて 1日3回」）。`start(id)` は コースの しゅるいを 見て `mountRace`（おともだちも）か `mountAgility`、「つぎの コースへ」は 同じ しゅるいの 中で。`finish` は 順位が ない ときは `rank` を おくらない。ゲームが `.run-root` に つけた `data-course` を えらぶ 画面で けす（カードの `[data-course]` と まぎれた）。シートの タイル「ラン／3Dで はしる」と 説明（レース 3コース・アジリティ 4コース）。`main.js` の `VERSION` は `p4`。
 - **ためし：** `tools/rules_test.mjs`（アジリティ 13こ：4コース・ごうけいと ミス・ノーミスだけ clears・レースと あわせて 3回・べつの コースの ベスト・はやすぎる ごうけいは `min`・ミスで おそいと ベストは かわらない・にた 名前は ことわる・引っこしコード・こわれた きろく）、`tools/smoke.py`（`agility_checks`：ひらく → 切りかえ（4コース）→ バランス → はしる → シーソーの 上で **指で したに スワイプ**して とまる → まつ → `ready` → タップで すすむ → クリア → したで とまる（「とまっているよ」）→ タップ → ゴール〈とちゅうは クリアに して とばす＝ごうけいは `min`〉→ ほうび・ノーミス・アルバム → えらぶ（アジリティの まま・ベスト）→ とじる。ヘッドレスは おそいので、指の あいだは `sim.step` を とめておく）、`tools/linebreak.py`（アジリティの 場面 39：えらぶ・ベスト・あそびかた・切りかえ・スタート 4・あそびかた 4・ひとやすみ・合図 16・ゴール 9）、`tools/run/run_shots.py`（`--mode both|race|agility`。アジリティは 切りかえ → はじめての ひろば〈とまっているよ・ひとやすみ〉→ ジグザグ〈スラローム・わざと 1つ ミス〉→ バランス〈シーソー：のる・とまる・まつ・タップ・すすむ〉→ おかの ひろば〈Aフレーム〉→ えらぶ〈4つの ベスト＝ごうけいの ミリ秒〉。GIF は 7コース `run-<コース>.gif`〈バランスは 7秒〉）、`tools/compare_home.py`（おなじ）、`tools/line_e2e.py`。
 - **P5（Claude版）で 気をつける こと：** `RUN_CLAUDE=1` の しくみ（`build.sh` は いま「まだ 出せません」で とまる）・アーティファクトに `run-<ハッシュ>.js` を 2つめの ファイルで のせるか 中に 入れるか（5章）・CSP・Claude版の 保存（`S.run` は クラウドの DB に 入る）・`smoke.py --claude` は パズルを とおらない（`linebreak.py --claude --only run`）。ランの 画面の ものは `js_run.js`・`run.css`・`src/run/` に あるので、Claude版の 入口・`HOME` の ちがい（Service Worker なし など）を 見る。
+
+
+## 15. P5 で 作ったもの（2026-11-22、27回目。オーナー OK）
+
+Claude版（https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs 、バージョン30）に うちのこランを 出した。オーナーが iPhone の 実機（ほんものの Claude版）で ランを 走って 大丈夫だった。ホーム画面版・LINE版は かえていない（ビルドの 前後で `index.html` `cc997302…`・`sw.js` `43263950…`・`src/out/line/index.html` `8644251e…` の md5 が 同じ。`compare_home.py`：おなじ）。
+
+- **載せ方（はじめに ためして 決めた）：アーティファクトの 2つめの ファイル `run-<ハッシュ>.js`**（`index.html` と 同じ 場所）。ページは ホーム画面版と 同じ `js_run.js` で、ランを ひらいた ときに `<script src="run-….js" integrity="sha256-…">` で 読む。
+  - アーティファクトの CSP は「ページの 中・自分の ファイル・決まった CDN」の スクリプトを 通す（`guide` の pages）。ホーム画面版の CSP の URL（`y-s-apps.github.io`）は つかわない。`publish_files` で のせた `.js` は `text/javascript` で 出る（`list_files`）。
+  - ページの 中に 入れる 案（`<script>` に 関数で つつむ・`type="text/plain"` から blob で 読む）は、ふだん ひらく Claude版が 約 370KB → 約 1MB に なり、ランを つかわない 日も 毎回 おもく なるので とらなかった。
+  - ためしの アーティファクト「うちのこ日和 P5 ためし」（https://claude.ai/artifact/G6JjwCoMcYMZ96pctVrYQF 、slug `7a36bb48-06ef-452f-8c27-c7e849d00828`。ほんものの Claude版とは べつ。セーブの キーを `uchinoko-p5test:` に かえ、ためしの 子を 入れ、db だけ 宣言）：ひらくと 読みこみ（`fetch` の 型・`content-type`・ハッシュ）・integrity（ただしい／ちがう ハッシュ・`crossorigin`）・WebGL 2・`eval`・blob を しらべ、ランを ひらく・走ると 読みこみの 時間・こま／秒を その アーティファクトの db（`probe/env`・`probe/open`）に 書く（`db_list` で 読める）。作る スクリプトは リポジトリの 外（ためし だけの もの）。
+  - **iPhone の 結果（2026-11-22、iOS 18.7・Claude アプリ）：** ページは `https://<slug>.frame.claudeusercontent.com/_f/<版>/index.html`（ゲームの ファイルも 同じ オリジン・同じ 版の パス＝`fetch` の 型 `basic`。出しなおすと パスが かわるので 古い ファイルの キャッシュは つかわれない）。`run-….js` は `text/javascript; charset=utf-8`・`cache-control: private, max-age=31536000, immutable`・646,517 バイトを 0.42秒、ハッシュ 一致。integrity は ただしい ハッシュで 読めて、ちがう ハッシュで error（効いている）。`crossorigin` つきでも 読める。WebGL 2 あり（Apple GPU）。`eval`・blob も 通る（中に 入れる 案も できた）。ランを ひらいて 読みこみ 0.84秒（はじめて）・コースの 用意 0.15秒、こうえんを ゴールまで 30こま／秒（いちばん おそい 1秒も 30）、ベスト・ほうびの 回数も 入った。
+- **`build.sh`：** スイッチ `RUN_CLAUDE`（既定 1。`RUN_LINE` は まだ 1 に すると とまる）。ゲームの ファイルの 名前と `integrity`（`RUN_FILE`・`RUN_SRI`）は ホーム画面版と 同じ。`RUN_CLAUDE=1` の とき Claude版の スクリプトに `const RUN_SRC = 'run-….js', RUN_SRI = 'sha256-…';`・`js_run.js`（`js_features.js` の すぐあと）、`run/run.css`（`head.html` の すぐあとの `<style>`）。出力は いままでの `out/uchinoko-claude.html`（中身）と、新しい **`out/claude/`**（`index.html`＝`src/claude_head.html`〈いまの アーティファクトの 1行目と 同じ〉＋中身＋`</body></html>`、`run-<ハッシュ>.js`）。`RUN_CLAUDE=0` なら 前と 同じ Claude版（`out/uchinoko-claude.html` の md5 `b27fda95…`）。
+- **Claude版の ちがい（`HOME = false`）：** `js_run.js` は かえずに そのまま 動いた（先頭の コメントの「ホーム画面版だけ」は ホーム画面版の md5 を かえない ため のこした。つぎに ホーム画面版を かえる ときに 直す）。
+  - Service Worker は ない（アーティファクトでは つかえない）→ ランを ひらく ときは ネットが いる（よめなければ「よみこめませんでした」→ とじる。ほかの 画面は かわらない）。
+  - 保存は クラウド（`Persist.flush` が `S` ごと `data/users/<id>/pet` に）→ `S.run`（ほうびの 回数・ベスト・ゴールの 回数）も 入る。ひらきなおしても、はじめての 端末でも のこる（`smoke.py --claude` の F）。ほうびの 日付は 端末の 日付（ホーム画面版と 同じ）。
+  - アーティファクトの 1行目に `[hidden]{display:none!important}` が あるので、`hidden` は いつも けす（ランの `.run-over[hidden]`・`.run-stop[hidden]` の 決まりと 同じ 動き）。
+- **ためし：**
+  - `tools/smoke.py --claude`：`src/out/claude/`（アーティファクトに 出す 形）を そのまま 配る（前は 中身に `<meta charset>` を つけた べつの ページ）。ブラウザは SwiftShader つき。A〜E（はじめての 端末と クラウド）の あとに **F：うちのこラン**（クラウドの 保存・ランの 入口・Service Worker なし → ホーム画面版と 同じ `run_checks`〈えらぶ → こうえん → 指 → ひとやすみ → ゴール → うみべ → えらぶ → × 、`agility_checks`〈バランスの シーソーを 指で〉、WebGL なし・こわれた ファイル〉→ ほうびの 回数・ベスト・アルバムが クラウドの セーブに 入った → ひらきなおしても → はじめての 端末で コースを えらぶ 画面に クラウドの ベストと きょうの のこり）。スクリーンショットは `smoke-out/claude/`（`--out`）の `claude_*.png`。
+  - `tools/linebreak.py --claude`：`src/out/claude/` を 配り、うちのこランの 場面（レース・アジリティ）も 数える（`--only run --only agi` で ランだけ）。
+  - `tools/run/run_shots.py --claude`：Claude版で 7コースを ゴールまで（`smoke-out/run-claude/`）。さいごに クラウドの セーブの `run` が 画面の `S.run` と 同じで 7コースの ベストが あるか。
+  - `tools/compare_home.py`：ホーム画面版は かわらない（おなじ）。
+- **Claude版の 出しなおし：** `publish_files`（slug `507aa3eb-87ee-4ddc-80e3-61638a697f56`、`base_version` は いまの 版、files は `src/out/claude/index.html` と `src/out/claude/run-<ハッシュ>.js`、`capabilities`・`contract`・`title` は はぶく）。出す 前に、前の 版を 作りなおして（その コミットの `out/uchinoko-claude.html` を `claude_head.html` と `</body></html>` で 包む）`list_files` の sha256 と 同じか 確かめる。ゲームが かわって ファイルの 名前が かわったら 前の `run-*.js` は `remove` に 入れる（のこっても こまらないが 重い）。
+- **P6（LINE版）で 気をつける こと：**
+  - LINE版だけの ことは `js_line.js` で `RunUI` を 包む（`start` で `/act 'runStart'`、`finish` で `LineSync.send` の 形〈`rid`〉。`js_run.js` を かえると ホーム画面版・Claude版の md5 も かわる）。`Act.blocked()` は もう `finish` が 見ている。
+  - `build.sh` の `RUN_LINE=1`：CSP（`line_head.html`）の `script-src` に `https://uchinoko-biyori.pages.dev/run-<ハッシュ>.js`（パスまで）、`out/line/` と `review/`・`dev/` の 3か所に ファイル（または ルートの 1つを `../run-….js` で）。`smoke.Handler` は ホーム画面版の URL しか かえないので、LINE版の 手元の ためしも かえる しくみが いる。
+  - サーバー：`index.ts` の `NOT_YET` を はずし、`runStart`（`srv.run = { c, t }`）・`run`（`t` から `RUN.courses[c].min` より はやい ゴールは ほうびなし。`srv.run` が ない・ちがう コースも ほうびなし）。`game.js` は `RUN` が もう 入っている（P3・P4）。
+  - 審査中は LINE版を かえない（9章）。出す 前に Fable 5.2 の レビュー。

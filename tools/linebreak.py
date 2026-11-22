@@ -7,7 +7,7 @@
 
   python3 tools/linebreak.py              # ホーム画面版（ルートの index.html）
   python3 tools/linebreak.py --line       # LINE版（src/out/line/。LINEの中で サーバーに つながったときの画面も まねる）
-  python3 tools/linebreak.py --claude     # Claude版（src/out/uchinoko-claude.html を アーティファクトの外で。ゲストの保存）
+  python3 tools/linebreak.py --claude     # Claude版（src/out/claude/＝アーティファクトに 出す 形を アーティファクトの外で。ゲストの保存。うちのこランの 場面も）
   python3 tools/linebreak.py --shots DIR  # 場面ごとの スクリーンショットも とる（見本づくり用）
   python3 tools/linebreak.py --width 375  # 幅を1つだけ
   python3 tools/linebreak.py --line --only notify --only notice   # 名前に その文字が ある 場面だけ
@@ -144,7 +144,7 @@ def toast_texts():
     return out
 
 
-# うちのこラン（ホーム画面版だけ）：ひらいて コースを えらぶ 画面まで まつ・コースの スタート（1こま 描くまで）・自動で ゴールまで
+# うちのこラン（ホーム画面版と Claude版）：ひらいて コースを えらぶ 画面まで まつ・コースの スタート（1こま 描くまで）・自動で ゴールまで
 # （描かずに ルールだけ すすめる。fast は ジャンプと ダッシュも＝1位）。pre は ゴールの 前に セーブを かえる JS（ベスト・きょうの 回数）
 RUN_SEL = "RunUI.open(); for (let i = 0; i < 400 && !document.querySelector('#runPage .run-sel'); i++) await new Promise(r => setTimeout(r, 100)); "
 RUN_FRESH = "S.run = { games:0, clears:0, n:0, day:null, best:{} }; "
@@ -249,7 +249,7 @@ def scenes(line, run=False):
         add('puzzle_say_%02d' % i, "PuzzleUI.open(); await new Promise(r => setTimeout(r, 200)); PuzzleUI.say(%s)" % json.dumps(t, ensure_ascii=False), '#pzPage', 250)
         add('puzzle_low_say_%02d' % i, low + "PuzzleUI.open(); await new Promise(r => setTimeout(r, 200)); PuzzleUI.say(%s)" % json.dumps(t, ensure_ascii=False), '#pzPage', 250)
     if run:
-        # うちのこラン（2026-11-21 P2・2026-11-22 P3。ホーム画面版だけ）：えらぶ（WebGL なしも）・コースを えらぶ 画面（ベスト・ほうびの のこり・あそびかた）・
+        # うちのこラン（2026-11-21 P2・2026-11-22 P3。ホーム画面版と Claude版〈P5〉）：えらぶ（WebGL なしも）・コースを えらぶ 画面（ベスト・ほうびの のこり・あそびかた）・
         # スタート（3コース・ベスト）・あそびかた（コースごと）・ひとやすみ・ゴール（1位・ほか・じゅんいを ひらく・はじめての きろく・ベスト こうしん・
         # ベストまで・ほうびは おわり・さいごの コース）・じゅんび・よみこめない・3D が ひらけない・とまった・まがりかどの 合図（まんなかの ひとことは 出さない）
         add('play_pick_nogl', "RunUI.gl = false; openPlay()", '#sheet')
@@ -438,11 +438,8 @@ async def run(args, width):
     if args.line:
         root = os.path.join(ROOT, 'src', 'out', 'line')
     elif args.claude:
-        import tempfile
-        root = tempfile.mkdtemp(prefix='uchinoko-claude-')
-        with open(os.path.join(ROOT, 'src', 'out', 'uchinoko-claude.html'), encoding='utf-8') as f, \
-                open(os.path.join(root, 'index.html'), 'w', encoding='utf-8') as g:
-            g.write('<meta charset="utf-8">\n' + f.read())   # アーティファクトは UTF-8 で出る
+        # アーティファクトに 出す 形（build.sh の out/claude/：いまの アーティファクトと 同じ 1行目で 包んだ index.html と、うちのこランの run-<ハッシュ>.js）
+        root = os.path.join(ROOT, 'src', 'out', 'claude')
     httpd, port = serve(root)
     found, overflow, errors, n_scenes = [], [], [], 0
     shots = os.path.join(args.shots, str(width)) if args.shots else None
@@ -506,7 +503,7 @@ async def run(args, width):
                 await page.screenshot(path=os.path.join(shots, f'{n_scenes:03d}_{name}.png'))
             await clear()
 
-        for name, js, root, wait, pet in scenes(args.line, run=not args.line and not args.claude):
+        for name, js, root, wait, pet in scenes(args.line, run=not args.line):   # うちのこランは ホーム画面版と Claude版（P5）
             if args.only and not any(o in name for o in args.only):
                 continue
             # 子がいない画面と いる画面で ページを ひらきなおす。LINE版の「つれてくる？」なども 状態を変えるので 毎回

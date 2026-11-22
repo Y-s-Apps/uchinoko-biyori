@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""うちのこラン：ホーム画面版で レースの 3コース（こうえん・うみべ・もり）と アジリティの 4コース（はじめての ひろば・ジグザグ・バランス・おかの ひろば）を
+"""うちのこラン：ホーム画面版（--claude で Claude版）で レースの 3コース（こうえん・うみべ・もり）と アジリティの 4コース（はじめての ひろば・ジグザグ・バランス・おかの ひろば）を
 走らせて、iPhone の はばの スクリーンショットと 走る GIF を とる（P2〜・P3・P4）。
 
 ビルドずみの ルート（sh src/build.sh）を 手元で 配信して ひらき（CSP の ランの ファイルの URL だけ 手元に かえる＝tools/smoke.py と 同じ）、
@@ -17,6 +17,8 @@
   python3 tools/run/run_shots.py --cat           # ねこの 子（キジトラ）で
   python3 tools/run/run_shots.py --no-gif        # GIF なし（はやい）
   python3 tools/run/run_shots.py --gifs beach,balance   # GIF は うみべと バランスだけ
+  python3 tools/run/run_shots.py --claude        # Claude版（src/out/claude/。クラウドの セーブの まね）で。smoke-out/run-claude/ に。
+                                                 # さいごに ほうびの 回数・ベストが クラウドの セーブに 入ったかも 見る（P5）
 
 ページの エラー・CSP の 違反・見た目の 数が 1件でも あれば 終了コード 1。
 """
@@ -24,7 +26,7 @@ import argparse, asyncio, datetime, io, json, os, sys, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..'))
-from smoke import ROOT, CHROMIUM_ARGS, LOOKS_JS, sample_state, serve, poll  # noqa: E402
+from smoke import ROOT, CHROMIUM_ARGS, LOOKS_JS, CLAUDE_MOCK, CLAUDE_ROOT, sample_state, serve, poll  # noqa: E402
 
 RACE = ['park', 'beach', 'forest']
 AGILITY = ['first-field', 'zigzag', 'balance', 'hill-field']
@@ -85,9 +87,9 @@ AUTO_JS = r'''(() => {
 
 async def main(a):
     from playwright.async_api import async_playwright
-    out = a.out
+    out = a.out or os.path.join(ROOT, 'smoke-out', 'run-claude' if a.claude else 'run')
     os.makedirs(out, exist_ok=True)
-    httpd, port = serve(ROOT)
+    httpd, port = serve(CLAUDE_ROOT if a.claude else ROOT)
     errors, shots, looks = [], [], []
     vw, vh = (int(x) for x in a.size.lower().split('x'))
     gifs = {}
@@ -108,8 +110,13 @@ async def main(a):
         else:
             # だいず：クリームの ポメラニアン（P1 の 見くらべと 同じ 色）
             st['pet']['look'] = {'species': 'dog', 'breedId': 'pomeranian', 'colors': {'main': '#F3DDB3', 'body': '#F3DDB3', 'ear': '#F3DDB3', 'tail': '#F3DDB3', 'face': '#FBEFD9', 'chest': '#FBEFD9', 'paws': '#F3DDB3'}}
-        await page.add_init_script("if(!sessionStorage.getItem('shots')){localStorage.setItem('uchinoko-biyori:v1', %s);sessionStorage.setItem('shots','1')}"
-                                   % json.dumps(json.dumps(st, ensure_ascii=False)))
+        seed = ("if(!sessionStorage.getItem('shots')){localStorage.setItem('uchinoko-biyori:v1', %s);sessionStorage.setItem('shots','1')}"
+                % json.dumps(json.dumps(st, ensure_ascii=False)))
+        if a.claude:
+            # Claude版：クラウド（window.claude の db・user）の まね。はじめは この端末と 同じ 子
+            seed += ("\nif(!sessionStorage.getItem('cloud'))sessionStorage.setItem('cloud', %s);\n" % json.dumps(json.dumps({'doc': st, 'delay': 0, 'sets': []}, ensure_ascii=False))
+                     + CLAUDE_MOCK)
+        await page.add_init_script(seed)
         t0 = datetime.datetime.now(datetime.timezone.utc)
         await page.clock.install(time=t0)
         await page.clock.pause_at(t0)
@@ -141,6 +148,11 @@ async def main(a):
         await page.goto(f'http://127.0.0.1:{port}/')
         await tick(2500)
         await levelups()
+        if a.claude:
+            info = await page.evaluate("() => [Persist.mode, typeof RunUI, !!(navigator.serviceWorker && navigator.serviceWorker.controller)]")
+            print('Claude版：', info)
+            if info != ['cloud', 'object', False]:
+                errors.append(f'Claude版の 保存か ランの 入口が ちがいます：{info}')
         await page.click('#actPlay'); await tick(500)
         await page.wait_for_timeout(400)   # シートの うごき（CSS は ほんとうの 時計）
         await snap('pick')
@@ -358,6 +370,13 @@ async def main(a):
         if a.mode in ('both', 'agility'):
             await agility_all()
         await page.click('#runPage [data-s="x"]'); await tick(800)
+        if a.claude:
+            await tick(1500)   # クラウドへの 書きこみ（1.2秒 まとめて）
+            cl = await page.evaluate("() => ({ cloud: window.__cloud.doc && window.__cloud.doc.run, local: S.run })")
+            want = (RACE if a.mode in ('both', 'race') else []) + (AGILITY if a.mode in ('both', 'agility') else [])
+            print('クラウドの S.run：', json.dumps(cl['cloud'], ensure_ascii=False))
+            if not (cl['cloud'] == cl['local'] and sorted((cl['cloud'] or {}).get('best', {})) == sorted(want) and cl['cloud']['n'] == min(3, len(want))):
+                errors.append(f'ほうび・ベストが クラウドの セーブに 入っていません：{cl}')
         left = await page.evaluate("() => ({ page: !!document.querySelector('#runPage'), canvas: document.querySelectorAll('canvas').length, inert: !!document.querySelector('#app').inert, say: document.querySelector('#bubble').textContent })")
         print('とじた あと：', left)
         if left['page'] or left['canvas'] or left['inert']:
@@ -379,8 +398,7 @@ async def main(a):
             gp.on('pageerror', lambda e: errors.append('GIF: ' + str(e)))
             await g.route('https://fonts.googleapis.com/**', lambda r: r.abort())
             await g.route('https://fonts.gstatic.com/**', lambda r: r.abort())
-            await gp.add_init_script("if(!sessionStorage.getItem('shots')){localStorage.setItem('uchinoko-biyori:v1', %s);sessionStorage.setItem('shots','1')}"
-                                     % json.dumps(json.dumps(st, ensure_ascii=False)))
+            await gp.add_init_script(seed)
             await gp.clock.install(time=t0)
             await gp.clock.pause_at(t0)
             await gp.goto(f'http://127.0.0.1:{port}/')
@@ -431,7 +449,8 @@ async def main(a):
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
-    ap.add_argument('--out', default=os.path.join(ROOT, 'smoke-out', 'run'))
+    ap.add_argument('--out', default=None, help='既定は smoke-out/run/（--claude は smoke-out/run-claude/）')
+    ap.add_argument('--claude', action='store_true', help='Claude版（src/out/claude/）で')
     ap.add_argument('--mode', default='both', choices=['both', 'race', 'agility'], help='どちらを とおすか（既定は 両方）')
     ap.add_argument('--dark', action='store_true')
     ap.add_argument('--cat', action='store_true')

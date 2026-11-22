@@ -11,8 +11,9 @@
   python3 tools/smoke.py --line --android-inset 48
                                     # Android版LINEの edge-to-edge（下のナビゲーションバー48px）をまねる
   python3 tools/smoke.py --dark     # ダークモードで（--line・--fresh と いっしょにも使える）
-  python3 tools/smoke.py --claude   # Claude版（src/out/uchinoko-claude.html）：クラウドの セーブの まねで、はじめての画面の とちゅうに
-                                    # クラウドの子が 届いたとき（診断 3-7）
+  python3 tools/smoke.py --claude   # Claude版（src/out/claude/＝アーティファクトに 出す 形）：クラウドの セーブの まねで、はじめての画面の
+                                    # とちゅうに クラウドの子が 届いたとき（診断 3-7）と、うちのこラン（P5：レースの こうえん・アジリティの バランス →
+                                    # ほうび・ベストが クラウドの セーブに 入る・ひらきなおしても・はじめての 端末でも のこる）
   python3 tools/smoke.py --size 375x667   # ちがう 大きさの 画面で（既定は 390x844。パズルの 画面が スクロールなしで 入るかも 見る）
 
 見た目の確かめ（どの画面でも）：文字と地の色の差（ふつうの文字 4.5・大きい文字 3 より小さい）、11px より小さい文字、
@@ -751,15 +752,17 @@ CLAUDE_MOCK = r'''(() => {
 })();'''
 
 
+CLAUDE_ROOT = os.path.join(ROOT, 'src', 'out', 'claude')   # build.sh が 作る Claude版（アーティファクトに 出す 形：index.html と run-<ハッシュ>.js）
+
+
 async def claude_cloud(args):
-    """Claude版：はじめての端末で、クラウドの セーブが 届く前に はじめての画面を 進めても、クラウドの子を 上書きしない（診断 3-7）"""
+    """Claude版：はじめての端末で、クラウドの セーブが 届く前に はじめての画面を 進めても、クラウドの子を 上書きしない（診断 3-7）。
+    うちのこラン（P5）：ホーム画面版と 同じ ためし（run_checks・agility_checks）と、ほうび・ベストが クラウドの セーブに 入るか"""
     from playwright.async_api import async_playwright
-    import tempfile
-    root = tempfile.mkdtemp(prefix='uchinoko-claude-')
-    with open(os.path.join(ROOT, 'src', 'out', 'uchinoko-claude.html'), encoding='utf-8') as f, \
-            open(os.path.join(root, 'index.html'), 'w', encoding='utf-8') as g:
-        g.write('<meta charset="utf-8">\n' + f.read())
-    httpd, port = serve(root)
+    if not os.path.isfile(os.path.join(CLAUDE_ROOT, 'index.html')):
+        print('src/out/claude/index.html が ありません（sh src/build.sh）')
+        return 1
+    httpd, port = serve(CLAUDE_ROOT)
     errors, results = [], []
     os.makedirs(args.out, exist_ok=True)
 
@@ -770,7 +773,7 @@ async def claude_cloud(args):
     cloud_pet = sample_state()
     cloud_pet['pet']['name'] = 'クラウド'
     async with async_playwright() as p:
-        browser = await p.chromium.launch()
+        browser = await p.chromium.launch(args=CHROMIUM_ARGS)
 
         async def open_page(doc, delay, name):
             ctx = await browser.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True,
@@ -850,6 +853,49 @@ async def claude_cloud(args):
         s = await state(page)
         ok(s['name'] == 'たんまつ' and s['cloud'] == 'たんまつ', 'この端末の 新しい セーブを クラウドに 書く', s)
         await ctx.close()
+
+        print('F. うちのこラン（P5）：えらぶ → こうえん → ゴール、アジリティの バランス（シーソー）→ ゴール。ほうび・ベストが クラウドに 入る')
+        ctx, page = await open_page(cloud_pet, 300, 'F')
+        await page.wait_for_timeout(1500)
+        await page.evaluate("() => { document.querySelectorAll('.levelup').forEach(e => e.remove()); Modal.q = []; Modal.busy = false; }")
+        shots, n0 = [], len(errors)
+
+        async def snap(name):
+            path = os.path.join(args.out, f'claude_{len(shots) + 1:02d}_{name}.png')
+            await page.screenshot(path=path)
+            shots.append(path)
+            for x in await page.evaluate(LOOKS_JS):
+                errors.append(f'見た目（{name}）：{x}')
+        mode = await page.evaluate("() => [Persist.mode, typeof RunUI, typeof RUN_SRC !== 'undefined' && RUN_SRC, !!(navigator.serviceWorker && navigator.serviceWorker.controller)]")
+        ok(mode[0] == 'cloud' and mode[1] == 'object' and str(mode[2]).startswith('run-') and not mode[3],
+           'クラウドの 保存・ランの 入口が ある・Service Worker なし', mode)
+        await snap('room')
+        await run_checks(page, ctx, snap, errors, args, port)
+        await page.evaluate("() => { document.querySelectorAll('.levelup').forEach(e => e.remove()); Modal.q = []; Modal.busy = false; }")
+        await page.wait_for_timeout(1600)   # クラウドへの 書きこみ（1.2秒 まとめて）
+        ok(len(errors) == n0, 'ランの ためし（ホーム画面版と 同じ）', errors[n0:])
+        c = await page.evaluate("() => ({ run: window.__cloud.doc && window.__cloud.doc.run, min: { park: RUN.courses.park.min, balance: RUN.courses.balance.min }, local: S.run, album: (window.__cloud.doc.album || []).slice(0, 4).map(a => a.ti) })")
+        print('  クラウドの S.run：', json.dumps(c['run'], ensure_ascii=False))
+        cr = c['run'] or {}
+        ok(cr.get('best') == c['min'] and cr.get('games') == 2 and cr.get('n') == 2 and cr.get('clears') == 2 and cr == c['local']
+           and any('こうえんで さいこう きろく' in a for a in c['album']) and any(a.startswith('バランスで さいこう きろく') for a in c['album']),
+           'ほうびの 回数・ベスト・アルバムが クラウドの セーブに 入った', c)
+        await page.reload(); await page.wait_for_timeout(2500)
+        r = await page.evaluate("() => S.run")
+        ok(r == cr, 'ひらきなおしても のこる', r)
+        await ctx.close()
+        # はじめての 端末（この端末に セーブが ない）：クラウドの子と いっしょに ベストも くる。コースを えらぶ 画面に ベスト
+        ctx, page = await open_page(dict(cloud_pet, run=cr), 300, 'F2')
+        await page.wait_for_timeout(2500)
+        await page.evaluate("() => { document.querySelectorAll('.levelup').forEach(e => e.remove()); Modal.q = []; Modal.busy = false; RunUI.open(); }")
+        await poll(page, "() => !!document.querySelector('#runPage .run-sel .run-course')", 60000)
+        await page.wait_for_timeout(300)
+        b = await page.evaluate("() => ({ run: S.run, park: 'ベスト ' + runSec(RUN.courses.park.min), best: [...document.querySelectorAll('#runPage .run-cb')].map(e => e.textContent.replace(/\\s+/g, ' ').trim()), note: document.querySelector('#runPage .run-sel-note').textContent })")
+        await snap('select_cloud')
+        ok(b['run'] == cr and b['best'][0] == b['park'] and 'あと1回' in b['note'], 'はじめての 端末でも クラウドの ベストと きょうの 回数', b)
+        await page.evaluate("() => RunUI.close()")
+        await ctx.close()
+        print('  スクリーンショット：' + ', '.join(os.path.basename(x) for x in shots))
         await browser.close()
     httpd.shutdown()
     print(f'page errors: {len(errors)}')

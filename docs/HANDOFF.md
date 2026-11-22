@@ -2,10 +2,11 @@
 
 このファイルは、チャットのいちばん最後に毎回まるごと書き直します。次のチャットは、ここを読めば続きから始められます。オーナーは、更新のたびにプロジェクトナレッジのGitHubを「同期」し、作業ごとに新しいチャットへ移ります（`CLAUDE.md` の作業の流れ 7）。
 
-- 最終更新：2026-11-22（26回目：**うちのこランの P4＝アジリティ 4コース（はじめての ひろば・ジグザグ・バランス・おかの ひろば。ホーム画面版だけ）。オーナー OK。** はじめに きいた：LINE の 認証審査は まだ 申請していない → P3 と 同じく ルールは 共通の ファイル、サーバーも デプロイ（`/act` は `run` を うけつけない）。コースを えらぶ 画面の アジリティの 全体図は オーナーの 見なおしで ドッグアジリティの 広場の 絵に。つぎ：**P5（Claude版）を 新しい チャットで**（プロンプトは `docs/RUN_DESIGN.md` 10章）。オーナーは 個人事業主の 申請 → 認証審査。**11-23 の「サーバーを起こす」の 回だけ 見る**）
+- 最終更新：2026-11-22（27回目：**うちのこランの P5＝Claude版に うちのこランを 出した（レース 3コース・アジリティ 4コース・ほうび・ベスト・アルバム）。** 載せ方は アーティファクトの 2つめの ファイル `run-<ハッシュ>.js`。ホーム画面版・LINE版は かえていない（md5 同じ）。Claude版は バージョン30。**オーナー OK（iPhone の 実機でも ほんものの Claude版で 走れた）・push 済み。** つぎ：**P6（LINE版）を 新しい チャットで**（プロンプトは `docs/RUN_DESIGN.md` 10章。はじめに 認証審査中か きく）。保留1の「サーバーを起こす」11-23 3:23 の回も まだ 見ていない（この チャットは 11-22 の お昼だった））
 - リポジトリ：`Y-s-Apps/uchinoko-biyori`（組織 Y-s-Apps）。ホーム画面版：https://y-s-apps.github.io/uchinoko-biyori/
 - ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-4743ccd0f9`**（26回目の P4＋全体図の 見なおし。`index.html`・`sw.js`・`run-9c1af66550eb.js` の md5 は `cc997302…`・`43263950…`・`cb49db20…`）。ランを つかわなければ おせわの 動きは 前と同じ（`compare_home.py`：おなじ）
-- Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン29**（`de696b7` の中身。**P3・P4 で 手元の Claude版は ルールの ファイルの ぶんだけ かわった〈26回目の md5 `b27fda95…`。画面は 同じ・ランの 入口なし〉が 出しなおしは P5 で まとめて**。version `1794772870-8994`、capabilities は 引きついだ）。公開するときは `src/out/uchinoko-claude.html` の前に いまの版と同じ1行目（`<!doctype html><html><head><meta charset=utf8><meta name=viewport …><style>…</style></head><body>` ＋改行）を、うしろに `</body></html>` ＋改行 を つけて `publish_files`（slug は UUID `507aa3eb-87ee-4ddc-80e3-61638a697f56`。短い id は ことわられる。`capabilities` は はぶいて 引きつぐ。前の版を この形で 作りなおすと `list_files` の sha256 と 同じになるのを 確かめてから 出す。1行目は `read_file` の `offset 1・limit 1` で 読める）
+- Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン30**（27回目の P5。version `1795318346-acdb`、contract `0.2.73` の まま、capabilities は 引きついだ〈db の ルール 2つ・downloads・sample〈images〉・user〉）。**ファイルは 2つ：`index.html`（sha256 `4b19e84d…`、368,949 バイト）と うちのこランの `run-9c1af66550eb.js`（`9c1af665…`）**。出す 前に バージョン29（`de696b7`）を 作りなおして sha256 `c2507c49…` が `list_files` と 同じなのを 確かめた。**出し方：** `sh src/build.sh` が `src/out/claude/` に そのまま 出せる 形（`index.html`＝いまの 版と 同じ 1行目 `src/claude_head.html`＋中身＋`</body></html>`、`run-<ハッシュ>.js`）を 作る → `publish_files`（slug は UUID `507aa3eb-87ee-4ddc-80e3-61638a697f56`。短い id は ことわられる。files は その 2つ、`capabilities`・`contract`・`title` は はぶく。ゲームが かわって 名前が かわったら 前の `run-*.js` を `remove`）。出す 前に 前の 版を 作りなおして `list_files` の sha256 と 同じか 確かめる（その コミットで `sh src/build.sh` → `src/out/claude/index.html`。P5 より 前の コミットは `out/uchinoko-claude.html` を `claude_head.html` と `</body></html>` で 包む）
+- ためしの アーティファクト「うちのこ日和 P5 ためし」：https://claude.ai/artifact/G6JjwCoMcYMZ96pctVrYQF （slug `7a36bb48-06ef-452f-8c27-c7e849d00828`。ほんものとは べつ。セーブの キーは `uchinoko-p5test:`、ためしの 子「ためし」、db だけ 宣言。ひらくと 読みこみ・integrity・WebGL 2 を しらべて db の `probe/env`、ランを ひらく・走ると `probe/open` に 書く＝`db_list`（collection `probe`）で 読む）。2026-11-22 に オーナーが iPhone で ひらいて 結果を 読んだ（15章）。いらなく なったら オーナーに きいて 消す（`delete_artifact` は オーナーが たのんだ ときだけ）
 - LINE版の画面：Cloudflare Pages（main の push で自動ビルド。**26回目の `824da76`・`70abb35` の ビルドで 本番用・開発用の md5 `8644251e…` を pg_net で 確かめた**＝P4 の ルールの ファイルが 入った〈ランの 入口は 入らない＝`RUN_LINE=0`。全体図の 見なおしでは かわらない〉。`LINE_CFG.oaId` に `@370iymyw`）
   - 本番用 https://uchinoko-biyori.pages.dev/ 、審査用 https://uchinoko-biyori.pages.dev/review/ 、開発用 https://uchinoko-biyori.pages.dev/dev/ （同じページ。ひらいた場所で LIFF ID をえらぶ）
   - ヘッダー（`_headers`）：ぜんぶ（`/*`）に `Referrer-Policy: no-referrer`・`X-Content-Type-Options: nosniff`・`Content-Security-Policy: frame-ancestors 'none'`・`X-Frame-Options: DENY`
@@ -29,25 +30,25 @@
 - LINE版の計画書：https://claude.ai/artifact/AgKkCkHCsWAywKGV6VFxwK
 - オーナーの事情（約束②で使う）：claude.ai の このプロジェクトの資料 `claude/owner-notes.md`（非公開）
 
-## 直近のチャットでやったこと（2026-11-22、26回目：うちのこランの P4。Opus 5.5）
+## 直近のチャットでやったこと（2026-11-22、27回目：うちのこランの P5。Opus 5.5）
 
-- はじめに オーナーに きいた：**LINE の 認証審査は まだ 申請していない** → P3 と 同じく ルールは 共通の ファイル・サーバーも デプロイ。**アジリティの 名前は 案の まま**（はじめての ひろば・ジグザグ・バランス・おかの ひろば）。
-- **P4（`docs/RUN_DESIGN.md` 14章。`824da76`・`70abb35`・全体図の 見なおし）：** わんランの `agility-sim.js`・`agility-route.js`・`agility-field.js`・`slalom.js` を `src/run/wanrun/` へ。`src/run/agility.js`（`mountAgility`：ひとりで 6つの 障害物・上に クリア ◯/6・ミス・つぎの 障害物の 合図〈シーソーは とまる → まつ → タップ〉・下に 1〜6〈✓・−〉と「とまっているよ タップで すすむ」・ゴールは ごうけい〈走った タイム＋ミス×5秒〉・クリア・ミス・「ノーミスで ゴール！」・つぎの コースへ）。`js_run.js` の コースを えらぶ 画面に「レース／アジリティ」の 切りかえ。ルール `RUN.courses` に アジリティ 4つ（`min`：21580・23280・26300・17420。ミスなしで いちばん はやい 走り）と アルバムの ことば。サーバー：`game.js` を 作りなおして api version 27。
-- **オーナーの 見なおし：** コースを えらぶ 画面の アジリティの 全体図を「コース」の 地図から ドッグアジリティの 広場の 絵に（さくの ある 芝生・その コースの 種目を 1つずつ・旗。見本を 2回 見せて OK）。
-- 確かめ：`rules_test.mjs`（アジリティ 13こ）・`run_min.mjs`（ミスなし・わざと ミス）・`smoke.py`（ふつう・`--dark`・`--size 375x667`・`--fresh`・`--line --android-inset 48`・`--claude`。アジリティは バランスで 指で とまる → まつ → タップ → ゴール）・`linebreak.py`（329場面 ×2・`--height 603`）・`line_e2e.py`・`compare_home.py`（おなじ）・`run_shots.py`（7コース・GIF 7つ）。スクリーンショットと 走る GIF を 見せて **オーナー OK**。公開の ファイル（Pages・Cloudflare）は 手元と 同じ md5（pg_net）。
-- しなかったこと：Claude版の 出しなおし（P5）、Dependabot の PR #1（そのまま）、カードの 全体図を 大きく する（84px の まま。オーナーは いまの 大きさで OK）。
+- はじめに 保留1 を 見た：この チャットは 11-22 の お昼なので、11-23 3:23 の「サーバーを起こす」は まだ（つぎの チャットで 見る）。**GitHub の API と push は この 環境では つなげなかった**（`add_repo` の push が 作業環境の 確認で ことわられた。読むのは 公開リポジトリの まま できた）。
+- **P5（`docs/RUN_DESIGN.md` 15章）：** 載せ方を ためして 決めた＝**アーティファクトの 2つめの ファイル `run-<ハッシュ>.js`**（アーティファクトの CSP は 自分の ファイルを 通す・`text/javascript` で 出る・ふだん ひらく ページは 約 370KB の まま。中に 入れると 約 1MB）。ためしの アーティファクト（上）を オーナーに iPhone で ひらいて もらった（同じ オリジン・integrity が 効く・WebGL 2・読みこみ 0.84秒・30こま／秒。15章）。`build.sh` の `RUN_CLAUDE=1`（既定）・`src/claude_head.html`・`out/claude/`。`js_run.js` は かえずに Claude版で 動いた（Service Worker なし・クラウドの 保存に `S.run` も 入る）。
+- 確かめ：`smoke.py --claude`（A〜E ＋ F：ランの ためしを ホーム画面版と 同じに・ほうび・ベスト・アルバムが クラウドの セーブに・ひらきなおす・はじめての 端末。14こ ok・エラー 0）・`linebreak.py --claude --only run --only agi --only play`（70場面 ×2・0件）・`run_shots.py --claude`（7コース・GIF 7つ・クラウドの `run` が 画面と 同じ・エラー 0）・`compare_home.py`（おなじ）。ビルドの 前後で `index.html` `cc997302…`・`sw.js` `43263950…`・`src/out/line/index.html` `8644251e…` は 同じ。
+- Claude版を バージョン30 に 出しなおした（P3・P4 の ルールの ファイルの ぶんも）。スクリーンショットと 走る GIF（こうえん・バランス）を 見せて **オーナー OK**（ほんものの Claude版でも 走れた）。2回目の たのみで push も できた。
 
-## その前のチャット（2026-11-22、25回目：うちのこランの P3）
+## その前のチャット（2026-11-22、26回目：うちのこランの P4）
 
-レース 3コース（こうえん・うみべ・もり）・コースを えらぶ 画面・ほうび（1日3回・パズルと べつ）・ベスト・アルバム。`RUN`・`Rules.run`・`S.run`。サーバー api version 26（`NOT_YET`）。24回目は P2（まとめる しくみ・こうえん。オーナー決定：題「うちのこラン」・タイル「ラン」・まんなかの ひとことは 出さない）、23回目は P1（3D の うちのこ）、22回目は 設計。
+アジリティ 4コース（はじめての ひろば・ジグザグ・バランス・おかの ひろば）。全体図は ドッグアジリティの 広場の 絵。サーバー api version 27（`NOT_YET`）。25回目は P3（レース 3コース・ほうび・ベスト・アルバム）、24回目は P2、23回目は P1、22回目は 設計。
 
 ## 保留・オーナーの判断待ち（つぎのチャットのはじめに）
 
+0. **ためしの アーティファクト「うちのこ日和 P5 ためし」**（slug `7a36bb48-06ef-452f-8c27-c7e849d00828`）は もう いらない（結果は `docs/RUN_DESIGN.md` 15章）。消すかは オーナーに きく（`delete_artifact` は オーナーが たのんだ ときだけ。のこしても こまらない）。
 1. **リリースから 1週間（11-23 まで）の さいご：** つぎの チャットの はじめに「サーバーを起こす」の **11-23 3:23 ごろの 回が 成功か** だけ 見る（`gh api "repos/Y-s-Apps/uchinoko-biyori/actions/workflows/keepalive.yml/runs?per_page=3"`。`gh run list` は GraphQL で とめられる）。11-22 4時 までは ぜんぶ ぶじ（25回目）。そのあとは ふだんの 見まもり（気に なる ときに `/health`・`app.error_counts`・`app.notify_runs`）。
 2. **（オーナーが 決める・いそがない）** Supabase の Data API の「Automatically expose new tables」を オフに するか（Supabase も オフを すすめている。いまは `public` に 表が ないので 害は ない。変えるのは オーナーの 許可を もらってから）。
 3. **公開の日の 手順 5（実機で 見る）の こまかい ところ：** よるの ひとこと（21時すぎ）・ひらいたまま つぎの日・トークの カードの ボタン など、気に なる ところが あったか オーナーに きく（きくだけ）。なでなで（P5-1）の はじめの 下スワイプも。
 4. **手順 6：** テスターでない人（家族など）の LINE で 本番用の LIFF URL（https://miniapp.line.me/2012410265-PutgsCLS ）が ひらけるか。Android の 人が いれば 下の 5つの ボタンと パズルの 下の すき間（P6-1）。
-5. **うちのこラン（`docs/RUN_DESIGN.md`）：** P1〜P4 済み（オーナー OK）。**つぎは P5（Claude版）**（プロンプトは 10章。Claude版は LINE版と 関係ないので 審査中でも よい。ホーム画面版・LINE版の md5 は かえない）。**P6（LINE版）の はじめに オーナーに LINE の 認証審査中か きく**（審査中は LINE版を かえられない。9章）。
+5. **うちのこラン（`docs/RUN_DESIGN.md`）：** P1〜P5 済み（オーナー OK。P5＝Claude版）。**つぎは P6（LINE版）**（プロンプトは 10章）。**P6 の はじめに オーナーに LINE の 認証審査中か きく**（審査中は LINE版を かえられない。9章）。出す 前に Fable 5.2 の レビュー。
 5b. **うちのこの 体勢と 動き（`docs/MOTION_DESIGN.md`）：** 実装は Opus 5.5 の 新しい チャットで（プロンプトは 設計の 8章）。**認証審査の「審査中」は LINE版を かえられないので、申請の 前か 認証の あとに 出す。**
 5e. **Dependabot の PR #1**（esbuild 0.24.2 → 0.28.1、`tools/run/`。2026-11-21）：開発用 サーバー（`serve`）の 注意で、うちのこは `build` だけ。**手で マージしない**（lockfile と `src/run_bundle.js` が ずれる）。P3 でも 上げなかった。上げるなら `npm install` → `build_run.mjs` → ためしを ぜんぶ とおして いっしょに コミットし、PR は とじる。
 5d. **（オーナーが 決める・いそがない）** 2D の 絵の ヨークシャーテリアも 全身タイツの ように 見えるので、3D と 同じく「せなかだけ ブルー」に するか（`renderPet`。3つの 版が かわる）。
@@ -59,14 +60,15 @@
 
 - オーナー：別プロジェクトで 個人事業主の 申請（開業届など）→ 認証審査の 申請（補足資料の文は `docs/PROJECT.md` 10章。申請の 前に 画面の 文言と あっているか 見なおす）。
 - 認証審査を申請したら：審査は1〜2週間、「審査中」は取り消しも変更も できない（画面とサーバーも変えない）。認証されたら：「検索可能にする」は 承認から30日以内に押す。リンクする公式アカウント・友だち追加オプションは 認証の前に すませておく（あとで変えると 再審査）。
-- うちのこランの P5（Claude版。Opus 5.5 の 新しい チャット。`docs/RUN_DESIGN.md` 10章の プロンプト）→ P6（LINE版。審査中を さけて。出す 前に Fable 5.2 の レビュー）。
+- うちのこランの P6（LINE版。Opus 5.5 の 新しい チャット。`docs/RUN_DESIGN.md` 10章の プロンプト。審査中を さけて。出す 前に Fable 5.2 の レビュー）。
 - うちのこの 体勢と 動き（Opus 5.5）は 審査中を さけて。
 
 ## 気をつけること
 
 - **うちのこラン（`src/run/`・`src/js_run.js`・`tools/run/`。くわしくは `docs/RUN_DESIGN.md` 11・12章）：**
   - はじめに `cd tools/run && npm install`。`src/run/` を かえたら `node tools/run/build_run.mjs` で `src/run_bundle.js` を 作りなおして いっしょに コミット（push の 前に `--check`）。そのあと `sh src/build.sh`（`run-<ハッシュ>.js` が かわり、前の `run-*.js` は 消える）。
-  - ホーム画面版だけ（`RUN_HOME=1`・`RUN_LINE=0`・`RUN_CLAUDE=0`）。`head.html`・`body.html`・共通の `js_*.js` を かえると LINE版・Claude版も かわる＝ランの 画面の ものは `js_run.js`・`src/run/run.css`・`src/run/` に（ルールと セーブは 共通の ファイル）。ビルドの 前後で `src/out/line/index.html`（`25d4da43…`）・`src/out/uchinoko-claude.html`（`8369a657…`）の md5 を くらべる。
+  - ホーム画面版と Claude版（`RUN_HOME=1`・`RUN_CLAUDE=1`・`RUN_LINE=0`）。`head.html`・`body.html`・共通の `js_*.js` を かえると LINE版も かわる＝ランの 画面の ものは `js_run.js`・`src/run/run.css`・`src/run/` に（ルールと セーブは 共通の ファイル）。**`js_run.js`・`run.css`・`src/run/` を かえると ホーム画面版と Claude版の 両方が かわる**（Claude版も 出しなおす）。ビルドの 前後で `src/out/line/index.html`（`8644251e…`）の md5 を くらべる。
+  - **Claude版（P5。`docs/RUN_DESIGN.md` 15章）：** ゲームは アーティファクトの 2つめの ファイル（`src/out/claude/run-<ハッシュ>.js`）。ページから 相対の パスで `integrity` つき（CSP の URL は いらない）。Service Worker は ないので ランは ネットが いる。保存は クラウド（`S.run` も）。ためしは `smoke.py --claude`（F）・`linebreak.py --claude`（ランの 場面も）・`run_shots.py --claude`。どれも `src/out/claude/` を そのまま 配る（`sh src/build.sh` の あとに）。`js_run.js` の 先頭の コメントの「ホーム画面版だけ」は ホーム画面版の md5 を かえない ため のこした（つぎに ホーム画面版を かえる ときに 直す）。
   - CSP は ランの ファイルの URL を パスまで（`build.sh` の `HOME_ORIGIN`）。手元の ためしは `smoke.Handler` が その はじめの 部分を 手元の URL に かえて 配信する。ヘッドレスでも WebGL が 動く ように `smoke.CHROMIUM_ARGS`（SwiftShader）。`page.wait_for_function` は CSP で とめられるので `smoke.poll`。`RunUI` は `const`（`window.RunUI` では 見えない）。
   - ヘッドレスの 3D は おそい（こまの あいだに 指の イベントが おくれる）。`smoke.py` の 指の ためしは うちのこの 足を とめてから。ゴールまでの 通しは `tools/run/run_shots.py`（時計を とめて ページの 中で レースを すすめる）。
   - 3D の 色は `NeutralToneMapping`・露出 1（P1）。`makePet3D` に わたす みためは かならず `normalizeLook()` の あと。`mountRace` の `name`・`rivals[].label`・`art` は `esc`・`softName` 済みの HTML。

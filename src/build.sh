@@ -4,7 +4,9 @@
 #   out/uchinoko-claude.html       … Claude アーティファクト版
 #   out/line/                      … LINE版（LINEミニアプリ。Cloudflare Pages がこのフォルダを公開する。本番用＝いちばん上、審査用＝review/、開発用＝dev/。
 #                                    Cloudflare の ヘッダー _headers も）
-#   ../run-<ハッシュ>.js            … うちのこラン（仮）の ゲーム（RUN_HOME=1 のとき。中身は run_bundle.js）
+#   out/claude/                    … Claude版を そのまま 出せる 形（index.html＝claude_head.html＋uchinoko-claude.html＋</body></html>、
+#                                    RUN_CLAUDE=1 なら うちのこランの ゲーム run-<ハッシュ>.js も。publish_files で この 2つを 出す）
+#   ../run-<ハッシュ>.js            … うちのこランの ゲーム（RUN_HOME=1 のとき。中身は run_bundle.js）
 set -e
 cd "$(dirname "$0")"
 JS="js_data.js js_data2.js js_data3.js js_pet.js js_wear.js js_rules.js js_app.js js_features.js js_onboard.js"
@@ -19,14 +21,38 @@ sha256hex(){
 }
 mkdir -p out
 
-# うちのこラン（仮）の ビルドの スイッチ（docs/RUN_DESIGN.md 9章）：出して よい 版だけに ランの 入口と ファイルを 入れる。
-# いまは ホーム画面版だけ（P2〜P4）。Claude版は P5、LINE版は P6（そのときに ここを 作る。いまは 1 に すると とめる）。
-# ためしに ランなしの ホーム画面版を 作るときは RUN_HOME=0 sh src/build.sh
-RUN_HOME="${RUN_HOME-1}"; RUN_LINE="${RUN_LINE-0}"; RUN_CLAUDE="${RUN_CLAUDE-0}"
-if [ "$RUN_LINE" != 0 ] || [ "$RUN_CLAUDE" != 0 ]; then echo 'ランは まだ LINE版（P6）・Claude版（P5）に 出せません（RUN_LINE=0・RUN_CLAUDE=0）' >&2; exit 1; fi
+# うちのこランの ビルドの スイッチ（docs/RUN_DESIGN.md 9章）：出して よい 版だけに ランの 入口と ファイルを 入れる。
+# ホーム画面版（P2〜P4）と Claude版（P5）。LINE版は P6（そのときに ここを 作る。いまは 1 に すると とめる）。
+# ためしに ランなしの 版を 作るときは RUN_HOME=0・RUN_CLAUDE=0 sh src/build.sh
+RUN_HOME="${RUN_HOME-1}"; RUN_LINE="${RUN_LINE-0}"; RUN_CLAUDE="${RUN_CLAUDE-1}"
+if [ "$RUN_LINE" != 0 ]; then echo 'ランは まだ LINE版（P6）に 出せません（RUN_LINE=0）' >&2; exit 1; fi
 HOME_ORIGIN='https://y-s-apps.github.io/uchinoko-biyori/'   # ホーム画面版の 公開 URL（CSP に ファイルの URL を パスまで 書く）
 rm -f ../run-*.js
-{ cat head.html; cat body.html; echo '<script>'; echo 'const HOME = false;'; cat $JS; echo '</script>'; } > out/uchinoko-claude.html
+rm -rf out/claude; mkdir -p out/claude
+# ゲームの ファイル（run_bundle.js。tools/run/build_run.mjs が 作る）の 名前と integrity（ホーム画面版と Claude版で 同じ）
+RUN_FILE=''; RUN_SRI=''
+if [ "$RUN_HOME" = 1 ] || [ "$RUN_CLAUDE" = 1 ]; then
+  [ -s run_bundle.js ] || { echo 'run_bundle.js が ありません（node tools/run/build_run.mjs）' >&2; exit 1; }
+  RUN_FILE="run-$(sha256hex run_bundle.js | cut -c1-12).js"
+  RUN_SRI="sha256-$(sha256b64 run_bundle.js)"
+fi
+
+# Claude版（アーティファクト。HOME = false＝Service Worker なし・クラウドの 保存）。
+# うちのこラン（RUN_CLAUDE=1。P5）：ゲームの ファイルは アーティファクトの 2つめの ファイル run-<ハッシュ>.js（index.html と 同じ 場所。
+# ページから 相対の パスで 読む＝アーティファクトの CSP は 自分の ファイルを 通す。integrity も つける）。ランの 画面（js_run.js。js_features.js の すぐあと）・
+# CSS（run/run.css。head.html の すぐあと）・RUN_SRC・RUN_SRI は ホーム画面版と 同じ もの。
+# out/claude/index.html は いまの アーティファクトと 同じ 1行目（claude_head.html）と うしろの 行で 包んだ もの（publish_files で そのまま 出せる）
+CLAUDE_JS="$JS"; CLAUDE_DEFS=''; CLAUDE_CSS=''
+if [ "$RUN_CLAUDE" = 1 ]; then
+  CLAUDE_JS=$(echo "$JS" | sed 's/js_features\.js/js_features.js js_run.js/')
+  CLAUDE_DEFS="const RUN_SRC = '$RUN_FILE', RUN_SRI = '$RUN_SRI';"
+  CLAUDE_CSS=run/run.css
+  cp run_bundle.js "out/claude/$RUN_FILE"
+fi
+{ cat head.html; if [ -n "$CLAUDE_CSS" ]; then echo '<style>'; cat "$CLAUDE_CSS"; echo '</style>'; fi; cat body.html;
+  echo '<script>'; echo 'const HOME = false;'; if [ -n "$CLAUDE_DEFS" ]; then echo "$CLAUDE_DEFS"; fi; cat $CLAUDE_JS; echo '</script>'; } > out/uchinoko-claude.html
+if [ "$RUN_CLAUDE" = 1 ]; then grep -q '^const RunUI = ' out/uchinoko-claude.html || { echo 'Claude版に js_run.js が 入っていません' >&2; exit 1; }; fi
+{ cat claude_head.html; cat out/uchinoko-claude.html; echo '</body></html>'; } > out/claude/index.html
 
 # ホーム画面版の <script> の中身。CSP はこの中身のハッシュだけを実行してよいものにする
 # おたすけのおねがいの間隔（日）は、ホーム画面版だけ js_rules.js の 7 を HOME_RESCUE_EVERY に置きかえる
@@ -39,10 +65,7 @@ HOME_JS=$(echo "$JS" | sed 's/js_rules\.js/js_rules.js js_home.js/')
 # CSP の script-src には その ファイルの URL だけを 足す（'self' に しない＝組織の ほかの Pages の スクリプトを 通さない）。sw.js も とっておく
 RUN_CSP=''; RUN_CORE=''; RUN_DEFS=''; RUN_CSS=''
 if [ "$RUN_HOME" = 1 ]; then
-  [ -s run_bundle.js ] || { echo 'run_bundle.js が ありません（node tools/run/build_run.mjs）' >&2; exit 1; }
-  RUN_FILE="run-$(sha256hex run_bundle.js | cut -c1-12).js"
   cp run_bundle.js "../$RUN_FILE"
-  RUN_SRI="sha256-$(sha256b64 run_bundle.js)"
   RUN_CSP=" $HOME_ORIGIN$RUN_FILE"
   RUN_CORE=", '$RUN_FILE'"
   RUN_DEFS="const RUN_SRC = '$RUN_FILE', RUN_SRI = '$RUN_SRI';"
@@ -103,4 +126,4 @@ if [ "$DOCS" = true ]; then
   for f in privacy terms; do sed "s|__CONTACT__|$CONTACT|g" legal/$f.html > out/line/$f.html; done
   if grep -q '__CONTACT__' out/line/privacy.html out/line/terms.html; then echo 'お問い合わせ先が入っていません' >&2; exit 1; fi
 fi
-echo "built ($VER)${RUN_FILE:+ $RUN_FILE}"
+echo "built ($VER)${RUN_FILE:+ $RUN_FILE}$( [ "$RUN_CLAUDE" = 1 ] && echo ' ＋Claude版にも' )"
