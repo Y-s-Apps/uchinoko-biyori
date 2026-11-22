@@ -1,5 +1,5 @@
 {
   "imports": {
-    "uchinoko-game": "https://raw.githubusercontent.com/Y-s-Apps/uchinoko-biyori/13a199926afe78f4965e229bc5dc87b720530ea6/supabase/functions/api/game.js"
+    "uchinoko-game": "https://raw.githubusercontent.com/Y-s-Apps/uchinoko-biyori/824da76f63b608ae3d99a19eb7c7159a09f89916/supabase/functions/api/game.js"
   }
 }
