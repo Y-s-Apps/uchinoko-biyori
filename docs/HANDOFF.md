@@ -2,7 +2,7 @@
 
 このファイルは、チャットのいちばん最後に毎回まるごと書き直します。次のチャットは、ここを読めば続きから始められます。オーナーは、更新のたびにプロジェクトナレッジのGitHubを「同期」し、作業ごとに新しいチャットへ移ります（`CLAUDE.md` の作業の流れ 7）。
 
-- 最終更新：2026-11-22（28回目：**うちのこランの P6＝LINE版の ぶんを 作った（ブランチ `p6-run-line`）。** サーバーの `/act runStart`・`run`（はやすぎる・走りだしなしは ほうびなし）、`build.sh` の `RUN_LINE=1`、`js_line.js` の `LineRun`、`line_head.html`、ポリシーの 改定（2026-11-22）。ためしは ぜんぶ とおった。**main・LINE版の 画面・サーバー（api version 27）は まだ かえていない**（ホーム画面版・Claude版は かわらない）。**つぎ：オーナーが Claude Fable 5.2 の チャットで レビュー（`docs/REVIEW_PROMPT.md`）→ 見つかった ことを 直す → ブランチを main に 入れて サーバーも デプロイ（`docs/RUN_DESIGN.md` 16章の「出し方」）→ オーナーが iPhone の LINE で 走って OK。** 保留1 の「サーバーを起こす」11-23 3:23 の回は まだ 来ていない（この チャットは 11-22 の お昼。11-20 の回は 成功））
+- 最終更新：2026-11-22（28回目：**うちのこランの P6＝LINE版の ぶんを 作った（ブランチ `p6-run-line`）。** サーバーの `/act runStart`・`run`（はやすぎる・走りだしなしは ほうびなし）、`build.sh` の `RUN_LINE=1`、`js_line.js` の `LineRun`、`line_head.html`、ポリシーの 改定（2026-11-22）。ためしは ぜんぶ とおった。**main・LINE版の 画面・サーバー（api version 27）は まだ かえていない**（ホーム画面版・Claude版は かわらない）。**つぎ：オーナーが Opus 5.5 の あたらしい チャットで レビュー（`docs/REVIEW_PROMPT.md`。範囲は うちのこラン P1〜P6 が 影響する ところ ぜんぶ＝2026-11-22 オーナー決定）→ 見つかった ことを 直す → ブランチを main に 入れて サーバーも デプロイ（`docs/RUN_DESIGN.md` 16章の「出し方」）→ オーナーが iPhone の LINE で 走って OK。** 保留1 の「サーバーを起こす」11-23 3:23 の回は まだ 来ていない（この チャットは 11-22 の お昼。11-20 の回は 成功））
 - リポジトリ：`Y-s-Apps/uchinoko-biyori`（組織 Y-s-Apps）。ホーム画面版：https://y-s-apps.github.io/uchinoko-biyori/
 - ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-4743ccd0f9`**（26回目の P4＋全体図の 見なおし。`index.html`・`sw.js`・`run-9c1af66550eb.js` の md5 は `cc997302…`・`43263950…`・`cb49db20…`）。ランを つかわなければ おせわの 動きは 前と同じ（`compare_home.py`：おなじ）
 - Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン30**（27回目の P5。version `1795318346-acdb`、contract `0.2.73` の まま、capabilities は 引きついだ〈db の ルール 2つ・downloads・sample〈images〉・user〉）。**ファイルは 2つ：`index.html`（sha256 `4b19e84d…`、368,949 バイト）と うちのこランの `run-9c1af66550eb.js`（`9c1af665…`）**。出す 前に バージョン29（`de696b7`）を 作りなおして sha256 `c2507c49…` が `list_files` と 同じなのを 確かめた。**出し方：** `sh src/build.sh` が `src/out/claude/` に そのまま 出せる 形（`index.html`＝いまの 版と 同じ 1行目 `src/claude_head.html`＋中身＋`</body></html>`、`run-<ハッシュ>.js`）を 作る → `publish_files`（slug は UUID `507aa3eb-87ee-4ddc-80e3-61638a697f56`。短い id は ことわられる。files は その 2つ、`capabilities`・`contract`・`title` は はぶく。ゲームが かわって 名前が かわったら 前の `run-*.js` を `remove`）。出す 前に 前の 版を 作りなおして `list_files` の sha256 と 同じか 確かめる（その コミットで `sh src/build.sh` → `src/out/claude/index.html`。P5 より 前の コミットは `out/uchinoko-claude.html` を `claude_head.html` と `</body></html>` で 包む）
@@ -38,7 +38,7 @@
   - 画面：`build.sh` の `RUN_LINE=1`（`out/line/run-<ハッシュ>.js` を いちばん上に 1つ・`RUN_SRC='/run-….js'`・CSP）、`js_line.js` の `LineRun`、`line_head.html`。`js_run.js`・`src/run/` は かえていない。
   - ポリシー：「おせわの記録」に うちのこランの記録（改定日 2026-11-22）。補足資料の 4 に ラン。
   - ためし：`api_test.ts`（ぜんぶ ok）・`line_e2e.py`（163 ok・FAIL 0・ページの エラー 0。23〜23c が ラン）・`smoke.py --line --android-inset 48`（エラー 0）・`linebreak.py --line --only run --only agi --only play`（76場面 ×2・0件）・`run_shots.py --line --android-inset 48`（7コース・GIF 2つ・エラー 0）・`smoke.py`（ホーム画面版）・`compare_home.py`（おなじ）。ビルドの 前後で ホーム画面版 `index.html` `cc997302…`・`sw.js` `43263950…`・Claude版 `src/out/claude/index.html` `a6c845bb…` は 同じ。`RUN_LINE=0` なら LINE版も 前と 同じ（`8644251e…`）。
-- レビューの プロンプトを `docs/REVIEW_PROMPT.md` に 作って わたした（Fable は 読むだけ・診断レポートの いちばん うしろに 章を 作る）。スクリーンショットと 走る GIF（LINE版・ゲスト）を 見せた。
+- レビューの プロンプトを `docs/REVIEW_PROMPT.md` に 作って わたした（読むだけ・診断レポートの いちばん うしろに 章を 作る）。**オーナー決定（2026-11-22）：レビューは Fable 5.2 では なく Opus 5.5（作った チャットとは べつの あたらしい チャット）、範囲は P6 だけで なく うちのこランを 入れた ことで 影響する 範囲 ぜんぶ（P1〜P6・3つの 版・サーバー・セーブ・書類）**。プロンプトを その 範囲に 作りなおした。スクリーンショットと 走る GIF（LINE版・ゲスト）を 見せた。
 
 ## その前のチャット（2026-11-22、27回目：うちのこランの P5）
 
@@ -51,7 +51,7 @@ Claude版に うちのこランを 出した（アーティファクトの 2つ�
 2. **（オーナーが 決める・いそがない）** Supabase の Data API の「Automatically expose new tables」を オフに するか（Supabase も オフを すすめている。いまは `public` に 表が ないので 害は ない。変えるのは オーナーの 許可を もらってから）。
 3. **公開の日の 手順 5（実機で 見る）の こまかい ところ：** よるの ひとこと（21時すぎ）・ひらいたまま つぎの日・トークの カードの ボタン など、気に なる ところが あったか オーナーに きく（きくだけ）。なでなで（P5-1）の はじめの 下スワイプも。
 4. **手順 6：** テスターでない人（家族など）の LINE で 本番用の LIFF URL（https://miniapp.line.me/2012410265-PutgsCLS ）が ひらけるか。Android の 人が いれば 下の 5つの ボタンと パズルの 下の すき間（P6-1）。
-5. **うちのこラン P6（LINE版。`docs/RUN_DESIGN.md` 16章）：** ブランチ `p6-run-line` に できている。**オーナーが Fable 5.2 の チャットで レビュー**（`docs/REVIEW_PROMPT.md` の「ここから」〜「ここまで」を 貼る）→ レポートの 章「うちのこラン（LINE版）の レビュー（2026-11-22）」→ 直すものを きめる → Opus 5.5 で ブランチの まま 直す → main に 入れて push → `build_server.py --check`（`game.js` は かわらない＝`deno.json` は `824da76` の まま）→ Supabase の MCP で `api` に `index.ts`・`deno.json` を デプロイ → `get_edge_function` を 手元と くらべる → pg_net で `/health`・LINE版の 3か所と `/run-<ハッシュ>.js` の md5 → オーナーが iPhone の LINE（開発用の LIFF URL）で 走って ほうびが つくか・下スワイプで ミニアプリが 小さく ならないか。**認証審査は この あいだ 申請しない**（審査中は LINE版を かえられない）。
+5. **うちのこラン P6（LINE版。`docs/RUN_DESIGN.md` 16章）：** ブランチ `p6-run-line` に できている。**オーナーが Opus 5.5 の あたらしい チャットで レビュー**（`docs/REVIEW_PROMPT.md` の「ここから」〜「ここまで」を 貼る。うちのこラン P1〜P6 が 影響する 範囲 ぜんぶ）→ レポートの 章「うちのこランの レビュー（2026-11-22・P1〜P6）」→ 直すものを きめる → Opus 5.5 で ブランチの まま 直す → main に 入れて push → `build_server.py --check`（`game.js` は かわらない＝`deno.json` は `824da76` の まま）→ Supabase の MCP で `api` に `index.ts`・`deno.json` を デプロイ → `get_edge_function` を 手元と くらべる → pg_net で `/health`・LINE版の 3か所と `/run-<ハッシュ>.js` の md5 → オーナーが iPhone の LINE（開発用の LIFF URL）で 走って ほうびが つくか・下スワイプで ミニアプリが 小さく ならないか。**認証審査は この あいだ 申請しない**（審査中は LINE版を かえられない）。
 5b. **うちのこの 体勢と 動き（`docs/MOTION_DESIGN.md`）：** 実装は Opus 5.5 の 新しい チャットで（プロンプトは 設計の 8章）。**認証審査の「審査中」は LINE版を かえられないので、申請の 前か 認証の あとに 出す。**
 5e. **Dependabot の PR #1**（esbuild 0.24.2 → 0.28.1、`tools/run/`。2026-11-21）：開発用 サーバー（`serve`）の 注意で、うちのこは `build` だけ。**手で マージしない**（lockfile と `src/run_bundle.js` が ずれる）。P3 でも 上げなかった。上げるなら `npm install` → `build_run.mjs` → ためしを ぜんぶ とおして いっしょに コミットし、PR は とじる。
 5d. **（オーナーが 決める・いそがない）** 2D の 絵の ヨークシャーテリアも 全身タイツの ように 見えるので、3D と 同じく「せなかだけ ブルー」に するか（`renderPet`。3つの 版が かわる）。
@@ -63,7 +63,8 @@ Claude版に うちのこランを 出した（アーティファクトの 2つ�
 
 - オーナー：別プロジェクトで 個人事業主の 申請（開業届など）→ 認証審査の 申請（補足資料の文は `docs/PROJECT.md` 10章。申請の 前に 画面の 文言と あっているか 見なおす）。
 - 認証審査を申請したら：審査は1〜2週間、「審査中」は取り消しも変更も できない（画面とサーバーも変えない）。認証されたら：「検索可能にする」は 承認から30日以内に押す。リンクする公式アカウント・友だち追加オプションは 認証の前に すませておく（あとで変えると 再審査）。
-- うちのこランの P6：Fable 5.2 の レビュー → 直す → LINE版に 出す（上の 保留5）。
+- うちのこランの P6：Opus 5.5 の レビュー（P1〜P6）→ 直す → LINE版に 出す（上の 保留5）。
+- **認証審査の 申請の 前に、包括的な 診断（約束①の ような ぜんぶ）を もう一度 すすめる**：11-16 の パズルの レビューの あとの、ラン いがいの 直し（`de696b7` なでなでの 下スワイプ と 小さい Android の 下の ボタン、`b34a30d` ひらいたときの メーター と 21:05 の やりなおし）は まだ だれも レビューしていない。
 - うちのこの 体勢と 動き（Opus 5.5）は 審査中を さけて。
 
 ## 気をつけること
