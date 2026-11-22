@@ -3,7 +3,7 @@
 #   ../index.html, ../sw.js        … ホーム画面版（GitHub Pages）
 #   out/uchinoko-claude.html       … Claude アーティファクト版
 #   out/line/                      … LINE版（LINEミニアプリ。Cloudflare Pages がこのフォルダを公開する。本番用＝いちばん上、審査用＝review/、開発用＝dev/。
-#                                    Cloudflare の ヘッダー _headers も）
+#                                    Cloudflare の ヘッダー _headers も。RUN_LINE=1 なら うちのこランの ゲーム run-<ハッシュ>.js も いちばん上に 1つ）
 #   out/claude/                    … Claude版を そのまま 出せる 形（index.html＝claude_head.html＋uchinoko-claude.html＋</body></html>、
 #                                    RUN_CLAUDE=1 なら うちのこランの ゲーム run-<ハッシュ>.js も。publish_files で この 2つを 出す）
 #   ../run-<ハッシュ>.js            … うちのこランの ゲーム（RUN_HOME=1 のとき。中身は run_bundle.js）
@@ -22,16 +22,16 @@ sha256hex(){
 mkdir -p out
 
 # うちのこランの ビルドの スイッチ（docs/RUN_DESIGN.md 9章）：出して よい 版だけに ランの 入口と ファイルを 入れる。
-# ホーム画面版（P2〜P4）と Claude版（P5）。LINE版は P6（そのときに ここを 作る。いまは 1 に すると とめる）。
-# ためしに ランなしの 版を 作るときは RUN_HOME=0・RUN_CLAUDE=0 sh src/build.sh
-RUN_HOME="${RUN_HOME-1}"; RUN_LINE="${RUN_LINE-0}"; RUN_CLAUDE="${RUN_CLAUDE-1}"
-if [ "$RUN_LINE" != 0 ]; then echo 'ランは まだ LINE版（P6）に 出せません（RUN_LINE=0）' >&2; exit 1; fi
+# ホーム画面版（P2〜P4）・Claude版（P5）・LINE版（P6。2026-11-22）。
+# ためしに ランなしの 版を 作るときは RUN_HOME=0・RUN_CLAUDE=0・RUN_LINE=0 sh src/build.sh
+RUN_HOME="${RUN_HOME-1}"; RUN_LINE="${RUN_LINE-1}"; RUN_CLAUDE="${RUN_CLAUDE-1}"
 HOME_ORIGIN='https://y-s-apps.github.io/uchinoko-biyori/'   # ホーム画面版の 公開 URL（CSP に ファイルの URL を パスまで 書く）
+LINE_ORIGIN='https://uchinoko-biyori.pages.dev/'             # LINE版の 公開 URL（同じく。審査用 /review/・開発用 /dev/ も いちばん上の 1つを 読む）
 rm -f ../run-*.js
 rm -rf out/claude; mkdir -p out/claude
-# ゲームの ファイル（run_bundle.js。tools/run/build_run.mjs が 作る）の 名前と integrity（ホーム画面版と Claude版で 同じ）
+# ゲームの ファイル（run_bundle.js。tools/run/build_run.mjs が 作る）の 名前と integrity（ホーム画面版・Claude版・LINE版で 同じ）
 RUN_FILE=''; RUN_SRI=''
-if [ "$RUN_HOME" = 1 ] || [ "$RUN_CLAUDE" = 1 ]; then
+if [ "$RUN_HOME" = 1 ] || [ "$RUN_CLAUDE" = 1 ] || [ "$RUN_LINE" = 1 ]; then
   [ -s run_bundle.js ] || { echo 'run_bundle.js が ありません（node tools/run/build_run.mjs）' >&2; exit 1; }
   RUN_FILE="run-$(sha256hex run_bundle.js | cut -c1-12).js"
   RUN_SRI="sha256-$(sha256b64 run_bundle.js)"
@@ -100,12 +100,30 @@ if [ -n "$CONTACT" ] && ! printf '%s' "$CONTACT" | grep -Eq '^https://(forms\.gl
   echo "CONTACT は Googleフォームの URL にしてください" >&2; exit 1
 fi
 if [ -n "$CONTACT" ]; then DOCS=true; else DOCS=false; fi
+# うちのこラン（RUN_LINE=1。P6）：ゲームの ファイルは いちばん上に 1つ（out/line/run-<ハッシュ>.js）。ページは それを '/run-….js'（いちばん上からの パス）で
+# integrity つきで 読むので、審査用 /review/・開発用 /dev/ の ページも 同じ ファイル。CSP の script-src には その URL だけ（パスまで。'self' に しない）。
+# ランの 画面（js_run.js）・CSS（run/run.css）は ホーム画面版と 同じ もの。LINE版だけの こと（走りだし runStart・ゴールの 番号・下の すき間・下スワイプ）は
+# js_line.js と line_head.html
 rm -rf out/line; mkdir -p out/line
-{ echo; echo 'const HOME = true;'; echo "const LINE_DOCS = $DOCS;"; echo "const LINE_CONTACT = '$CONTACT';"; cat $JS js_line.js; } > out/line-script.js
+LINE_JS="$JS"; LINE_DEFS=''; LINE_CSS=''; LINE_RUN_CSP=''
+if [ "$RUN_LINE" = 1 ]; then
+  LINE_JS=$(echo "$JS" | sed 's/js_features\.js/js_features.js js_run.js/')
+  LINE_DEFS="const RUN_SRC = '/$RUN_FILE', RUN_SRI = '$RUN_SRI';"
+  LINE_CSS=run/run.css
+  LINE_RUN_CSP=" $LINE_ORIGIN$RUN_FILE"
+  cp run_bundle.js "out/line/$RUN_FILE"
+fi
+{ echo; echo 'const HOME = true;'; echo "const LINE_DOCS = $DOCS;"; echo "const LINE_CONTACT = '$CONTACT';"; if [ -n "$LINE_DEFS" ]; then echo "$LINE_DEFS"; fi; cat $LINE_JS js_line.js; } > out/line-script.js
 LHASH="sha256-$(sha256b64 out/line-script.js)"
-{ sed "s|__SCRIPT_HASH__|$LHASH|" line_head.html; cat head.html; echo '</head>'; echo '<body>'; cat body.html;
+{ sed -e "s|__SCRIPT_HASH__|$LHASH|" -e "s|__RUN_CSP__|$LINE_RUN_CSP|" line_head.html; cat head.html;
+  if [ -n "$LINE_CSS" ]; then echo '<style>'; cat "$LINE_CSS"; echo '</style>'; fi
+  echo '</head>'; echo '<body>'; cat body.html;
   printf '<script>'; cat out/line-script.js; echo '</script>'; echo '</body>'; echo '</html>'; } > out/line/index.html
 grep -q "'$LHASH'" out/line/index.html
+if [ "$RUN_LINE" = 1 ]; then
+  grep -q '^const RunUI = ' out/line-script.js || { echo 'LINE版に js_run.js が 入っていません' >&2; exit 1; }
+  grep -q "script-src '$LHASH' $LINE_ORIGIN$RUN_FILE https://static.line-scdn.net;" out/line/index.html || { echo 'LINE版の CSP に ランの ファイルが 入っていません' >&2; exit 1; }
+fi
 cp ../favicon-32.png ../favicon-64.png out/line/
 # うちのこカード（トークに送る メッセージ）の 下の行に出す LINEミニアプリの アイコン（https://uchinoko-biyori.pages.dev/line-icon.png）
 cp icons/line-icon-130.png out/line/line-icon.png
@@ -126,4 +144,4 @@ if [ "$DOCS" = true ]; then
   for f in privacy terms; do sed "s|__CONTACT__|$CONTACT|g" legal/$f.html > out/line/$f.html; done
   if grep -q '__CONTACT__' out/line/privacy.html out/line/terms.html; then echo 'お問い合わせ先が入っていません' >&2; exit 1; fi
 fi
-echo "built ($VER)${RUN_FILE:+ $RUN_FILE}$( [ "$RUN_CLAUDE" = 1 ] && echo ' ＋Claude版にも' )"
+echo "built ($VER)${RUN_FILE:+ $RUN_FILE}$( [ "$RUN_CLAUDE" = 1 ] && echo ' ＋Claude版にも' )$( [ "$RUN_LINE" = 1 ] && echo ' ＋LINE版にも' )"

@@ -161,7 +161,7 @@ let handler: (r: Request) => Promise<Response>;
 (Deno as any).serve = (h: any) => { handler = h; return {} as any; };
 await import(FN);
 /* サーバーと 同じ ルール（同じ import map なので 同じ もの）。notify で 1人の セーブが 例外を 出す まねに つかう（F2-2） */
-const { Rules } = await import('uchinoko-game') as any;
+const { Rules, RUN } = await import('uchinoko-game') as any;
 
 const ORIGIN = 'https://uchinoko-biyori.pages.dev';
 async function call(method: string, path: string, body?: unknown, session?: string, origin: string | null = ORIGIN){
@@ -839,17 +839,82 @@ console.log('puzzle (2026-11-15：パズル。たねと 手順だけ うけと�
   ok(pl.data.ok && m2.data.ok && m2.data.why !== 'busy', 'right after a play → not busy (the puzzle is not a care action)', m2.data);
 }
 
-console.log('run (2026-11-22 P3：うちのこランは ホーム画面版だけ。LINE版に 出す P6 まで サーバーは うけつけない)');
+console.log('run (2026-11-22 P6：うちのこラン。走りだし runStart の サーバーの 時刻から いちばん はやい タイムより はやい ゴールは ほうびなし)');
 {
   const rn = await joiner('runner');
-  const sv0 = (await call('GET', '/save', undefined, rn.token)).data.save;
+  const getS = async () => (await call('GET', '/save', undefined, rn.token)).data.save;
+  /* 走りだしから ms ミリ秒 たった ことに する（サーバーの 時計は そのまま、srv.run.t を 前に ずらす） */
+  const ago = (ms: number) => patch(rn.id, d => { if (d.srv && d.srv.run) d.srv.run.t -= ms; });
+  const go = (course: string, rid: string) => call('POST', '/act', { type:'runStart', course, rid }, rn.token);
+  const goal = (course: string, rid: string, extra: Record<string, unknown> = {}) => call('POST', '/act', { type:'run', course, ms:36580, misses:0, rank:1, rid, ...extra }, rn.token);
+  const sv0 = await getS();
   ok(sv0.data.run && sv0.data.run.games === 0 && sv0.data.run.n === 0 && JSON.stringify(sv0.data.run.best) === '{}', 'a new child has the run record (ensureState)', sv0.data.run);
-  for (const type of ['run', 'runStart']){
-    const x = await call('POST', '/act', { type, course:'park', ms:36580, misses:0, rank:1, rid:'rid-run-' + type }, rn.token);
-    ok(x.status === 400 && x.data.error === 'badtype', `/act ${type} → 400 badtype (not yet on LINE)`, x);
+  const love0 = sv0.data.stats.love;
+  /* 走りだし：サーバーの 時刻を srv.run に。数字は かえない */
+  let x = await go('park', 'rid-run-start-1');
+  const sv1 = await getS();
+  ok(x.status === 200 && x.data.ok && x.data.course === 'park' && sv1.data.srv.run && sv1.data.srv.run.c === 'park' && Math.abs(sv1.data.srv.run.t - Date.now()) < 5000
+     && sv1.data.run.games === 0 && sv1.data.stats.love === love0 && sv1.rev === sv0.rev + 1, 'runStart → srv.run = { c, t } (server time), nothing else changes', { r:x.data, srv:sv1.data.srv });
+  x = await go('park', 'rid-run-start-1');
+  ok(x.data.ok && x.data.dup === true && (await getS()).rev === sv1.rev, 'the same runStart rid again → the first answer, not written twice', x.data);
+  x = await go('nowhere', 'rid-run-start-bad');
+  ok(x.status === 200 && x.data.ok === false && x.data.why === 'course' && (await getS()).rev === sv1.rev, 'runStart with an unknown course → refused, nothing written', x.data);
+  x = await go('constructor', 'rid-run-start-ctor');
+  ok(x.data.ok === false && x.data.why === 'course', 'runStart: constructor is not a course', x.data);
+  /* はやすぎる ゴール（走りだしから min より 前）：きろく（回数・ベスト）は するが ほうびなし。ありえない タイムは min に 切る */
+  x = await goal('park', 'rid-run-goal-fast', { ms:1 });
+  ok(x.data.ok && x.data.reward === false && x.data.noreward === 'fast' && x.data.left === 3 && x.data.ms === RUN.courses.park.min && x.data.save.data.run.n === 0
+     && x.data.save.data.run.games === 1 && x.data.save.data.run.best.park === RUN.courses.park.min && x.data.save.data.stats.love === love0 && !x.data.save.data.srv.run,
+     'goal faster than RUN.min after runStart → recorded (best is cut to min) but no reward・left stays 3・the start is used up', x.data);
+  /* 走りだしが ない（つかいおわった）ゴール：ほうびなし */
+  x = await goal('park', 'rid-run-goal-nostart');
+  ok(x.data.ok && x.data.reward === false && x.data.noreward === 'start' && x.data.save.data.run.n === 0 && x.data.save.data.run.games === 2, 'goal without a runStart → no reward', x.data);
+  /* ちがう コースの 走りだし */
+  await go('beach', 'rid-run-start-2'); await ago(60_000);
+  x = await goal('park', 'rid-run-goal-other');
+  ok(x.data.ok && x.data.reward === false && x.data.noreward === 'start' && !x.data.save.data.srv.run, 'goal on another course than the runStart → no reward (and the start is used up)', x.data);
+  /* ふつうの ゴール：走りだしから min より あと → ほうび（ごきげん+5・なかよし+2）・ベスト・アルバム。CARE（2.5秒）には 数えない */
+  await patch(rn.id, d => { d.stats.full = 60; });
+  const pl = await call('POST', '/act', { type:'play' }, rn.token);
+  x = await go('park', 'rid-run-start-3');
+  ok(pl.data.ok && x.data.ok && x.data.why !== 'busy', 'runStart right after a play → not busy (not a care action)', x.data);
+  await ago(RUN.courses.park.min + 3000);
+  const before = (await getS()).data;
+  const g1 = await goal('park', 'rid-run-goal-1', { ms:36580, score:9, reward:true, n:0, left:3, best:{ park:1 } });
+  ok(g1.data.ok && g1.data.reward === true && !g1.data.noreward && g1.data.left === 2 && g1.data.save.data.run.n === 1 && g1.data.ms === 36580
+     && Math.abs(g1.data.save.data.stats.love - before.stats.love - RUN.love) < 1e-9 && g1.data.save.data.run.best.park === RUN.courses.park.min,
+     'a fair goal (after RUN.min) → reward・left 2・the extra fields sent are ignored・the best stays the faster one', g1.data);
+  const g1b = await goal('park', 'rid-run-goal-1');
+  ok(g1b.data.ok && g1b.data.dup === true && g1b.data.reward === true && g1b.data.save.rev === g1.data.save.rev && g1b.data.save.data.run.n === 1, 'the same goal rid again → the first answer, counted once', g1b.data);
+  const g1c = await goal('park', 'rid-run-goal-1x');
+  ok(g1c.data.ok && g1c.data.reward === false && g1c.data.noreward === 'start' && g1c.data.save.data.run.n === 1, 'another goal for the same runStart → no reward (one start, one reward)', g1c.data);
+  /* アジリティ（ミスの 数・順位なし）と 1日3回（レース＋アジリティ）。パズルの 回数は かわらない */
+  const pz0 = (await getS()).data.puzzle;
+  for (const [i, c] of [[2, 'balance'], [3, 'zigzag'], [4, 'first-field']] as [number, string][]){
+    await go(c, 'rid-run-start-a' + i); await ago(RUN.courses[c].min + 3000);
+    x = await call('POST', '/act', { type:'run', course:c, ms:RUN.courses[c].min + 9000, misses:i === 2 ? 0 : 2, rid:'rid-run-goal-a' + i }, rn.token);
+    ok(x.data.ok && x.data.reward === (i <= 3) && !x.data.noreward && x.data.save.data.run.n === Math.min(3, i) && x.data.left === Math.max(0, 3 - i),
+       i <= 3 ? `agility goal ${i} → reward (race + agility together)` : 'the 4th goal today → no reward (the daily limit), no noreward mark', x.data);
   }
-  const sv1 = (await call('GET', '/save', undefined, rn.token)).data.save;
-  ok(sv1.rev === sv0.rev && sv1.data.run.games === 0 && sv1.data.stats.love === sv0.data.stats.love, 'nothing written', { rev0:sv0.rev, rev1:sv1.rev, run:sv1.data.run });
+  const sv2 = await getS();
+  ok(JSON.stringify(sv2.data.puzzle) === JSON.stringify(pz0) && sv2.data.run.clears >= 2 && sv2.data.album.some((a: any) => a.k === 'run:balance'), 'the puzzle count is untouched・no-miss goals are clears・the best is in the album', { run:sv2.data.run });
+  /* ほうびなしでも きょうの 回数は のこる（きのうの 3回 → きょうは 0 から） */
+  await patch(rn.id, d => { d.run.day = jst(Date.now() - 864e5); d.run.n = 3; });
+  x = await goal('park', 'rid-run-goal-y');
+  ok(x.data.ok && x.data.reward === false && x.data.noreward === 'start' && x.data.left === 3 && x.data.save.data.run.n === 0 && x.data.save.data.run.day === jst(Date.now()),
+     "a no-reward goal on a new day → today's count is 0 (not yesterday's 3, not the fake 3)", x.data);
+  /* こわれた 値：知らない コース・タイムが 数で ない → なにも 書かない */
+  const rev3 = (await getS()).rev;
+  x = await call('POST', '/act', { type:'run', course:'moon', ms:30000, rid:'rid-run-goal-bad1' }, rn.token);
+  const y = await call('POST', '/act', { type:'run', course:'park', ms:'fast', rid:'rid-run-goal-bad2' }, rn.token);
+  ok(x.data.ok === false && x.data.why === 'course' && y.data.ok === false && y.data.why === 'bad' && (await getS()).rev === rev3, 'an unknown course / a time that is not a number → refused, nothing written', { x:x.data, y:y.data });
+  /* 走りだしの しるしが こわれていたら（未来の 時刻・知らない コース）すてる */
+  await patch(rn.id, d => { d.srv.run = { c:'park', t:Date.now() + 864e5 }; });
+  x = await goal('park', 'rid-run-goal-future');
+  ok(x.data.ok && x.data.noreward === 'start', 'a runStart time in the future is thrown away → no reward', x.data);
+  await patch(rn.id, d => { d.srv.run = { c:'__proto__', t:1 }; });
+  x = await goal('park', 'rid-run-goal-proto');
+  ok(x.data.ok && x.data.noreward === 'start', 'an odd runStart course is thrown away → no reward', x.data);
 }
 
 console.log('rate (1-5：会員ごとの 回数の制限)');

@@ -118,6 +118,7 @@ serve({ port:Number(PORT), hostname:'127.0.0.1', onListen(){ console.log('e2e se
     const rows = await admin`select a.sub, m.id, m.imported_at is not null as imported, s.rev::int as rev,
       s.data->'pet'->>'name' as name, s.data->'pet'->'photo' as photo, (s.data->>'created')::bigint as created,
       (s.data->'stats'->>'love')::float as love, (s.data->'counts'->>'meals')::int as meals, (s.data->'counts'->>'pets')::int as pets, s.data->'puzzle' as puzzle,
+      s.data->'run' as run, s.data->'srv'->'run' as run_start,
       (select b.data->'pet'->>'name' from app.save_backups b where b.member_id = m.id) as backup
       from app.line_accounts a join app.members m on m.id = a.member_id left join app.saves s on s.member_id = m.id order by a.sub`;
     return j(rows);
@@ -177,6 +178,13 @@ serve({ port:Number(PORT), hostname:'127.0.0.1', onListen(){ console.log('e2e se
     const srv = busy ? { cd:Date.now() + 60e3 } : { cd:0 };
     await admin`update app.saves s set data = jsonb_set(jsonb_set(s.data, '{stats,full}', to_jsonb(${full}::float)), '{srv}', ${srv}::jsonb)
       from app.line_accounts a where a.member_id = s.member_id and a.sub = ${sub}`;
+    return j({ ok:true });
+  }
+  if (u.pathname === '/__debug/run'){
+    /* うちのこランの 走りだしから ms ミリ秒 たった ことに する（サーバーの セーブの srv.run.t を 前に。走りだしが なければ なにも しない） */
+    const { sub, ms } = await req.json();
+    await admin`update app.saves s set data = jsonb_set(s.data, '{srv,run,t}', to_jsonb((s.data->'srv'->'run'->>'t')::bigint - ${Math.round(ms)}::bigint))
+      from app.line_accounts a where a.member_id = s.member_id and a.sub = ${sub} and s.data->'srv'->'run' is not null`;
     return j({ ok:true });
   }
   if (u.pathname === '/__debug/age'){

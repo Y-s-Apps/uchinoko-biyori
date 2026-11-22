@@ -6,7 +6,7 @@
 スペース・句読点（、。！？」など）・<br>・<wbr> での改行は よい改行として数えません。
 
   python3 tools/linebreak.py              # ホーム画面版（ルートの index.html）
-  python3 tools/linebreak.py --line       # LINE版（src/out/line/。LINEの中で サーバーに つながったときの画面も まねる）
+  python3 tools/linebreak.py --line       # LINE版（src/out/line/。LINEの中で サーバーに つながったときの画面も まねる。うちのこランの 場面も＝P6）
   python3 tools/linebreak.py --claude     # Claude版（src/out/claude/＝アーティファクトに 出す 形を アーティファクトの外で。ゲストの保存。うちのこランの 場面も）
   python3 tools/linebreak.py --shots DIR  # 場面ごとの スクリーンショットも とる（見本づくり用）
   python3 tools/linebreak.py --width 375  # 幅を1つだけ
@@ -317,6 +317,18 @@ def scenes(line, run=False):
         add('agi_result_balance', agi_finish(False, 'balance'), '#runPage', 600)
         add('agi_result_hill', agi_finish(False, 'hill-field'), '#runPage', 600)
         add('agi_result_norec', "const AR = Act.run; Act.run = () => Promise.resolve({ ok:false, why:'bad' }); " + agi_finish(False) + "Act.run = AR; ", '#runPage', 600)
+    if run and line:
+        # LINE版だけ（P6）：LINE に ほぞんしている子の ゴール（js_line.js の LineRun）。つながっていない・いそがしい →「もういちど おくる」、
+        # 走りだしが とどいていない・はやすぎる →「この回は ほうび なし」（ほうびの のこりが ある とき）
+        def line_goal(r, fin):
+            return "const AR = Act.run, LM = LineRun.mine; LineRun.mine = () => true; Act.run = () => Promise.resolve(%s); " % r + fin + "Act.run = AR; LineRun.mine = LM; "
+        nr = "{ ok:true, course:'%s', ms:%d, prev:%s, best:%s, reward:false, left:2, noreward:'start', ev:[] }"
+        add('run_line_offline', line_goal("{ ok:false, why:'offline', ev:[] }", run_finish(True)), '#runPage', 600)
+        add('run_line_busy', line_goal("{ ok:false, why:'busy', ev:[] }", run_finish(True)), '#runPage', 600)
+        add('run_line_noreward', line_goal(nr % ('park', 29620, 'null', 'true'), run_finish(True)), '#runPage', 600)
+        add('run_line_noreward_slow', line_goal(nr % ('park', 41230, '36580', 'false'), run_finish(False, pre='S.run.best.park = 36580; ')), '#runPage', 600)
+        add('agi_line_offline', line_goal("{ ok:false, why:'offline', ev:[] }", agi_finish(False)), '#runPage', 600)
+        add('agi_line_noreward', line_goal(nr % ('first-field', 21580, 'null', 'true'), agi_finish(True)), '#runPage', 600)
     add('requests_pinch',"S.daily.rescue={type:'treat',n:2,got:0,done:false}; S.streak={last:Clock.dayKey(now()-2*864e5),n:12,best:20}; openRequests()", '#sheet')
     if line:
         on = ("LineSync.state='on'; LineServer.member={id:'x'}; LineSync.created=1; LineServer.card={on:true,left:2,perDay:3}; LineServer.importable=true;"
@@ -503,7 +515,7 @@ async def run(args, width):
                 await page.screenshot(path=os.path.join(shots, f'{n_scenes:03d}_{name}.png'))
             await clear()
 
-        for name, js, root, wait, pet in scenes(args.line, run=not args.line):   # うちのこランは ホーム画面版と Claude版（P5）
+        for name, js, root, wait, pet in scenes(args.line, run=True):   # うちのこランは 3つの 版（Claude版は P5、LINE版は P6）
             if args.only and not any(o in name for o in args.only):
                 continue
             # 子がいない画面と いる画面で ページを ひらきなおす。LINE版の「つれてくる？」なども 状態を変えるので 毎回

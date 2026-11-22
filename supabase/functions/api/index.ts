@@ -2,7 +2,7 @@
  *
  *   POST /login   { idToken }        LINE の IDトークンを検証 → 会員ID → 自前のセッション（とセーブ）を返す
  *   GET  /save                       セーブを読む
- *   POST /act     { type, … }        おせわ（open・feed・treat・play・pet・trick・dress・room・season）を、
+ *   POST /act     { type, … }        おせわ（open・feed・treat・play・pet・trick・dress・room・season・puzzle・runStart・run）を、
  *                                    サーバーの時刻（日付は日本時間）と乱数で判定して、できごととセーブを返す。
  *                                    adopt { pet } は新しい子（まっさら）をむかえる
  *   POST /save    { pet }            名前・みため（種類・毛色・顔つき）だけを書く。数字や記録は受けとらない
@@ -34,8 +34,11 @@
  * - パズル（2026-11-15）も ここで決める：画面から うけとるのは たね（seed）と 手順（moves）だけで、Rules が 再生して
  *   クリアと 点数を決め、ほうびの 1日3回も セーブ（puzzle.day・puzzle.n）で 数える。点数や 回数は 画面から うけとらない。
  * - おせわ（ごはん・おやつ・あそぶ・げい）は、前のおせわから 2.5 秒あける（画面の動きより短い。パズルは 数えない）。
- * - うちのこラン（2026-11-22 P3。ホーム画面版だけ）の ルール（Rules.act 'run'）は game.js に 入っているが、LINE版に 出す（P6）まで
- *   /act は 'run' を うけつけない（NOT_YET。400 badtype）。P6 で 走りだしの 時刻（runStart）と いっしょに あける（docs/RUN_DESIGN.md 6章）。
+ * - うちのこラン（2026-11-22 P6。docs/RUN_DESIGN.md 6章）：画面が 走りだしで runStart { course }、ゴールで run { course, ms, misses, rank }。
+ *   runStart は サーバーの 時計の 時刻を セーブの srv.run = { c, t } に のこすだけ。run は Rules（ほうびは ゴールしたか だけ・1日3回・
+ *   パズルとは べつ・タイムは そのコースの いちばん はやい タイム RUN.courses[c].min で 切る・ベスト・アルバム）。
+ *   srv.run が ない・ちがう コース・t から min より はやい ゴールは、きろく（回数・ベスト）は するが ほうびなし（noreward）。
+ *   srv.run は 1回の ゴールで つかいおわる（runStart 1回で ほうびは 1回まで）。どちらも おせわの 2.5秒（CARE）には 数えない。rid の しくみに のる。
  * - IDトークンは https://api.line.me/oauth2/v2.1/verify で検証し、sub だけを使う（プロフィールの値は使わない）。
  *   LINEミニアプリチャネルの中の 開発用・審査用・本番用（内部チャネル）は チャネルIDが べつなので、3つとも通す（LINE_CHANNEL_IDS）。
  *   sub はプロバイダーごとなので、どの内部チャネルから ひらいても 同じ会員になる。
@@ -71,7 +74,7 @@
  *   メッセージに 入れるのは 子の名前・のこりの数・れんぞくの日数と、ミニアプリを ひらく ボタンだけ。ログに ユーザーIDを 出さない。
  */
 import postgres from 'npm:postgres@3.4.5';
-import { cleanText, ensureState, readMoveCode, MOVE_MAX, dayKey, Rules, newState, normalizeLook, buildPrompt, parseAI } from 'uchinoko-game';
+import { cleanText, ensureState, readMoveCode, MOVE_MAX, dayKey, Rules, newState, normalizeLook, buildPrompt, parseAI, RUN } from 'uchinoko-game';
 
 const env = (k: string, d = '') => (Deno.env.get(k) ?? d).trim();
 /* LINEミニアプリチャネルの内部チャネル（開発用・審査用・本番用）のチャネルID（LIFF ID の前半）。秘密ではない。カンマで複数。
@@ -110,8 +113,8 @@ const CARD_B64_MAX = Math.ceil(CARD_MAX / 3) * 4;
 const CARD_SIDE = { min:240, max:1024 } as const;   /* 画像の たて・よこ（px）。LINE の Flex Message の画像は 1024px まで */
 const BODY_MAX = { login:8_000, save:8_000, act:8_000, import:MOVE_MAX + 2_000, read:IMAGE_MAX + 2_000, leave:8_000, card:CARD_B64_MAX + 2_000, notify:2_000 } as const;
 const CARE = new Set(['feed', 'treat', 'play', 'trick']);
-/* まだ LINE版に 出していない あそび（ルールは game.js に あるが、うけつけない）。うちのこランは P6 で あける */
-const NOT_YET = new Set(['run', 'runStart']);
+/* うちのこラン：知っている コースか（RUN.courses の 自分の キーだけ。constructor などを とおさない） */
+const runCourse = (c: unknown) => typeof c === 'string' && Object.prototype.hasOwnProperty.call(RUN.courses, c) ? c : null;
 const CARE_GAP_MS = 2_500;
 const STROKE_MAX = 12;
 /* 長く ひらかない人：最後に ひらいて（ログインして）から この日数で、会員ごと ぜんぶ消す（プライバシーポリシーの「2年」）。
@@ -390,10 +393,11 @@ function cleanPet(raw: unknown): Pet {
 }
 
 /* サーバーだけが使う控え（画面には関係ない）：なでなでのなかよしの残り（pb）、前のおせわの時刻（cd）、
-   さいごに うけとった おせわの番号と その答え（rq。診断 3-3）、書きこみの回数（rt：10秒の まど w・n と その日 d・dn。診断 1-5） */
+   さいごに うけとった おせわの番号と その答え（rq。診断 3-3）、書きこみの回数（rt：10秒の まど w・n と その日 d・dn。診断 1-5）、
+   うちのこランの 走りだし（run：コース c と サーバーの 時刻 t。2026-11-22 P6） */
 type Rq = { id: string; r: Record<string, unknown> };
 type Rt = { w: number; n: number; d: string; dn: number };
-type Srv = { pb: { left: number; t: number }; cd: number; rq?: Rq; rt: Rt };
+type Srv = { pb: { left: number; t: number }; cd: number; rq?: Rq; rt: Rt; run?: { c: string; t: number } };
 function srvOf(st: Record<string, unknown>, t: number): Srv {
   const o = (st.srv && typeof st.srv === 'object' ? st.srv : {}) as Record<string, unknown>;
   const pb = (o.pb && typeof o.pb === 'object' ? o.pb : {}) as Record<string, unknown>;
@@ -405,6 +409,9 @@ function srvOf(st: Record<string, unknown>, t: number): Srv {
     rt:{ w:n(rt.w, 0, 0, t), n:n(rt.n, 0, 0, 1e9), d:typeof rt.d === 'string' ? rt.d : '', dn:n(rt.dn, 0, 0, 1e9) },
   };
   if (rq && typeof rq.id === 'string' && RID_RE.test(rq.id) && rq.r && typeof rq.r === 'object') srv.rq = { id:rq.id, r:rq.r as Record<string, unknown> };
+  const run = (o.run && typeof o.run === 'object' ? o.run : null) as Record<string, unknown> | null;
+  const rc = run ? runCourse(run.c) : null, rt0 = run ? Number(run.t) : NaN;
+  if (rc && Number.isFinite(rt0) && rt0 > 0 && rt0 <= t) srv.run = { c:rc, t:rt0 };
   st.srv = srv;
   return srv;
 }
@@ -448,7 +455,6 @@ async function act(req: Request, member: string) {
   const type = String(body.type || '');
   const rid = ridOf(body);
   if (type === 'adopt') return await adopt(member, cleanPet(body.pet), rid);
-  if (NOT_YET.has(type)) throw new HttpError(400, 'badtype');
   return await sql.begin(async tx => {
     const [sv] = await tx<SaveRow[]>`select data, rev::int as rev, updated_at from app.saves where member_id = ${member} for update`;
     if (!sv) throw new HttpError(409, 'nosave');
@@ -460,11 +466,43 @@ async function act(req: Request, member: string) {
     if (rid && srv.rq && srv.rq.id === rid) return { ...srv.rq.r, dup:true, save:saveOut(sv), now:t };
     if (CARE.has(type) && t - srv.cd < CARE_GAP_MS) return { ok:false, why:'busy', ev:[], save:saveOut(sv), now:t };
     if (overRate(srv, t)) return { ok:false, why:'busy', ev:[], save:saveOut(sv), now:t };
+    if (type === 'runStart'){
+      /* うちのこランの 走りだし：サーバーの 時刻を のこすだけ（数字は かえない）。前の 走りだしは 置きかえる（もういちど・さいしょから・ほかの コース） */
+      const c = runCourse(body.course);
+      if (!c) return { ok:false, why:'course', ev:[], save:saveOut(sv), now:t };
+      srv.run = { c, t };
+      const r = { ok:true, course:c, ev:[] };
+      if (rid) srv.rq = { id:rid, r:answerOf(r) };
+      return { ...r, save:await writeSave(tx, member, st), now:t };
+    }
     const away = Math.max(0, t - Number(st.last || t));
     const p: Record<string, unknown> = {};
-    for (const k of ['id', 'n', 'slot', 'cat', 'on', 'seed', 'moves']) if (k in body) p[k] = body[k];   /* seed・moves：パズル（ルールが 再生して 決める） */
+    /* seed・moves：パズル（ルールが 再生して 決める）。course・ms・misses・rank：うちのこラン（タイムは ルールが min〜1時間に 切る） */
+    for (const k of ['id', 'n', 'slot', 'cat', 'on', 'seed', 'moves', 'course', 'ms', 'misses', 'rank']) if (k in body) p[k] = body[k];
+    /* うちのこランの ゴール：走りだし（srv.run）から いちばん はやい タイムより はやい・走りだしが ない・ちがう コースなら ほうびなし。
+       ルールには「きょうの ほうびは もう 3回」と みせて わたし（ほうびの ところを とおらない）、あとで きょうの 回数を もとに もどす */
+    let held: { n: number } | null = null, noreward: string | null = null;
+    if (type === 'run'){
+      const c = runCourse(p.course), s0 = srv.run;
+      delete srv.run;   /* 走りだし 1回で ゴール 1回まで */
+      if (c){
+        noreward = !s0 || s0.c !== c ? 'start' : t - s0.t < (RUN.courses as Record<string, { min: number }>)[c].min ? 'fast' : null;
+        if (noreward){
+          const z = (st.run || (st.run = { games:0, clears:0, n:0, day:null, best:{} })) as { day: string | null; n: number };
+          const day = dayKey();
+          held = { n:z.day === day ? z.n : 0 };
+          z.day = day; z.n = RUN.perDay;
+        }
+      }
+    }
     const r = Rules.act(st, type, p, { away, budget:srv.pb }) as Record<string, unknown>;
     if (r.why === 'unknown') throw new HttpError(400, 'badtype');
+    if (held && r.ok){
+      const z = st.run as { n: number };
+      z.n = held.n;
+      r.reward = false; r.left = Math.max(0, RUN.perDay - z.n);
+      if (z.n < RUN.perDay) r.noreward = noreward;   /* きょうの 3回が もう おわっていた ときは ふつうの「おわり」 */
+    }
     if (!r.ok && type !== 'open') return { ...r, save:saveOut(sv), now:t };
     if (r.ok && CARE.has(type)) srv.cd = t;
     if (rid) srv.rq = { id:rid, r:answerOf(r) };

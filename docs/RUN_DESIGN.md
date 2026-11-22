@@ -1,6 +1,6 @@
 # うちのこラン（仮）：わんランを うちのこ日和の ミニゲームに する 設計
 
-- 作った日：2026-11-21（22回目の チャット、Claude Opus 5.5）。P1（3D の うちのこ）は 2026-11-21（23回目）、P2（まとめる しくみ＋レースの「こうえん」を ホーム画面版で）は 2026-11-22（24回目）に できて オーナー OK。P3（レース 3コース・コースを えらぶ 画面・ほうび・ベスト・アルバム）は 2026-11-22（25回目）に できて オーナー OK。P4（アジリティ 4コース）は 2026-11-22（26回目）に できて オーナー OK。P5（Claude版）は 2026-11-22（27回目）に できて オーナー OK（iPhone の 実機でも 確かめた）。**つぎは P6（LINE版）**（10章の プロンプト）。P1 で 作ったものは 11章、P2 は 12章、P3 は 13章、P4 は 14章、P5 で 作ったものと P6 で 気をつける ことは 15章。
+- 作った日：2026-11-21（22回目の チャット、Claude Opus 5.5）。P1（3D の うちのこ）は 2026-11-21（23回目）、P2（まとめる しくみ＋レースの「こうえん」を ホーム画面版で）は 2026-11-22（24回目）に できて オーナー OK。P3（レース 3コース・コースを えらぶ 画面・ほうび・ベスト・アルバム）は 2026-11-22（25回目）に できて オーナー OK。P4（アジリティ 4コース）は 2026-11-22（26回目）に できて オーナー OK。P5（Claude版）は 2026-11-22（27回目）に できて オーナー OK（iPhone の 実機でも 確かめた）。**P6（LINE版）は 2026-11-22（28回目）に 作った**（ブランチ `p6-run-line`。Fable 5.2 の レビュー → 直す → LINE版に 出す。16章）。P1 で 作ったものは 11章、P2 は 12章、P3 は 13章、P4 は 14章、P5 は 15章、P6 は 16章。
 - きっかけ（オーナーから、2026-11-21）：ChatGPT で 作った 3Dゲーム「わんラン v33」（レース＆アジリティ）を、そのまま 入れるのでは なく、うちのこ日和 用に 置きかえて 新しい 機能に したい。
 - もとの 資料：`_ref/wanrun-v33/`（`wanrun-v33.zip`＝ChatGPT が 出した 原本 一式〈`source/dist/` が 動く ソース 91ファイル・`source/tests/` 77件・分冊の 仕様書 `chap10/`〉、`spec.md`＝機能仕様書〈1〜9章〉）。`_` で はじまる フォルダなので GitHub Pages には 出ない（`.nojekyll` を 足さない）。
 - 読む人：これを 実装する Claude Opus 5.5 の チャット。作業の 前に `CLAUDE.md`・`docs/PROJECT.md`・`docs/HANDOFF.md` を 読み、そのあとに ここを 読む。わんランの くわしい 動きは `_ref/wanrun-v33/spec.md`（とくに 4章 データ・5章 ロジック・8章 組み込み・9章 受入試験）。
@@ -129,7 +129,7 @@
 | P3 | レース3コース・結果・記録・ほうび（`Rules`・`S.run`）・アルバム（**25回目。済み＝オーナー OK**。認証審査は まだ 申請していない＝ルールと セーブは 共通の ファイルに 書いて `game.js` も デプロイ。`/act` は `run` を うけつけない） | ホーム画面版 |
 | P4 | アジリティ4コース（**26回目。済み＝オーナー OK**。認証審査は まだ 申請していない＝P3 と 同じく ルールは 共通の ファイル・`game.js` も デプロイ） | ホーム画面版 |
 | P5 | Claude版（**27回目・オーナー OK**。ゲームは アーティファクトの 2つめの ファイル。15章） | Claude版 |
-| P6 | LINE版（サーバーの `runStart`・`run`・デプロイ・`line_e2e.py`）。出す 前に Fable 5.2 の レビュー（パズルと 同じ。プロンプトは `docs/REVIEW_PROMPT.md` に） | LINE版 |
+| P6 | LINE版（サーバーの `runStart`・`run`・デプロイ・`line_e2e.py`）。出す 前に Fable 5.2 の レビュー（パズルと 同じ。プロンプトは `docs/REVIEW_PROMPT.md` に）（**28回目に 作った**。16章） | LINE版 |
 
 - **ビルドの スイッチ：** `build.sh` に `RUN_HOME=1`・`RUN_LINE=0`・`RUN_CLAUDE=0` の ような 切りかえを 置き、出して よい 版だけに ランの 入口と ファイルを 入れる。LINE版を かえない あいだは、ビルドの 前後で `out/line/index.html` の md5 が 同じか 確かめる。
 - **LINE の 認証審査と かさねない：** 審査中（1〜2週間）は LINE版を かえられない。main に push すると Cloudflare が LINE版を 作りなおすので、審査中も `RUN_LINE=0` の まま（md5 同じ）なら ホーム画面版だけ すすめて よい。P6 は 審査の 前か 認証の あと。
@@ -259,3 +259,31 @@ Claude版（https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs 、バージョン
   - `build.sh` の `RUN_LINE=1`：CSP（`line_head.html`）の `script-src` に `https://uchinoko-biyori.pages.dev/run-<ハッシュ>.js`（パスまで）、`out/line/` と `review/`・`dev/` の 3か所に ファイル（または ルートの 1つを `../run-….js` で）。`smoke.Handler` は ホーム画面版の URL しか かえないので、LINE版の 手元の ためしも かえる しくみが いる。
   - サーバー：`index.ts` の `NOT_YET` を はずし、`runStart`（`srv.run = { c, t }`）・`run`（`t` から `RUN.courses[c].min` より はやい ゴールは ほうびなし。`srv.run` が ない・ちがう コースも ほうびなし）。`game.js` は `RUN` が もう 入っている（P3・P4）。
   - 審査中は LINE版を かえない（9章）。出す 前に Fable 5.2 の レビュー。
+
+
+## 16. P6 で 作ったもの（2026-11-22、28回目）
+
+はじめに オーナーに きいた：**LINE の 認証審査は まだ 申請していない**（審査中で ない）→ LINE版に 出せる。保留1（「サーバーを起こす」11-23 3:23 の回）は まだ 来ていない（この チャットは 11-22 の お昼。11-20 の回は 成功）。ホーム画面版・Claude版は かえていない（ビルドの 前後で `index.html` `cc997302…`・`sw.js` `43263950…`・`src/out/claude/index.html` `a6c845bb…` の md5 が 同じ）。
+
+- **サーバー（`supabase/functions/api/index.ts`）：** `NOT_YET` を はずし、`/act` に `runStart`・`run`。
+  - `runStart { course }`：知っている コース（`runCourse`＝`RUN.courses` の 自分の キーだけ）なら `srv.run = { c, t }`（`t` は サーバーの 時計）を 書くだけ。前の 走りだしは 置きかえる。知らない コースは `why:'course'`（書かない）。
+  - `run { course, ms, misses, rank }`：`srv.run` を とりだして けす（走りだし 1回で ゴール 1回）。`srv.run` が ない・コースが ちがう → `noreward:'start'`、`t` から `RUN.courses[c].min` より はやい → `'fast'`。どちらも ルールには きょうの 回数を `perDay` に みせて わたし（ほうびの ところを とおらない）、あとで もとに もどす＝回数・ベスト・アルバムは 書いて ほうびなし（`reward:false`・ほんとうの `left`・のこりが ある ときだけ `noreward`）。`js_rules.js` は かえていない（ホーム画面版の md5 を かえない ため）。
+  - どちらも `rid`（同じ 番号は 前の 答え）・`overRate` に のる。`CARE`（2.5秒）には 数えない。`srvOf` が `srv.run` を そろえる（知らない コース・未来の 時刻は すてる）。`/act` が ルールに わたす 値に `course`・`ms`・`misses`・`rank` を 足した。`game.js` は かわらない（`RUN` は P3 から 入っている。`build_server.py --check` 同じ）。
+  - `min` は 3・2・1（3秒）を ふくまない 走りの タイムなので、ふつうに 走れば サーバーの 時計でも かならず こえる（走りだしの 返事が 3秒より おくれた ときだけ、ほぼ ずっと ダッシュの 走りで「はやすぎる」に なりうる）。
+- **ビルド（`src/build.sh`）：** `RUN_LINE=1`（既定）。ゲームの ファイルは `out/line/run-<ハッシュ>.js`（いちばん上に 1つ）、ページは `RUN_SRC = '/run-….js'`（いちばん上からの パス。審査用 `/review/`・開発用 `/dev/` も 同じ ファイル）・`integrity`。CSP は `line_head.html` の `__RUN_CSP__` に `https://uchinoko-biyori.pages.dev/run-….js`（パスまで）。`js_run.js` は `js_features.js` の すぐあと、`run/run.css` は `head.html` の すぐあと。`RUN_LINE=0` なら 前と 同じ LINE版（`out/line/index.html` `8644251e…`）。
+- **画面（`src/js_line.js` の `LineRun`。`js_run.js` は かえていない）：**
+  - `RunUI.start` を 包み、その回の ゲームの `sim.start`（インスタンスの メソッド。`ready` → `countdown` に なった とき）で `began(course)` → LINE に ほぞんしている子が つながっていれば `Act.run('runStart', { course })`（返事は またない）。ゲームの ファイル（`src/run/`）は かえていない。
+  - `RunUI.finish` を 包む：`Act.remote` か `Act.blocked()` の とき（LINE に ほぞんしている子）だけ。ゴールの 番号 `goal`（`lineRid()`。走りだしで 空に・おくりなおしも 同じ）、`Act.blocked()` なら `Act.run` を よばない。`record(r)`：`offline`・`busy` は「きろく できなかったよ」と「もういちど おくる」（`.run-resend`）、`noreward` は ゴールの カードの ほうびの 行を「この回は ほうび なし。はしりだしが とどかなかったみたい」に。ほかは `RunUI.record`。
+  - 「もういちど おくる」：ページの `click` で うける。つながっていなければ `Act.waiting()`（「つながっていません」→ もういちど つなぐ）、つないでいる とちゅうは その 行に「LINEに つないでいるよ」。おくりなおして きろく できたら `fixed` に とっておき、ゲームが あそびかたから もどって 前の カード（`recHtml`）を 出しても `.run-over` の `MutationObserver` で 入れなおす。
+  - `RunUI.open` を 包み、ページの `touchmove` で、スクロールできる ところ（`.run-over`・`.run-sel-body`）の 上の はしで 下へ・下の はしで 上へ を `preventDefault`（LINE の 最小化）。`RunUI.close` で 片づける。
+- **`src/line_head.html`：** Android版LINEの 下の すき間（`html .run-page .run-bottom`・`.run-stop`・`.run-over`・`.run-sel-body`。3D は 下まで かく）、「もういちど おくる」の ボタン（`.run-rec .run-resend`）。
+- **ポリシー：** `src/legal/privacy.html` の「おせわの記録」に うちのこランの記録（ゴールした回数・コースごとの さいこうタイム・走りはじめた時刻など）。改定日 2026-11-22（パズルと 同じく アプリの中の おしらせは 出さない）。`docs/PROJECT.md` 10章の 補足資料の 4 に ラン。
+- **ためし：**
+  - `tools/server/api_test.ts` の run（P3 の「400 badtype」を おきかえ）：走りだし（`srv.run`・数字は かわらない）・同じ rid・知らない コース・`constructor`・はやすぎる（`min` に 切る・のこり 3・走りだしは つかいおわる）・走りだしなし・ちがう コース・あそぶの すぐあとでも busy に ならない・ふつうの ゴール（ほうび・送った よけいな 値は つかわない）・同じ ゴールの rid・1回の 走りだしで 2回め・アジリティと 1日3回（4回めは ふつうの「おわり」）・パズルの 回数は かわらない・新しい 日の ほうびなし（きょうは 0）・こわれた 値・こわれた 走りだしの しるし（未来・`__proto__`）。
+  - `tools/server/e2e_server.ts`：`/__debug/run`（走りだしから ms たった ことに）、`/__debug/state` に `run`・`run_start`。
+  - `tools/line_e2e.py`：23（LINE版で ランが ひらく〈`/run-…js`・CSP〉・「はしる」で runStart・ゴールで ほうび〈返事を なくしても 1回〉・「もういちど」で すぐ ゴール＝はやすぎる）・23b（走りだしが とどかない → つながっていない ゴールは 数えない →「もういちど おくる」→ つながっていません → つなぎなおして ほうびなしの きろく → あそびかたから もどっても）・23c（LINE の 外の ゲスト）。ブラウザは SwiftShader つき（`smoke.CHROMIUM_ARGS`）、画面は `smoke.Handler` で 配る（CSP の ランの URL を 手元に）。
+  - `tools/smoke.py`：`Handler` が LINE版の CSP の URL（`LINE_ORIGIN`）と `/review/`・`/dev/` も かえる。`--line` でも `run_checks`（ゲスト）、`line_run_edges`（ひくい 画面で アジリティの 一覧：上の はしで 下へ・下の はしで 上へ は とめる、まんなかは スクロール）。`--android-inset 48` で 下の ゲージが 上がる。
+  - `tools/linebreak.py --line`：ランの 場面（ホーム画面版と 同じ）と LINE版だけの ゴール（`run_line_offline`・`run_line_busy`・`run_line_noreward`・`run_line_noreward_slow`・`agi_line_offline`・`agi_line_noreward`）。
+  - `tools/run/run_shots.py --line`（ゲスト。`smoke-out/run-line/`）・`--android-inset`。
+- **出し方（レビューの あと）：** ブランチ `p6-run-line` を main に → push → `python3 tools/build_server.py --check`（`game.js` は かわらないので `deno.json` の 固定は `824da76` の まま）→ Supabase の MCP で `api` に `index.ts` と `deno.json` を デプロイ → `get_edge_function` を 手元と くらべる → pg_net で `/health`・LINE版の 3か所の md5・`/run-<ハッシュ>.js` の md5 → オーナーが iPhone の LINE（開発用の LIFF URL）で 走って ほうびが つくか。
+

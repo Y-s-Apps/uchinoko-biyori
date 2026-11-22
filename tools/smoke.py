@@ -9,7 +9,8 @@
   python3 tools/smoke.py --out DIR  # スクリーンショットの保存先（既定：smoke-out/）
   python3 tools/smoke.py --line     # LINE版（src/out/line/）を確認。LIFF SDK は読みこめない前提（ゲストで動くか）
   python3 tools/smoke.py --line --android-inset 48
-                                    # Android版LINEの edge-to-edge（下のナビゲーションバー48px）をまねる
+                                    # Android版LINEの edge-to-edge（下のナビゲーションバー48px）をまねる。うちのこラン（P6）も ゲストで とおし、
+                                    # コースの 一覧の はしで 引っぱっても ブラウザの 動きを とめているか（LINE の 最小化）も 見る
   python3 tools/smoke.py --dark     # ダークモードで（--line・--fresh と いっしょにも使える）
   python3 tools/smoke.py --claude   # Claude版（src/out/claude/＝アーティファクトに 出す 形）：クラウドの セーブの まねで、はじめての画面の
                                     # とちゅうに クラウドの子が 届いたとき（診断 3-7）と、うちのこラン（P5：レースの こうえん・アジリティの バランス →
@@ -28,21 +29,24 @@ import argparse, asyncio, functools, http.server, json, os, socketserver, thread
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOME_ORIGIN = 'https://y-s-apps.github.io/uchinoko-biyori/'
+LINE_ORIGIN = 'https://uchinoko-biyori.pages.dev/'   # LINE版の CSP の ランの ファイルの URL（P6）
 # ブラウザを うしろで 動かす ときも 3D（WebGL 2）が 動く ように（うちのこラン。SwiftShader）
 CHROMIUM_ARGS = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
-    """ルートの ファイルを 出す。ホーム画面版の index.html だけ、CSP に 書いた うちのこランの ファイルの URL（公開 URL・パスまで）の
-    はじめの 部分を この 手元の URL に かえる（ファイルの 名前と integrity は そのまま。CSP の 形も 同じ）"""
+    """ルートの ファイルを 出す。index.html（LINE版は 審査用 /review/・開発用 /dev/ も）だけ、CSP に 書いた うちのこランの ファイルの URL
+    （ホーム画面版・LINE版の 公開 URL・パスまで）の はじめの 部分を この 手元の URL に かえる（ファイルの 名前と integrity は そのまま。CSP の 形も 同じ）"""
     def log_message(self, *a):
         pass
 
     def do_GET(self):
         path = self.path.split('?')[0]
-        idx = os.path.join(self.directory, 'index.html')
-        if path in ('/', '/index.html') and os.path.isfile(idx):
-            body = open(idx, 'rb').read().replace((HOME_ORIGIN + 'run-').encode(), ('http://%s/run-' % self.headers.get('Host', '')).encode())
+        sub = next((d for d in ('', 'review/', 'dev/') if path in ('/' + d, '/' + d + 'index.html')), None)
+        idx = os.path.join(self.directory, sub or '', 'index.html') if sub is not None else ''
+        if idx and os.path.isfile(idx):
+            here = ('http://%s/run-' % self.headers.get('Host', '')).encode()
+            body = open(idx, 'rb').read().replace((HOME_ORIGIN + 'run-').encode(), here).replace((LINE_ORIGIN + 'run-').encode(), here)
             self.send_response(200)
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.send_header('Content-Length', str(len(body)))
@@ -347,8 +351,9 @@ async def main(args):
         await page.click('#pzPage [data-pz="close"]'); await page.wait_for_timeout(600)
         if await page.evaluate("!!document.querySelector('#pzPage') || document.documentElement.classList.contains('pz-open') || !!document.querySelector('#app').inert"):
             errors.append('パズルの 画面が とじません')
-        if not args.line:
-            await run_checks(page, ctx, snap, errors, args, port)
+        await run_checks(page, ctx, snap, errors, args, port)   # うちのこラン（LINE版は P6 から。ここは ゲスト＝端末の ルール）
+        if args.line:
+            await line_run_edges(page, ctx, snap, errors, args)
         await page.click('#actFeed'); await page.wait_for_timeout(5500)
         await close_popups()
         await snap('after_meal')
@@ -588,7 +593,7 @@ async def run_checks(page, ctx, snap, errors, args, port):
     nogl = await p2.evaluate(RUN_TILE_JS)
     await p2.screenshot(path=os.path.join(args.out, 'run_nogl.png'))
     await p2.click('[data-play="run"]', force=True); await p2.wait_for_timeout(600)   # aria-disabled（Playwright は おせないと みる）
-    nogl['open'] = await p2.evaluate("() => !!document.querySelector('#runPage') || !!document.querySelector('script[src^=\"run-\"]')")
+    nogl['open'] = await p2.evaluate("() => !!document.querySelector('#runPage') || !!document.querySelector('script[src*=\"run-\"]')")
     print('ラン（WebGL なし）：', nogl)
     if not (nogl['off'] == 'true' and 'あそべません' in nogl['text'] and 'あそべません' in nogl['note'] and not nogl['open']):
         errors.append(f'WebGL が ない ときの ランの 出かたが ちがいます：{nogl}')
@@ -735,6 +740,43 @@ async def agility_checks(page, ctx, snap, errors, args):
     left = await page.evaluate("() => ({ page: !!document.querySelector('#runPage'), canvas: document.querySelectorAll('canvas').length, inert: !!document.querySelector('#app').inert, ctl: !!RunUI.ctl })")
     if left['page'] or left['canvas'] or left['inert'] or left['ctl']:
         errors.append(f'アジリティを とじても のこっています：{left}')
+
+
+async def line_run_edges(page, ctx, snap, errors, args):
+    """LINE版の うちのこラン（P6）：ページの 中で スクロールできる ところ（コースの 一覧）の はしで 引っぱっても、ブラウザの 動きを とめる
+    （LINE が ミニアプリを 小さく しない ように）。まんなかでは ふつうに スクロールできる。ひくい 画面で アジリティの 4コースを"""
+    vw, vh = (int(x) for x in args.size.lower().split('x'))
+    await page.set_viewport_size({'width': vw, 'height': 520})
+    await page.evaluate("() => { document.querySelectorAll('.levelup').forEach(e => e.remove()); Modal.q = []; Modal.busy = false; RunUI.mode = 'agility'; RunUI.open(); }")
+    if not await poll(page, "() => !!document.querySelector('#runPage .run-sel .run-course')", 90000):
+        errors.append('LINE版の ラン：コースを えらぶ 画面が 出ません')
+        await page.set_viewport_size({'width': vw, 'height': vh})
+        return
+    await page.wait_for_timeout(300)
+    cdp = await ctx.new_cdp_session(page)
+    await page.evaluate("""() => { window.__edge = []; document.addEventListener('touchmove', e => __edge.push(e.defaultPrevented), false); }""")
+
+    async def swipe(dy):
+        x, y = 195, 300
+        await page.evaluate('() => { __edge = []; }')
+        await cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [{'x': x, 'y': y}]})
+        for i in range(1, 6):
+            await cdp.send('Input.dispatchTouchEvent', {'type': 'touchMove', 'touchPoints': [{'x': x, 'y': y + dy * i / 5}]}); await page.wait_for_timeout(16)
+        await cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []}); await page.wait_for_timeout(250)
+        return await page.evaluate("() => { const b = document.querySelector('#runPage .run-sel-body'); return { top: Math.round(b.scrollTop), max: b.scrollHeight - b.clientHeight, prevented: __edge.filter(Boolean).length, moves: __edge.length }; }")
+    down = await swipe(120)      # いちばん 上で 下へ：とめる（LINE の 最小化）
+    up = await swipe(-120)       # 上へ：ふつうに スクロール
+    await page.evaluate("() => { const b = document.querySelector('#runPage .run-sel-body'); b.scrollTop = b.scrollHeight; }")
+    await page.wait_for_timeout(100)
+    end = await swipe(-120)      # いちばん 下で 上へ：とめる
+    await snap('line_run_select_low')
+    print('LINE版の ランの はし：', {'down': down, 'up': up, 'end': end})
+    if not (down['max'] > 0 and down['moves'] and down['prevented'] == down['moves'] and down['top'] == 0
+            and up['top'] > 0 and up['prevented'] == 0 and end['moves'] and end['prevented'] == end['moves']):
+        errors.append(f'LINE版の ランの 一覧の はしで ブラウザの 動きを とめていません：{down} {up} {end}')
+    await page.evaluate('() => RunUI.close()')
+    await page.set_viewport_size({'width': vw, 'height': vh})
+    await page.wait_for_timeout(300)
 
 
 # Claude版のクラウド（window.claude の db・user）の まね。__cloud.doc＝クラウドの セーブ、delay＝get の 返事まで（ミリ秒）、sets＝書いたもの

@@ -19,6 +19,9 @@
   python3 tools/run/run_shots.py --gifs beach,balance   # GIF は うみべと バランスだけ
   python3 tools/run/run_shots.py --claude        # Claude版（src/out/claude/。クラウドの セーブの まね）で。smoke-out/run-claude/ に。
                                                  # さいごに ほうびの 回数・ベストが クラウドの セーブに 入ったかも 見る（P5）
+  python3 tools/run/run_shots.py --line          # LINE版（src/out/line/。LIFF は 読みこまない＝ゲスト）で。smoke-out/run-line/ に（P6）。
+                                                 # --android-inset 48 で Android版LINEの 下の ナビゲーションバーの まね（下に つく ものが 上がるか）。
+                                                 # サーバーに つながった ときの 走りだし・ゴールは tools/line_e2e.py の 23
 
 ページの エラー・CSP の 違反・見た目の 数が 1件でも あれば 終了コード 1。
 """
@@ -87,9 +90,9 @@ AUTO_JS = r'''(() => {
 
 async def main(a):
     from playwright.async_api import async_playwright
-    out = a.out or os.path.join(ROOT, 'smoke-out', 'run-claude' if a.claude else 'run')
+    out = a.out or os.path.join(ROOT, 'smoke-out', 'run-claude' if a.claude else 'run-line' if a.line else 'run')
     os.makedirs(out, exist_ok=True)
-    httpd, port = serve(CLAUDE_ROOT if a.claude else ROOT)
+    httpd, port = serve(CLAUDE_ROOT if a.claude else os.path.join(ROOT, 'src', 'out', 'line') if a.line else ROOT)
     errors, shots, looks = [], [], []
     vw, vh = (int(x) for x in a.size.lower().split('x'))
     gifs = {}
@@ -102,6 +105,8 @@ async def main(a):
         page.on('console', lambda m: errors.append('CSP: ' + m.text) if m.type == 'error' and 'Content Security Policy' in m.text else None)
         await ctx.route('https://fonts.googleapis.com/**', lambda r: r.abort())
         await ctx.route('https://fonts.gstatic.com/**', lambda r: r.abort())
+        if a.line:
+            await ctx.route('https://static.line-scdn.net/**', lambda r: r.abort())   # LIFF は 読みこめない＝ゲスト（端末の ルール）
         st = sample_state()
         st['pet']['name'] = 'だいず'
         st['last'] = st['updated'] = int(time.time() * 1000)
@@ -116,6 +121,10 @@ async def main(a):
             # Claude版：クラウド（window.claude の db・user）の まね。はじめは この端末と 同じ 子
             seed += ("\nif(!sessionStorage.getItem('cloud'))sessionStorage.setItem('cloud', %s);\n" % json.dumps(json.dumps({'doc': st, 'delay': 0, 'sets': []}, ensure_ascii=False))
                      + CLAUDE_MOCK)
+        if a.android_inset:
+            # Android版LINEが 入れる 変数の まね（smoke.py と 同じ）
+            seed += ("\ndocument.addEventListener('DOMContentLoaded',()=>{for(const e of [document.documentElement,document.body])"
+                     "e.style.setProperty('--android-safe-area-inset-bottom','%dpx')});" % a.android_inset)
         await page.add_init_script(seed)
         t0 = datetime.datetime.now(datetime.timezone.utc)
         await page.clock.install(time=t0)
@@ -198,6 +207,10 @@ async def main(a):
                 await snap(course + '_countdown')
             await ff(1900); await tick(120)
             await snap(course + '_start')
+            if a.android_inset:
+                b = await page.evaluate("() => { const e = document.querySelector('#runPage .run-bottom'); return e ? [Math.round(e.getBoundingClientRect().bottom), innerHeight] : null; }")
+                if not b or b[0] > b[1] - a.android_inset:
+                    errors.append(f'{course}：下の ゲージが Android の ナビゲーションバーに かさなります：{b}')
 
         async def pause_check(course):
             # ひとやすみ（アプリを はなれた まね）
@@ -398,6 +411,8 @@ async def main(a):
             gp.on('pageerror', lambda e: errors.append('GIF: ' + str(e)))
             await g.route('https://fonts.googleapis.com/**', lambda r: r.abort())
             await g.route('https://fonts.gstatic.com/**', lambda r: r.abort())
+            if a.line:
+                await g.route('https://static.line-scdn.net/**', lambda r: r.abort())
             await gp.add_init_script(seed)
             await gp.clock.install(time=t0)
             await gp.clock.pause_at(t0)
@@ -449,8 +464,10 @@ async def main(a):
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
-    ap.add_argument('--out', default=None, help='既定は smoke-out/run/（--claude は smoke-out/run-claude/）')
+    ap.add_argument('--out', default=None, help='既定は smoke-out/run/（--claude は smoke-out/run-claude/、--line は smoke-out/run-line/）')
     ap.add_argument('--claude', action='store_true', help='Claude版（src/out/claude/）で')
+    ap.add_argument('--line', action='store_true', help='LINE版（src/out/line/。ゲスト）で')
+    ap.add_argument('--android-inset', type=int, default=0, help='Android版LINEの 下の すき間の まね（px）')
     ap.add_argument('--mode', default='both', choices=['both', 'race', 'agility'], help='どちらを とおすか（既定は 両方）')
     ap.add_argument('--dark', action='store_true')
     ap.add_argument('--cat', action='store_true')

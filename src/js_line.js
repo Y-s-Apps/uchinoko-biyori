@@ -22,7 +22,9 @@
    - よるの おしらせ（LineNotify）：きょうの おねがいが のこっている 日の 21時に、LINE公式アカウント「うちのこ日和」から メッセージ
      （サーバーが Supabase Cron で おくる）。プロフィールの スイッチで オン・オフ（はじめは オフ。おねがいを ぜんぶ かなえた日に 1回だけ さそう）。
      オンに したら liff.requestFriendship() で 公式アカウントの 友だち追加を うながす（友だちかどうかは 見ない＝profile の スコープを つかわない）。
-     3つの版の「よるの ひとこと」（js_features.js の Nudge）とは べつ。 */
+     3つの版の「よるの ひとこと」（js_features.js の Nudge）とは べつ。
+   - うちのこラン（LineRun。2026-11-22 P6）：ランの 画面（js_run.js の RunUI）を 包んで、走りだしで POST /act runStart、ゴールは run に 番号 rid。
+     つながっていない ときは きろく しない（「もういちど おくる」）。スクロールできる ところの はしの 引っぱりも とめる（LINE の 最小化）。 */
 const LINE_CFG = {
   sdk:'https://static.line-scdn.net/liff/edge/2/sdk.js',  /* エッジパス：v2 の最新版が自動で入る（古い版に固定しない） */
   /* LINEミニアプリの内部チャネル（本番用・審査用・開発用）ごとの LIFF ID（秘密ではない。前の数字がチャネルID）。
@@ -1523,6 +1525,133 @@ moveErrorText = function(r){
   watch(document.getElementById('sheet'));
   watch(document.getElementById('ob'));
 })();
+/* ----- うちのこラン（2026-11-22 P6。docs/RUN_DESIGN.md 6章・15章） -----
+   ランの 画面（js_run.js の RunUI）と ゲーム（run-<ハッシュ>.js）は ホーム画面版・Claude版と 同じ。LINE版だけの ことを ここで 包む：
+   - 走りだし（「はしる」「もういちど」「さいしょから」＝ゲームの sim.start で 3・2・1 が はじまる とき）に POST /act runStart { course }。
+     サーバーが 自分の 時計で 時刻を のこし、ゴールが それから いちばん はやい タイム（RUN.courses[c].min）より はやい・走りだしが とどいていない
+     ときは ほうびを つけない（きろくは する。返事の noreward）。ゲスト（LINE に ほぞんしていない子）・つながっていない ときは おくらない。
+   - ゴール：run { course, ms, misses, rank } に その回の 番号 rid（おくりなおしても 同じ＝サーバーは 2回 数えない）。
+     LINE に ほぞんしている子が つながっていない（Act.blocked）ときは きろく しない（端末の ルールで 数えない）。
+     「きろく できなかったよ」には「もういちど おくる」（つながっていなければ「つながっていません」→ もういちど つなぐ）。
+   - ページの 中で スクロールできる ところ（コースの 一覧・メニュー）も、はしで 引っぱると LINE が ミニアプリを 小さく するので とめる
+     （3D と ボタンの ほかは js_run.js が もう とめている）。
+   ゲスト・LINE の 外は いままでどおり 端末の ルール（RunUI.finish の まま）。 */
+const LineRun = {
+  goal:null,    /* いまの 回の ゴールの 番号（走りだしで 空に。ゴールで 作り、おくりなおしも 同じ） */
+  info:null,    /* その回の ゴールの 中身（おくりなおし用） */
+  fixed:null,   /* おくりなおして きろく できた 回の カードの HTML（ゲームが あそびかたから もどって 前の HTML を 出したら 入れなおす） */
+  mo:null,
+  /* ゲームの 走りだしを 見る（ゲームの ファイルは 3つの 版で 同じなので かえない。この 回の sim の start だけを 包む） */
+  hook(ctl, course){
+    if (this.mo){ this.mo.disconnect(); this.mo = null; }
+    const sim = ctl && ctl.sim;
+    if (!sim || typeof sim.start !== 'function') return;
+    const base = sim.start;
+    sim.start = function(){
+      const was = this.status, r = base.apply(this, arguments);
+      if (was === 'ready' && this.status === 'countdown') LineRun.began(course);
+      return r;
+    };
+    const over = RunUI.root() && RunUI.root().querySelector('.run-over');
+    if (over && window.MutationObserver){
+      this.mo = new MutationObserver(() => this.refix());
+      this.mo.observe(over, { childList:true });
+    }
+  },
+  began(course){
+    this.goal = null; this.info = null; this.fixed = null;
+    if (!Act.remote || Act.blocked()) return;
+    Act.run('runStart', { course });   /* 返事は またない（ゴールは LineSync.queue で この あとに 1つずつ） */
+  },
+  /* LINE に ほぞんしている子か（つながっている・まっている）。ゲストは 端末の ルール */
+  mine(){ return !!Act.remote || !!Act.blocked(); },
+  async send(){
+    const i = this.info, p = { course:i.course, ms:i.ms, misses:i.misses, rid:this.goal };
+    if (i.rank != null) p.rank = i.rank;
+    const r = Act.blocked() ? { ok:false, why:'offline' } : await Act.run('run', p);
+    if (r && r.ok){ playEvents(r.ev); commit(); }
+    return this.record(r);
+  },
+  record(r){
+    if (r && !r.ok && (r.why === 'offline' || r.why === 'busy'))
+      return `<b class="run-rec-h">きろく できなかったよ</b><span>${r.why === 'busy' ? 'すこし まってから、<br>「もういちど おくる」を おしてね' : 'サーバーに つながらなかったみたい'}</span>`
+        + '<button class="btn run-resend" type="button" data-line-run="resend">もういちど おくる</button>';
+    let html = RunUI.record(r);
+    if (r && r.ok && !r.reward && r.noreward){
+      /* 走りだしが とどいていない・はやすぎる：きょうの ほうびは のこっているが、この回には つかない */
+      const gift = '<span class="run-rec-g">この回は ほうび なし。<br>はしりだしが とどかなかったみたい</span>';
+      const out = html.replace(/<span class="run-rec-g">[\s\S]*?<\/span>$/, gift);
+      html = out === html ? html + gift : out;
+    }
+    return html;
+  },
+  /* 「もういちど おくる」（同じ 番号で。とどいていたら サーバーは 前の 答えを かえす） */
+  async resend(btn){
+    const goal = this.goal, rec = btn.closest('.run-rec');
+    if (!goal || !this.info || !rec) return;
+    const why = Act.blocked();
+    if (why){
+      if (why === 'connecting'){ const s = rec.querySelector('span'); if (s) s.textContent = 'LINEに つないでいるよ。すこし まってね'; }
+      else Act.waiting();
+      return;
+    }
+    btn.disabled = true;
+    rec.innerHTML = '<span class="run-rec-wait">きろく しているよ…</span>';
+    const html = await this.send();
+    if (this.goal !== goal || !rec.isConnected) return;
+    rec.innerHTML = html;
+    if (!rec.querySelector('[data-line-run="resend"]')) this.fixed = html;
+  },
+  /* ゲームが ゴールの カードを 出しなおした（あそびかたから もどった）とき、おくりなおして きろく できた 回なら 新しい ほうを */
+  refix(){
+    if (!this.fixed || !RunUI.page) return;
+    const rec = RunUI.page.querySelector('.run-rec');
+    if (rec && rec.querySelector('[data-line-run="resend"]')) rec.innerHTML = this.fixed;
+  },
+  /* はしで 引っぱっても LINE が 小さく しない ように（スクロールできる ところだけ。上の はしで 下へ・下の はしで 上へ を とめる） */
+  edges(page){
+    let y = null;
+    page.addEventListener('touchstart', e => { y = e.touches && e.touches[0] ? e.touches[0].clientY : null; }, { passive:true });
+    page.addEventListener('touchmove', e => {
+      const t = e.touches && e.touches[0];
+      if (!t || y === null) return;
+      const dy = t.clientY - y;
+      y = t.clientY;
+      const o = e.target.closest && e.target.closest('.run-over,.run-sel-body');
+      if (!e.cancelable || !o || o.scrollHeight <= o.clientHeight + 1) return;
+      if ((dy > 0 && o.scrollTop <= 0) || (dy < 0 && o.scrollTop + o.clientHeight >= o.scrollHeight - 1)) e.preventDefault();
+    }, { passive:false });
+    page.addEventListener('click', e => {
+      const b = e.target.closest && e.target.closest('[data-line-run="resend"]');
+      if (b && !b.disabled) this.resend(b);
+    });
+  },
+};
+if (typeof RunUI !== 'undefined'){
+  const lineRunOpen = RunUI.open, lineRunStart = RunUI.start, lineRunFinish = RunUI.finish, lineRunClose = RunUI.close;
+  RunUI.open = function(){
+    const had = this.page;
+    lineRunOpen.apply(this, arguments);
+    if (this.page && this.page !== had) LineRun.edges(this.page);
+  };
+  RunUI.start = function(id){
+    lineRunStart.apply(this, arguments);
+    LineRun.hook(this.ctl, id);
+  };
+  RunUI.finish = async function(info){
+    if (!LineRun.mine()) return lineRunFinish.apply(this, arguments);
+    this.ran = true;
+    LineRun.info = { course:info.course, ms:info.ms, misses:info.misses, rank:info.rank };
+    if (!LineRun.goal) LineRun.goal = lineRid();
+    return LineRun.send();
+  };
+  RunUI.close = function(){
+    if (LineRun.mo){ LineRun.mo.disconnect(); LineRun.mo = null; }
+    LineRun.goal = LineRun.info = LineRun.fixed = null;
+    return lineRunClose.apply(this, arguments);
+  };
+}
+
 /* おしらせ：おへやが出たら（はじめての画面の あとも）。boot は この前に おへやを出していることがある */
 const lineGameStart = Game.start;
 Game.start = function(greet, away){ lineGameStart.call(this, greet, away); LineNotice.later(); };

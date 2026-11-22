@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src '__SCRIPT_HASH__' https://static.line-scdn.net; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.line-scdn.net; connect-src 'self' https://*.line.me https://*.line-scdn.net https://ftakgswltcavwixqxpzi.supabase.co; frame-src https://*.line.me; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src '__SCRIPT_HASH__'__RUN_CSP__ https://static.line-scdn.net; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.line-scdn.net; connect-src 'self' https://*.line.me https://*.line-scdn.net https://ftakgswltcavwixqxpzi.supabase.co; frame-src https://*.line.me; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="写真の犬や猫をそっくりなペットにして、ごはん・おやつ・なでなででのんびり育てるアプリ">
@@ -10,7 +10,8 @@
 <meta name="theme-color" content="#1B1922" media="(prefers-color-scheme: dark)">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png">
-<!-- favicon は いちばん上のもの（同じページを 審査用 /review/・開発用 /dev/ にも置くため）。
+<!-- favicon は いちばん上のもの（同じページを 審査用 /review/・開発用 /dev/ にも置くため）。うちのこランの ゲーム（run-<ハッシュ>.js）も いちばん上の 1つ
+     （CSP の script-src に その URL だけ。build.sh が __RUN_CSP__ に 入れる。RUN_LINE=0 なら 空）。
      LIFF SDK は js_line.js が読みこむ（読みこめたか・失敗したかを取りこぼさないため）。CSP で static.line-scdn.net を許可。
      サーバー（本人確認とセーブ）は Supabase の Edge Function：connect-src の ftakgswltcavwixqxpzi.supabase.co は js_line.js の LINE_CFG.api とそろえる -->
 <style>
@@ -30,6 +31,12 @@ html .sheet{padding-bottom:calc(22px + max(env(safe-area-inset-bottom,0px),var(-
 html .levelup{padding-bottom:calc(16px + max(env(safe-area-inset-bottom,0px),var(--android-safe-area-inset-bottom,0px)))}
 html .onboard{padding-bottom:calc(24px + max(env(safe-area-inset-bottom,0px),var(--android-safe-area-inset-bottom,0px)))}
 html .pz-page{padding-bottom:calc(16px + max(env(safe-area-inset-bottom,0px),var(--android-safe-area-inset-bottom,0px)))}
+/* うちのこラン（2026-11-22 P6）：3D は 画面の 下まで かき、下に つく もの（ダッシュの ゲージ・障害物の 1〜6・「とまっているよ」・メニュー・
+   コースの 一覧）を すき間の ぶん 上げる（run.css の env(safe-area-inset-bottom) を LINE の 変数と 大きいほうに） */
+html .run-page .run-bottom{bottom:calc(12px + max(env(safe-area-inset-bottom,0px),var(--android-safe-area-inset-bottom,0px)))}
+html .run-page .run-stop{bottom:calc(72px + max(env(safe-area-inset-bottom,0px),var(--android-safe-area-inset-bottom,0px)))}
+html .run-page .run-over{padding-bottom:calc(16px + max(env(safe-area-inset-bottom,0px),var(--android-safe-area-inset-bottom,0px)))}
+html .run-page .run-sel-body{padding-bottom:calc(16px + max(env(safe-area-inset-bottom,0px),var(--android-safe-area-inset-bottom,0px)))}
 /* AIの読みとりの前の確認（LINE版だけ） */
 .aiask{align-items:center;text-align:center;padding-top:8px}
 .aiask .aiphoto{width:156px;height:156px;max-width:46vw;max-height:46vw;border-radius:50%;overflow:hidden;box-shadow:0 0 0 6px var(--surface),0 8px 0 6px rgba(0,0,0,.05)}
@@ -79,6 +86,8 @@ html .pz-page{padding-bottom:calc(16px + max(env(safe-area-inset-bottom,0px),var
 :root[data-theme="dark"] .nsw:not([aria-checked="true"]){background:#756D8C}
 .nrow .nnote{margin:8px 0 0;font-size:12px;color:var(--ink-soft)}
 .notifyask .note{margin:0 0 12px}
+/* うちのこランの ゴールの「もういちど おくる」（LINE版だけ。きろくの 地〈--surface-2〉の 上なので 白い ボタンに わく） */
+.run-rec .run-resend{width:auto;margin:6px auto 0;padding:9px 18px;min-height:44px;font-size:14px;background:var(--surface);box-shadow:inset 0 0 0 2px var(--line)}
 /* プライバシーポリシー・利用規約へのリンク（LINE版だけ） */
 .line-docs{display:flex;justify-content:center;flex-wrap:wrap;gap:4px 14px;margin:6px 0 0}
 .line-docs .linkbtn{font-size:13px;font-weight:500}

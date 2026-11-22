@@ -19,7 +19,8 @@
    ・写真立て（写真の控えがない子は イラスト）
    ・うちのこカード（見本 → POST /card〈Storage のまね〉→ シェアターゲットピッカーのまね、同じ絵は数えない、1日3まい、けすと消える）
    ・この端末に とっておいた子（引っこし・バックアップから コピー・つれてくる。5ひきまで）・とどかないまま とじた 新しい子（もどる／おくる）
-   ・返事だけ なくした おせわは 1回と 数える（おせわの番号）を確かめる。
+   ・返事だけ なくした おせわは 1回と 数える（おせわの番号）
+   ・うちのこラン（P6：はしりだしの runStart・ゴールの run と 番号・はやすぎる ゴールは ほうびなし・つながっていない ときは 数えず「もういちど おくる」・ゲスト）を確かめる。
    ページのエラーと CSP の違反が0件であることも見る。スクリーンショットは smoke-out/line-e2e/。
 
 サーバーの URL（LINE_CFG.api）への通信は、ブラウザの中でこのローカルのサーバーへつなぎかえる。本物の Supabase にはさわらない。
@@ -122,9 +123,9 @@ def code_of(st):
 async def browser_tests(srv_port):
     from playwright.async_api import async_playwright
     os.makedirs(OUT, exist_ok=True)
-    class Quiet(http.server.SimpleHTTPRequestHandler):
-        def log_message(self, *a):
-            pass
+    # 画面は smoke.py と 同じ 配り方（CSP の うちのこランの ファイルの URL だけ 手元に かえる。P6）
+    sys.path.insert(0, os.path.join(ROOT, 'tools'))
+    from smoke import Handler as Quiet, CHROMIUM_ARGS
     handler = functools.partial(Quiet, directory=os.path.join(ROOT, 'src', 'out', 'line'))
     socketserver.TCPServer.allow_reuse_address = True
     httpd = socketserver.TCPServer(('127.0.0.1', PAGE_PORT), handler)
@@ -142,7 +143,7 @@ async def browser_tests(srv_port):
             fails.append(label)
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch()
+        browser = await p.chromium.launch(args=CHROMIUM_ARGS)   # うちのこランの 3D（WebGL 2）も 動く ように
 
         async def open_page(sub, local=None, external=False, server_down=False, owner=None, skew_ms=0, keys=None, path='/', id_token=None, fail=None, lose=None, notice_seen=True, extra_init=None):
             """id_token：getIDToken() が返す JS の式（既定は sub の とおるトークン）。
@@ -1102,6 +1103,99 @@ async def browser_tests(srv_port):
            'つながりが 切れた あとの おわり：「きろく できなかったよ」・なにも ふえない', {'r': r, 'p0': p0})
         await page.click('#pzQuit'); await page.wait_for_timeout(400)
         ok(await page.evaluate("!document.querySelector('#pzPage')"), 'おわったあとの × は すぐ とじる')
+        all_errs += errs; await ctx.close()
+
+        print('23. うちのこラン（2026-11-22 P6）：はしりだしで runStart → ゴールで run（番号 rid）。サーバーが 走りだしの 時刻を 見て ほうび。返事を なくしても 2回 数えない')
+        RUN_OPEN = """async (c) => { document.querySelectorAll('.levelup').forEach(e => e.remove()); Modal.q = []; Modal.busy = false;
+            RunUI.open(); for (let i = 0; i < 600 && !document.querySelector('#runPage .run-sel'); i++) await new Promise(r => setTimeout(r, 100));
+            RunUI.start(c); for (let i = 0; i < 600 && !(RunUI.ctl && RunUI.ctl.frames > 0); i++) await new Promise(r => setTimeout(r, 100));
+            return { ctl: !!(RunUI.ctl && RunUI.ctl.frames > 0), src: typeof RUN_SRC !== 'undefined' && RUN_SRC }; }"""
+        RUN_GO = """async () => { document.querySelector('#runPage [data-m="go"]').click(); const sim = RunUI.ctl.sim;
+            for (let i = 0; i < 200 && sim.status === 'countdown'; i++) sim.step(1 / 60);
+            await new Promise(r => setTimeout(r, 1200)); return sim.status; }"""
+        RUN_GOAL = """async () => { const sim = RunUI.ctl.sim; sim.player.s = sim.layout.length - 1.5; sim.waitingTurn = null;
+            for (let i = 0; i < 900 && sim.status === 'running'; i++) sim.step(1 / 60);
+            for (let i = 0; i < 200 && !document.querySelector('#runPage .run-rec .run-rec-h'); i++) await new Promise(r => setTimeout(r, 100));
+            await new Promise(r => setTimeout(r, 500));
+            return { status: sim.status, rec: ((document.querySelector('#runPage .run-rec') || {}).textContent || '').replace(/\\s+/g, ' ').trim(),
+                     resend: !!document.querySelector('#runPage [data-line-run="resend"]'), local: JSON.parse(JSON.stringify(S.run)), love: S.stats.love, state: LineSync.state }; }"""
+        RUN_NOW = """({ rec: ((document.querySelector('#runPage .run-rec') || {}).textContent || '').replace(/\\s+/g, ' ').trim(), resend: !!document.querySelector('#runPage [data-line-run="resend"]'),
+            local: JSON.parse(JSON.stringify(S.run)), love: S.stats.love, state: LineSync.state, modal: !!document.querySelector('.levelup [data-close="retry"]') })"""
+        park_min = 29620
+        lose = {}
+        ctx, page, errs, calls = await open_page('Uone', owner=one['id'], lose=lose)
+        await close_popups(page)
+        u0 = state('Uone')
+        o = await page.evaluate(RUN_OPEN, 'park')
+        ok(o['ctl'] and o['src'] and o['src'].startswith('/run-'), 'LINE版で ランが ひらく（ゲームの ファイルは いちばん上の /run-…js・CSP に とめられない）', o)
+        await snap(page, 'run_ready')
+        n_act = len([c for c in calls if c.endswith('/act')])
+        st = await page.evaluate(RUN_GO)
+        u1 = state('Uone')
+        ok(st == 'running' and u1['run_start'] and u1['run_start']['c'] == 'park' and len([c for c in calls if c.endswith('/act')]) == n_act + 1 and u1['run'] == u0['run'],
+           '「はしる」で runStart：サーバーが 走りだしの 時刻を のこす（数字は かわらない）', {'start': u1['run_start'], 'run': u1['run']})
+        dbg('/__debug/run', {'sub': 'Uone', 'ms': park_min + 5000})   # 走りだしから はやすぎない 時間が たった ことに
+        lose['/act'] = 1   # ゴールの 返事だけ なくす（とどいてはいる）→ 同じ rid で おくりなおし
+        g = await page.evaluate(RUN_GOAL)
+        await close_popups(page)
+        u2 = state('Uone')
+        ok(g['status'] == 'finished' and 'LOST /act' in calls and u2['run']['games'] == u0['run']['games'] + 1 and u2['run']['n'] == u0['run']['n'] + 1
+           and u2['run']['best'].get('park') == park_min and not u2['run_start'] and abs(u2['love'] - u0['love'] - 2) < 1e-6,
+           'ゴール：サーバーが ほうび（1回）・ベストは いちばん はやい タイムに 切る・走りだしは つかいおわる・返事を なくしても 2回 数えない', {'u0': u0['run'], 'u2': u2['run'], 'calls': calls[-5:]})
+        g2 = await page.evaluate(RUN_NOW)
+        ok('ごきげん+5' in g2['rec'] and 'はじめての きろく' in g2['rec'] and g2['local'] == u2['run'] and not g2['resend'], 'ゴールの カード：ほうびと きろく・画面の きろくは サーバーと 同じ', g2)
+        await snap(page, 'run_goal')
+        # はやすぎる（走りだしから いちばん はやい タイムより 前）：きろく するが ほうびなし
+        await page.click('#runPage [data-m="again"]'); await page.wait_for_timeout(1500)
+        g = await page.evaluate(RUN_GOAL)
+        await close_popups(page)
+        u3 = state('Uone')
+        ok('この回は ほうび なし' in g['rec'] and u3['run']['games'] == u2['run']['games'] + 1 and u3['run']['n'] == u2['run']['n'] and g['local'] == u3['run'] and abs(u3['love'] - u2['love']) < 1e-6,
+           '「もういちど」で すぐ ゴール（はやすぎる）：きろく するが ほうびなし・「この回は ほうび なし」', {'rec': g['rec'], 'u3': u3['run']})
+        await snap(page, 'run_fast')
+        await page.evaluate('() => RunUI.close()'); await page.wait_for_timeout(300)
+        all_errs += errs; await ctx.close()
+
+        print('23b. 走りだしが とどかない・ゴールで つながっていない：この端末だけで 数えない → つなぎなおして「もういちど おくる」（走りだしが ないので ほうびなし）。あそびかたから もどっても')
+        fail = {}
+        ctx, page, errs, calls = await open_page('Uone', owner=one['id'], fail=fail)
+        await close_popups(page)
+        u0 = state('Uone')
+        await page.evaluate(RUN_OPEN, 'beach')
+        fail['/act'] = 2   # 走りだし（おくりなおしも）が とどかない → つながっていない
+        await page.evaluate(RUN_GO)
+        await page.wait_for_timeout(1500)
+        g = await page.evaluate(RUN_GOAL)
+        ok(g['state'] == 'failed' and 'きろく できなかったよ' in g['rec'] and g['resend'] and g['local'] == u0['run'] and abs(g['love'] - u0['love']) < 1e-6 and state('Uone')['run'] == u0['run'],
+           'つながっていない ゴール：「きろく できなかったよ」・この端末の きろくも なかよしも ふえない', g)
+        await snap(page, 'run_offline')
+        await page.click('#runPage [data-line-run="resend"]'); await page.wait_for_timeout(800)
+        n1 = await page.evaluate(RUN_NOW)
+        ok(n1['modal'] and n1['local'] == u0['run'] and state('Uone')['run'] == u0['run'], 'つながっていない あいだの「もういちど おくる」：「つながっていません」が 出て、なにも 数えない', n1)
+        await page.click('.levelup [data-close="retry"]'); await page.wait_for_timeout(3000)
+        await close_popups(page)
+        await page.click('#runPage [data-line-run="resend"]'); await page.wait_for_timeout(2500)
+        await close_popups(page)
+        n2, u1 = await page.evaluate(RUN_NOW), state('Uone')
+        ok(n2['state'] == 'on' and u1['run']['games'] == u0['run']['games'] + 1 and u1['run']['n'] == u0['run']['n'] and n2['local'] == u1['run']
+           and 'この回は ほうび なし' in n2['rec'] and not n2['resend'] and u1['run']['best'].get('beach'),
+           'つなぎなおして「もういちど おくる」：サーバーが 1回 きろく（走りだしが とどいていないので ほうびなし）・画面も 同じ', {'n2': n2, 'u1': u1['run']})
+        await snap(page, 'run_resent')
+        await page.click('#runPage [data-run="help"]'); await page.wait_for_timeout(400)
+        await page.click('#runPage [data-m="ok"]'); await page.wait_for_timeout(400)
+        n3 = await page.evaluate(RUN_NOW)
+        ok('この回は ほうび なし' in n3['rec'] and not n3['resend'], 'あそびかたから もどっても、おくりなおした きろくの まま', n3)
+        await page.evaluate('() => RunUI.close()'); await page.wait_for_timeout(300)
+        all_errs += errs; await ctx.close()
+
+        print('23c. LINEの 外（ゲスト）：うちのこランは 端末の ルールで（サーバーには おくらない）')
+        ctx, page, errs, calls = await open_page('Ugst23', local=sample('ゲスト'), external=True)
+        await close_popups(page)
+        await page.evaluate(RUN_OPEN, 'park')
+        await page.evaluate(RUN_GO)
+        g = await page.evaluate(RUN_GOAL)
+        ok('ごきげん+5' in g['rec'] and g['local']['n'] == 1 and not any(c.endswith('/act') for c in calls), 'ゲストは この端末で ほうび（サーバーには おくらない）', {'g': g, 'calls': calls})
+        await page.evaluate('() => RunUI.close()'); await page.wait_for_timeout(300)
         all_errs += errs; await ctx.close()
 
         print('20. おしらせ（ポリシー・規約の 大事な変更など。まだ見ていない人に 1回だけ。5-6）')
