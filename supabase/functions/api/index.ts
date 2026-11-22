@@ -39,6 +39,9 @@
  *   パズルとは べつ・タイムは そのコースの いちばん はやい タイム RUN.courses[c].min で 切る・ベスト・アルバム）。
  *   srv.run が ない・ちがう コース・t から min より はやい ゴールは、きろく（回数・ベスト）は するが ほうびなし（noreward）。
  *   srv.run は 1回の ゴールで つかいおわる（runStart 1回で ほうびは 1回まで）。どちらも おせわの 2.5秒（CARE）には 数えない。rid の しくみに のる。
+ *   「はやすぎる」は t から min − RUN_SLACK_MS より はやい とき（走りだしの 通信が おくれても、じょうずな アジリティ〈ほぼ min〉が ほうびなしに ならない ように。
+ *   レビュー R2-2）。ゴールの 番号と 答えは srv.rq とは べつに srv.rg にも のこし、あいだに ほかの おせわが 入っても
+ *   同じ 番号の おくりなおしは 前の 答え（レビュー R2-1）。
  * - IDトークンは https://api.line.me/oauth2/v2.1/verify で検証し、sub だけを使う（プロフィールの値は使わない）。
  *   LINEミニアプリチャネルの中の 開発用・審査用・本番用（内部チャネル）は チャネルIDが べつなので、3つとも通す（LINE_CHANNEL_IDS）。
  *   sub はプロバイダーごとなので、どの内部チャネルから ひらいても 同じ会員になる。
@@ -115,6 +118,10 @@ const BODY_MAX = { login:8_000, save:8_000, act:8_000, import:MOVE_MAX + 2_000, 
 const CARE = new Set(['feed', 'treat', 'play', 'trick']);
 /* うちのこラン：知っている コースか（RUN.courses の 自分の キーだけ。constructor などを とおさない） */
 const runCourse = (c: unknown) => typeof c === 'string' && Object.prototype.hasOwnProperty.call(RUN.courses, c) ? c : null;
+/* うちのこラン：「はやすぎる」の ゆとり（ミリ秒）。走りだし runStart は 3・2・1 の はじめに おくるので、ふつうは 3秒の ゆとりが あるが、
+   通信の おくれ・おくりなおし（900ms）・前の ゴールの 返事まちで 走りだしが 3秒 より おくれて とどくと、ミスなしの じょうずな アジリティ
+   （ほぼ min ちょうど）が ほうびなしに なる（レビュー R2-2）。ずるで へらせる まち時間は この ぶんだけ */
+const RUN_SLACK_MS = 2_000;
 const CARE_GAP_MS = 2_500;
 const STROKE_MAX = 12;
 /* 長く ひらかない人：最後に ひらいて（ログインして）から この日数で、会員ごと ぜんぶ消す（プライバシーポリシーの「2年」）。
@@ -394,10 +401,10 @@ function cleanPet(raw: unknown): Pet {
 
 /* サーバーだけが使う控え（画面には関係ない）：なでなでのなかよしの残り（pb）、前のおせわの時刻（cd）、
    さいごに うけとった おせわの番号と その答え（rq。診断 3-3）、書きこみの回数（rt：10秒の まど w・n と その日 d・dn。診断 1-5）、
-   うちのこランの 走りだし（run：コース c と サーバーの 時刻 t。2026-11-22 P6） */
+   うちのこランの 走りだし（run：コース c と サーバーの 時刻 t。2026-11-22 P6）と さいごの ゴールの 番号と 答え（rg。レビュー R2-1） */
 type Rq = { id: string; r: Record<string, unknown> };
 type Rt = { w: number; n: number; d: string; dn: number };
-type Srv = { pb: { left: number; t: number }; cd: number; rq?: Rq; rt: Rt; run?: { c: string; t: number } };
+type Srv = { pb: { left: number; t: number }; cd: number; rq?: Rq; rt: Rt; run?: { c: string; t: number }; rg?: Rq };
 function srvOf(st: Record<string, unknown>, t: number): Srv {
   const o = (st.srv && typeof st.srv === 'object' ? st.srv : {}) as Record<string, unknown>;
   const pb = (o.pb && typeof o.pb === 'object' ? o.pb : {}) as Record<string, unknown>;
@@ -409,6 +416,8 @@ function srvOf(st: Record<string, unknown>, t: number): Srv {
     rt:{ w:n(rt.w, 0, 0, t), n:n(rt.n, 0, 0, 1e9), d:typeof rt.d === 'string' ? rt.d : '', dn:n(rt.dn, 0, 0, 1e9) },
   };
   if (rq && typeof rq.id === 'string' && RID_RE.test(rq.id) && rq.r && typeof rq.r === 'object') srv.rq = { id:rq.id, r:rq.r as Record<string, unknown> };
+  const rg = (o.rg && typeof o.rg === 'object' ? o.rg : null) as Record<string, unknown> | null;
+  if (rg && typeof rg.id === 'string' && RID_RE.test(rg.id) && rg.r && typeof rg.r === 'object') srv.rg = { id:rg.id, r:rg.r as Record<string, unknown> };
   const run = (o.run && typeof o.run === 'object' ? o.run : null) as Record<string, unknown> | null;
   const rc = run ? runCourse(run.c) : null, rt0 = run ? Number(run.t) : NaN;
   if (rc && Number.isFinite(rt0) && rt0 > 0 && rt0 <= t) srv.run = { c:rc, t:rt0 };
@@ -464,6 +473,8 @@ async function act(req: Request, member: string) {
     const srv = srvOf(st, t);
     /* 同じ番号を もう うけとっていたら（返事だけ とどかなかった）、数えなおさずに 前の答えと いまの セーブを返す */
     if (rid && srv.rq && srv.rq.id === rid) return { ...srv.rq.r, dup:true, save:saveOut(sv), now:t };
+    /* うちのこランの ゴールは、あいだに ほかの おせわ（つぎの 走りだし・open など）が 入って srv.rq が かわっていても、同じ 番号なら 前の 答え（レビュー R2-1） */
+    if (rid && type === 'run' && srv.rg && srv.rg.id === rid) return { ...srv.rg.r, dup:true, save:saveOut(sv), now:t };
     if (CARE.has(type) && t - srv.cd < CARE_GAP_MS) return { ok:false, why:'busy', ev:[], save:saveOut(sv), now:t };
     if (overRate(srv, t)) return { ok:false, why:'busy', ev:[], save:saveOut(sv), now:t };
     if (type === 'runStart'){
@@ -486,7 +497,7 @@ async function act(req: Request, member: string) {
       const c = runCourse(p.course), s0 = srv.run;
       delete srv.run;   /* 走りだし 1回で ゴール 1回まで */
       if (c){
-        noreward = !s0 || s0.c !== c ? 'start' : t - s0.t < (RUN.courses as Record<string, { min: number }>)[c].min ? 'fast' : null;
+        noreward = !s0 || s0.c !== c ? 'start' : t - s0.t < (RUN.courses as Record<string, { min: number }>)[c].min - RUN_SLACK_MS ? 'fast' : null;
         if (noreward){
           const z = (st.run || (st.run = { games:0, clears:0, n:0, day:null, best:{} })) as { day: string | null; n: number };
           const day = dayKey();
@@ -506,6 +517,7 @@ async function act(req: Request, member: string) {
     if (!r.ok && type !== 'open') return { ...r, save:saveOut(sv), now:t };
     if (r.ok && CARE.has(type)) srv.cd = t;
     if (rid) srv.rq = { id:rid, r:answerOf(r) };
+    if (rid && type === 'run') srv.rg = srv.rq;
     return { ...r, save:await writeSave(tx, member, st), now:t };
   });
 }

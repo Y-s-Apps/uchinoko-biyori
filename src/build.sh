@@ -140,6 +140,8 @@ cat > out/line/_headers <<'HEADERS'
   Content-Security-Policy: frame-ancestors 'none'
   X-Frame-Options: DENY
 HEADERS
+# うちのこランの ゲームの ファイルは 名前に 中身の ハッシュが あるので ずっと とっておいてよい（ひらく たびに たしかめの やりとりを しない。レビュー R6-2）
+if [ "$RUN_LINE" = 1 ]; then printf '/%s\n  Cache-Control: public, max-age=31536000, immutable\n' "$RUN_FILE" >> out/line/_headers; fi
 if [ "$DOCS" = true ]; then
   for f in privacy terms; do sed "s|__CONTACT__|$CONTACT|g" legal/$f.html > out/line/$f.html; done
   if grep -q '__CONTACT__' out/line/privacy.html out/line/terms.html; then echo 'お問い合わせ先が入っていません' >&2; exit 1; fi

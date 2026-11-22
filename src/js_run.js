@@ -1,20 +1,23 @@
-/* ===== うちのこラン：ホーム画面版だけ（2026-11-21 P2・2026-11-22 P3・P4。docs/RUN_DESIGN.md） =====
- * build.sh の RUN_HOME=1 のとき js_features.js の すぐあとに 入る（LINE版・Claude版には 入らない＝RUN_LINE=0・RUN_CLAUDE=0）。
+/* ===== うちのこラン：3つの 版（ホーム画面版 2026-11-21 P2〜P4・Claude版 P5・LINE版 P6。docs/RUN_DESIGN.md） =====
+ * build.sh の RUN_HOME=1・RUN_CLAUDE=1・RUN_LINE=1 のとき js_features.js の すぐあとに 入る。LINE版だけの ことは js_line.js の LineRun が 包む。
  * 3D の ゲーム（Three.js と src/run/）は 1つの ファイル RUN_SRC（run-<ハッシュ>.js。中身は src/run_bundle.js）に まとめてあり、
- * ランを ひらいた ときだけ 読みこむ。integrity は RUN_SRI、CSP は その ファイルの URL だけ（build.sh が 入れる）。Service Worker も とっておく。
+ * ランを ひらいた ときだけ 読みこむ。integrity は RUN_SRI、CSP は その ファイルの URL だけ（build.sh が 入れる。Claude版は アーティファクトの 2つめの ファイル）。
+ * ホーム画面版は Service Worker も とっておく。読みこみが RUN_WAIT_MS より かかったら「よみこめませんでした」（とどけば そのまま えらぶ 画面へ）。
  * - 「あそぶ」の シートに 3つめ「ラン」（openPlay を 包む）。WebGL 2 が ない 端末は「この端末では あそべません」で ひらかない。
  * - ページごと うつる #runPage（パズルと 同じ 重なり 45。うしろの #app は inert）。とじたら ゲームを ぜんぶ 片づける（dispose）。
  * - ひらくと コースを えらぶ 画面（題「うちのこラン」・「レース／アジリティ」の 切りかえ・コースの カード・ベスト・きょうの ほうび）
  *   → レース（こうえん・うみべ・もり。src/run/race.js）か アジリティ（はじめての ひろば・ジグザグ・バランス・おかの ひろば。src/run/agility.js。P4）。
  * - ゴールで Act.run('run')：ほうび（ごきげん・なかよし。レースと アジリティ あわせて 1日 RUN.perDay 回・パズルとは べつ）と コースごとの ベスト・アルバム
  *   （ルールは js_rules.js。アジリティの タイムは 合計＝走った タイム＋ミス×5秒）。
- *   ゴールの カードに ほうびと ベストとの 差を 出す。LINE に ほぞんしている子が つながっていない ときは きろく しない（Act.blocked。P6 まで LINE版には 出ない）。
+ *   ゴールの カードに ほうびと ベストとの 差を 出す。LINE に ほぞんしている子が つながっていない ときは きろく しない（Act.blocked）。
  * - 子が 入れかわったら（Game.start）とじる。よるの ひとこと（Nudge）は ランの あいだ まつ。 */
+const RUN_WAIT_MS = 20000;   /* ゲームの ファイル（約 630KB）を まつ ながさ。こえたら「よみこめませんでした」 */
 const RunUI = {
   page:null, ctl:null, back:null, tok:0, gl:null, loading:null, ran:false, onKey:null, R:null, course:null, helpOn:false, mode:'race',
-  /* WebGL 2（Three.js r170 が つかう）が あるか。1回だけ 見て、ためしの 3D は すぐ 手ばなす */
+  /* WebGL 2（Three.js r170 が つかう）が あるか。あると わかったら おぼえる（なかった ときは つぎに また 見る＝たまたま つくれなかった だけかも。レビュー R4-3）。
+     ためしの 3D は すぐ 手ばなす */
   canPlay(){
-    if (this.gl === null){
+    if (this.gl !== true){
       try {
         const g = document.createElement('canvas').getContext('webgl2');
         this.gl = !!g;
@@ -88,8 +91,11 @@ const RunUI = {
     document.addEventListener('keydown', this.onKey, true);
     const tok = ++this.tok;
     this.wait('じゅんび しているよ…', null);
-    this.load().then(R => { if (tok === this.tok && this.page){ this.R = R; this.select(); } },
-      () => { if (tok === this.tok && this.page) this.wait('よみこめませんでした', 'つながっている ところで、<br>もういちど ひらいてね'); });
+    const fail = () => { if (tok === this.tok && this.page && !this.R) this.wait('よみこめませんでした', 'つながっている ところで、<br>もういちど ひらいてね'); };
+    /* とちゅうで とまった ままに しない（レビュー R4-1）。読みこみは つづけるので、あとで とどけば えらぶ 画面に なる */
+    const timer = setTimeout(fail, RUN_WAIT_MS);
+    this.load().then(R => { clearTimeout(timer); if (tok === this.tok && this.page){ this.R = R; this.select(); } },
+      () => { clearTimeout(timer); fail(); });
     try { page.focus({ preventScroll:true }); } catch(e){}
   },
   root(){ return this.page && this.page.querySelector('.run-root'); },

@@ -374,6 +374,17 @@ console.log('うちのこラン（2026-11-22 P3）：ほうびは ゴールし�
   ok(Rules.runLeft(st) === 3, '0:00：のこり 3 に もどる');
   const r8 = act(st, 'run', { course:'park', ms:36000, rank:2 });
   ok(r8.ok && r8.reward && st.run.day === jst(T) && st.run.n === 1, 'つぎの日の 1回めは ほうびあり', { r8, run:st.run });
+  /* アルバムは コースごとに いちばん 新しい ベストだけ（日が かわっても ふえない。レビュー R1-1） */
+  const r8b = act(st, 'run', { course:'park', ms:34000, rank:1 });
+  const parks = st.album.filter(a => a.k === 'run:park');
+  ok(r8b.best && parks.length === 1 && parks[0].ti === 'こうえんで さいこう きろく 34.00秒！' && parks[0].t === T, 'つぎの日の ベストも アルバムの こうえんは 1つ（新しい ほう）', parks);
+  const fill = child();
+  for (let d = 0; d < 400; d++){ T += D; for (const c of Object.keys(RUN.courses)) act(fill, 'run', { course:c, ms:RUN.courses[c].min + (400 - d) * 50 }); }
+  ok(fill.album.filter(a => String(a.k).startsWith('run:')).length === 7 && fill.album.length < 300, '400日 まいにち 7コースの ベストを のばしても ランの アルバムは 7つ', { n:fill.album.length });
+  T = Date.UTC(2026, 10, 5, 15, 0);
+  const odd = child(); odd.run = { games:'a', clears:null, n:0, day:null, best:{} };
+  const r9 = Rules.act(odd, 'run', { course:'park', ms:40000 }, { budget, away:0 });
+  ok(r9.ok && odd.run.games === 1 && odd.run.clears === 1, 'ensureState を とおらない こわれた 回数でも NaN に しない（レビュー R1-3）', odd.run);
   /* 引っこしコード・取りこみ（carryExtras）で 回数・記録・きょうの回数が のこる */
   const code = s => { const b = Buffer.from(JSON.stringify(s)).toString('base64'); return 'UCHINOKO2:' + b.length + ':' + b; };
   const moved = g.readMoveCode(code(st)).st;

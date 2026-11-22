@@ -476,6 +476,7 @@ export function mountAgility(opts){
       cancelAnimationFrame(frameId);
       canvas.removeEventListener('webglcontextlost', lostGL);
       if (observer) observer.disconnect();
+      container.removeEventListener('keydown', key);   /* .run-root は つかいまわすので はずす（のこすと むかしの ゲームを つかんだまま＝レビュー R3-1） */
       document.removeEventListener('visibilitychange', hidden);
       removeEventListener('blur', pause); removeEventListener('pagehide', pause); removeEventListener('resize', resize);
       if (pet) disposePet3D(pet);

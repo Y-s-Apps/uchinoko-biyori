@@ -917,6 +917,41 @@ console.log('run (2026-11-22 P6：うちのこラン。走りだし runStart の
   ok(x.data.ok && x.data.noreward === 'start', 'an odd runStart course is thrown away → no reward', x.data);
 }
 
+console.log('run review (2026-11-22 レビュー R2-1・R2-2：ゴールの おくりなおしは あいだに ほかの おせわが 入っても 1回・走りだしの おくれの ゆとり)');
+{
+  const rn = await joiner('runner2');
+  const ago = (ms: number) => patch(rn.id, d => { if (d.srv && d.srv.run) d.srv.run.t -= ms; });
+  const go = (course: string, rid: string) => call('POST', '/act', { type:'runStart', course, rid }, rn.token);
+  const goal = (course: string, rid: string) => call('POST', '/act', { type:'run', course, ms:RUN.courses[course].min + 100, misses:0, rid }, rn.token);
+  /* R2-1：ゴール → つぎの 走りだし（べつの 番号）→ 同じ ゴールの おくりなおし */
+  await go('park', 'rid-rv-start-1'); await ago(RUN.courses.park.min + 3000);
+  const g1 = await goal('park', 'rid-rv-goal-1');
+  await go('beach', 'rid-rv-start-2');
+  const g1b = await goal('park', 'rid-rv-goal-1');
+  ok(g1.data.ok && g1.data.reward === true && g1b.data.ok && g1b.data.dup === true && g1b.data.reward === true && !g1b.data.noreward
+     && g1b.data.save.data.run.games === 1 && g1b.data.save.data.run.n === 1 && g1b.data.save.data.srv.run && g1b.data.save.data.srv.run.c === 'beach',
+     'goal → another runStart → the same goal rid again → the first answer (not counted twice, the new start is kept)', { g1:g1.data, g1b:g1b.data });
+  /* open（番号つき）が あいだに 入っても 同じ */
+  await go('forest', 'rid-rv-start-3'); await ago(RUN.courses.forest.min + 3000);
+  const g2 = await goal('forest', 'rid-rv-goal-2');
+  await call('POST', '/act', { type:'open', rid:'rid-rv-open-1' }, rn.token);
+  const g2b = await goal('forest', 'rid-rv-goal-2');
+  ok(g2.data.reward === true && g2b.data.dup === true && g2b.data.reward === true && g2b.data.save.data.run.games === 2, 'an open with a rid in between → still the first answer', g2b.data);
+  /* R2-2：走りだしが 1.5秒 おくれて とどいた じょうずな 走り（min − 1500）→ ほうびあり。min − 2500 → はやすぎる */
+  await go('hill-field', 'rid-rv-start-4'); await ago(RUN.courses['hill-field'].min - 1500);
+  const g3 = await call('POST', '/act', { type:'run', course:'hill-field', ms:RUN.courses['hill-field'].min, misses:0, rid:'rid-rv-goal-3' }, rn.token);
+  ok(g3.data.ok && g3.data.reward === true && !g3.data.noreward && g3.data.save.data.run.n === 3, 'a skilled agility goal min − 1.5 s after a late runStart → reward (RUN_SLACK_MS)', g3.data);
+  await patch(rn.id, d => { d.run.n = 0; });
+  await go('balance', 'rid-rv-start-5'); await ago(RUN.courses.balance.min - 2500);
+  const g4 = await call('POST', '/act', { type:'run', course:'balance', ms:RUN.courses.balance.min, misses:0, rid:'rid-rv-goal-4' }, rn.token);
+  ok(g4.data.ok && g4.data.reward === false && g4.data.noreward === 'fast' && g4.data.save.data.run.n === 0, 'min − 2.5 s → still too fast (no reward, today\'s count untouched)', g4.data);
+  /* こわれた srv.rg は すてる */
+  await patch(rn.id, d => { d.srv.rg = { id:'bad id!', r:{ ok:true } }; });
+  const sv = (await call('GET', '/save', undefined, rn.token)).data.save;
+  const g5 = await call('POST', '/act', { type:'open', rid:'rid-rv-open-2' }, rn.token);
+  ok(g5.data.ok !== undefined && !(g5.data.save.data.srv.rg && g5.data.save.data.srv.rg.id === 'bad id!') && sv, 'a broken srv.rg is thrown away (srvOf)', g5.data.save.data.srv.rg);
+}
+
 console.log('rate (1-5：会員ごとの 回数の制限)');
 const tom = await joiner('tom');
 Deno.env.set('ACT_PER_WINDOW', '5');

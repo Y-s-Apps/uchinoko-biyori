@@ -68,7 +68,7 @@
 | `tail`（curl・plume・straight・stub・long・fluffy） | 巻き尾・ふさ尾・まっすぐ・短い・長い・ふわふわ |
 | `face`（muzzle・lower・mask・hachiware・blaze） | 顔の 色わけ（後ろ姿では 少しだけ 見える。走る 前の プレビューで 見える） |
 | `legs`（normal・short） | 足の 長さ（ダックス・コーギーは short） |
-| `colors`（main・body・ear・tail・belly など）・`marks`（しま・ぶち など） | 部品ごとの 色。しま・ぶちは Canvas で 作る 小さな 模様の テクスチャ（画像の ファイルは 使わない） |
+| `colors`（main・body・ear・tail・belly など）・`marks`（しま・ぶち など） | 部品ごとの 色。しま・ぶちは Canvas で 作る 小さな 模様の テクスチャ（画像の ファイルは 使わない）→ **じっさいは 頂点の 色に した**（テクスチャなし。11章） |
 | `wear.neck` | マフラー（トリコロール ふくむ）・バンダナ・すずの 首輪（6色）・リボン。わんランの 首の 布（`neck-scarf.js`）の 作り方を 参考に |
 
 - 見くらべの ツールを 作る：41種と いくつかの 毛色で「2Dの 絵（`renderPet`）」と「3Dの 正面・ななめ・後ろ」を 1まいに ならべた スクリーンショット。**オーナーが 見て OK を 出してから** 走る ところへ すすむ。
@@ -244,7 +244,7 @@ Claude版（https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs 、バージョン
   - ためしの アーティファクト「うちのこ日和 P5 ためし」（https://claude.ai/artifact/G6JjwCoMcYMZ96pctVrYQF 、slug `7a36bb48-06ef-452f-8c27-c7e849d00828`。ほんものの Claude版とは べつ。セーブの キーを `uchinoko-p5test:` に かえ、ためしの 子を 入れ、db だけ 宣言）：ひらくと 読みこみ（`fetch` の 型・`content-type`・ハッシュ）・integrity（ただしい／ちがう ハッシュ・`crossorigin`）・WebGL 2・`eval`・blob を しらべ、ランを ひらく・走ると 読みこみの 時間・こま／秒を その アーティファクトの db（`probe/env`・`probe/open`）に 書く（`db_list` で 読める）。作る スクリプトは リポジトリの 外（ためし だけの もの）。
   - **iPhone の 結果（2026-11-22、iOS 18.7・Claude アプリ）：** ページは `https://<slug>.frame.claudeusercontent.com/_f/<版>/index.html`（ゲームの ファイルも 同じ オリジン・同じ 版の パス＝`fetch` の 型 `basic`。出しなおすと パスが かわるので 古い ファイルの キャッシュは つかわれない）。`run-….js` は `text/javascript; charset=utf-8`・`cache-control: private, max-age=31536000, immutable`・646,517 バイトを 0.42秒、ハッシュ 一致。integrity は ただしい ハッシュで 読めて、ちがう ハッシュで error（効いている）。`crossorigin` つきでも 読める。WebGL 2 あり（Apple GPU）。`eval`・blob も 通る（中に 入れる 案も できた）。ランを ひらいて 読みこみ 0.84秒（はじめて）・コースの 用意 0.15秒、こうえんを ゴールまで 30こま／秒（いちばん おそい 1秒も 30）、ベスト・ほうびの 回数も 入った。
 - **`build.sh`：** スイッチ `RUN_CLAUDE`（既定 1。`RUN_LINE` は まだ 1 に すると とまる）。ゲームの ファイルの 名前と `integrity`（`RUN_FILE`・`RUN_SRI`）は ホーム画面版と 同じ。`RUN_CLAUDE=1` の とき Claude版の スクリプトに `const RUN_SRC = 'run-….js', RUN_SRI = 'sha256-…';`・`js_run.js`（`js_features.js` の すぐあと）、`run/run.css`（`head.html` の すぐあとの `<style>`）。出力は いままでの `out/uchinoko-claude.html`（中身）と、新しい **`out/claude/`**（`index.html`＝`src/claude_head.html`〈いまの アーティファクトの 1行目と 同じ〉＋中身＋`</body></html>`、`run-<ハッシュ>.js`）。`RUN_CLAUDE=0` なら 前と 同じ Claude版（`out/uchinoko-claude.html` の md5 `b27fda95…`）。
-- **Claude版の ちがい（`HOME = false`）：** `js_run.js` は かえずに そのまま 動いた（先頭の コメントの「ホーム画面版だけ」は ホーム画面版の md5 を かえない ため のこした。つぎに ホーム画面版を かえる ときに 直す）。
+- **Claude版の ちがい（`HOME = false`）：** `js_run.js` は かえずに そのまま 動いた（先頭の コメントの「ホーム画面版だけ」は ホーム画面版の md5 を かえない ため のこした → レビューの 直し〈17章〉で 直した）。
   - Service Worker は ない（アーティファクトでは つかえない）→ ランを ひらく ときは ネットが いる（よめなければ「よみこめませんでした」→ とじる。ほかの 画面は かわらない）。
   - 保存は クラウド（`Persist.flush` が `S` ごと `data/users/<id>/pet` に）→ `S.run`（ほうびの 回数・ベスト・ゴールの 回数）も 入る。ひらきなおしても、はじめての 端末でも のこる（`smoke.py --claude` の F）。ほうびの 日付は 端末の 日付（ホーム画面版と 同じ）。
   - アーティファクトの 1行目に `[hidden]{display:none!important}` が あるので、`hidden` は いつも けす（ランの `.run-over[hidden]`・`.run-stop[hidden]` の 決まりと 同じ 動き）。
@@ -269,8 +269,8 @@ Claude版（https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs 、バージョン
   - `runStart { course }`：知っている コース（`runCourse`＝`RUN.courses` の 自分の キーだけ）なら `srv.run = { c, t }`（`t` は サーバーの 時計）を 書くだけ。前の 走りだしは 置きかえる。知らない コースは `why:'course'`（書かない）。
   - `run { course, ms, misses, rank }`：`srv.run` を とりだして けす（走りだし 1回で ゴール 1回）。`srv.run` が ない・コースが ちがう → `noreward:'start'`、`t` から `RUN.courses[c].min` より はやい → `'fast'`。どちらも ルールには きょうの 回数を `perDay` に みせて わたし（ほうびの ところを とおらない）、あとで もとに もどす＝回数・ベスト・アルバムは 書いて ほうびなし（`reward:false`・ほんとうの `left`・のこりが ある ときだけ `noreward`）。`js_rules.js` は かえていない（ホーム画面版の md5 を かえない ため）。
   - どちらも `rid`（同じ 番号は 前の 答え）・`overRate` に のる。`CARE`（2.5秒）には 数えない。`srvOf` が `srv.run` を そろえる（知らない コース・未来の 時刻は すてる）。`/act` が ルールに わたす 値に `course`・`ms`・`misses`・`rank` を 足した。`game.js` は かわらない（`RUN` は P3 から 入っている。`build_server.py --check` 同じ）。
-  - `min` は 3・2・1（3秒）を ふくまない 走りの タイムなので、ふつうに 走れば サーバーの 時計でも かならず こえる（走りだしの 返事が 3秒より おくれた ときだけ、ほぼ ずっと ダッシュの 走りで「はやすぎる」に なりうる）。
-- **ビルド（`src/build.sh`）：** `RUN_LINE=1`（既定）。ゲームの ファイルは `out/line/run-<ハッシュ>.js`（いちばん上に 1つ）、ページは `RUN_SRC = '/run-….js'`（いちばん上からの パス。審査用 `/review/`・開発用 `/dev/` も 同じ ファイル）・`integrity`。CSP は `line_head.html` の `__RUN_CSP__` に `https://uchinoko-biyori.pages.dev/run-….js`（パスまで）。`js_run.js` は `js_features.js` の すぐあと、`run/run.css` は `head.html` の すぐあと。`RUN_LINE=0` なら 前と 同じ LINE版（`out/line/index.html` `8644251e…`）。
+  - `min` は 3・2・1（3秒）を ふくまない 走りの タイム。レースは ゆとりが 10秒 ほど あるが、アジリティは じょうずに 走ると ほぼ `min` ちょうど なので ゆとりは 3秒 だけ だった → レビューの 直し（17章）で 2秒の ゆとり `RUN_SLACK_MS` を 足した。
+- **ビルド（`src/build.sh`）：** `RUN_LINE=1`（既定）。ゲームの ファイルは `out/line/run-<ハッシュ>.js`（いちばん上に 1つ）、ページは `RUN_SRC = '/run-….js'`（いちばん上からの パス。審査用 `/review/`・開発用 `/dev/` も 同じ ファイル）・`integrity`。CSP は `line_head.html` の `__RUN_CSP__` に `https://uchinoko-biyori.pages.dev/run-….js`（パスまで）。`js_run.js` は `js_features.js` の すぐあと、`run/run.css` は `head.html` の すぐあと。`RUN_LINE=0` なら ランの 入口と ファイルの ない LINE版（`js_line.js` の `LineRun` と `line_head.html` の 決まりは 入るので md5 は P6 より 前の `8644251e…` とは ちがう＝`ef37c129…`。動きは `typeof RunUI` で まもる。17章）。
 - **画面（`src/js_line.js` の `LineRun`。`js_run.js` は かえていない）：**
   - `RunUI.start` を 包み、その回の ゲームの `sim.start`（インスタンスの メソッド。`ready` → `countdown` に なった とき）で `began(course)` → LINE に ほぞんしている子が つながっていれば `Act.run('runStart', { course })`（返事は またない）。ゲームの ファイル（`src/run/`）は かえていない。
   - `RunUI.finish` を 包む：`Act.remote` か `Act.blocked()` の とき（LINE に ほぞんしている子）だけ。ゴールの 番号 `goal`（`lineRid()`。走りだしで 空に・おくりなおしも 同じ）、`Act.blocked()` なら `Act.run` を よばない。`record(r)`：`offline`・`busy` は「きろく できなかったよ」と「もういちど おくる」（`.run-resend`）、`noreward` は ゴールの カードの ほうびの 行を「この回は ほうび なし。はしりだしが とどかなかったみたい」に。ほかは `RunUI.record`。
@@ -287,3 +287,26 @@ Claude版（https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs 、バージョン
   - `tools/run/run_shots.py --line`（ゲスト。`smoke-out/run-line/`）・`--android-inset`。
 - **出し方（レビューの あと）：** ブランチ `p6-run-line` を main に → push → `python3 tools/build_server.py --check`（`game.js` は かわらないので `deno.json` の 固定は `824da76` の まま）→ Supabase の MCP で `api` に `index.ts` と `deno.json` を デプロイ → `get_edge_function` を 手元と くらべる → pg_net で `/health`・LINE版の 3か所の md5・`/run-<ハッシュ>.js` の md5 → オーナーが iPhone の LINE（開発用の LIFF URL）で 走って ほうびが つくか。
 
+
+## 17. レビューの 直し（2026-11-22、29回目〈レビューと 同じ チャット〉。Opus 5.5）
+
+レビュー（診断レポート https://claude.ai/artifact/8kuQtwwyAD9RJ42PPy7GU6 の いちばん うしろの 章「うちのこランの レビュー（2026-11-22・P1〜P6）」。29こ＝中1・低6・情報22、「必ず」は 0）の あと、**オーナー決定：「そのまま」と 書いた もの いがい ぜんぶ 直す。** ブランチ `p6-run-line` で 直した。
+
+| 番号 | 直したこと | ファイル | 版 |
+| --- | --- | --- | --- |
+| R3-1（中） | `dispose()` で `.run-root` の `keydown` を はずす（`RunUI` は ページの `.run-root` を つかいまわすので、のこすと コースを かえるたびに むかしの ゲームを つかんだ まま 約3MB ふえた） | `src/run/race.js`・`agility.js`（`main.js` の `VERSION` は `p6`）→ `run_bundle.js`・`run-c705e8edb040.js` | 3つ |
+| R1-1（低） | アルバムの ベストは コースごとに いちばん 新しい 1つ（前は 同じ日に 1つ＝1日 7つ ふえ、300件の 上限で いちばん 古い 思い出から きえるのが はやく なった） | `src/js_rules.js`（`game.js`） | 3つ＋サーバー |
+| R1-3（情報） | `run.games`・`clears` は 数に してから 足す（ルールを さわる ついで） | `src/js_rules.js` | 3つ＋サーバー |
+| R2-2（低） | 「はやすぎる」は `min − RUN_SLACK_MS`（2秒）より はやい とき（じょうずな アジリティは ほぼ `min`、走りだしの 通信が 3秒 おくれると ほうびなし だった） | `supabase/functions/api/index.ts` | サーバー |
+| R2-1・R5-1（低） | ゴールの 番号と 答えを `srv.rq` と べつに `srv.rg` にも のこし、同じ 番号の `run` は `dup`（あいだに つぎの 走りだし・`open` が 入ると 2回めに 数えられ「ほうび なし」と 出た） | `index.ts` | サーバー |
+| R5-2（低） | LINE に ほぞんしている子が つながっていない ときは スタートの カードに ひとこと（`LineRun.offNote`） | `src/js_line.js`・`line_head.html` | LINE |
+| R8-1（低） | `busy` の ことばを 1行に・ひくい 画面（640px まで）で「もういちど おくる」を つめる（375×603 で 8px はみだした） | `js_line.js`・`line_head.html` | LINE |
+| R4-1 | ゲームの ファイルを 20秒（`RUN_WAIT_MS`）まって「よみこめませんでした」（とどけば えらぶ 画面へ） | `src/js_run.js` | 3つ |
+| R4-2 | `js_run.js` の 先頭の コメントを いまの 形に | `js_run.js` | 3つ |
+| R4-3 | WebGL 2 が「ない」は おぼえない（つぎに また 見る） | `js_run.js` | 3つ |
+| R6-2 | `_headers` で ゲームの ファイルだけ `Cache-Control: public, max-age=31536000, immutable` | `src/build.sh` | LINE |
+| R6-1・R6-3・R7-2・R7-4 | 書類（`RUN_LINE=0` の md5、プレビューでは ランが ひらけない、「かならず こえる」、4章の テクスチャ） | `docs/` | ― |
+
+- **直さなかった もの（レビューで「そのまま」）：** R1-2・R1-4・R2-3・R2-4・R2-5・R3-3・R3-4・R5-3・R5-4・R6-4・R7-3（HANDOFF を 書きなおす ときに）。R3-2（重さ）は 実機を 見てから。R7-1（ポリシーの 改定日）は main に 入れる 日が 2026-11-22 なら そのまま、ちがう 日なら その日に。
+- **ためし：** `tools/rules_test.mjs`（つぎの日の ベストも アルバムは 1つ・400日 7コースで 7つ・こわれた 回数）、`tools/server/api_test.ts` の「run review」（ゴール → 走りだし → おくりなおしは `dup`・`open` が 入っても・おくれた 走りだしの じょうずな アジリティ〈`min − 1.5秒`〉は ほうび・`min − 2.5秒` は はやすぎる・こわれた `srv.rg`）。
+- **出し方：** 16章と 同じ。`game.js` が かわる（R1-1・R1-3）ので、main に push → `python3 tools/build_server.py --pin <SHA>` → `index.ts` と `deno.json` を デプロイ → `--check`。ゲームの ファイルの 名前が かわる（`run-9c1af66550eb.js` → `run-c705e8edb040.js`）ので Claude版も 出しなおす（前の `run-*.js` は `remove`）。ホーム画面版は だいずの 控えの アプリが 更新される。

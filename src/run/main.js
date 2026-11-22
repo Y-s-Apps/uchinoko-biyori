@@ -4,4 +4,4 @@
 export { mountRace, COURSES, courseMap, helpHtml, formatClock, formatTime, timeMs, PET_SCALE } from './race.js';
 export { mountAgility, AGILITY_COURSES, agilityMap, agilityHelpHtml } from './agility.js';
 export { makePet3D, posePet3D, disposePet3D } from './pet3d.js';
-export const VERSION = 'p4';
+export const VERSION = 'p6';

@@ -1535,6 +1535,8 @@ moveErrorText = function(r){
      「きろく できなかったよ」には「もういちど おくる」（つながっていなければ「つながっていません」→ もういちど つなぐ）。
    - ページの 中で スクロールできる ところ（コースの 一覧・メニュー）も、はしで 引っぱると LINE が ミニアプリを 小さく するので とめる
      （3D と ボタンの ほかは js_run.js が もう とめている）。
+   - LINE に ほぞんしている子が つながっていない ときは、スタートの カードに「この回は きろく できないよ」（走っても あとで
+     「きろく できなかったよ」に なるだけ なので、さきに しらせる。レビュー R5-2）。
    ゲスト・LINE の 外は いままでどおり 端末の ルール（RunUI.finish の まま）。 */
 const LineRun = {
   goal:null,    /* いまの 回の ゴールの 番号（走りだしで 空に。ゴールで 作り、おくりなおしも 同じ） */
@@ -1554,9 +1556,21 @@ const LineRun = {
     };
     const over = RunUI.root() && RunUI.root().querySelector('.run-over');
     if (over && window.MutationObserver){
-      this.mo = new MutationObserver(() => this.refix());
+      this.mo = new MutationObserver(() => { this.refix(); this.offNote(); });
       this.mo.observe(over, { childList:true });
     }
+    this.offNote();   /* スタートの カードは この前に もう 出ている */
+  },
+  /* スタートの カード（「はしる」が ある）に、つながっていない ときの ひとこと（ゲストは 出さない） */
+  offNote(){
+    const card = RunUI.page && RunUI.page.querySelector('.run-over .run-card');
+    if (!card || !card.querySelector('[data-m="go"]') || card.querySelector('.run-line-off')) return;
+    const why = Act.blocked();   /* ゲスト（LINE に ほぞんしていない子）は null＝端末の ルールで きろく する */
+    if (!why) return;
+    const text = why === 'connecting' ? 'LINEに つないでいる とちゅう。<br>いま はしると ほうびは つかないよ'
+      : why === 'outside' ? 'LINEの 外なので、<br>この回は きろく できないよ' : 'LINEに つながっていないので、<br>この回は きろく できないよ';
+    const row = card.querySelector('.btnrow');
+    if (row) row.insertAdjacentHTML('beforebegin', `<p class="run-line-off" role="status">${text}</p>`);
   },
   began(course){
     this.goal = null; this.info = null; this.fixed = null;
@@ -1574,7 +1588,7 @@ const LineRun = {
   },
   record(r){
     if (r && !r.ok && (r.why === 'offline' || r.why === 'busy'))
-      return `<b class="run-rec-h">きろく できなかったよ</b><span>${r.why === 'busy' ? 'すこし まってから、<br>「もういちど おくる」を おしてね' : 'サーバーに つながらなかったみたい'}</span>`
+      return `<b class="run-rec-h">きろく できなかったよ</b><span>${r.why === 'busy' ? 'すこし まってから おくってね' : 'サーバーに つながらなかったみたい'}</span>`
         + '<button class="btn run-resend" type="button" data-line-run="resend">もういちど おくる</button>';
     let html = RunUI.record(r);
     if (r && r.ok && !r.reward && r.noreward){
