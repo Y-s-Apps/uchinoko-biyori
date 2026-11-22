@@ -1283,7 +1283,7 @@ const Rules = {
   /* うちのこラン：ゴールした ときだけ くる（とちゅうで やめたら なにも 書かない）。うけとるのは コース・タイム（ms）・ミスの 数・順位だけ
      （アジリティは タイムが 合計〈走った タイム＋ミス×5秒〉、順位は ない）。
      ほうび（ごきげん・なかよし）は ゴールしたか だけで、1日 RUN.perDay 回まで（パズルとは べつに 数える）。
-     タイムは そのコースの いちばん はやい タイム（RUN.courses[c].min）より はやければ そこに 切る。コースごとの さいこう記録は アルバムに（1日1つ） */
+     タイムは そのコースの いちばん はやい タイム（RUN.courses[c].min）より はやければ そこに 切る。コースごとの さいこう記録は アルバムに（コースごとに 1つ＝いちばん 新しい ベスト） */
   runLeft(st){ const z = st.run; return !z || z.day !== dayKey() ? RUN.perDay : Math.max(0, RUN.perDay - z.n); },
   run(st, p, ev){
     const c = typeof p.course === 'string' && hasId(RUN.courses, p.course) ? p.course : null;
@@ -1299,8 +1299,8 @@ const Rules = {
     this.decay(st);
     const day = dayKey();
     if (z.day !== day){ z.day = day; z.n = 0; }
-    z.games++;
-    if (!misses) z.clears++;
+    z.games = (Number(z.games) || 0) + 1;   /* ensureState を とおらない セーブでも NaN に しない（レビュー R1-3） */
+    if (!misses) z.clears = (Number(z.clears) || 0) + 1;
     let reward = false;
     if (z.n < RUN.perDay){
       z.n++;
@@ -1312,7 +1312,9 @@ const Rules = {
     const best = prev === null || ms < prev;
     if (best){
       z.best[c] = ms;
-      st.album = st.album.filter(a => !(a.k === 'run:' + c && dayKey(a.t) === day));
+      /* アルバムには コースごとに いちばん 新しい ベストだけ（7コースで 7つまで）。日ごとに のこすと 1日 7つ ふえて、
+         300件の 上限で「うちのこに なった日」など いちばん 古い 思い出から きえるのが はやく なる（レビュー R1-1） */
+      st.album = st.album.filter(a => a.k !== 'run:' + c);
       this.addAlbum(st, 'run:' + c, `${C.ja}で さいこう きろく ${runSec(ms)}！`,
         C.mode === 'agility' ? (misses ? `アジリティで ミス ${misses}回、さいごまで はしったね` : 'アジリティを ノーミスで ゴールしたね')
           : rank >= 1 && rank <= 5 ? (rank === 1 ? 'ランで いちばんに ゴールしたね' : `ランで ${rank}位で ゴールしたね`) : 'ランで さいごまで はしったね', 'run');
