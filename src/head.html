@@ -210,7 +210,9 @@ button{font:inherit;color:inherit}
 .tr-bigjump #petArt{animation:trBig .9s ease-out}
 @keyframes trBig{0%,100%{transform:translateZ(0)}35%{transform:translateY(-29%) rotate(-6deg)}60%{transform:translateY(-27.5%) rotate(6deg)}85%{transform:translateY(0) scaleY(.9)}}
 .tr-roll #petArt{transform-origin:50% 62.5%;animation:trRoll 1.3s ease-in-out}
-@keyframes trRoll{0%{transform:translateZ(0)}50%{transform:translateX(12.5%) rotate(180deg)}100%{transform:translateX(0) rotate(360deg)}}
+/* ごろん：さかさの ときに 頭が ゆかに しずまない ように 少し 上げる（2026-11-27。前は まわる 軸の ぶん 頭が ゆかの 下へ 2わり しずんでいた）。
+   はやさは 前と 同じ くらい（半分ずつ ease-in-out を 4つに わけた） */
+@keyframes trRoll{0%{transform:translate(0,0) rotate(0deg);animation-timing-function:ease-in}25%{transform:translate(6.25%,0) rotate(90deg);animation-timing-function:ease-out}50%{transform:translate(12.5%,-15%) rotate(180deg);animation-timing-function:ease-in}75%{transform:translate(6.25%,0) rotate(270deg);animation-timing-function:ease-out}100%{transform:translate(0,0) rotate(360deg)}}
 .tr-bow .pv-head-g,.tr-bow .pv-neck-g{animation:trBow 1.4s ease}
 @keyframes trBow{30%,65%{transform:translate(0,16px) rotate(4deg)}}
 .tr-dance #petArt{animation:trDance 1.8s ease-in-out}
@@ -389,12 +391,10 @@ button{font:inherit;color:inherit}
 .pose-beg .pvx-begL{animation:begPaw .9s ease-in-out infinite}
 .pose-beg .pvx-begR{animation:begPawR .9s ease-in-out .45s infinite}
 /* ごろん A（pose-side）：おなかを 見せる。正面の 絵を さかさに して（svg ごと。わくの 中で まわる）前あしを まげ、顔は さかさで こちらを 見る。
-   絵の かげは けして、ゆかに だえんの かげ（.view-f::after） */
+   かげは ゆかの かげ（.pet-floor）を よこに ひろげる */
 .pet .view-f{position:relative}
 .pet .view-f .pet-svg{transform-origin:50% 50%;transition:transform .55s ease}
-.pet .view-f::after{content:"";position:absolute;left:16%;right:16%;bottom:3%;height:6%;border-radius:50%;background:rgba(58,40,60,.16);opacity:0;transition:opacity .3s;pointer-events:none}
 .pose-side .view-f .pet-svg{transform:translateY(13%) rotate(172deg)}
-.pose-side .view-f::after{opacity:1}
 .pose-side .pv-legL{transform:rotate(-30deg) translateY(-4px)}
 .pose-side .pv-legR{transform:rotate(30deg) translateY(-4px)}
 .pose-side .pv-tail{transform:translate(-6px,6px) rotate(-30deg)}
@@ -404,6 +404,34 @@ button{font:inherit;color:inherit}
 @keyframes bellyWiggle{0%,100%{transform:rotate(0)}50%{transform:rotate(-5deg)}}
 .pose-side .pv-legL-g{animation:bellyWiggle .9s ease-in-out infinite}
 .pose-side .pv-legR-g{animation:bellyWiggle .9s ease-in-out -.45s infinite}
+/* ゆかの かげ（2026-11-27 オーナーの 声：げい「ごろん」で かげが からだと いっしょに まわって 上に いく）：
+   おへやでは 絵の かげ（pv-shadow・ps-shadow）を けし、#petArt の となりの .pet-floor に かく＝げい・くるっ・ぶるぶるで まわらない・とばない。
+   外がわ（.pet-floor）＝げいに あわせた アニメ（はねると 小さく うすく・ころがると よこへ）、内がわ（i）＝体勢と むきの 形（止まった transform ＋ transition）。
+   形は 絵の かげと 同じ：正面 cx120 cy225 rx62 ry8、よこむき cx112 cy222 rx70 ry7（左むきは cx128）。ほかの ところ（カード・タイル・パズル）の 絵の かげは そのまま */
+.pet .pv-shadow,.pet .ps-shadow{display:none}
+.pet-floor{position:absolute;inset:0;pointer-events:none;transform-origin:50% 93.75%}
+.pet-floor i{position:absolute;left:24.17%;top:90.42%;width:51.67%;height:6.67%;border-radius:50%;background:rgba(58,40,60,.16);transition:transform .4s ease}
+.pet.view-side .pet-floor i{transform:translate(-6.45%,-18.75%) scale(1.129,.875)}
+.pet.view-side.dir-l .pet-floor i{transform:translate(6.45%,-18.75%) scale(1.129,.875)}
+.pose-down .pet-floor i,.pose-sleep .pet-floor i,.tr-down .pet-floor i{transform:scale(1.1,1.05)}
+.pose-side .pet-floor i{transform:translateY(3.75%) scale(1.316,.9);transition-duration:.55s}
+.pet.jump .pet-floor{animation:flHop .5s ease-out}
+.tr-high .pet-floor{animation:flHop .5s ease-out .25s}
+@keyframes flHop{40%{transform:scale(.8);opacity:.6}70%{transform:scale(1.04,1)}}
+.tr-bigjump .pet-floor{animation:flBig .9s ease-out}
+@keyframes flBig{35%,60%{transform:scale(.6);opacity:.45}85%{transform:scale(1.06,1)}}
+.tr-roll .pet-floor{animation:flRollX 1.3s}
+.tr-roll .pet-floor i{animation:flRollW 1.3s}
+@keyframes flRollX{0%{transform:translateX(0);animation-timing-function:ease-in}25%{transform:translateX(6.25%);animation-timing-function:ease-out}50%{transform:translateX(12.5%);animation-timing-function:ease-in}75%{transform:translateX(6.25%);animation-timing-function:ease-out}100%{transform:translateX(0)}}
+@keyframes flRollW{0%{transform:scaleX(1);animation-timing-function:ease-in}25%{transform:scaleX(1.4);animation-timing-function:ease-out}50%{transform:scaleX(1.02);animation-timing-function:ease-in}75%{transform:scaleX(1.4);animation-timing-function:ease-out}100%{transform:scaleX(1)}}
+.tr-spin .pet-floor{animation:flSpin 1s ease-in-out}
+@keyframes flSpin{25%,75%{transform:scale(.94)}50%{transform:scale(.9)}}
+.tr-dance .pet-floor{animation:flDance 1.8s ease-in-out}
+@keyframes flDance{0%,90%,100%{transform:none}10%,30%,50%,70%{transform:scale(.95)}}
+.tr-stretch .pet-floor{animation:flStretch 1.6s ease}
+@keyframes flStretch{30%,70%{transform:scaleX(1.14)}}
+.tr-bang .pet-floor{animation:flBang 2.2s ease}
+@keyframes flBang{0%,15%,100%{transform:none}35%,75%{transform:translate(36%,10%) scaleX(1.5)}}
 
 .bubble{position:absolute;left:50%;bottom:calc(92% - var(--by,0px));z-index:2;transform:translateX(calc(-50% + var(--bx,0px))) scale(.6);transform-origin:50% 100%;opacity:0;pointer-events:none;background:#FFFFFF;color:#3A3147;font-weight:700;font-size:14px;line-height:1.4;padding:7px 13px;border-radius:16px;white-space:nowrap;box-shadow:0 3px 0 rgba(58,49,71,.12);transition:opacity .2s,transform .25s cubic-bezier(.3,1.6,.5,1)}
 .bubble::after{content:"";position:absolute;left:clamp(14px,calc(50% - var(--bt,var(--bx,0px))),calc(100% - 14px));top:100%;border:7px solid transparent;border-top-color:#FFFFFF;transform:translateX(-50%)}
