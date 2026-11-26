@@ -2,12 +2,12 @@
 
 このファイルは、チャットのいちばん最後に毎回まるごと書き直します。次のチャットは、ここを読めば続きから始められます。オーナーは、更新のたびにプロジェクトナレッジのGitHubを「同期」し、作業ごとに新しいチャットへ移ります（`CLAUDE.md` の作業の流れ 7）。
 
-- 最終更新：2026-11-26 夜（32回目：**うちのこの 体勢と 動きの だんかい 1（しぐさ）を 出した＝だいずで しばらく 見る 区切り。** はじめに オーナーに きいた：① LINE の 認証審査は まだ 申請していない（3つの 版とも 出す）② 保留2「`build_server.py` から 絵の 関数を はずす」＝**はずす**。見本 2 で オーナーが 決めた こと：体勢 ぜんぶ・しぐさ 12こ ぜんぶ・**ごろん は A おなか**・うごく 多さ おちつき・うしろ向きは あとで。main **`4f1c9c3`**（画面・`game.js`〈絵の 関数を はずした〉・ためし・書類）→ `deno.json` を `4f1c9c3` に 固定して サーバー api を デプロイ（**version 30**。この 1回で、これからは 絵を かえても デプロイ いらない）→ Claude版 **バージョン34**。`docs/MOTION_DESIGN.md` 10章の おわり・11章）
+- 最終更新：2026-11-27 未明（33回目：**うちのこの 体勢と 動きの だんかい 2（よこむきの 絵・体勢）を 出した＝だいずで しばらく 見る 区切り。** はじめに オーナーに きいた：① LINE の 認証審査は **審査中で ない**（3つの 版とも 出す）② だんかい 1 は **このままで OK**。げい「ふせ」と ねる の あたらしい 見た目を 先に 画像で 見せて **OK**。main **`045ea6c`**（画面・ためし・書類。サーバーの `game.js` は かわらない＝デプロイ なし）→ Claude版 **バージョン35**。`docs/MOTION_DESIGN.md` 12章）
 - リポジトリ：`Y-s-Apps/uchinoko-biyori`（組織 Y-s-Apps）。ホーム画面版：https://y-s-apps.github.io/uchinoko-biyori/
-- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-9b73f3f276`**（32回目の だんかい 1。`index.html`・`sw.js`・`run-5d3805aee4a4.js` の md5 は `0799d0ce…`・`b83093fa…`・`283ca8f2…`＝本番を pg_net で 読んで 同じ）。おせわの 動きは 前と同じ（`compare_home.py`：おなじ）
-- Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン34**（32回目の だんかい 1。version `1795704315-5958`、contract `0.2.73` の まま、capabilities は 引きついだ〈db の ルール 2つ・downloads・sample〈images〉・user〉）。**ファイルは 2つ：`index.html`（sha256 `c9367fda…`、392,301 バイト）と うちのこランの `run-5d3805aee4a4.js`（`5d3805ae…`。かわらない）**（`list_files` の sha256 は 手元と 同じ。出す 前に バージョン33 が `64af560` の ビルドと 同じ〈`304546ec…`〉なのも 確かめた）。**出し方：** `sh src/build.sh` が `src/out/claude/` に そのまま 出せる 形（`index.html`＝いまの 版と 同じ 1行目 `src/claude_head.html`＋中身＋`</body></html>`、`run-<ハッシュ>.js`）を 作る → `publish_files`（slug は UUID `507aa3eb-87ee-4ddc-80e3-61638a697f56`。短い id は ことわられる。files は その 2つ、`capabilities`・`contract`・`title` は はぶく。ゲームが かわって 名前が かわったら 前の `run-*.js` を `remove`）。出す 前に 前の 版を 作りなおして `list_files` の sha256 と 同じか 確かめる（その コミットで `sh src/build.sh` → `src/out/claude/index.html`。P5 より 前の コミットは `out/uchinoko-claude.html` を `claude_head.html` と `</body></html>` で 包む）
+- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-e474927ebe`**（33回目の だんかい 2。`index.html`・`sw.js`・`run-5d3805aee4a4.js` の md5 は `0658288b…`・`9c14b9fe…`・`283ca8f2…`＝本番を pg_net で 読んで 同じ）。おせわの 動きは 前と同じ（`compare_home.py`：おなじ）
+- Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン35**（33回目の だんかい 2。version `1795714987-3905`、contract `0.2.73` の まま、capabilities は 引きついだ〈db の ルール 2つ・downloads・sample〈images〉・user〉）。**ファイルは 2つ：`index.html`（sha256 `1acb8c7f…`、431,834 バイト）と うちのこランの `run-5d3805aee4a4.js`（`5d3805ae…`。かわらない）**（`list_files` の sha256 は 手元と 同じ。出す 前に バージョン34 が `5456396` の ビルドと 同じ〈`c9367fda…`〉なのも 確かめた）。**出し方：** `sh src/build.sh` が `src/out/claude/` に そのまま 出せる 形（`index.html`＝いまの 版と 同じ 1行目 `src/claude_head.html`＋中身＋`</body></html>`、`run-<ハッシュ>.js`）を 作る → `publish_files`（slug は UUID `507aa3eb-87ee-4ddc-80e3-61638a697f56`。短い id は ことわられる。files は その 2つ、`capabilities`・`contract`・`title` は はぶく。ゲームが かわって 名前が かわったら 前の `run-*.js` を `remove`）。出す 前に 前の 版を 作りなおして `list_files` の sha256 と 同じか 確かめる（その コミットで `sh src/build.sh` → `src/out/claude/index.html`。P5 より 前の コミットは `out/uchinoko-claude.html` を `claude_head.html` と `</body></html>` で 包む）
 - ためしの アーティファクト「うちのこ日和 P5 ためし」：https://claude.ai/artifact/G6JjwCoMcYMZ96pctVrYQF （slug `7a36bb48-06ef-452f-8c27-c7e849d00828`。ほんものとは べつ。セーブの キーは `uchinoko-p5test:`、ためしの 子「ためし」、db だけ 宣言。ひらくと 読みこみ・integrity・WebGL 2 を しらべて db の `probe/env`、ランを ひらく・走ると `probe/open` に 書く＝`db_list`（collection `probe`）で 読む）。2026-11-22 に オーナーが iPhone で ひらいて 結果を 読んだ（15章）。いらなく なったら オーナーに きいて 消す（`delete_artifact` は オーナーが たのんだ ときだけ）
-- LINE版の画面：Cloudflare Pages（main の push で自動ビルド。**32回目の だんかい 1 の あとの md5 は 本番用・審査用・開発用 `b6381cfa…`（pg_net で 読んだ 長さ 450,304 文字）、ゲームの ファイル `/run-5d3805aee4a4.js` は `283ca8f2…`（かわらない）**（`application/javascript`・`Cache-Control: public, max-age=31536000, immutable`。`d1211e1` の ときに pg_net で 確かめた しくみ）。`LINE_CFG.oaId` に `@370iymyw`）
+- LINE版の画面：Cloudflare Pages（main の push で自動ビルド。**33回目の だんかい 2 の あとの md5 は 本番用・審査用・開発用 `ce6890df…`（長さ 485,805 文字。本番用・審査用・開発用を pg_net で 読んで 同じ）、ゲームの ファイル `/run-5d3805aee4a4.js` は `283ca8f2…`（かわらない）**（`application/javascript`・`Cache-Control: public, max-age=31536000, immutable`。`d1211e1` の ときに pg_net で 確かめた しくみ）。`LINE_CFG.oaId` に `@370iymyw`）
   - 本番用 https://uchinoko-biyori.pages.dev/ 、審査用 https://uchinoko-biyori.pages.dev/review/ 、開発用 https://uchinoko-biyori.pages.dev/dev/ （同じページ。ひらいた場所で LIFF ID をえらぶ）
   - ヘッダー（`_headers`）：ぜんぶ（`/*`）に `Referrer-Policy: no-referrer`・`X-Content-Type-Options: nosniff`・`Content-Security-Policy: frame-ancestors 'none'`・`X-Frame-Options: DENY`
   - LIFF URL：開発用 https://miniapp.line.me/2012410263-cuCI7vQS ／審査用 https://miniapp.line.me/2012410264-JD4WhzAb （審査担当者だけ）／本番用 https://miniapp.line.me/2012410265-PutgsCLS （未認証なので URL を知っている人は開ける）
@@ -33,16 +33,18 @@
 - LINE版の計画書：https://claude.ai/artifact/AgKkCkHCsWAywKGV6VFxwK
 - オーナーの事情（約束②で使う）：claude.ai の このプロジェクトの資料 `claude/owner-notes.md`（非公開）
 
-## 直近のチャットでやったこと（2026-11-26 夜、32回目：うちのこの 体勢と 動き だんかい 1＝しぐさ。Opus 5.5）
+## 直近のチャットでやったこと（2026-11-27 未明、33回目：うちのこの 体勢と 動き だんかい 2＝よこむきの 絵・体勢。Opus 5.5）
 
-- **はじめに（オーナー）：** ① LINE の 認証審査は **まだ 申請していない**＝3つの 版とも 出した。② 保留2「`build_server.py` から 絵の 関数を はずすか」＝**はずす**。見本 2 の「えらんだ もの」：体勢 ぜんぶ・しぐさ 12こ ぜんぶ・**ごろん は A おなか**（おすすめの B では ない）・うごく 多さ おちつき・うしろ向きは あとで（`docs/MOTION_DESIGN.md` 10章の おわりに 書いた）。
-- **サーバー：** `tools/build_server.py` が `js_pet.js` を「ここから 下は 絵」の 行（`CUT`）で 切る＝`game.js` に `renderPet`・`blob`・`EARS` などが 入らない。`game.js` は この 1回だけ かわった → `4f1c9c3` に 固定して デプロイ（version 30）。
-- **絵（`renderPet`）：** 体勢・しぐさ用の 部品 `pvx-down`・`pvx-hind`・`pvx-beg`・`pvx-pawup`・`pvx-tongue`・`pvx-lick`（見本 2 の `extra.js` と 同じ 形・場所）。**ふだんは `display="none"`**（見本の `opacity="0"` だと 見えなくても ほかの 線の ふちの ぬり方が かわり、`poses.py` で ぜんぶ「ちがう」に なった）。`pv-footL/R`・`pv-armL/R`・`pv-pawL/R` に わけた。ふだんの 絵は 1px も かわらない（`poses.py` 34 とおり、ライト・ダーク）。
-- **しぐさ 10こ（`GESTURE`・`head.html` の `.g-*`）：** 耳ぴく・きょろきょろ・あくび・ぶるぶる（いぬ）・かく（うしろ足）・けづくろい（ねこ）・しっぽ ゆらり（ねこ）・しっぽ ぴん・はぁはぁ（いぬ）・ぺろり。**のび・くんくん は よこむきの 絵で だんかい 2**（見本 2 でも「たつ」でだけ する しぐさ）。`Pet.canGesture`（パズル・ランの ページの あいだ・うごきを へらす 設定 は しない）・`Pet.stopGesture`（おせわ・げい・タップ・`Game.start` で すぐ やめる）。
-- **ひまな ときの 表 `IDLE`：** 重みで えらぶ・さっきの 2つは えらばない。あるく 約3割（前は 5割）・しぐさ 約3割。あそんだ あと 1分は はぁはぁ、たべた あと 1分は ぺろり、おなか 25 より 下は ごはん皿の 前で きょろきょろ。ねている ときは ときどき 耳ぴく・しっぽ ゆらり。
-- **タップ：** 「はねて かしげる」「はねて 耳ぴく」「しっぽ ぴんで かしげる」を まぜる（つづけない）。**なでる：** 目と 頭・首が 指の ほうへ（`Pet.lean`。0.5秒で もどる）。8回 なでた ときの ごろん・ふせは 体勢なので だんかい 2。
-- **ためし：** `poses.py`（しぐさの 場面 12。前の 版に ない クラスの 場面は「あたらしい」で くらべない。首と 頭は 内がわで）・`smoke.py`（しぐさを ぜんぶ 1回・ラン と ねている ときの きまり・目線。ふつう・`--dark`・`--claude`・`--line --android-inset 48`・`--size 375x667`・`--fresh` エラー 0）・`compare_home.py`（おなじ。ひまな ときの 行動は 両方 とめる ように した＝前の やり方でも おなじ だった）・`line_e2e.py`（163 ok）・`linebreak.py`（ホーム画面版 329 場面・LINE版 386 場面、375・390 とも 0）・ねこの しぐさは その場の ためしで（けづくろい・しっぽ ゆらり は 動く、ぶるぶる・はぁはぁ は しない）。
-- **出したもの：** main `4f1c9c3` → GitHub Pages・Cloudflare とも 成功、本番の `index.html`・`sw.js`・LINE版 3か所の md5 を pg_net で 手元と 同じと 確かめた → `deno.json` を `4f1c9c3` に（`--check` OK）→ api version 30（`get_edge_function` で 2つとも 手元と 同じ・`/health` 200 errors 0・`/act` 401）→ Claude版 バージョン34 → `deno.json`・書類を push。
+- **はじめに（オーナー）：** ① LINE の 認証審査は **審査中で ない**＝3つの 版とも 出した。② だんかい 1 を だいずで 見た 感想＝**このままで OK**（直す しぐさ なし）。げい「ふせ」と ねる の 前と あとを ならべた 画像を 先に 見せて **OK**。
+- **絵：** よこむきの 絵 `renderPetSide`（見本 2 の `side.js` を そのまま `js_pet.js` の 絵の 行より 下へ）。`renderPet` は かえていない。おへやは `#petArt > .pet-turn > .view-f`（正面）＋`.view-s`（よこむき）。サーバーの `game.js` は かわらない（`--check` 同じ）＝**デプロイ なし**。
+- **体勢 `POSE`：** すわる・たつ／あるく（よこ）・ふせる・ねる（あごを 前あしに。げい「ふせ」も ふせる と 同じ 見た目に）・ごろん A（`.pose-side`＝正面の svg を さかさに）・おねだり。頭・口・ふきだしの 位置（よこむきは 頭の よこ `hx`、ふきだしの しっぽ `--bt`）。正面⇔よこ・左右は「くるっ」（`Pet.turn`。0.32秒・またない）。体勢の 部品は ふわっと 出し入れ（`pvxIn`・`Pet.leave`＝`pvxOut`）。
+- **動き：** `Pet.moveTo(x, y, speed, end)` は よこむきで あるいて 着いたら `end`（おせわの とちゅうは すわる・ひまは たつ）。かかる 時間は 前と 同じ。`IDLE` に 行き先（ベッド・ごはん皿・まど・ラグ・ゆかの におい）・すわる・ふせる・おねだり・のび・くんくん。ねる ときは ベッドで ふせて から。パズル・ランの ページの あいだは ひまな ときの 行動を しない。なでなで 8回（`rubbed`。ねこ ごろん・いぬ ふせて しっぽ ぶんぶん・手を とめて 3秒で すわる）。タップに おねだり。おせわの 前に すわる。
+- **ためし：** `poses.py`（よこむき 41種 × きせかえ の 一覧と `s-*`・体勢 `p-*`・`--changed`・はみだしの はかり方と `OUT_OK`。60 とおり中 おなじ 56・かわった 4〈ねる・ふせ〉、ライト・ダーク）・`smoke.py`（`pose_checks`。6とおり ぜんぶ エラー 0）・`compare_home.py`（おなじ）・`line_e2e.py`（all passed）・`linebreak.py`（ホーム画面版 329 場面・LINE版 0）。
+- **出したもの：** main `045ea6c` → GitHub Pages・Cloudflare とも 成功（本番の `index.html`・`sw.js`・LINE版 3か所の md5 を pg_net で 手元と 同じと 確かめた）→ Claude版 バージョン35。
+
+## その前のチャット（2026-11-26 夜、32回目：だんかい 1＝しぐさ。Opus 5.5）
+
+- しぐさ 10こ・体勢用の 部品（`renderPet`。ふだんは `display="none"`）・タップの へんじ・なでる ときの 目線・ひまな ときの 表 `IDLE`。`build_server.py` が `js_pet.js` を 絵の 行で 切る（`game.js` から 絵の 関数を はずした）→ api version 30。main `4f1c9c3`・Claude版 バージョン34。
 
 ## その前のチャット（2026-11-26、31回目：だんかい 0＋見本 1・2。Opus 5.5）
 
@@ -50,8 +52,8 @@
 
 ## 保留・オーナーの判断待ち（つぎのチャットのはじめに）
 
-1. **だいずで だんかい 1 を しばらく 見てもらう（オーナー）。** iPhone の ホーム画面版（アプリを ひらきなおすと 新しい 版）と LINE で：しぐさが 不自然で ないか・多すぎ／少なすぎ ないか・残像・重さ・電池。気に なる しぐさが あれば つぎの チャットで 直す（`GESTURE` の 重み・`IDLE` の 数字・CSS）。おかしければ `4f1c9c3` を `git revert`（`game.js` も もどるので サーバーも 合わせる）。
-2. **だんかい 2 の 前に きく：** LINE の 認証審査中か（審査中は LINE版を かえられない）。だんかい 2 では げい「ふせ」（`tr-down`）と ねる（`pose-sleep`）の 見た目が 見本の「ふせる」に かわる＝オーナーに 見せてから。
+1. **だいずで だんかい 2 を しばらく 見てもらう（オーナー）。** iPhone の ホーム画面版（アプリを ひらきなおすと 新しい 版）と LINE で：よこむきで あるく・くるっ・たつ・ふせる・ねる・ごろん（ねこ・ラグ・なでなで 8回）・おねだり（タップ）・のび・くんくん が 不自然で ないか、くるっが 多すぎ ないか、体勢の 長さ、**残像（とくに くるっ・ごろんの ころん・のび）**・重さ・電池。気に なる ところが あれば つぎの チャットで 直す（`IDLE` の 重み・`POSE` の 数字・CSS）。おかしければ `045ea6c` を `git revert`（サーバーは かわっていない）。
+2. **だんかい 3 の 前に きく：** LINE の 認証審査中か（審査中は LINE版を かえられない）。
 3. ためしの アーティファクト「うちのこ日和 P5 ためし」（slug `7a36bb48-06ef-452f-8c27-c7e849d00828`）は もう いらない。消すかは オーナーに きく（のこしても こまらない）。
 4. **（オーナーが 決める・いそがない）** Supabase の Data API の「Automatically expose new tables」を オフに するか（いまは `public` に 表が ないので 害は ない）。
 5. 公開の日の 手順 5・6 の こまかい ところ（よるの ひとこと・ひらいたまま つぎの日・トークの カードの ボタン・なでなでの 下スワイプ、家族の LINE で 本番用の LIFF URL が ひらけるか、Android の 下の すき間）は きくだけ。
@@ -63,18 +65,18 @@
 
 ## 次にやること
 
-- オーナー：だいずで だんかい 1 を 見る（上の 保留1）。別プロジェクトで 個人事業主の 申請（開業届など）→ 認証審査の 申請（補足資料の文は `docs/PROJECT.md` 10章）。
-- つぎの チャット：だんかい 2（よこむきの 絵 `renderPetSide`・たつ・あるく・ふせる・ねる・ごろん A・おねだり・行き先・のび・くんくん・なでなで 8回・タップの おねだり。`docs/MOTION_DESIGN.md` 10章の おわり と 11章の「だんかい 2 で する こと」）。見本を 見せてから 出すか、出してから 見てもらうかは オーナーに きく。
+- オーナー：だいずで だんかい 2 を 見る（上の 保留1）。別プロジェクトで 個人事業主の 申請（開業届など）→ 認証審査の 申請（補足資料の文は `docs/PROJECT.md` 10章）。
+- つぎの チャット：だんかい 3（ほかの 画面＝パズルの 上・ポップアップ・きせかえの シート と、おせわ・げい・季節の 体勢。`docs/MOTION_DESIGN.md` 4-7 と 12章の「だんかい 3 で する こと」）。見本を 見せてから 出すか、出してから 見てもらうかは オーナーに きく。
 - **認証審査の 申請の 前に、包括的な 診断（約束①の ような ぜんぶ）を もう一度 すすめる**（11-16 の パズルの レビューの あとの ラン いがいの 直し `de696b7`・`b34a30d` と、うちのこの 体勢と 動きは まだ だれも レビューしていない）。
 - 認証審査を申請したら：審査は1〜2週間、「審査中」は 画面とサーバーを 変えない。認証されたら「検索可能にする」は 承認から30日以内。
 
-### つぎの チャットに 貼る プロンプト（だいずで だんかい 1 を 見た あと）
+### つぎの チャットに 貼る プロンプト（だいずで だんかい 2 を 見た あと）
 
 ```
-うちのこ日和の つづき（うちのこの 体勢と 動き：だんかい 2 から）。
-GitHub の Y-s-Apps/uchinoko-biyori を push できる形で つないで、CLAUDE.md・docs/PROJECT.md・docs/HANDOFF.md を 読み、そのあと docs/MOTION_DESIGN.md（10章＝見本 2 と 決めた こと〈ごろん は A おなか〉、11章＝だんかい 1 で 入れた もの と だんかい 2 で する こと）と tools/motion_sample/（よこむきの 絵 side.js・体勢の CSS motion.css）を 読んでから すすめてください。
-はじめに：① LINE の 認証審査中か きいて（審査中は LINE版を かえられない）。② だんかい 1 を だいずで 見た 感想を わたしに きいて（直したい しぐさが あれば 先に 直す）。
-だんかい 2（よこむきの 絵 renderPetSide を js_pet.js の 絵の 行より 下へ・体勢 たつ／あるく〈よこ〉・ふせる・ねる・ごろん A・おねだり・POSE の 数字・くるっと むきを かえる・行き先・のび・くんくん・なでなで 8回・タップの おねだり）を 実装して、tools/poses.py に よこむき 41種 × きせかえ と 体勢の 場面を 足して ためし、push して。げい「ふせ」と ねる の 見た目が かわる ところは 先に 見せて。
+うちのこ日和の つづき（うちのこの 体勢と 動き：だんかい 3 から）。
+GitHub の Y-s-Apps/uchinoko-biyori を push できる形で つないで、CLAUDE.md・docs/PROJECT.md・docs/HANDOFF.md を 読み、そのあと docs/MOTION_DESIGN.md（4-7＝ほかの 画面、10章＝見本 2 と 決めた こと、12章＝だんかい 2 で 入れた もの と だんかい 3 で する こと）を 読んでから すすめてください。
+はじめに：① LINE の 認証審査中か きいて（審査中は LINE版を かえられない）。② だんかい 2 を だいずで 見た 感想を わたしに きいて（直したい 体勢・動きが あれば 先に 直す）。
+だんかい 3（パズルの 上・ポップアップ・きせかえの シートの うちのこの 体勢と、おせわ・げい・季節の 体勢〈ごはん・おやつの 前に おねだり など〉）の 案を 見本で 見せてから 実装して、tools/poses.py・smoke.py で ためして push して。
 ```
 
 ## 気をつけること
@@ -84,7 +86,11 @@ GitHub の Y-s-Apps/uchinoko-biyori を push できる形で つないで、CLAU
   - 体勢は `Pet.setPose(p)`（`POSE` に 足す。頭・口の 高さ・ふきだしの `--by`）、しぐさは `Pet.gesture(id)`（`GESTURE` に `{ ms, poses, sp, calm }`。CSS は `.pet.g-<id> …`）。`Pet.sleeping` の 名前と 意味は そのまま。
   - **`renderPet` を かえたら：** `python3 tools/poses.py`（前の 版と 1px。ふだんの 場面が「おなじ」で、あたらしい 体勢・しぐさの 場面は「あたらしい」＝一覧の PNG で 目で 見る）→ `python3 tools/build_server.py --check`（**32回目から 絵の 関数は `game.js` に 入らない＝「同じ」なら デプロイ いらない**。サーバーで つかう 関数〈`normalizeLook`・`hasId`・色〉を かえた ときだけ CLAUDE.md の サーバーの 流れ）。うちのこカード `CardArt` は `renderPet` の 先頭 `'<svg class="pet-svg"'` と `' aria-hidden="true"'` を 置きかえるので かえない。**ふだん 見えない 部品は `display="none"`**（`opacity="0"` は ほかの 線の ふちを かえる）。
   - **しぐさ（32回目）：** `GESTURE`（`js_app.js`）に `{ ms, poses, sp, calm }`、CSS は `head.html` の `.g-<id> …`（表情 `ex-*` より あと）。頭を うごかす ときは `pv-neck-g` にも 同じ アニメ。`Pet.gesture` は `Pet.canGesture` を とおる（パズル・ラン・うごきを へらす 設定 は しない）。ひまな ときは `IDLE`（`{ id, w(c), run }` か `{ g, w(c) }`）。`compare_home.py` は ひまな ときの 行動を とめて くらべる（`NO_IDLE`。`idleTick` を 関数の 宣言の まま に しておく）。`smoke.py` の `gesture_checks` は その 子の しゅるいで できる しぐさを ぜんぶ 1回。
-  - `tools/poses.py` は 1回 45秒ほど。体勢・しぐさを 足したら `STATES` に 足す（はみだし `--max-out` 30・体勢の 首の ずれ `--max-neck` 2。いまの ねる は 首 1.0）。`line_e2e.py` などで `.pv-neck *` の ような「グループの 中に なにか あるか」を 見る ときは `:not(g)` で（内がわの 空の グループが ある）。
+  - `tools/poses.py` は 1回 3分ほど（よこむきの 一覧が ふえた）。体勢・しぐさを 足したら `STATES` に 足す（よこむきは 5つめに `'side'`。はみだし `--max-out` 30〈場面ごとの ゆるめは `OUT_OK`〉・体勢の 首の ずれ `--max-neck` 2。ねる の 首の ずれは 0 に なった）。見た目を かえる つもりの 場面は `--changed`（その コミットだけ）。体勢の 部品は 0.35秒で ふわっと 出るので 体勢の 場面は 400ms より あとで とめる。
+  - **だんかい 2（33回目）：** おへやの 絵は `#petArt > .pet-turn > .view-f`（正面 `renderPet`）＋`.view-s`（よこむき `renderPetSide`）。`Pet.mount` が 2まい かく。見えるのは `.pet.view-side` で えらぶ 1まい（どちらも in flow。`position:absolute` に しない＝古い iPhone の `aspect-ratio` に たよらない）。`Pet.view`・`Pet.dir` が ほんとうの 状態で、`applyView` が クラスに する（くるっの まんなかで よぶ ので なんど よんでも よい）。体勢は `Pet.setPose(p, turn)`（`POSE[p].side` で 正面／よこ）、しばらくで すわる は `Pet.poseFor`、あるく は `Pet.moveTo(x, y, speed, end)`（**時間を かえない**・2.5 より ちかい ときは むきを かえない）。よこむきの CSS は `.pet-side .ps-*`・`.pose-walk .ps-*`・`.g-<id> .ps-*`。体勢の CSS は 表情・しぐさより あと。
+  - **体勢の 部品（`pvx-down`・`pvx-beg`）：** 出す ときは `display:inline` ＋ `pvxIn`、けす ときは `Pet.leave(部品)`（`setPose` が `POSE_PART` を 見て よぶ。げい「ふせ」は `doTrick` が よぶ）。ふだんの 絵では `display="none"` の まま。
+  - **`Math.random` を おせわの 道すじ（`moveTo`・`setPose`・`begin`・`rubbed`）で つかわない**（`compare_home.py` は ルールと 見た目が 同じ 乱数の 列を つかう）。ひまな ときの 表 `IDLE` の 中は よい。
+  - `Pet.rub`（なでなで 8回の 体勢）の あいだは `idleStep` が なにも しない。`begin()`・タップ・`moveTo` が 消す。`line_e2e.py` などで `.pv-neck *` の ような「グループの 中に なにか あるか」を 見る ときは `:not(g)` で（内がわの 空の グループが ある）。
   - ランや パズルの ページの うしろでも `idleStep` は 動く。しぐさ・体勢は `PuzzleUI.page` か `html.run-open` の あいだ 出さない。ランの 画面の 2D の 絵は かえない。
 - **うちのこラン（`src/run/`・`src/js_run.js`・`tools/run/`。くわしくは `docs/RUN_DESIGN.md` 11・12章）：**
   - はじめに `cd tools/run && npm install`。`src/run/` を かえたら `node tools/run/build_run.mjs` で `src/run_bundle.js` を 作りなおして いっしょに コミット（push の 前に `--check`）。そのあと `sh src/build.sh`（`run-<ハッシュ>.js` が かわり、前の `run-*.js` は 消える）。
