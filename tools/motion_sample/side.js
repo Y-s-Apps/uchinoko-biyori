@@ -185,12 +185,16 @@ function renderPetSide(rawLook, opts = {}){
       const bx = HX + 10, by = HY + 46;
       neckWear += `<path d="M${bx} ${by}L${bx - 13} ${by - 8}Q${bx - 16} ${by} ${bx - 13} ${by + 8}ZM${bx} ${by}L${bx + 11} ${by - 7}Q${bx + 14} ${by} ${bx + 11} ${by + 7}Z" fill="${p.c}" stroke="${ink(p.c)}" stroke-width="${SW}" stroke-linejoin="round"/><rect x="${bx - 4}" y="${by - 4}" width="8" height="8" rx="3" fill="${mix(p.c, '#FFFFFF', .18)}" stroke="${ink(p.c)}" stroke-width="${SW}"/>`;
     } else if (nw.kind === 'scarf'){
-      const tail = `M${HX - 30} ${HY + 38}L${HX - 18} ${HY + 42}L${HX - 30} ${HY + 76}L${HX - 43} ${HY + 72}Z`;
-      neckWear += `<path d="${tail}" fill="${p.c}" stroke="${ink(p.c)}" stroke-width="${SW}" stroke-linejoin="round"/>`;
+      /* たれた 端は 正面の 絵と 同じく 見える がわ（胸の 前）に。ふさ つき。あるくと ゆれる（ps-scarf） */
+      const tail = `M${HX - 13} ${HY + 41}L${HX + 1} ${HY + 43}L${HX + 9} ${HY + 84}L${HX - 5} ${HY + 86}Z`;
+      let tailIn = '';
       if (p.tri){
         const [a1, a2, a3] = p.tri;
-        neckWear += `<defs><clipPath id="${id}sc"><path d="${tail}"/></clipPath></defs><g clip-path="url(#${id}sc)">` + Array.from({ length:7 }, (_, i) => `<rect x="${HX - 50}" y="${HY + 36 + i * 6}" width="40" height="6" fill="${[a2, a3, a1][i % 3]}" transform="rotate(-14 ${HX - 30} ${HY + 39 + i * 6})"/>`).join('') + `</g><path d="${tail}" fill="none" stroke="${ink(p.c)}" stroke-width="${SW}" stroke-linejoin="round"/>`;
+        tailIn = `<defs><clipPath id="${id}sc"><path d="${tail}"/></clipPath></defs><g clip-path="url(#${id}sc)">` + Array.from({ length:8 }, (_, i) => `<rect x="${HX - 22}" y="${HY + 38 + i * 6}" width="40" height="6" fill="${[a2, a3, a1][i % 3]}" transform="rotate(-12 ${HX - 2} ${HY + 41 + i * 6})"/>`).join('') + `</g>`;
       }
+      neckWear += `<g class="ps-scarf"><path d="${tail}" fill="${p.c}" stroke="${ink(p.c)}" stroke-width="${SW}" stroke-linejoin="round"/>${tailIn}` +
+        `<path d="${tail}" fill="none" stroke="${ink(p.c)}" stroke-width="${SW}" stroke-linejoin="round"/>` +
+        `<path d="M${HX - 2} ${HY + 86}l-1 6M${HX + 3} ${HY + 85}l0 6M${HX + 8} ${HY + 84}l1 6" stroke="${p.tri ? p.tri[0] : ink(p.c)}" stroke-width="2.4" stroke-linecap="round"/></g>`;
       neckWear += bandStroke(p.c, 13);
       if (p.tri) neckWear += `<path d="${band}" fill="none" stroke="${p.tri[1]}" stroke-width="13" stroke-dasharray="6 12"/><path d="${band}" fill="none" stroke="${p.tri[2]}" stroke-width="13" stroke-dasharray="6 12" stroke-dashoffset="-6"/>`;
     } else if (nw.kind === 'ukiwa'){

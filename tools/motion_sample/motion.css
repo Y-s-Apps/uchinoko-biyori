@@ -16,8 +16,8 @@
 .pp .vf .pv-legs,.pp .vf .pvx-down,.pp .vf .pvx-beg,.pp .vf .pvx-hind,.pp .vf .pvx-hindleg,.pp .vf .pvx-pawup,.pp .vf .pvx-tongue,.pp .vf .pvx-lick,.pp .vf .pv-footL,.pp .vf .pv-footR,.pp .vf .pv-mouth-o,.pp .vf .pvx-begL,.pp .vf .pvx-begR{transform-box:view-box}
 .pp .vf .pv-legs{transform-origin:120px 222px}
 .pp .vf .pvx-beg{transition:opacity .3s,transform .5s ease}
-.pp .vf .pvx-begL{transform-origin:106px 150px}
-.pp .vf .pvx-begR{transform-origin:134px 150px}
+.pp .vf .pvx-begL{transform-origin:101px 150px}
+.pp .vf .pvx-begR{transform-origin:139px 150px}
 .pp .vf .pvx-hind,.pp .vf .pvx-hindleg{transform-origin:76px 204px}
 .pp .vf .pvx-pawup{transform-origin:134px 188px}
 .pp .vf .pvx-lick{transform-origin:120px 120px}
@@ -139,6 +139,9 @@
 .pp.walking .vs .ps-head-g{animation:psNod .56s ease-in-out infinite}
 .pp.walking .vs .ps-tail-g{animation-duration:.56s}
 .pp.walking .vs .ps-ear{animation:psNod .28s ease-in-out infinite}
+.pp .vs .ps-scarf{transform-box:fill-box;transform-origin:50% 0}
+@keyframes psScarf{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(7deg)}}
+.pp.walking .vs .ps-scarf{animation:psScarf .56s ease-in-out infinite}
 /* くんくん：鼻を 床へ */
 @keyframes psSniff{0%,100%{transform:none}18%{transform:rotate(26deg) translateY(10px)}26%,42%,58%,74%{transform:rotate(25deg) translateY(8px)}34%,50%,66%{transform:rotate(27deg) translateY(11px)}84%{transform:rotate(24deg) translateY(9px)}}
 .pp.g-sniff .vs .ps-head-g{animation:psSniff 1.6s ease-in-out}
