@@ -566,6 +566,18 @@ async def stage3_checks(page, snap, errors):
     await page.wait_for_timeout(420); spun = await page.evaluate("Pet.el.classList.contains('tr-spin2')")
     await page.wait_for_timeout(1100); said = await page.evaluate("document.querySelector('#bubble').textContent")
     await page.wait_for_timeout(1500)
+    # すみに いたら、まんなかへ あるいて こっちを むいて すわってから くるっ（2026-11-27 オーナーの 声）
+    await page.evaluate("() => { clearTimeout(idleT); Pet.setPose('sit'); Pet.el.style.transition = 'none'; Pet.x = 24; Pet.y = 72; Pet.apply(); document.querySelector('#bubble').textContent = ''; }")
+    await page.wait_for_timeout(100)
+    await page.evaluate("() => { dressShow = true; closeSheet(); }")
+    await page.wait_for_timeout(700); w1 = await page.evaluate("({ pose: Pet.pose, side: Pet.el.classList.contains('view-side'), spin: Pet.el.classList.contains('tr-spin2') })")
+    await page.wait_for_timeout(1250); w2 = await page.evaluate("({ pose: Pet.pose, x: Pet.x, y: Pet.y, spin: Pet.el.classList.contains('tr-spin2') })")
+    await snap('stage3_outfit_center')
+    await page.wait_for_timeout(1300); w3 = await page.evaluate("document.querySelector('#bubble').textContent")
+    await page.wait_for_timeout(1500)
+    await page.evaluate("() => { clearTimeout(idleT); Pet.setPose('sit'); Pet.el.style.transition = 'none'; Pet.x = 50; Pet.y = 80; Pet.apply(); }")
+    walk_ok = (w1['pose'] == 'walk' and w1['side'] and not w1['spin'] and w2['x'] == 50 and w2['y'] == 82
+               and w2['pose'] == 'sit' and w2['spin'] and w3 == 'にあう？')
     trick = await page.evaluate('''async () => { const t = (TRICKS[S.pet.species] || []).find(x => x.anim === 'sit'); if (!t) return 'none';
         const orig = Act.run; Act.run = function(type){ if (type === 'trick'){ Act.run = orig; return Promise.resolve({ ok:true, success:true, known:true, ev:[], after:[] }); } return orig.apply(this, arguments); };
         doTrick(t); await sleep(600); const w = Pet.pose; await sleep(1100); const s1 = Pet.pose, sq = Pet.el.classList.contains('tr-sit');
@@ -586,13 +598,15 @@ async def stage3_checks(page, snap, errors):
         return { cls: m ? m.className : '', svg: m ? getComputedStyle(m.querySelector('.pv-shadow')).display : '', floor: m ? getComputedStyle(m, '::before').content : '' }; }''')
     await snap('stage3_popup')
     await page.evaluate("() => { const b = document.querySelector('.levelup .btn.primary'); if (b) b.click(); }"); await page.wait_for_timeout(400)
-    print('だんかい 3：かげ', sh, '／ くるっ', spin_ok, '／ ばんざい', ch, '／ きせかえ', spun, said, '／ おすわり', trick, '／ パズル', pz, '／ ポップアップ', pop['cls'])
+    print('だんかい 3：かげ', sh, '／ くるっ', spin_ok, '／ ばんざい', ch, '／ きせかえ', spun, said, '／ まんなかへ', walk_ok, '／ おすわり', trick, '／ パズル', pz, '／ ポップアップ', pop['cls'])
     if not spin_ok:
         bad.append(f'くるっと 1回転：{a} {b} {c}')
     if not (ch['v'] == 'inline' and ch['leave'] and ch['gone'] == 'none'):
         bad.append(f'ばんざい：{ch}')
     if not (spun and said == 'にあう？'):
         bad.append(f'きせかえを 見せる：{spun} {said!r}')
+    if not walk_ok:
+        bad.append(f'きせかえを 見せる（まんなかへ）：{w1} {w2} {w3!r}')
     if trick != 'none' and trick != ['stand', 'sit', True, 'sit', False]:
         bad.append(f'げい「おすわり」：{trick}')
     if not (isinstance(pz, dict) and pz['floor'] and pz['svg'] == 'none' and pz['ch'] and pz['back'] and pz['lean']):

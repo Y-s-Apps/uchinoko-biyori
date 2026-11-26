@@ -990,13 +990,24 @@ function celebrate(lv, before){
 const ICON_X = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>';
 let sheetReturn = null;
 /* きせかえを 見せる（だんかい 3）：きせかえの シートで 着がえて とじたら・イベントの「つけてみる」の あと、おへやで くるっと 1回転して
-   「にあう？」（はずしたら「すっきり！」）と かしげる。dressShow は シートで 着がえた しるし（null＝着がえていない） */
+   「にあう？」（はずしたら「すっきり！」）と かしげる。dressShow は シートで 着がえた しるし（null＝着がえていない）。
+   まんなか（OUTFIT_SPOT）から はなれて いたら、先に まんなかへ あるいて こっちを むいて すわってから まわる（2026-11-27 オーナーの 声） */
 let dressShow = null;
+const OUTFIT_SPOT = { x:50, y:82 };
 async function showOutfit(wore){
   if (!S || Pet.busy || Pet.sleeping) return;
   clearTimeout(idleT);
   await sleep(250);   /* シート・ポップアップが しまる あいだ */
   if (Pet.busy || Pet.sleeping) return;
+  if (Math.hypot(OUTFIT_SPOT.x - Pet.x, (OUTFIT_SPOT.y - Pet.y) * 1.6) >= 6){
+    clearTimeout(idleT);
+    const go = Pet.moveTo(OUTFIT_SPOT.x, OUTFIT_SPOT.y, 1.2, 'sit'), tok = Pet.tok;
+    await go;
+    if (tok !== Pet.tok || Pet.busy || Pet.sleeping) return;
+    await sleep(550);   /* 正面に くるっと なって ひと息 */
+    if (tok !== Pet.tok || Pet.busy || Pet.sleeping) return;
+    clearTimeout(idleT);
+  }
   Pet.setExpr('happy');
   await Pet.spin();
   if (Pet.busy || Pet.sleeping) return;
