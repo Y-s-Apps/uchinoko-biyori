@@ -222,8 +222,17 @@ function updateClock(){
 }
 
 /* ----- the pet on stage ----- */
+/* 体勢（docs/MOTION_DESIGN.md 4-3）：入れものの クラス pose-<id>（すわる は クラスなし）と、体勢ごとの 頭・口の 高さ（うちのこの わくの 上から の 割合）・
+   ふきだしを 下げる px（--by）。2026-11-26 だんかい 0 は すわる・ねる だけ（ねる も いまの 位置の まま＝見た目を かえない）。
+   たつ・ふせる・ごろん・おねだり と 位置の 数字は だんかい 2 で 見本を 見て 決める */
+const POSE = {
+  sit:   { head:.38, mouth:.52, bubble:0 },
+  sleep: { head:.38, mouth:.52, bubble:0 },
+};
+/* しぐさ（4-4）：{ ms, poses:[できる 体勢], sp:'dog'|'cat'|'both', calm:true＝ねていても よい }。クラス g-<id> を ms だけ つける。だんかい 1 で 足す */
+const GESTURE = {};
 const Pet = {
-  el: $('#pet'), x:50, y:80, busy:false, sleeping:false, expr:null, tok:0, sayT:null, wakeUntil:0,
+  el: $('#pet'), x:50, y:80, busy:false, sleeping:false, expr:null, tok:0, sayT:null, wakeUntil:0, pose:'sit', gest:null,
   scaleAt(y){ return .84 + clamp((y - 66) / 24, 0, 1) * .22; },
   apply(){
     this.el.style.left = this.x + '%';
@@ -236,13 +245,36 @@ const Pet = {
     this.apply();
     this.setExpr(this.expr);
   },
+  poseAt(){ return hasId(POSE, this.pose) ? POSE[this.pose] : POSE.sit; },
   headPoint(){
     const r = this.el.getBoundingClientRect(), s = stage.getBoundingClientRect();
-    return { x:r.left - s.left + r.width / 2, y:r.top - s.top + r.height * .38 };
+    return { x:r.left - s.left + r.width / 2, y:r.top - s.top + r.height * this.poseAt().head };
   },
   mouthPoint(){
     const r = this.el.getBoundingClientRect(), s = stage.getBoundingClientRect();
-    return { x:r.left - s.left + r.width / 2, y:r.top - s.top + r.height * .52 };
+    return { x:r.left - s.left + r.width / 2, y:r.top - s.top + r.height * this.poseAt().mouth };
+  },
+  /* 体勢を かえる（見た目だけ。セーブ・ルールに さわらない）。知らない 体勢は すわる */
+  setPose(p){
+    if (!hasId(POSE, p)) p = 'sit';
+    for (const k in POSE) if (k !== 'sit') this.el.classList.toggle('pose-' + k, k === p);
+    this.pose = p;
+    const by = POSE[p].bubble;
+    if (by) this.el.style.setProperty('--by', by + 'px'); else this.el.style.removeProperty('--by');
+  },
+  /* しぐさ（GESTURE の id）を 1つ。おせわ・げいの とちゅう・ほかの しぐさの とちゅう・合わない 体勢や 種類・うごきを へらす 設定 の ときは 何も しない。
+     おわったら true（しなかったら false）の Promise */
+  gesture(id){
+    const g = hasId(GESTURE, id) ? GESTURE[id] : null;
+    if (!g || !S || this.busy || this.gest) return Promise.resolve(false);
+    if (g.sp && g.sp !== 'both' && g.sp !== (S.pet.species === 'cat' ? 'cat' : 'dog')) return Promise.resolve(false);
+    if (this.sleeping && !g.calm) return Promise.resolve(false);
+    if (g.poses && g.poses.indexOf(this.pose) < 0) return Promise.resolve(false);
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return Promise.resolve(false);
+    const cls = 'g-' + id;
+    this.gest = id;
+    this.el.classList.add(cls);
+    return sleep(g.ms).then(() => { this.el.classList.remove(cls); if (this.gest === id) this.gest = null; return true; });
   },
   baseExpr(){
     if (this.sleeping) return 'sleep';
@@ -285,7 +317,7 @@ const Pet = {
   zz:null,
   sleep(){
     this.sleeping = true;
-    this.el.classList.add('pose-sleep');
+    this.setPose('sleep');
     this.setExpr(null);
     clearInterval(this.zz);
     this.zz = setInterval(() => { const h = this.headPoint(); fx('z', h.x + 20, h.y - 10, 'z'); }, 1700);
@@ -295,7 +327,7 @@ const Pet = {
     if (!this.sleeping) return false;
     this.sleeping = false;
     clearInterval(this.zz);
-    this.el.classList.remove('pose-sleep');
+    this.setPose('sit');
     this.setExpr(null);
     return true;
   },
@@ -963,7 +995,7 @@ const Game = {
     decay();
     renderHeader();
     setPlayIcon();
-    Pet.sleeping = false; clearInterval(Pet.zz); Pet.el.classList.remove('pose-sleep');
+    Pet.sleeping = false; clearInterval(Pet.zz); Pet.setPose('sit');
     Pet.x = 50; Pet.y = 80; Pet.mount();
     renderStats();
     updateClock();

@@ -129,27 +129,30 @@ function renderPet(rawLook, opts = {}){
   if (m.stripes) body += `<path d="M78 166q10 3 17-5M76 182q12 3 19-5M162 166q-10 3-17-5M164 182q-12 3-19-5" fill="none" stroke="${m.stripes}" stroke-width="5" stroke-linecap="round"/>`;
   if (m.spots) body += [[92,170,5],[148,166,6],[141,196,4.5],[99,199,5],[160,188,4],[82,186,3.5]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${m.spots}"/>`).join('');
   body += `</g><path d="${bodyD}" fill="none" stroke="${ol(c.body)}" stroke-width="${SW}"/>`;
-  const haunch = x => fluffy || curly ? `<path d="${blob(x, 206, hrr, 16, 9, .07)}" ${S(haunchCol)}/>` : `<ellipse cx="${x}" cy="206" rx="${hrr}" ry="16" ${S(haunchCol)}/>`;
-  const feet = `<ellipse cx="${hx1 - 6}" cy="219" rx="12" ry="6.5" ${S(c.paws)}/><ellipse cx="${hx2 + 6}" cy="219" rx="12" ry="6.5" ${S(c.paws)}/>`;
+  /* おしり・うしろあしの 先は 体勢（たつ・ふせる）で うごかす グループ（docs/MOTION_DESIGN.md 4-2。見た目は かえない） */
+  const haunch = (x, k) => `<g class="pv-haunch pv-haunch${k}">` + (fluffy || curly ? `<path d="${blob(x, 206, hrr, 16, 9, .07)}" ${S(haunchCol)}/>` : `<ellipse cx="${x}" cy="206" rx="${hrr}" ry="16" ${S(haunchCol)}/>`) + '</g>';
+  const feet = `<g class="pv-feet"><ellipse cx="${hx1 - 6}" cy="219" rx="12" ry="6.5" ${S(c.paws)}/><ellipse cx="${hx2 + 6}" cy="219" rx="12" ry="6.5" ${S(c.paws)}/></g>`;
   const legPart = (x, px, toes, sx) => `<rect x="${x}" y="${legTop}" width="19" height="${218 - legTop}" rx="9.5" ${S(c.body)}/>` +
     (m.stripes && L.legs !== 'short' ? `<path d="M${sx} 194h6M${sx} 202h6" stroke="${m.stripes}" stroke-width="3.5" stroke-linecap="round"/>` : '') +
     `<ellipse cx="${px}" cy="217" rx="12" ry="7.5" ${S(c.paws)}/>` +
     `<path d="M${toes[0]} 213.5v5M${toes[1]} 213.5v5" stroke="${ol(c.paws)}" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>`;
-  const legs = `<g class="pv-legL">${legPart(99, 108.5, [104.5, 112.5], 101)}</g><g class="pv-legR">${legPart(122, 131.5, [127.5, 135.5], 133)}</g>`;
+  /* 前あし：外がわ（pv-legL・pv-legR）は 体勢、内がわ（*-g）は しぐさ・げい */
+  const legs = `<g class="pv-legL"><g class="pv-legL-g">${legPart(99, 108.5, [104.5, 112.5], 101)}</g></g><g class="pv-legR"><g class="pv-legR-g">${legPart(122, 131.5, [127.5, 135.5], 133)}</g></g>`;
 
   /* head */
   const backEar = ['pointy','big','small'].includes(L.ear);
   const earL = (m.patchL && c.ear === c.main) ? m.patchL : c.ear;
   const earR = (m.patchR && c.ear === c.main) ? m.patchR : c.ear;
   const innerCol = col => cat ? mix(col, '#F4AEBB', .7) : mix(col, '#F3C2C9', .55);
+  /* 耳は 左右べつの グループ（pv-earL・pv-earR。耳ぴく用）。右は MIRROR の <g> の 外に もう 1つ */
   let earsBack = '', earsFront = '';
   if (backEar){
     const E = EARS[L.ear];
-    earsBack = `<path d="${E.o}" ${S(earL)}/><path d="${E.i}" fill="${innerCol(earL)}"/>` +
-      `<g transform="${MIRROR}"><path d="${E.o}" ${S(earR)}/><path d="${E.i}" fill="${innerCol(earR)}"/></g>`;
+    earsBack = `<g class="pv-earL"><path d="${E.o}" ${S(earL)}/><path d="${E.i}" fill="${innerCol(earL)}"/></g>` +
+      `<g class="pv-earR"><g transform="${MIRROR}"><path d="${E.o}" ${S(earR)}/><path d="${E.i}" fill="${innerCol(earR)}"/></g></g>`;
   } else {
     const d = (L.ear === 'long' && (curly || fluffy)) ? blob(66, 112, 22, 46, 12, .07) : EARS[L.ear].o;
-    earsFront = `<path d="${d}" ${S(earL)}/><g transform="${MIRROR}"><path d="${d}" ${S(earR)}/></g>`;
+    earsFront = `<g class="pv-earL"><path d="${d}" ${S(earL)}/></g><g class="pv-earR"><g transform="${MIRROR}"><path d="${d}" ${S(earR)}/></g></g>`;
   }
   let ruff = '';
   if (fluffy || curly){
@@ -247,6 +250,11 @@ function renderPet(rawLook, opts = {}){
     <g class="pv-mouth-o">${mouthO}</g>
     ${cheeks}${WS.face}${WS.head}`;
 
+  /* グループ（docs/MOTION_DESIGN.md 4-1・4-2。2026-11-26 だんかい 0）：外がわ（pv-tail・pv-body・pv-legL/R・pv-head・pv-neck）は 体勢（pose-*。止まった transform）、
+     内がわ（pv-*-g）は しぐさ・げい・いまの アニメ（wag・tilt・chomp・trPaw など）。2重に して、アニメの あいだも 体勢が もどらない ように する。
+     前あし pv-legs は いまの まま からだ（pv-body-g）の 中（外に 出すと「ふせ」の うしろあしの ふちが ほんの 少し かわる）。
+     座標・色・ぬる 順は かえない（tools/poses.py が 1px で くらべる）。
+     うちのこカード（js_line.js の CardArt）は この 文字列の 先頭 '<svg class="pet-svg"' と ' aria-hidden="true"' を 置きかえるので かえない */
   return `<svg class="pet-svg" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <defs>
     <clipPath id="${id}h"><path d="${headD}"/></clipPath>
@@ -256,10 +264,10 @@ function renderPet(rawLook, opts = {}){
   </defs>
   <ellipse class="pv-shadow" cx="120" cy="225" rx="62" ry="8" fill="rgba(58,40,60,.16)"/>
   <g class="pv-all">
-    <g class="pv-tail">${tail}</g>
-    <g class="pv-body">${haunch(hx1)}${haunch(hx2)}${feet}${body}<g class="pv-legs">${legs}</g></g>
-    <g class="pv-head">${head}</g>
-    <g class="pv-neck">${WS.neck}</g>
+    <g class="pv-tail"><g class="pv-tail-g">${tail}</g></g>
+    <g class="pv-body"><g class="pv-body-g">${haunch(hx1, 'L')}${haunch(hx2, 'R')}${feet}${body}<g class="pv-legs">${legs}</g></g></g>
+    <g class="pv-head"><g class="pv-head-g">${head}</g></g>
+    <g class="pv-neck"><g class="pv-neck-g">${WS.neck}</g></g>
   </g>
 </svg>`;
 }

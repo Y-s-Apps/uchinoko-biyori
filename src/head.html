@@ -138,11 +138,23 @@ button{font:inherit;color:inherit}
 .pet{position:absolute;left:50%;top:78%;width:46%;max-width:250px;aspect-ratio:1;--s:1;transform:translate(-50%,-93%) scale(var(--s));transform-origin:50% 93%;touch-action:none;cursor:grab;transition:transform .4s ease}
 .pet .pet-svg{display:block;width:100%;height:100%;overflow:visible}
 .pet-svg .pv-all{transform-box:view-box;transform-origin:120px 224px;animation:breathe 3.4s ease-in-out infinite}
-.pet-svg .pv-tail{transform-box:view-box;transform-origin:152px 198px;animation:wag 1.8s ease-in-out infinite}
-.pet-svg .pv-head{transform-box:view-box;transform-origin:120px 146px;transition:transform .5s ease}
-.pet-svg .pv-body{transform-box:view-box;transform-origin:120px 222px;transition:transform .5s ease}
+/* うちのこの グループ（js_pet.js の renderPet。docs/MOTION_DESIGN.md 4-1）：外がわ＝体勢（pose-*。止まった transform ＋ transition）、
+   内がわ（*-g）＝しぐさ・げい・ずっと つづく アニメ。どの グループにも transform-box と 軸（px）を 書く（書かないと 軸が ずれる） */
+.pet-svg .pv-tail,.pet-svg .pv-tail-g{transform-box:view-box;transform-origin:152px 198px}
+.pet-svg .pv-tail-g{animation:wag 1.8s ease-in-out infinite}
+.pet-svg .pv-head,.pet-svg .pv-head-g{transform-box:view-box;transform-origin:120px 146px}
+.pet-svg .pv-head{transition:transform .5s ease}
+.pet-svg .pv-body,.pet-svg .pv-body-g{transform-box:view-box;transform-origin:120px 222px}
+.pet-svg .pv-body{transition:transform .5s ease}
 .pet-svg .pv-legs{transition:opacity .4s}
-.pet-svg .pv-neck{transform-box:view-box;transform-origin:120px 146px;transition:transform .5s ease}
+.pet-svg .pv-neck,.pet-svg .pv-neck-g{transform-box:view-box;transform-origin:120px 146px}
+.pet-svg .pv-neck{transition:transform .5s ease}
+.pet-svg .pv-earL,.pet-svg .pv-earR,.pet-svg .pv-haunch,.pet-svg .pv-feet,.pet-svg .pv-eye{transform-box:view-box}
+.pet-svg .pv-earL{transform-origin:96px 60px}
+.pet-svg .pv-earR{transform-origin:144px 60px}
+.pet-svg .pv-haunchL{transform-origin:82px 222px}
+.pet-svg .pv-haunchR{transform-origin:158px 222px}
+.pet-svg .pv-feet{transform-origin:120px 225px}
 .pet-svg .pv-eyes-open{animation:blink 5.4s infinite;transform-box:view-box;transform-origin:120px 98px}
 .pet-svg .pv-eyes-happy,.pet-svg .pv-eyes-closed,.pet-svg .pv-brow-sad,.pet-svg .pv-mouth-o{display:none}
 .pet-svg .pv-cheek{opacity:.45;transition:opacity .3s}
@@ -153,15 +165,16 @@ button{font:inherit;color:inherit}
 .ex-happy .pv-mouth-o,.ex-eat .pv-mouth-o{display:inline}
 .ex-happy .pv-cheek{opacity:.8}
 .ex-sad .pv-brow-sad{display:inline}
-.ex-eat .pv-head{animation:chomp .32s ease-in-out infinite alternate}
-.wag-fast .pv-tail{animation-duration:.38s}
-.tilt .pv-head{animation:tilt 1s ease-in-out}
+.ex-eat .pv-head-g{animation:chomp .32s ease-in-out infinite alternate}
+.wag-fast .pv-tail-g{animation-duration:.38s}
+.tilt .pv-head-g{animation:tilt 1s ease-in-out}
 .pose-sleep .pv-legs{opacity:0}
 .pose-sleep .pv-body{transform:scaleY(.8)}
 .pose-sleep .pv-head{transform:translate(0,22px) rotate(-7deg)}
 .pose-sleep .pv-neck{transform:translate(0,21px) rotate(-7deg)}
-.ex-eat .pv-neck{animation:chomp .32s ease-in-out infinite alternate}
-.pose-sleep .pv-tail{animation:none;transform:translate(-8px,12px) rotate(30deg)}
+.ex-eat .pv-neck-g{animation:chomp .32s ease-in-out infinite alternate}
+.pose-sleep .pv-tail{transform:translate(-8px,12px) rotate(30deg)}
+.pose-sleep .pv-tail-g{animation:none}
 .pose-sleep .pv-all{animation-duration:4.6s}
 #petArt{transform-origin:50% 93.3%;will-change:transform;transform:translateZ(0)}
 .pet.walking #petArt{animation:hop .34s ease-in-out infinite}
@@ -175,14 +188,14 @@ button{font:inherit;color:inherit}
 @keyframes tilt{35%,65%{transform:rotate(-10deg)}}
 @keyframes hop{0%,100%{transform:translateZ(0)}50%{transform:translateY(-3.75%)}}
 @keyframes jump{0%,100%{transform:translateZ(0)}40%{transform:translateY(-14.2%) scaleY(1.04)}70%{transform:translateY(0) scaleY(.94)}}
-.pet-svg .pv-legL,.pet-svg .pv-legR{transform-box:view-box}
-.pet-svg .pv-legL{transform-origin:108px 182px}
-.pet-svg .pv-legR{transform-origin:131px 182px}
+.pet-svg .pv-legL,.pet-svg .pv-legR,.pet-svg .pv-legL-g,.pet-svg .pv-legR-g{transform-box:view-box}
+.pet-svg .pv-legL,.pet-svg .pv-legL-g{transform-origin:108px 182px}
+.pet-svg .pv-legR,.pet-svg .pv-legR-g{transform-origin:131px 182px}
 .tr-sit #petArt{animation:trSit 1.1s ease}
 @keyframes trSit{0%,100%{transform:translateZ(0)}30%,70%{transform:scaleY(.9) translateY(1.7%)}}
-.tr-paw .pv-legR{animation:trPaw 1.6s ease}
+.tr-paw .pv-legR-g{animation:trPaw 1.6s ease}
 @keyframes trPaw{20%,75%{transform:translate(4px,-30px) rotate(-38deg)}}
-.tr-high .pv-legR{animation:trHigh 1.6s ease}
+.tr-high .pv-legR-g{animation:trHigh 1.6s ease}
 @keyframes trHigh{25%,70%{transform:translate(8px,-50px) rotate(-75deg)}}
 .tr-high #petArt{animation:jump .5s ease-out .25s}
 .tr-down .pv-legs{opacity:0}
@@ -194,19 +207,19 @@ button{font:inherit;color:inherit}
 @keyframes trBig{0%,100%{transform:translateZ(0)}35%{transform:translateY(-29%) rotate(-6deg)}60%{transform:translateY(-27.5%) rotate(6deg)}85%{transform:translateY(0) scaleY(.9)}}
 .tr-roll #petArt{transform-origin:50% 62.5%;animation:trRoll 1.3s ease-in-out}
 @keyframes trRoll{0%{transform:translateZ(0)}50%{transform:translateX(12.5%) rotate(180deg)}100%{transform:translateX(0) rotate(360deg)}}
-.tr-bow .pv-head,.tr-bow .pv-neck{animation:trBow 1.4s ease}
+.tr-bow .pv-head-g,.tr-bow .pv-neck-g{animation:trBow 1.4s ease}
 @keyframes trBow{30%,65%{transform:translate(0,16px) rotate(4deg)}}
 .tr-dance #petArt{animation:trDance 1.8s ease-in-out}
 @keyframes trDance{0%,90%,100%{transform:translateZ(0)}10%,50%{transform:rotate(-10deg) translateY(-3.3%)}30%,70%{transform:rotate(10deg) translateY(-3.3%)}}
-.tr-dance .pv-legR{animation:trPaw .9s ease 2}
+.tr-dance .pv-legR-g{animation:trPaw .9s ease 2}
 .tr-bang #petArt{animation:trBang 2.2s ease}
 @keyframes trBang{0%,100%{transform:translateZ(0)}15%{transform:rotate(-8deg)}35%,75%{transform:rotate(80deg) translate(4.2%,0)}}
 .tr-stretch #petArt{animation:trStretch 1.6s ease}
 @keyframes trStretch{0%,100%{transform:translateZ(0)}30%,70%{transform:scaleX(1.14) scaleY(.86)}}
-.tr-punch .pv-legR{animation:trPunch .35s ease 4 alternate}
+.tr-punch .pv-legR-g{animation:trPunch .35s ease 4 alternate}
 @keyframes trPunch{to{transform:translate(8px,-24px) rotate(-55deg)}}
 
-.bubble{position:absolute;left:50%;bottom:92%;z-index:2;transform:translateX(calc(-50% + var(--bx,0px))) scale(.6);transform-origin:50% 100%;opacity:0;pointer-events:none;background:#FFFFFF;color:#3A3147;font-weight:700;font-size:14px;line-height:1.4;padding:7px 13px;border-radius:16px;white-space:nowrap;box-shadow:0 3px 0 rgba(58,49,71,.12);transition:opacity .2s,transform .25s cubic-bezier(.3,1.6,.5,1)}
+.bubble{position:absolute;left:50%;bottom:calc(92% - var(--by,0px));z-index:2;transform:translateX(calc(-50% + var(--bx,0px))) scale(.6);transform-origin:50% 100%;opacity:0;pointer-events:none;background:#FFFFFF;color:#3A3147;font-weight:700;font-size:14px;line-height:1.4;padding:7px 13px;border-radius:16px;white-space:nowrap;box-shadow:0 3px 0 rgba(58,49,71,.12);transition:opacity .2s,transform .25s cubic-bezier(.3,1.6,.5,1)}
 .bubble::after{content:"";position:absolute;left:clamp(14px,calc(50% - var(--bx,0px)),calc(100% - 14px));top:100%;border:7px solid transparent;border-top-color:#FFFFFF;transform:translateX(-50%)}
 .bubble.show{opacity:1;transform:translateX(calc(-50% + var(--bx,0px))) scale(1)}
 

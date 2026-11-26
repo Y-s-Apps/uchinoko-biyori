@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-vJjHyztXJ3VeWWDagUJ+75KTiFqfKO4v8DC85MjNM4g=' https://y-s-apps.github.io/uchinoko-biyori/run-5d3805aee4a4.js; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-QlEgYu3939b6Ba29MoxR2Nby4MxlTAsPAaM2gEqzg0s=' https://y-s-apps.github.io/uchinoko-biyori/run-5d3805aee4a4.js; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="写真の犬や猫をそっくりなペットにして、ごはん・おやつ・なでなででのんびり育てるアプリ">
@@ -165,11 +165,23 @@ button{font:inherit;color:inherit}
 .pet{position:absolute;left:50%;top:78%;width:46%;max-width:250px;aspect-ratio:1;--s:1;transform:translate(-50%,-93%) scale(var(--s));transform-origin:50% 93%;touch-action:none;cursor:grab;transition:transform .4s ease}
 .pet .pet-svg{display:block;width:100%;height:100%;overflow:visible}
 .pet-svg .pv-all{transform-box:view-box;transform-origin:120px 224px;animation:breathe 3.4s ease-in-out infinite}
-.pet-svg .pv-tail{transform-box:view-box;transform-origin:152px 198px;animation:wag 1.8s ease-in-out infinite}
-.pet-svg .pv-head{transform-box:view-box;transform-origin:120px 146px;transition:transform .5s ease}
-.pet-svg .pv-body{transform-box:view-box;transform-origin:120px 222px;transition:transform .5s ease}
+/* うちのこの グループ（js_pet.js の renderPet。docs/MOTION_DESIGN.md 4-1）：外がわ＝体勢（pose-*。止まった transform ＋ transition）、
+   内がわ（*-g）＝しぐさ・げい・ずっと つづく アニメ。どの グループにも transform-box と 軸（px）を 書く（書かないと 軸が ずれる） */
+.pet-svg .pv-tail,.pet-svg .pv-tail-g{transform-box:view-box;transform-origin:152px 198px}
+.pet-svg .pv-tail-g{animation:wag 1.8s ease-in-out infinite}
+.pet-svg .pv-head,.pet-svg .pv-head-g{transform-box:view-box;transform-origin:120px 146px}
+.pet-svg .pv-head{transition:transform .5s ease}
+.pet-svg .pv-body,.pet-svg .pv-body-g{transform-box:view-box;transform-origin:120px 222px}
+.pet-svg .pv-body{transition:transform .5s ease}
 .pet-svg .pv-legs{transition:opacity .4s}
-.pet-svg .pv-neck{transform-box:view-box;transform-origin:120px 146px;transition:transform .5s ease}
+.pet-svg .pv-neck,.pet-svg .pv-neck-g{transform-box:view-box;transform-origin:120px 146px}
+.pet-svg .pv-neck{transition:transform .5s ease}
+.pet-svg .pv-earL,.pet-svg .pv-earR,.pet-svg .pv-haunch,.pet-svg .pv-feet,.pet-svg .pv-eye{transform-box:view-box}
+.pet-svg .pv-earL{transform-origin:96px 60px}
+.pet-svg .pv-earR{transform-origin:144px 60px}
+.pet-svg .pv-haunchL{transform-origin:82px 222px}
+.pet-svg .pv-haunchR{transform-origin:158px 222px}
+.pet-svg .pv-feet{transform-origin:120px 225px}
 .pet-svg .pv-eyes-open{animation:blink 5.4s infinite;transform-box:view-box;transform-origin:120px 98px}
 .pet-svg .pv-eyes-happy,.pet-svg .pv-eyes-closed,.pet-svg .pv-brow-sad,.pet-svg .pv-mouth-o{display:none}
 .pet-svg .pv-cheek{opacity:.45;transition:opacity .3s}
@@ -180,15 +192,16 @@ button{font:inherit;color:inherit}
 .ex-happy .pv-mouth-o,.ex-eat .pv-mouth-o{display:inline}
 .ex-happy .pv-cheek{opacity:.8}
 .ex-sad .pv-brow-sad{display:inline}
-.ex-eat .pv-head{animation:chomp .32s ease-in-out infinite alternate}
-.wag-fast .pv-tail{animation-duration:.38s}
-.tilt .pv-head{animation:tilt 1s ease-in-out}
+.ex-eat .pv-head-g{animation:chomp .32s ease-in-out infinite alternate}
+.wag-fast .pv-tail-g{animation-duration:.38s}
+.tilt .pv-head-g{animation:tilt 1s ease-in-out}
 .pose-sleep .pv-legs{opacity:0}
 .pose-sleep .pv-body{transform:scaleY(.8)}
 .pose-sleep .pv-head{transform:translate(0,22px) rotate(-7deg)}
 .pose-sleep .pv-neck{transform:translate(0,21px) rotate(-7deg)}
-.ex-eat .pv-neck{animation:chomp .32s ease-in-out infinite alternate}
-.pose-sleep .pv-tail{animation:none;transform:translate(-8px,12px) rotate(30deg)}
+.ex-eat .pv-neck-g{animation:chomp .32s ease-in-out infinite alternate}
+.pose-sleep .pv-tail{transform:translate(-8px,12px) rotate(30deg)}
+.pose-sleep .pv-tail-g{animation:none}
 .pose-sleep .pv-all{animation-duration:4.6s}
 #petArt{transform-origin:50% 93.3%;will-change:transform;transform:translateZ(0)}
 .pet.walking #petArt{animation:hop .34s ease-in-out infinite}
@@ -202,14 +215,14 @@ button{font:inherit;color:inherit}
 @keyframes tilt{35%,65%{transform:rotate(-10deg)}}
 @keyframes hop{0%,100%{transform:translateZ(0)}50%{transform:translateY(-3.75%)}}
 @keyframes jump{0%,100%{transform:translateZ(0)}40%{transform:translateY(-14.2%) scaleY(1.04)}70%{transform:translateY(0) scaleY(.94)}}
-.pet-svg .pv-legL,.pet-svg .pv-legR{transform-box:view-box}
-.pet-svg .pv-legL{transform-origin:108px 182px}
-.pet-svg .pv-legR{transform-origin:131px 182px}
+.pet-svg .pv-legL,.pet-svg .pv-legR,.pet-svg .pv-legL-g,.pet-svg .pv-legR-g{transform-box:view-box}
+.pet-svg .pv-legL,.pet-svg .pv-legL-g{transform-origin:108px 182px}
+.pet-svg .pv-legR,.pet-svg .pv-legR-g{transform-origin:131px 182px}
 .tr-sit #petArt{animation:trSit 1.1s ease}
 @keyframes trSit{0%,100%{transform:translateZ(0)}30%,70%{transform:scaleY(.9) translateY(1.7%)}}
-.tr-paw .pv-legR{animation:trPaw 1.6s ease}
+.tr-paw .pv-legR-g{animation:trPaw 1.6s ease}
 @keyframes trPaw{20%,75%{transform:translate(4px,-30px) rotate(-38deg)}}
-.tr-high .pv-legR{animation:trHigh 1.6s ease}
+.tr-high .pv-legR-g{animation:trHigh 1.6s ease}
 @keyframes trHigh{25%,70%{transform:translate(8px,-50px) rotate(-75deg)}}
 .tr-high #petArt{animation:jump .5s ease-out .25s}
 .tr-down .pv-legs{opacity:0}
@@ -221,19 +234,19 @@ button{font:inherit;color:inherit}
 @keyframes trBig{0%,100%{transform:translateZ(0)}35%{transform:translateY(-29%) rotate(-6deg)}60%{transform:translateY(-27.5%) rotate(6deg)}85%{transform:translateY(0) scaleY(.9)}}
 .tr-roll #petArt{transform-origin:50% 62.5%;animation:trRoll 1.3s ease-in-out}
 @keyframes trRoll{0%{transform:translateZ(0)}50%{transform:translateX(12.5%) rotate(180deg)}100%{transform:translateX(0) rotate(360deg)}}
-.tr-bow .pv-head,.tr-bow .pv-neck{animation:trBow 1.4s ease}
+.tr-bow .pv-head-g,.tr-bow .pv-neck-g{animation:trBow 1.4s ease}
 @keyframes trBow{30%,65%{transform:translate(0,16px) rotate(4deg)}}
 .tr-dance #petArt{animation:trDance 1.8s ease-in-out}
 @keyframes trDance{0%,90%,100%{transform:translateZ(0)}10%,50%{transform:rotate(-10deg) translateY(-3.3%)}30%,70%{transform:rotate(10deg) translateY(-3.3%)}}
-.tr-dance .pv-legR{animation:trPaw .9s ease 2}
+.tr-dance .pv-legR-g{animation:trPaw .9s ease 2}
 .tr-bang #petArt{animation:trBang 2.2s ease}
 @keyframes trBang{0%,100%{transform:translateZ(0)}15%{transform:rotate(-8deg)}35%,75%{transform:rotate(80deg) translate(4.2%,0)}}
 .tr-stretch #petArt{animation:trStretch 1.6s ease}
 @keyframes trStretch{0%,100%{transform:translateZ(0)}30%,70%{transform:scaleX(1.14) scaleY(.86)}}
-.tr-punch .pv-legR{animation:trPunch .35s ease 4 alternate}
+.tr-punch .pv-legR-g{animation:trPunch .35s ease 4 alternate}
 @keyframes trPunch{to{transform:translate(8px,-24px) rotate(-55deg)}}
 
-.bubble{position:absolute;left:50%;bottom:92%;z-index:2;transform:translateX(calc(-50% + var(--bx,0px))) scale(.6);transform-origin:50% 100%;opacity:0;pointer-events:none;background:#FFFFFF;color:#3A3147;font-weight:700;font-size:14px;line-height:1.4;padding:7px 13px;border-radius:16px;white-space:nowrap;box-shadow:0 3px 0 rgba(58,49,71,.12);transition:opacity .2s,transform .25s cubic-bezier(.3,1.6,.5,1)}
+.bubble{position:absolute;left:50%;bottom:calc(92% - var(--by,0px));z-index:2;transform:translateX(calc(-50% + var(--bx,0px))) scale(.6);transform-origin:50% 100%;opacity:0;pointer-events:none;background:#FFFFFF;color:#3A3147;font-weight:700;font-size:14px;line-height:1.4;padding:7px 13px;border-radius:16px;white-space:nowrap;box-shadow:0 3px 0 rgba(58,49,71,.12);transition:opacity .2s,transform .25s cubic-bezier(.3,1.6,.5,1)}
 .bubble::after{content:"";position:absolute;left:clamp(14px,calc(50% - var(--bx,0px)),calc(100% - 14px));top:100%;border:7px solid transparent;border-top-color:#FFFFFF;transform:translateX(-50%)}
 .bubble.show{opacity:1;transform:translateX(calc(-50% + var(--bx,0px))) scale(1)}
 
@@ -1380,27 +1393,30 @@ function renderPet(rawLook, opts = {}){
   if (m.stripes) body += `<path d="M78 166q10 3 17-5M76 182q12 3 19-5M162 166q-10 3-17-5M164 182q-12 3-19-5" fill="none" stroke="${m.stripes}" stroke-width="5" stroke-linecap="round"/>`;
   if (m.spots) body += [[92,170,5],[148,166,6],[141,196,4.5],[99,199,5],[160,188,4],[82,186,3.5]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${m.spots}"/>`).join('');
   body += `</g><path d="${bodyD}" fill="none" stroke="${ol(c.body)}" stroke-width="${SW}"/>`;
-  const haunch = x => fluffy || curly ? `<path d="${blob(x, 206, hrr, 16, 9, .07)}" ${S(haunchCol)}/>` : `<ellipse cx="${x}" cy="206" rx="${hrr}" ry="16" ${S(haunchCol)}/>`;
-  const feet = `<ellipse cx="${hx1 - 6}" cy="219" rx="12" ry="6.5" ${S(c.paws)}/><ellipse cx="${hx2 + 6}" cy="219" rx="12" ry="6.5" ${S(c.paws)}/>`;
+  /* おしり・うしろあしの 先は 体勢（たつ・ふせる）で うごかす グループ（docs/MOTION_DESIGN.md 4-2。見た目は かえない） */
+  const haunch = (x, k) => `<g class="pv-haunch pv-haunch${k}">` + (fluffy || curly ? `<path d="${blob(x, 206, hrr, 16, 9, .07)}" ${S(haunchCol)}/>` : `<ellipse cx="${x}" cy="206" rx="${hrr}" ry="16" ${S(haunchCol)}/>`) + '</g>';
+  const feet = `<g class="pv-feet"><ellipse cx="${hx1 - 6}" cy="219" rx="12" ry="6.5" ${S(c.paws)}/><ellipse cx="${hx2 + 6}" cy="219" rx="12" ry="6.5" ${S(c.paws)}/></g>`;
   const legPart = (x, px, toes, sx) => `<rect x="${x}" y="${legTop}" width="19" height="${218 - legTop}" rx="9.5" ${S(c.body)}/>` +
     (m.stripes && L.legs !== 'short' ? `<path d="M${sx} 194h6M${sx} 202h6" stroke="${m.stripes}" stroke-width="3.5" stroke-linecap="round"/>` : '') +
     `<ellipse cx="${px}" cy="217" rx="12" ry="7.5" ${S(c.paws)}/>` +
     `<path d="M${toes[0]} 213.5v5M${toes[1]} 213.5v5" stroke="${ol(c.paws)}" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>`;
-  const legs = `<g class="pv-legL">${legPart(99, 108.5, [104.5, 112.5], 101)}</g><g class="pv-legR">${legPart(122, 131.5, [127.5, 135.5], 133)}</g>`;
+  /* 前あし：外がわ（pv-legL・pv-legR）は 体勢、内がわ（*-g）は しぐさ・げい */
+  const legs = `<g class="pv-legL"><g class="pv-legL-g">${legPart(99, 108.5, [104.5, 112.5], 101)}</g></g><g class="pv-legR"><g class="pv-legR-g">${legPart(122, 131.5, [127.5, 135.5], 133)}</g></g>`;
 
   /* head */
   const backEar = ['pointy','big','small'].includes(L.ear);
   const earL = (m.patchL && c.ear === c.main) ? m.patchL : c.ear;
   const earR = (m.patchR && c.ear === c.main) ? m.patchR : c.ear;
   const innerCol = col => cat ? mix(col, '#F4AEBB', .7) : mix(col, '#F3C2C9', .55);
+  /* 耳は 左右べつの グループ（pv-earL・pv-earR。耳ぴく用）。右は MIRROR の <g> の 外に もう 1つ */
   let earsBack = '', earsFront = '';
   if (backEar){
     const E = EARS[L.ear];
-    earsBack = `<path d="${E.o}" ${S(earL)}/><path d="${E.i}" fill="${innerCol(earL)}"/>` +
-      `<g transform="${MIRROR}"><path d="${E.o}" ${S(earR)}/><path d="${E.i}" fill="${innerCol(earR)}"/></g>`;
+    earsBack = `<g class="pv-earL"><path d="${E.o}" ${S(earL)}/><path d="${E.i}" fill="${innerCol(earL)}"/></g>` +
+      `<g class="pv-earR"><g transform="${MIRROR}"><path d="${E.o}" ${S(earR)}/><path d="${E.i}" fill="${innerCol(earR)}"/></g></g>`;
   } else {
     const d = (L.ear === 'long' && (curly || fluffy)) ? blob(66, 112, 22, 46, 12, .07) : EARS[L.ear].o;
-    earsFront = `<path d="${d}" ${S(earL)}/><g transform="${MIRROR}"><path d="${d}" ${S(earR)}/></g>`;
+    earsFront = `<g class="pv-earL"><path d="${d}" ${S(earL)}/></g><g class="pv-earR"><g transform="${MIRROR}"><path d="${d}" ${S(earR)}/></g></g>`;
   }
   let ruff = '';
   if (fluffy || curly){
@@ -1498,6 +1514,11 @@ function renderPet(rawLook, opts = {}){
     <g class="pv-mouth-o">${mouthO}</g>
     ${cheeks}${WS.face}${WS.head}`;
 
+  /* グループ（docs/MOTION_DESIGN.md 4-1・4-2。2026-11-26 だんかい 0）：外がわ（pv-tail・pv-body・pv-legL/R・pv-head・pv-neck）は 体勢（pose-*。止まった transform）、
+     内がわ（pv-*-g）は しぐさ・げい・いまの アニメ（wag・tilt・chomp・trPaw など）。2重に して、アニメの あいだも 体勢が もどらない ように する。
+     前あし pv-legs は いまの まま からだ（pv-body-g）の 中（外に 出すと「ふせ」の うしろあしの ふちが ほんの 少し かわる）。
+     座標・色・ぬる 順は かえない（tools/poses.py が 1px で くらべる）。
+     うちのこカード（js_line.js の CardArt）は この 文字列の 先頭 '<svg class="pet-svg"' と ' aria-hidden="true"' を 置きかえるので かえない */
   return `<svg class="pet-svg" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <defs>
     <clipPath id="${id}h"><path d="${headD}"/></clipPath>
@@ -1507,10 +1528,10 @@ function renderPet(rawLook, opts = {}){
   </defs>
   <ellipse class="pv-shadow" cx="120" cy="225" rx="62" ry="8" fill="rgba(58,40,60,.16)"/>
   <g class="pv-all">
-    <g class="pv-tail">${tail}</g>
-    <g class="pv-body">${haunch(hx1)}${haunch(hx2)}${feet}${body}<g class="pv-legs">${legs}</g></g>
-    <g class="pv-head">${head}</g>
-    <g class="pv-neck">${WS.neck}</g>
+    <g class="pv-tail"><g class="pv-tail-g">${tail}</g></g>
+    <g class="pv-body"><g class="pv-body-g">${haunch(hx1, 'L')}${haunch(hx2, 'R')}${feet}${body}<g class="pv-legs">${legs}</g></g></g>
+    <g class="pv-head"><g class="pv-head-g">${head}</g></g>
+    <g class="pv-neck"><g class="pv-neck-g">${WS.neck}</g></g>
   </g>
 </svg>`;
 }
@@ -2633,8 +2654,17 @@ function updateClock(){
 }
 
 /* ----- the pet on stage ----- */
+/* 体勢（docs/MOTION_DESIGN.md 4-3）：入れものの クラス pose-<id>（すわる は クラスなし）と、体勢ごとの 頭・口の 高さ（うちのこの わくの 上から の 割合）・
+   ふきだしを 下げる px（--by）。2026-11-26 だんかい 0 は すわる・ねる だけ（ねる も いまの 位置の まま＝見た目を かえない）。
+   たつ・ふせる・ごろん・おねだり と 位置の 数字は だんかい 2 で 見本を 見て 決める */
+const POSE = {
+  sit:   { head:.38, mouth:.52, bubble:0 },
+  sleep: { head:.38, mouth:.52, bubble:0 },
+};
+/* しぐさ（4-4）：{ ms, poses:[できる 体勢], sp:'dog'|'cat'|'both', calm:true＝ねていても よい }。クラス g-<id> を ms だけ つける。だんかい 1 で 足す */
+const GESTURE = {};
 const Pet = {
-  el: $('#pet'), x:50, y:80, busy:false, sleeping:false, expr:null, tok:0, sayT:null, wakeUntil:0,
+  el: $('#pet'), x:50, y:80, busy:false, sleeping:false, expr:null, tok:0, sayT:null, wakeUntil:0, pose:'sit', gest:null,
   scaleAt(y){ return .84 + clamp((y - 66) / 24, 0, 1) * .22; },
   apply(){
     this.el.style.left = this.x + '%';
@@ -2647,13 +2677,36 @@ const Pet = {
     this.apply();
     this.setExpr(this.expr);
   },
+  poseAt(){ return hasId(POSE, this.pose) ? POSE[this.pose] : POSE.sit; },
   headPoint(){
     const r = this.el.getBoundingClientRect(), s = stage.getBoundingClientRect();
-    return { x:r.left - s.left + r.width / 2, y:r.top - s.top + r.height * .38 };
+    return { x:r.left - s.left + r.width / 2, y:r.top - s.top + r.height * this.poseAt().head };
   },
   mouthPoint(){
     const r = this.el.getBoundingClientRect(), s = stage.getBoundingClientRect();
-    return { x:r.left - s.left + r.width / 2, y:r.top - s.top + r.height * .52 };
+    return { x:r.left - s.left + r.width / 2, y:r.top - s.top + r.height * this.poseAt().mouth };
+  },
+  /* 体勢を かえる（見た目だけ。セーブ・ルールに さわらない）。知らない 体勢は すわる */
+  setPose(p){
+    if (!hasId(POSE, p)) p = 'sit';
+    for (const k in POSE) if (k !== 'sit') this.el.classList.toggle('pose-' + k, k === p);
+    this.pose = p;
+    const by = POSE[p].bubble;
+    if (by) this.el.style.setProperty('--by', by + 'px'); else this.el.style.removeProperty('--by');
+  },
+  /* しぐさ（GESTURE の id）を 1つ。おせわ・げいの とちゅう・ほかの しぐさの とちゅう・合わない 体勢や 種類・うごきを へらす 設定 の ときは 何も しない。
+     おわったら true（しなかったら false）の Promise */
+  gesture(id){
+    const g = hasId(GESTURE, id) ? GESTURE[id] : null;
+    if (!g || !S || this.busy || this.gest) return Promise.resolve(false);
+    if (g.sp && g.sp !== 'both' && g.sp !== (S.pet.species === 'cat' ? 'cat' : 'dog')) return Promise.resolve(false);
+    if (this.sleeping && !g.calm) return Promise.resolve(false);
+    if (g.poses && g.poses.indexOf(this.pose) < 0) return Promise.resolve(false);
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return Promise.resolve(false);
+    const cls = 'g-' + id;
+    this.gest = id;
+    this.el.classList.add(cls);
+    return sleep(g.ms).then(() => { this.el.classList.remove(cls); if (this.gest === id) this.gest = null; return true; });
   },
   baseExpr(){
     if (this.sleeping) return 'sleep';
@@ -2696,7 +2749,7 @@ const Pet = {
   zz:null,
   sleep(){
     this.sleeping = true;
-    this.el.classList.add('pose-sleep');
+    this.setPose('sleep');
     this.setExpr(null);
     clearInterval(this.zz);
     this.zz = setInterval(() => { const h = this.headPoint(); fx('z', h.x + 20, h.y - 10, 'z'); }, 1700);
@@ -2706,7 +2759,7 @@ const Pet = {
     if (!this.sleeping) return false;
     this.sleeping = false;
     clearInterval(this.zz);
-    this.el.classList.remove('pose-sleep');
+    this.setPose('sit');
     this.setExpr(null);
     return true;
   },
@@ -3374,7 +3427,7 @@ const Game = {
     decay();
     renderHeader();
     setPlayIcon();
-    Pet.sleeping = false; clearInterval(Pet.zz); Pet.el.classList.remove('pose-sleep');
+    Pet.sleeping = false; clearInterval(Pet.zz); Pet.setPose('sit');
     Pet.x = 50; Pet.y = 80; Pet.mount();
     renderStats();
     updateClock();

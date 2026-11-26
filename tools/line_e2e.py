@@ -694,7 +694,7 @@ async def browser_tests(srv_port):
         frame_js = '''() => { const f = document.getElementById('frame'), a = f.querySelector('.frame-art');
             return { shown: !f.hidden && getComputedStyle(f).display !== 'none', art: !!a && !a.hidden && f.classList.contains('art'),
                      img: getComputedStyle(document.getElementById('frameImg')).display !== 'none', svg: !!(a && a.querySelector('svg.pet-svg')),
-                     wear: !!(a && a.querySelector('.pv-neck *')), k: a ? a.dataset.k : null }; }'''
+                     wear: !!(a && a.querySelector('.pv-neck :not(g)')), k: a ? a.dataset.k : null }; }'''
         ctx, page, errs, calls = await open_page('Uten')   # この端末に写真の控えがない LINEの子
         f = await page.evaluate(frame_js)
         ok(f['shown'] and f['art'] and f['svg'] and not f['img'] and not f['wear'], 'LINEの子（写真の控えなし）は 写真立てに イラスト（きせかえなし）', f)
