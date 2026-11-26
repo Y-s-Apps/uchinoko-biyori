@@ -253,6 +253,7 @@ async def main(args):
             if not (first['say'] == 'もうすぐ きょうが おわるよ' and first['show'] and first['badge'] and first['day'] and first['inside'] and second == f"おねがい、あと{first['n']}つ！" and again == second):
                 errors.append(f'よるの ひとこと が ちがいます：{first} {second!r} {again!r}')
         await gesture_checks(page, snap, errors)
+        await pose_checks(page, snap, errors)
         if args.line:
             info = await page.evaluate('''() => ({
                 sw: !!(navigator.serviceWorker && navigator.serviceWorker.controller),
@@ -455,18 +456,89 @@ async def gesture_checks(page, snap, errors):
     done, bad = [], []
     for gid in info['want']:
         ms = await page.evaluate('id => GESTURE[id].ms', gid)
+        # その しぐさが できる 体勢で（のび・くんくん は「たつ」＝よこむき。2026-11-27 だんかい 2）
+        await page.evaluate('id => { const p = GESTURE[id].poses[0]; if (Pet.pose !== p) Pet.setPose(p); }', gid)
         started = await page.evaluate('id => { window.__g = Pet.gesture(id); return Pet.gest === id && Pet.el.classList.contains("g-" + id); }', gid)
         if not started:
             bad.append(gid); continue
         await page.wait_for_timeout(min(700, ms // 2))
-        if gid in ('scratch', 'groom', 'pant'):
+        if gid in ('scratch', 'groom', 'pant', 'stretch', 'sniff'):
             await snap('gesture_' + gid)
         ok = await page.evaluate('async () => await window.__g')
         left = await page.evaluate('() => [...Pet.el.classList].filter(c => c.startsWith("g-")).join(" ") + (Pet.gest || "")')
         (done if ok and not left else bad).append(gid)
+    await page.evaluate("() => Pet.setPose('sit')")
     print('しぐさ：', '・'.join(done), '／ できない：', '・'.join(bad) or 'なし', f'（ラン {info["run"]}・ねていて きょろきょろ {info["sleepLook"]}・耳ぴく {info["sleepEar"]}）')
     if bad or info['run'] or info['sleepLook'] or not info['sleepEar']:
         errors.append(f'しぐさが ちがいます：できない {bad}・{info}')
+
+
+POSE_STATE_JS = r'''() => { const s = document.querySelector('#stage').getBoundingClientRect(), h = Pet.headPoint();
+  const vis = sel => { const e = Pet.el.querySelector(sel); return !!e && getComputedStyle(e).display !== 'none'; };
+  return { pose: Pet.pose, view: Pet.view, side: Pet.el.classList.contains('view-side'), dirl: Pet.el.classList.contains('dir-l'),
+           turning: Pet.el.classList.contains('turning'), front: vis('.view-f'), sideShown: vis('.view-s'),
+           cls: [...Pet.el.classList].filter(c => c.startsWith('pose-')).join(' '), rub: Pet.rub,
+           head: h.x >= 0 && h.x <= s.width && h.y >= 0 && h.y <= s.height }; }'''
+
+
+async def pose_checks(page, snap, errors):
+    """体勢と よこむきの 絵（docs/MOTION_DESIGN.md 12章。2026-11-27 だんかい 2）：体勢を ひとつずつ（正面／よこむきの どちらが 見えるか・クラス・頭が おへやの 中か）、
+    あるく（よこむきで 行く ほうを むく → 着いたら たつ／すわる・くるっが おわる）、なでなで 8回（いぬは ふせる・ねこは ごろん → 手を とめて 3秒で すわる）、
+    おせわの 前に すわる、タップの おねだり"""
+    bad = []
+    await page.evaluate("() => { clearTimeout(idleT); window.__idle = window.idleTick; window.idleTick = () => {}; Pet.wake(); Pet.stopGesture(); Pet.setPose('sit'); Pet.el.style.transition = 'none'; Pet.x = 50; Pet.y = 80; Pet.apply(); }")
+    want = {'sit': False, 'stand': True, 'walk': True, 'down': False, 'sleep': False, 'side': False, 'beg': False}
+    for p, side in want.items():
+        await page.evaluate('p => p === "sleep" ? Pet.sleep() : Pet.setPose(p, true)', p)
+        await page.wait_for_timeout(700)
+        st = await page.evaluate(POSE_STATE_JS)
+        if st['side'] != side or st['sideShown'] != side or st['front'] == side or st['turning'] or st['cls'] != ('' if p == 'sit' else 'pose-' + p) or not st['head']:
+            bad.append(f'{p}:{st}')
+        if p in ('stand', 'down', 'sleep', 'side', 'beg'):
+            await snap('pose_' + p)
+        if p == 'sleep':
+            await page.evaluate('() => Pet.wake()')
+    # あるく：右へ → よこむき・右むき → 着いたら たつ。左へ（すわって おわる）→ くるっと 左むき → 正面で すわる
+    await page.evaluate("() => { Pet.setPose('sit'); window.__w = Pet.moveTo(78, 84, 1, 'stand'); }")
+    await page.wait_for_timeout(250)
+    mid = await page.evaluate(POSE_STATE_JS)
+    await snap('pose_walk')
+    await page.evaluate('async () => await window.__w'); await page.wait_for_timeout(450)
+    end1 = await page.evaluate(POSE_STATE_JS)
+    await page.evaluate("() => { window.__w = Pet.moveTo(30, 80, 1.4, 'sit'); }")
+    await page.wait_for_timeout(250)
+    mid2 = await page.evaluate(POSE_STATE_JS)
+    await page.evaluate('async () => await window.__w'); await page.wait_for_timeout(450)
+    end2 = await page.evaluate(POSE_STATE_JS)
+    print('あるく：', mid['pose'], mid['side'], 'L' if mid['dirl'] else 'R', '→', end1['pose'], '／', mid2['pose'], 'L' if mid2['dirl'] else 'R', '→', end2['pose'], end2['side'])
+    if not (mid['pose'] == 'walk' and mid['side'] and not mid['dirl'] and end1['pose'] == 'stand' and end1['side'] and not end1['turning']
+            and mid2['pose'] == 'walk' and mid2['dirl'] and end2['pose'] == 'sit' and not end2['side'] and not end2['turning']):
+        bad.append(f'あるく：{mid} {end1} {mid2} {end2}')
+    # なでなで 8回（キーボードの Enter は なでる 1回）
+    await page.evaluate("() => { Pet.setPose('sit'); Pet.rub = null; }")
+    await page.focus('#pet')
+    for _ in range(8):
+        await page.keyboard.press('Enter'); await page.wait_for_timeout(90)
+    await page.wait_for_timeout(700)
+    rub = await page.evaluate(POSE_STATE_JS)
+    await snap('pose_rub')
+    await page.wait_for_timeout(3200)
+    after = await page.evaluate(POSE_STATE_JS)
+    cat = await page.evaluate("S.pet.species === 'cat'")
+    print('なでなで 8回：', rub['pose'], '→', after['pose'])
+    if rub['pose'] != ('side' if cat else 'down') or rub['rub'] != rub['pose'] or after['pose'] != 'sit' or after['rub']:
+        bad.append(f'なでなで 8回：{rub} {after}')
+    # おせわの 前に すわる（begin は またない）・タップの おねだり（すわっている ときだけ。しばらくで すわる）
+    pre = await page.evaluate("() => { Pet.setPose('stand'); const ok = begin(); const p = Pet.pose; Pet.busy = false; lockDock(false); return ok && p === 'sit'; }")
+    tap = await page.evaluate("() => { Pet.setPose('sit'); tapLast = ''; const r = Math.random; Math.random = () => .99; onTap(); Math.random = r; return [tapLast, Pet.pose]; }")
+    await page.wait_for_timeout(2000)
+    tap2 = await page.evaluate('() => Pet.pose')
+    print('おせわの 前に すわる：', pre, '／ タップ：', tap, '→', tap2)
+    if not pre or tap != ['beg', 'beg'] or tap2 != 'sit':
+        bad.append(f'おせわの 前・タップ：{pre} {tap} {tap2}')
+    await page.evaluate("() => { Pet.setPose('sit'); Pet.face(false); window.idleTick = window.__idle; Pet.el.style.transition = 'none'; Pet.x = 50; Pet.y = 80; Pet.apply(); }")
+    if bad:
+        errors.append('体勢が ちがいます：' + ' / '.join(bad))
 
 
 async def run_checks(page, ctx, snap, errors, args, port):

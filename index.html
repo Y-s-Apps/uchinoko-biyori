@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-ncVWY6GBvc8czJCWfqAOP39eqwzb1CW/NrQV1EP4iEc=' https://y-s-apps.github.io/uchinoko-biyori/run-5d3805aee4a4.js; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-IiI8KwK42E8qeiUVfkIxnfpG2vQbypnbbQel03TiEZ0=' https://y-s-apps.github.io/uchinoko-biyori/run-5d3805aee4a4.js; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="写真の犬や猫をそっくりなペットにして、ごはん・おやつ・なでなででのんびり育てるアプリ">
@@ -195,25 +195,32 @@ button{font:inherit;color:inherit}
 .ex-eat .pv-head-g{animation:chomp .32s ease-in-out infinite alternate}
 .wag-fast .pv-tail-g{animation-duration:.38s}
 .tilt .pv-head-g{animation:tilt 1s ease-in-out}
-.pose-sleep .pv-legs{opacity:0}
-.pose-sleep .pv-body{transform:scaleY(.8)}
-.pose-sleep .pv-head{transform:translate(0,22px) rotate(-7deg)}
-.pose-sleep .pv-neck{transform:translate(0,21px) rotate(-7deg)}
 .ex-eat .pv-neck-g{animation:chomp .32s ease-in-out infinite alternate}
-.pose-sleep .pv-tail{transform:translate(-8px,12px) rotate(30deg)}
+/* ふせる・ねる（docs/MOTION_DESIGN.md 10章の 見本 2。2026-11-27 だんかい 2）：前あしを 前に のばし（pvx-down）、からだを ひくく、あごを 下げる。
+   ねる は ふせる ＋ あごを 前あしに のせる・しっぽを まく。げい「ふせ」（tr-down）も ふせる と 同じ 数字。首（pv-neck）は 頭と かならず 同じ 数字 */
+.pet-svg .pv-tail,.pet-svg .pv-haunch,.pet-svg .pv-feet{transition:transform .5s ease}
+@keyframes pvxIn{from{opacity:0}}
+@keyframes pvxOut{to{opacity:0}}
+/* ほかの 体勢へ うつる ときは 部品を ふわっと けす（Pet.leave。0.36秒だけ leave-<部品>） */
+.leave-down .pvx-down,.leave-beg .pvx-beg{display:inline;animation:pvxOut .3s ease both}
+.leave-beg .pvx-beg{transform:translateY(-7px)}
+.pose-down .pv-legs,.pose-sleep .pv-legs,.tr-down .pv-legs{opacity:0}
+.pose-down .pvx-down,.pose-sleep .pvx-down,.tr-down .pvx-down{display:inline;animation:pvxIn .35s ease both}
+.pose-down .pv-body,.pose-sleep .pv-body,.tr-down .pv-body{transform:scale(1.05,.72)}
+.pose-down .pv-haunch,.pose-sleep .pv-haunch,.tr-down .pv-haunch{transform:scale(1.16,.9)}
+.pose-down .pv-head,.pose-down .pv-neck,.tr-down .pv-head,.tr-down .pv-neck{transform:translateY(30px)}
+.pose-down .pv-tail,.tr-down .pv-tail{transform:translate(6px,16px) rotate(16deg)}
+.pose-sleep .pv-head,.pose-sleep .pv-neck{transform:translate(-2px,38px) rotate(-8deg)}
+.pose-sleep .pv-tail{transform:translate(-10px,16px) rotate(34deg)}
 .pose-sleep .pv-tail-g{animation:none}
 .pose-sleep .pv-all{animation-duration:4.6s}
 #petArt{transform-origin:50% 93.3%;will-change:transform;transform:translateZ(0)}
-.pet.walking #petArt{animation:hop .34s ease-in-out infinite}
-.pet.walking .pet-svg{transform:rotate(4deg)}
-.pet.walking.dir-l .pet-svg{transform:rotate(-4deg)}
 .pet.jump #petArt{animation:jump .5s ease-out}
 @keyframes breathe{50%{transform:scaleY(1.018)}}
 @keyframes wag{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(10deg)}}
 @keyframes blink{0%,93%,100%{transform:scaleY(1)}95.5%{transform:scaleY(.08)}}
 @keyframes chomp{to{transform:translateY(5px) rotate(1deg)}}
 @keyframes tilt{35%,65%{transform:rotate(-10deg)}}
-@keyframes hop{0%,100%{transform:translateZ(0)}50%{transform:translateY(-3.75%)}}
 @keyframes jump{0%,100%{transform:translateZ(0)}40%{transform:translateY(-14.2%) scaleY(1.04)}70%{transform:translateY(0) scaleY(.94)}}
 .pet-svg .pv-legL,.pet-svg .pv-legR,.pet-svg .pv-legL-g,.pet-svg .pv-legR-g{transform-box:view-box}
 .pet-svg .pv-legL,.pet-svg .pv-legL-g{transform-origin:108px 182px}
@@ -225,9 +232,6 @@ button{font:inherit;color:inherit}
 .tr-high .pv-legR-g{animation:trHigh 1.6s ease}
 @keyframes trHigh{25%,70%{transform:translate(8px,-50px) rotate(-75deg)}}
 .tr-high #petArt{animation:jump .5s ease-out .25s}
-.tr-down .pv-legs{opacity:0}
-.tr-down .pv-body{transform:scaleY(.8)}
-.tr-down .pv-head,.tr-down .pv-neck{transform:translate(0,22px)}
 .tr-spin #petArt{animation:trSpin 1s ease-in-out}
 @keyframes trSpin{0%,100%{transform:translateZ(0)}25%{transform:scaleX(0) translateY(-3.3%)}50%{transform:scaleX(-1) translateY(-5%)}75%{transform:scaleX(0) translateY(-3.3%)}}
 .tr-bigjump #petArt{animation:trBig .9s ease-out}
@@ -323,8 +327,113 @@ button{font:inherit;color:inherit}
 @keyframes gLick{0%,100%{opacity:0;transform:translateY(3px)}20%{opacity:1;transform:translateY(-1px)}45%{opacity:1;transform:translate(3px,-8px) rotate(14deg)}65%{opacity:1;transform:translate(-3px,-8px) rotate(-14deg)}85%{opacity:1;transform:translateY(0)}}
 .g-lick .pvx-lick{display:inline;animation:gLick .9s ease-in-out}
 
+/* ===== 体勢と よこむきの 絵（docs/MOTION_DESIGN.md 12章。2026-11-27 だんかい 2） =====
+   #petArt > .pet-turn > .view-f（正面 renderPet）＋ .view-s（よこむき renderPetSide）。見せるのは どちらか 1つ（in flow なので わくの 大きさは かわらない）。
+   .pet の クラス：view-side（よこを 見せる）・dir-l（左むき＝よこを scaleX(-1)）・turning（くるっ：入れものを 0.32秒で scaleX 1→0.08→1。まんなかで 絵を 入れかえる＝Pet.turn）・
+   pose-<id>（Pet.setPose。すわる は なし）。体勢は 外がわの グループの 止まった transform ＋ transition、しぐさ・ずっと つづく アニメは 内がわ（*-g）。
+   体勢の CSS は 表情（ex-*）・しぐさ（g-*）より あと（目・口の 出し入れで 勝つ） */
+.pet .view-s{display:none}
+.pet.view-side .view-f{display:none}
+.pet.view-side .view-s{display:block}
+.pet.dir-l .view-s{transform:scaleX(-1)}
+@keyframes petTurn{0%,100%{transform:scaleX(1)}50%{transform:scaleX(.08)}}
+.pet.turning .pet-turn{animation:petTurn .32s ease-in-out}
+/* よこむき：いつも（いき・しっぽ・まばたき） */
+.pet-side .ps-leg,.pet-side .ps-all,.pet-side .ps-head,.pet-side .ps-head-g,.pet-side .ps-tail,.pet-side .ps-tail-g,.pet-side .ps-body{transform-box:view-box}
+.pet-side .ps-ear{transform-box:fill-box;transform-origin:50% 90%}
+.pet-side .ps-earFlop{transform-origin:50% 8%}
+.pet-side .ps-leg,.pet-side .ps-all,.pet-side .ps-head,.pet-side .ps-tail{transition:transform .5s ease}
+.pet-side .ps-fn{transform-origin:144px 184px}
+.pet-side .ps-ff{transform-origin:133px 184px}
+.pet-side .ps-bn{transform-origin:74px 184px}
+.pet-side .ps-bf{transform-origin:85px 184px}
+.pet-side.ps-short .ps-fn{transform-origin:144px 200px}
+.pet-side.ps-short .ps-ff{transform-origin:133px 200px}
+.pet-side.ps-short .ps-bn{transform-origin:74px 200px}
+.pet-side.ps-short .ps-bf{transform-origin:85px 200px}
+.pet-side .ps-all{transform-origin:110px 216px}
+.pet-side .ps-head,.pet-side .ps-head-g{transform-origin:142px 134px}
+.pet-side .ps-tail,.pet-side .ps-tail-g{transform-origin:64px 160px}
+.pet-side .ps-body{transform-origin:108px 198px}
+.pet-side .ps-scarf{transform-box:fill-box;transform-origin:50% 0}
+@keyframes psBreath{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.025)}}
+@keyframes psBlink{0%,94%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+.pet-side .ps-body{animation:psBreath 3.4s ease-in-out infinite}
+.pet-side .ps-tail-g{animation:wag 1.8s ease-in-out infinite}
+.pet-side .ps-eyes-open{transform-box:fill-box;transform-origin:50% 50%;animation:psBlink 5.4s infinite}
+/* よこむきの 表情・しっぽ・かしげる */
+.ex-happy .ps-eyes-open,.ex-eat .ps-eyes-open,.ex-sleep .ps-eyes-open{display:none}
+.ex-happy .ps-eyes-happy,.ex-eat .ps-eyes-happy{display:inline}
+.ex-sleep .ps-eyes-closed{display:inline}
+.ex-happy .ps-mouth-w,.ex-eat .ps-mouth-w{display:none}
+.ex-happy .ps-mouth-o,.ex-eat .ps-mouth-o{display:inline}
+.wag-fast .ps-tail-g{animation-duration:.38s}
+.tilt .ps-head-g{animation:tilt 1s ease-in-out}
+/* あるく（pose-walk）：対角の 足が いっしょに（てまえ前＋おくうしろ／おく前＋てまえうしろ）。前へ ふる ときに 足を 上げる。
+   1歩きの 長さ --step（はやく うごく ほど みじかい。Pet.moveTo が 入れる）、--half は その 半分、--lag は 半分 おくらせる */
+@keyframes psStep{0%{transform:rotate(22deg)}25%{transform:rotate(0) translateY(-6px)}50%{transform:rotate(-22deg)}75%{transform:rotate(0)}100%{transform:rotate(22deg)}}
+@keyframes psBob{0%{transform:translateY(0)}100%{transform:translateY(-2.5px)}}
+@keyframes psNod{0%,50%,100%{transform:rotate(0)}25%,75%{transform:rotate(2.5deg)}}
+@keyframes psScarf{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(7deg)}}
+.pose-walk .ps-fn,.pose-walk .ps-bf{animation:psStep var(--step,.56s) linear infinite}
+.pose-walk .ps-ff,.pose-walk .ps-bn{animation:psStep var(--step,.56s) linear var(--lag,-.28s) infinite}
+.pose-walk .ps-all{animation:psBob var(--half,.28s) ease-in-out infinite alternate}
+.pose-walk .ps-head-g{animation:psNod var(--step,.56s) ease-in-out infinite}
+.pose-walk .ps-tail-g{animation-duration:var(--step,.56s)}
+.pose-walk .ps-ear{animation:psNod var(--half,.28s) ease-in-out infinite}
+.pose-walk .ps-scarf{animation:psScarf var(--step,.56s) ease-in-out infinite}
+/* よこむきの しぐさ：耳ぴく・しっぽ・はぁはぁ・くんくん（鼻を 床へ）・のび（前足を のばして むねを 下げ、おしりを 上げる） */
+.g-ear .ps-earN{animation:gEar .6s ease}
+.g-tailup .ps-tail-g{animation:gTailUp 1.4s ease}
+.g-sway .ps-tail-g{animation:gSway 2.4s ease-in-out}
+.g-pant .ps-mouth-w{display:none}
+.g-pant .ps-mouth-o,.g-pant .ps-tongue{display:inline}
+.g-pant .ps-head-g{animation:gPant .26s ease-in-out 6}
+@keyframes psSniff{0%,100%{transform:none}18%{transform:rotate(26deg) translateY(10px)}26%,42%,58%,74%{transform:rotate(25deg) translateY(8px)}34%,50%,66%{transform:rotate(27deg) translateY(11px)}84%{transform:rotate(24deg) translateY(9px)}}
+.g-sniff .ps-head-g{animation:psSniff 1.6s ease-in-out}
+.g-sniff .ps-tail-g{animation:wag .5s ease-in-out infinite}
+@keyframes psBowAll{0%,100%{transform:none}25%,75%{transform:rotate(14deg)}}
+@keyframes psBowF{0%,100%{transform:none}25%,75%{transform:rotate(-74deg) translateY(-2px)}}
+@keyframes psBowB{0%,100%{transform:none}25%,75%{transform:rotate(-14deg)}}
+@keyframes psBowHead{0%,100%{transform:none}25%,75%{transform:rotate(-20deg) translate(4px,-2px)}}
+@keyframes psBowTail{0%,100%{transform:none}25%,75%{transform:rotate(-24deg)}}
+.g-stretch .ps-all{transform-origin:76px 216px;animation:psBowAll 1.9s ease-in-out}
+.g-stretch .ps-fn,.g-stretch .ps-ff{animation:psBowF 1.9s ease-in-out}
+.g-stretch .ps-bn,.g-stretch .ps-bf{animation:psBowB 1.9s ease-in-out}
+.g-stretch .ps-head-g{animation:psBowHead 1.9s ease-in-out}
+.g-stretch .ps-tail{animation:psBowTail 1.9s ease-in-out}
+.g-stretch .ps-eyes-open{display:none}
+.g-stretch .ps-eyes-closed{display:inline}
+/* おねだり（pose-beg）：上体を 起こして 前あし（pvx-beg）を 胸の 前で まげて ゆらす */
+.pet-svg .pv-legL,.pet-svg .pv-legR{transition:transform .5s ease}
+.pose-beg .pv-body{transform:translateY(-7px) scale(.97,1.06)}
+.pose-beg .pv-legs{opacity:0}
+.pose-beg .pvx-beg{display:inline;transform:translateY(-7px);animation:pvxIn .35s ease both}
+.pose-beg .pv-head,.pose-beg .pv-neck{transform:translateY(-14px)}
+.pose-beg .pv-tail{transform:translateY(-6px)}
+@keyframes begPaw{0%,100%{transform:rotate(0)}50%{transform:rotate(-10deg) translateY(-2px)}}
+@keyframes begPawR{0%,100%{transform:rotate(0)}50%{transform:rotate(10deg) translateY(-2px)}}
+.pose-beg .pvx-begL{animation:begPaw .9s ease-in-out infinite}
+.pose-beg .pvx-begR{animation:begPawR .9s ease-in-out .45s infinite}
+/* ごろん A（pose-side）：おなかを 見せる。正面の 絵を さかさに して（svg ごと。わくの 中で まわる）前あしを まげ、顔は さかさで こちらを 見る。
+   絵の かげは けして、ゆかに だえんの かげ（.view-f::after） */
+.pet .view-f{position:relative}
+.pet .view-f .pet-svg{transform-origin:50% 50%;transition:transform .55s ease}
+.pet .view-f::after{content:"";position:absolute;left:16%;right:16%;bottom:3%;height:6%;border-radius:50%;background:rgba(58,40,60,.16);opacity:0;transition:opacity .3s;pointer-events:none}
+.pose-side .view-f .pet-svg{transform:translateY(13%) rotate(172deg)}
+.pose-side .view-f::after{opacity:1}
+.pose-side .pv-legL{transform:rotate(-30deg) translateY(-4px)}
+.pose-side .pv-legR{transform:rotate(30deg) translateY(-4px)}
+.pose-side .pv-tail{transform:translate(-6px,6px) rotate(-30deg)}
+.pose-side .pv-shadow{opacity:0}
+.pose-side .pv-eyes-open,.pose-side .pv-brow-sad,.pose-side .pv-mouth-w{display:none}
+.pose-side .pv-eyes-happy,.pose-side .pv-mouth-o{display:inline}
+@keyframes bellyWiggle{0%,100%{transform:rotate(0)}50%{transform:rotate(-5deg)}}
+.pose-side .pv-legL-g{animation:bellyWiggle .9s ease-in-out infinite}
+.pose-side .pv-legR-g{animation:bellyWiggle .9s ease-in-out -.45s infinite}
+
 .bubble{position:absolute;left:50%;bottom:calc(92% - var(--by,0px));z-index:2;transform:translateX(calc(-50% + var(--bx,0px))) scale(.6);transform-origin:50% 100%;opacity:0;pointer-events:none;background:#FFFFFF;color:#3A3147;font-weight:700;font-size:14px;line-height:1.4;padding:7px 13px;border-radius:16px;white-space:nowrap;box-shadow:0 3px 0 rgba(58,49,71,.12);transition:opacity .2s,transform .25s cubic-bezier(.3,1.6,.5,1)}
-.bubble::after{content:"";position:absolute;left:clamp(14px,calc(50% - var(--bx,0px)),calc(100% - 14px));top:100%;border:7px solid transparent;border-top-color:#FFFFFF;transform:translateX(-50%)}
+.bubble::after{content:"";position:absolute;left:clamp(14px,calc(50% - var(--bt,var(--bx,0px))),calc(100% - 14px));top:100%;border:7px solid transparent;border-top-color:#FFFFFF;transform:translateX(-50%)}
 .bubble.show{opacity:1;transform:translateX(calc(-50% + var(--bx,0px))) scale(1)}
 
 /* fx */
@@ -1636,6 +1745,247 @@ function renderPet(rawLook, opts = {}){
   </g>
 </svg>`;
 }
+
+/* ===== よこむきの うちのこ（docs/MOTION_DESIGN.md 10章・12章。2026-11-27 だんかい 2。見本 2 の tools/motion_sample/side.js から）=====
+   右を むく 絵。左へは 入れもの（.view-s）を scaleX(-1)。たつ・あるく・のび・くんくん に つかう（おへやの うちのこ だけ。カード・タイル・ランの 画面には 出さない）。
+   renderPet と 同じ look から かく（41種の 耳・しっぽ・毛・顔と からだの もよう・みじかい足）。あたまと マズルは「ふちを うしろに かいてから ぬる」で 1つの りんかく。
+   グループ：ps-leg（ps-bf うしろ・おく／ps-ff まえ・おく／ps-bn うしろ・てまえ〈もも つき〉／ps-fn まえ・てまえ。軸は 肩・腰。おくの 足は すこし 暗く）、
+   ps-tail > ps-tail-g、ps-body、ps-neckw（首の きせかえ。マフラーの 端は ps-scarf）、ps-head > ps-head-g（ps-ear は 外がわに クラス・内がわに transform 属性＝CSS の アニメと ぶつけない）。
+   きせかえ：あたまは 正面の 絵の ものを 0.74 倍で のせる、かお・くびは よこむき用に かいた。目・口の 出し入れは display="none" の 属性（CSS で display:inline） */
+function renderPetSide(rawLook, opts = {}){
+  const L = normalizeLook(rawLook);
+  const c = L.colors, m = L.marks, cat = L.species === 'cat';
+  const id = 'ps' + (++PET_SEQ);
+  const SW = 2.4;
+  const ol = col => mix(col, '#3A2A3A', .5);
+  const S = col => `fill="${col}" stroke="${ol(col)}" stroke-width="${SW}" stroke-linejoin="round"`;
+  const far = col => mix(col, '#3A2A3A', .16);
+  const fluffy = L.coat === 'fluffy' || L.coat === 'long', curly = L.coat === 'curly';
+  const short = L.legs === 'short';
+  const thick = (d, col, w) => `<path d="${d}" fill="none" stroke="${ol(col)}" stroke-width="${w + SW * 2}" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+
+  /* からだ */
+  const BX = 108, BY = short ? 180 : 168, brx = cat ? 50 : 53, bry = cat ? 26 : 29;
+  const bodyD = curly ? blob(BX, BY, brx, bry, 16, .06) : fluffy ? blob(BX, BY, brx + 1, bry + 1, 14, .05) : ellD(BX, BY, brx, bry);
+  const chestFill = c.chest === c.body ? lighten(c.body, lum(c.body) > .7 ? 0 : .1) : c.chest;
+  let body = `<path d="${bodyD}" ${S(c.body)}/><g clip-path="url(#${id}b)">`;
+  if (m.saddle) body += `<ellipse cx="${BX - 6}" cy="${BY - 22}" rx="58" ry="18" fill="${m.saddle}"/>`;
+  if (m.bodyPatch){
+    if (m.patchR) body += `<ellipse cx="${BX - 12}" cy="${BY - 6}" rx="24" ry="16" fill="${m.patchR}"/>`;
+    if (m.patchL) body += `<ellipse cx="${BX + 20}" cy="${BY + 14}" rx="14" ry="9" fill="${m.patchL}"/>`;
+  }
+  body += `<ellipse cx="${BX + brx - 12}" cy="${BY + 6}" rx="${cat ? 17 : 20}" ry="24" fill="${chestFill}"/>`;
+  if (m.stripes) body += [-34, -18, -2, 14].map(dx => `<path d="M${BX + dx} ${BY - 28}q-6 12 1 24" fill="none" stroke="${m.stripes}" stroke-width="5" stroke-linecap="round"/>`).join('');
+  if (m.spots) body += [[-30,-10,5],[-6,-16,6],[12,4,4.5],[-20,10,5],[24,-12,4]].map(([x, y, r]) => `<circle cx="${BX + x}" cy="${BY + y}" r="${r}" fill="${m.spots}"/>`).join('');
+  body += `</g><path d="${bodyD}" fill="none" stroke="${ol(c.body)}" stroke-width="${SW}"/>`;
+
+  /* あし（よこから。てまえは あとで かく。軸＝肩・腰） */
+  const LT = short ? 196 : 178, LW = cat ? 13 : 15;
+  const leg = (x, cls, col, pawCol, thigh) => {
+    let s = `<g class="ps-leg ${cls}">`;
+    if (thigh) s += `<ellipse cx="${x + 3}" cy="${LT + 2}" rx="${short ? 15 : 17}" ry="${short ? 12 : 15}" ${S(col)}/>`;
+    s += `<rect x="${x - LW / 2}" y="${LT}" width="${LW}" height="${214 - LT}" rx="${LW / 2}" ${S(col)}/>`;
+    if (m.stripes && !short) s += `<path d="M${x - 4} ${LT + 14}h8M${x - 4} ${LT + 21}h8" stroke="${m.stripes}" stroke-width="3" stroke-linecap="round"/>`;
+    s += `<ellipse cx="${x + 2.5}" cy="215.5" rx="9.5" ry="5.8" ${S(pawCol)}/></g>`;
+    return s;
+  };
+  const legsFar = leg(85, 'ps-bf', far(c.body), far(c.paws)) + leg(133, 'ps-ff', far(c.body), far(c.paws));
+  const legsNear = leg(74, 'ps-bn', c.body, c.paws, true) + leg(144, 'ps-fn', c.body, c.paws);
+
+  /* しっぽ（こしの うしろ） */
+  const tx = BX - brx + 7, ty = BY - 8, tc = c.tail;
+  let tail = '';
+  if (L.tail === 'curl'){
+    tail = thick(`M${tx} ${ty}C${tx - 16} ${ty - 10} ${tx - 18} ${ty - 40} ${tx + 6} ${ty - 44}C${tx + 24} ${ty - 46} ${tx + 26} ${ty - 24} ${tx + 12} ${ty - 22}`, tc, 15);
+    if (c.tailTip) tail += `<circle cx="${tx + 12}" cy="${ty - 22}" r="7" fill="${c.tailTip}"/>`;
+  } else if (L.tail === 'plume'){
+    tail = `<path d="${blob(tx + 12, ty - 26, 27, 23, 12, .08)}" ${S(tc)}/>`;
+  } else if (L.tail === 'straight'){
+    const d = `M${tx} ${ty}C${tx - 14} ${ty - 6} ${tx - 24} ${ty - 22} ${tx - 28} ${ty - 42}`;
+    tail = thick(d, tc, fluffy ? 15 : 12);
+    if (c.tailTip) tail += `<circle cx="${tx - 28}" cy="${ty - 42}" r="${fluffy ? 7.5 : 6}" fill="${c.tailTip}"/>`;
+  } else if (L.tail === 'stub'){
+    tail = `<ellipse cx="${tx - 4}" cy="${ty + 2}" rx="8" ry="7" ${S(tc)}/>`;
+  } else {
+    const d = `M${tx} ${ty + 4}C${tx - 26} ${ty + 4} ${tx - 34} ${ty - 18} ${tx - 28} ${ty - 40}C${tx - 25} ${ty - 52} ${tx - 18} ${ty - 58} ${tx - 10} ${ty - 60}`;
+    const w = L.tail === 'fluffy' ? 20 : 12;
+    tail = thick(d, tc, w);
+    if (m.stripes) tail += `<path d="${d}" fill="none" stroke="${m.stripes}" stroke-width="${w}" stroke-dasharray="5 11" stroke-dashoffset="-14"/>`;
+    if (c.tailTip) tail += `<circle cx="${tx - 10}" cy="${ty - 60}" r="${w / 2}" fill="${c.tailTip}"/>`;
+  }
+
+  /* あたま（右むき）。マズルと いっしょの ふちどり（ふちを うしろに かいてから ぬる） */
+  const HX = 162, HY = (short ? 114 : 102), hrx = cat ? 46 : 45, hry = cat ? 40 : 41;
+  const headD = curly ? blob(HX, HY, hrx, hry, 18, .06) : fluffy ? blob(HX, HY, hrx + 1, hry + 1, 16, .05) : ellD(HX, HY, hrx, hry);
+  const mrx = cat ? 9 : { short:12, medium:16, long:20 }[L.muzzle], mry = cat ? 8.5 : 12;
+  const mcx = cat ? HX + hrx - 4 : HX + hrx - 6 + mrx * .55, mcy = cat ? HY + 12 : HY + 16;
+  const muzD = ellD(mcx, mcy, mrx, mry);
+  const fc = c.face;
+  const muzzleFill = c.face === c.main ? lighten(c.main, lum(c.main) > .7 ? 0 : .16) : c.face;
+  const ex = HX + hrx * .4, ey = HY - 6;
+  let faceIn = '';
+  if (m.patchR) faceIn += `<ellipse cx="${HX + 2}" cy="${HY - 12}" rx="36" ry="32" fill="${m.patchR}"/>`;
+  if (L.face === 'lower') faceIn += `<ellipse cx="${HX + 22}" cy="${HY + 30}" rx="50" ry="24" fill="${fc}"/>`;
+  else if (L.face === 'mask') faceIn += `<ellipse cx="${HX + 20}" cy="${HY + 24}" rx="48" ry="26" fill="${fc}"/><ellipse cx="${ex}" cy="${ey}" rx="13" ry="11" fill="${fc}"/>`;
+  else if (L.face === 'hachiware') faceIn += `<path d="M${HX + 30} ${HY - 44}C${HX + 34} ${HY - 20} ${HX + 30} ${HY + 2} ${HX + 8} ${HY + 10}C${HX - 12} ${HY + 16} ${HX - 30} ${HY + 20} ${HX - 50} ${HY + 24}L${HX - 50} ${HY + 60}L${HX + 90} ${HY + 60}L${HX + 90} ${HY - 44}Z" fill="${fc}"/>`;
+  else if (L.face === 'blaze') faceIn += `<path d="M${HX + 26} ${HY - 46}L${HX + 37} ${HY - 46}C${HX + 43} ${HY - 22} ${HX + 50} ${HY - 4} ${HX + 90} ${HY + 4}L${HX + 90} ${HY + 50}L${HX + 44} ${HY + 50}C${HX + 38} ${HY + 12} ${HX + 30} ${HY - 18} ${HX + 26} ${HY - 46}Z" fill="${fc}"/>`;
+  if (!cat && muzzleFill !== c.main && L.face !== 'lower') faceIn += `<path d="${muzD}" fill="${muzzleFill}"/>`;
+  if (cat && muzzleFill !== c.main) faceIn += `<path d="${muzD}" fill="${muzzleFill}"/>`;
+  if (m.stripes) faceIn += `<path d="M${HX + 6} ${HY - 38}l3 11M${HX + 16} ${HY - 39}l1 11M${HX + 26} ${HY - 35}l-1 10M${HX - 16} ${HY + 8}l13 2M${HX - 18} ${HY + 17}h13" fill="none" stroke="${m.stripes}" stroke-width="4.5" stroke-linecap="round"/>`;
+  if (m.spots) faceIn += [[-20,-20,4],[-4,-30,4.5],[-28,0,3.5]].map(([x, y, r]) => `<circle cx="${HX + x}" cy="${HY + y}" r="${r}" fill="${m.spots}"/>`).join('');
+  if (m.mask) faceIn += `<ellipse cx="${mcx - 2}" cy="${mcy - 2}" rx="${mrx + 12}" ry="20" fill="url(#${id}g)"/>`;
+  if (m.brows) faceIn += `<ellipse cx="${ex - 1}" cy="${ey - 15}" rx="5" ry="3.6" fill="${m.brows}"/>`;
+
+  /* 耳 */
+  const earN = (m.patchR && c.ear === c.main) ? m.patchR : c.ear, earF = far((m.patchL && c.ear === c.main) ? m.patchL : c.ear);
+  const innerCol = col => cat ? mix(col, '#F4AEBB', .7) : mix(col, '#F3C2C9', .55);
+  const ebx = HX - 6, eby = HY - hry + 8;
+  const backEar = ['pointy','big','small','semi'].includes(L.ear);
+  const earScale = { pointy:1, big:1.3, small:.68, semi:.95 }[L.ear] || 1;
+  const earPath = (s) => `M${-14 * s} ${6}C${-14 * s} ${-18 * s} ${-8 * s} ${-34 * s} ${-2 * s} ${-44 * s}C${8 * s} ${-30 * s} ${16 * s} ${-12 * s} ${18 * s} ${4}Z`;
+  const earIn = (s) => `M${-8 * s} ${2}C${-8 * s} ${-14 * s} ${-5 * s} ${-26 * s} ${-1 * s} ${-33 * s}C${6 * s} ${-22 * s} ${10 * s} ${-10 * s} ${11 * s} ${2}Z`;
+  let earsBack = '', earsFront = '';
+  if (backEar){
+    const s = earScale;
+    earsBack = `<g class="ps-ear ps-earF"><g transform="translate(${ebx - 12} ${eby + 1})"><path d="${earPath(s)}" ${S(earF)}/></g></g>` +
+      `<g class="ps-ear ps-earN"><g transform="translate(${ebx} ${eby})"><path d="${earPath(s)}" ${S(earN)}/><path d="${earIn(s)}" fill="${innerCol(earN)}"/>` +
+      (L.ear === 'semi' ? `<path d="M${-6} ${-30}L${14} ${-26}L${4} ${-14}Z" ${S(mix(earN, '#3A2A3A', .08))}/>` : '') + `</g></g>`;
+  } else if (L.ear === 'fold'){
+    earsFront = `<g class="ps-ear ps-earN"><g transform="translate(${ebx} ${eby})"><path d="M-8 6C-6 -6 8 -10 16 -2C12 4 2 8 -8 6Z" ${S(earN)}/></g></g>`;
+  } else {
+    const len = L.ear === 'long' ? 74 : 54;
+    const d = `M8 -4C-12 -6 -22 16 -18 ${len * .7}C-16 ${len} -2 ${len + 2} 2 ${len * .78}C6 ${len * .48} 12 ${len * .2} 8 -4Z`;
+    earsFront = `<g class="ps-ear ps-earN ps-earFlop"><g transform="translate(${ebx - 2} ${eby - 2})"><path d="${(L.ear === 'long' && (curly || fluffy)) ? blob(-6, len * .5, 15, len * .52, 12, .07) : d}" ${S(earN)}/></g></g>`;
+  }
+  let ruff = '';
+  if (fluffy || curly){
+    const big = L.ear === 'small' && fluffy;
+    const rc = c.chest !== c.body ? mix(c.body, c.chest, .5) : c.body;
+    ruff = `<path d="${blob(HX - 10, HY + 36, big ? 40 : 32, big ? 26 : 20, 12, .09)}" ${S(rc)}/>`;
+  }
+
+  /* 目・鼻・口 */
+  const eyeArea = L.face === 'mask' ? fc : (m.patchR || c.main);
+  const darkEyes = lum(eyeArea) < .12;
+  const lineCol = darkEyes ? '#FFF2EA' : '#2E2430';
+  const lightIris = lum(c.eye) > .06;
+  const erx = cat ? 7 : 6.5, ery = cat ? 9.5 : 8.5;
+  let eyeOpen = `<g class="ps-eye">`;
+  if (darkEyes) eyeOpen += `<ellipse cx="${ex}" cy="${ey}" rx="${erx + 2}" ry="${ery + 2}" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="2"/>`;
+  eyeOpen += `<ellipse cx="${ex}" cy="${ey}" rx="${erx}" ry="${ery}" fill="${c.eye}"/>`;
+  if (lightIris) eyeOpen += `<ellipse cx="${ex + 1}" cy="${ey + 1}" rx="${cat ? 2.6 : 3.4}" ry="${cat ? 7 : 5}" fill="#1E1620"/>`;
+  eyeOpen += `<circle cx="${ex + 2.4}" cy="${ey - 3.6}" r="2.8" fill="#fff"/><circle cx="${ex - 2}" cy="${ey + 3.6}" r="1.3" fill="#fff" opacity=".85"/></g>`;
+  const eyeHappy = `<path d="M${ex - 7} ${ey + 2}Q${ex} ${ey - 7} ${ex + 7} ${ey + 2}" fill="none" stroke="${lineCol}" stroke-width="3.4" stroke-linecap="round"/>`;
+  const eyeClosed = `<path d="M${ex - 7} ${ey}Q${ex} ${ey + 6} ${ex + 7} ${ey}" fill="none" stroke="${lineCol}" stroke-width="3.2" stroke-linecap="round"/>`;
+  const muzzleDark = lum(m.mask || (L.face === 'lower' ? fc : muzzleFill)) < .12;
+  const mouthCol = muzzleDark ? '#F4E6EA' : '#3A2A33';
+  let nose, mouthW, mouthO, tongue;
+  if (!cat){
+    const nx = mcx + mrx - 2.5, ny = mcy - 5;
+    nose = `<ellipse cx="${nx}" cy="${ny}" rx="6" ry="4.8" fill="${c.nose}"/><ellipse cx="${nx + 1}" cy="${ny - 1.6}" rx="2" ry="1.2" fill="#fff" opacity=".6"/>`;
+    mouthW = `<path d="M${nx - 1} ${mcy + 3}Q${mcx + 1} ${mcy + 10} ${mcx - mrx + 3} ${mcy + 6}" fill="none" stroke="${mouthCol}" stroke-width="2.3" stroke-linecap="round"/>`;
+    mouthO = `<path d="M${nx} ${mcy + 2}Q${mcx} ${mcy + 22} ${mcx - mrx + 1} ${mcy + 6}Q${mcx} ${mcy + 8} ${nx} ${mcy + 2}Z" fill="#7A2F43"/>`;
+    tongue = `<path d="M${mcx - 2} ${mcy + 8}c-1 7 1 13 6 13s6-6 4-13z" fill="#F38BA0" stroke="#C25A72" stroke-width="1.4"/><path d="M${mcx + 3} ${mcy + 10}v7" stroke="#C25A72" stroke-width="1.2" stroke-linecap="round"/>`;
+  } else {
+    const nx = mcx + mrx - 1, ny = mcy - 6;
+    nose = `<path d="M${nx - 5} ${ny - 2}H${nx + 1}Q${nx + 1} ${ny + 2} ${nx - 2} ${ny + 4}Q${nx - 5} ${ny + 1} ${nx - 5} ${ny - 2}Z" fill="${c.nose}"/>`;
+    mouthW = `<path d="M${nx - 2} ${ny + 4}v3q-3 4-7 1" fill="none" stroke="${mouthCol}" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>`;
+    mouthO = `<path d="M${nx - 2} ${ny + 6}Q${nx - 5} ${ny + 18} ${nx - 13} ${ny + 8}Z" fill="#7A2F43"/>`;
+    tongue = `<path d="M${nx - 7} ${ny + 9}c-1 5 1 9 4 9s4-4 3-9z" fill="#F38BA0" stroke="#C25A72" stroke-width="1.2"/>`;
+  }
+  const cheek = `<ellipse class="ps-cheek" cx="${ex + 5}" cy="${HY + 17}" rx="7" ry="4.5" fill="#FF9DB2"/>`;
+  let whiskers = '';
+  if (cat){
+    const wc = lum(c.main) < .2 ? 'rgba(255,255,255,.6)' : 'rgba(60,40,55,.38)';
+    whiskers = `<path d="M${mcx + 1} ${mcy + 1}L${mcx + 25} ${mcy - 5}M${mcx + 1} ${mcy + 4}L${mcx + 26} ${mcy + 5}M${mcx - 1} ${mcy + 6}L${mcx + 21} ${mcy + 14}" stroke="${wc}" stroke-width="1.5" stroke-linecap="round"/>`;
+  }
+
+  /* きせかえ。あたまは 正面の 絵を 小さく のせる。かお・くびは よこむき用 */
+  const W = wearFrom(opts);
+  const WS = wearSvg(W, { id, SW, HX:120, HY:100, EX:[97, 143], EY:98, ear:L.ear });
+  const k = .74;
+  const headWear = WS.head ? `<g transform="translate(${f1(HX - 120 * k + 2)} ${f1(HY - 100 * k + 2)}) scale(${k}) rotate(-7 120 100)">${WS.head}</g>` : '';
+  const ink = col => mix(col, '#2A1E2A', .42);
+  let faceWear = '';
+  const fw = WEAR_BY_ID[W.face];
+  if (fw){
+    const p = fw.p;
+    const arm = `<path d="M${ex - 9} ${ey - 3}L${HX - 22} ${ey - 8}" stroke="${p.c}" stroke-width="3" stroke-linecap="round"/>`;
+    if (fw.kind === 'glasses') faceWear = arm + `<circle cx="${ex + 1}" cy="${ey}" r="11" fill="rgba(255,255,255,.2)" stroke="${p.c}" stroke-width="3.2"/>`;
+    else faceWear = arm + (p.heart
+      ? `<path d="M${ex + 1} ${ey + 11}C${ex - 13} ${ey + 2} ${ex - 11} ${ey - 11} ${ex - 4} ${ey - 9}C${ex - 1} ${ey - 8} ${ex + 1} ${ey - 6} ${ex + 1} ${ey - 4}C${ex + 1} ${ey - 6} ${ex + 3} ${ey - 8} ${ex + 6} ${ey - 9}C${ex + 13} ${ey - 11} ${ex + 15} ${ey + 2} ${ex + 1} ${ey + 11}Z" fill="${p.c}" stroke="${ink(p.c)}" stroke-width="2"/>`
+      : `<rect x="${ex - 11}" y="${ey - 9}" width="23" height="18" rx="8" fill="${p.c}" stroke="${ink(p.c)}" stroke-width="2"/>`);
+  }
+  let neckWear = '';
+  const nw = WEAR_BY_ID[W.neck];
+  if (nw){
+    const p = nw.p, band = `M${HX - 36} ${HY + 30}Q${HX - 14} ${HY + 50} ${HX + 16} ${HY + 41}`;
+    const bandStroke = (col, w) => `<path d="${band}" fill="none" stroke="${ink(typeof col === 'string' && col[0] === '#' ? col : '#888888')}" stroke-width="${w + SW * 2}" stroke-linecap="round"/><path d="${band}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round"/>`;
+    const pts = (n) => Array.from({ length:n }, (_, i) => { const t = i / (n - 1), u = 1 - t; return [u * u * (HX - 36) + 2 * u * t * (HX - 14) + t * t * (HX + 16), u * u * (HY + 30) + 2 * u * t * (HY + 50) + t * t * (HY + 41)]; });
+    if (nw.kind === 'bandana'){
+      let fill = p.c;
+      if (p.check){ neckWear += `<defs><pattern id="${id}ck" width="9" height="9" patternUnits="userSpaceOnUse"><rect width="9" height="9" fill="#FFFFFF"/><rect width="4.5" height="9" fill="${p.c}" opacity=".55"/><rect width="9" height="4.5" fill="${p.c}" opacity=".55"/></pattern></defs>`; fill = `url(#${id}ck)`; }
+      neckWear += `<path d="M${HX - 30} ${HY + 34}Q${HX - 8} ${HY + 50} ${HX + 18} ${HY + 39}L${HX + 8} ${HY + 72}Q${HX + 2} ${HY + 78} ${HX - 4} ${HY + 70}Z" fill="${fill}" stroke="${ink(p.c)}" stroke-width="${SW}" stroke-linejoin="round"/>` +
+        (p.d ? [[-10, 46], [6, 46], [2, 60]].map(([a, b]) => `<circle cx="${HX + a}" cy="${HY + b}" r="2.3" fill="${p.d}"/>`).join('') : '');
+    } else if (nw.kind === 'bell'){
+      let col = p.c;
+      if (p.c === 'rainbow'){ neckWear += `<defs><linearGradient id="${id}rb" x1="0" x2="1"><stop offset="0" stop-color="#F27B7B"/><stop offset=".5" stop-color="#8CC26A"/><stop offset="1" stop-color="#B8A6EC"/></linearGradient></defs>`; col = `url(#${id}rb)`; }
+      neckWear += bandStroke(col, 7) + `<circle cx="${HX + 8}" cy="${HY + 54}" r="8" fill="${p.b}" stroke="${ink(p.b)}" stroke-width="${SW}"/><path d="M${HX + 2} ${HY + 55}h12M${HX + 8} ${HY + 55}v5" stroke="${ink(p.b)}" stroke-width="1.7" stroke-linecap="round"/><circle cx="${HX + 5}" cy="${HY + 51}" r="2" fill="#FFFFFF" opacity=".75"/>`;
+    } else if (nw.kind === 'bowtie'){
+      const bx = HX + 10, by = HY + 46;
+      neckWear += `<path d="M${bx} ${by}L${bx - 13} ${by - 8}Q${bx - 16} ${by} ${bx - 13} ${by + 8}ZM${bx} ${by}L${bx + 11} ${by - 7}Q${bx + 14} ${by} ${bx + 11} ${by + 7}Z" fill="${p.c}" stroke="${ink(p.c)}" stroke-width="${SW}" stroke-linejoin="round"/><rect x="${bx - 4}" y="${by - 4}" width="8" height="8" rx="3" fill="${mix(p.c, '#FFFFFF', .18)}" stroke="${ink(p.c)}" stroke-width="${SW}"/>`;
+    } else if (nw.kind === 'scarf'){
+      /* たれた 端は 正面の 絵と 同じく 見える がわ（胸の 前）に。ふさ つき。あるくと ゆれる（ps-scarf） */
+      const tail = `M${HX - 13} ${HY + 41}L${HX + 1} ${HY + 43}L${HX + 9} ${HY + 84}L${HX - 5} ${HY + 86}Z`;
+      let tailIn = '';
+      if (p.tri){
+        const [a1, a2, a3] = p.tri;
+        tailIn = `<defs><clipPath id="${id}sc"><path d="${tail}"/></clipPath></defs><g clip-path="url(#${id}sc)">` + Array.from({ length:8 }, (_, i) => `<rect x="${HX - 22}" y="${HY + 38 + i * 6}" width="40" height="6" fill="${[a2, a3, a1][i % 3]}" transform="rotate(-12 ${HX - 2} ${HY + 41 + i * 6})"/>`).join('') + `</g>`;
+      }
+      neckWear += `<g class="ps-scarf"><path d="${tail}" fill="${p.c}" stroke="${ink(p.c)}" stroke-width="${SW}" stroke-linejoin="round"/>${tailIn}` +
+        `<path d="${tail}" fill="none" stroke="${ink(p.c)}" stroke-width="${SW}" stroke-linejoin="round"/>` +
+        `<path d="M${HX - 2} ${HY + 86}l-1 6M${HX + 3} ${HY + 85}l0 6M${HX + 8} ${HY + 84}l1 6" stroke="${p.tri ? p.tri[0] : ink(p.c)}" stroke-width="2.4" stroke-linecap="round"/></g>`;
+      neckWear += bandStroke(p.c, 13);
+      if (p.tri) neckWear += `<path d="${band}" fill="none" stroke="${p.tri[1]}" stroke-width="13" stroke-dasharray="6 12"/><path d="${band}" fill="none" stroke="${p.tri[2]}" stroke-width="13" stroke-dasharray="6 12" stroke-dashoffset="-6"/>`;
+    } else if (nw.kind === 'ukiwa'){
+      neckWear += `<ellipse cx="${BX + 8}" cy="${BY + 2}" rx="62" ry="19" fill="none" stroke="#9AA3B5" stroke-width="${14 + SW * 2}"/><ellipse cx="${BX + 8}" cy="${BY + 2}" rx="62" ry="19" fill="none" stroke="#FFFFFF" stroke-width="14"/><ellipse cx="${BX + 8}" cy="${BY + 2}" rx="62" ry="19" fill="none" stroke="#F27B7B" stroke-width="14" stroke-dasharray="30 34"/>`;
+    } else if (nw.kind === 'pearls'){
+      neckWear += pts(7).map(([a, b]) => `<circle cx="${f1(a)}" cy="${f1(b)}" r="4.4" fill="#FBF7F2" stroke="#BFAF9A" stroke-width="1.4"/>`).join('');
+    } else if (nw.kind === 'lei'){
+      const cols = ['#F7A9C4','#FFD27A','#FFFFFF','#C9B6F2','#F28C8C'];
+      neckWear += pts(6).map(([a, b], i) => [0, 72, 144, 216, 288].map(q => { const r = q * Math.PI / 180; return `<circle cx="${f1(a + 4.6 * Math.cos(r))}" cy="${f1(b + 4.6 * Math.sin(r))}" r="4" fill="${cols[i % cols.length]}" stroke="${ink(cols[i % cols.length])}" stroke-width="1"/>`; }).join('') + `<circle cx="${f1(a)}" cy="${f1(b)}" r="2.8" fill="#F5C04A"/>`).join('');
+    }
+  }
+
+  return `<svg class="pet-svg pet-side${short ? ' ps-short' : ''}" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <clipPath id="${id}h"><path d="${headD}"/><path d="${muzD}"/></clipPath>
+    <clipPath id="${id}b"><path d="${bodyD}"/></clipPath>
+    ${WS.defs}
+    ${m.mask ? `<radialGradient id="${id}g"><stop offset="0" stop-color="${m.mask}" stop-opacity=".95"/><stop offset=".6" stop-color="${m.mask}" stop-opacity=".8"/><stop offset="1" stop-color="${m.mask}" stop-opacity="0"/></radialGradient>` : ''}
+  </defs>
+  <ellipse class="ps-shadow" cx="112" cy="222" rx="70" ry="7" fill="rgba(58,40,60,.16)"/>
+  <g class="ps-all">
+    ${legsFar}
+    <g class="ps-tail"><g class="ps-tail-g">${tail}</g></g>
+    <g class="ps-body">${body}</g>
+    ${legsNear}
+    ${ruff}
+    <g class="ps-neckw">${neckWear}</g>
+    <g class="ps-head"><g class="ps-head-g">
+      ${earsBack}
+      <path d="${headD}" fill="none" stroke="${ol(c.main)}" stroke-width="${SW * 2}"/><path d="${muzD}" fill="none" stroke="${ol(c.main)}" stroke-width="${SW * 2}"/>
+      <path d="${headD}" fill="${c.main}"/><path d="${muzD}" fill="${c.main}"/>
+      <g clip-path="url(#${id}h)">${faceIn}</g>
+      ${earsFront}
+      <g class="ps-eyes-open">${eyeOpen}</g><g class="ps-eyes-happy" display="none">${eyeHappy}</g><g class="ps-eyes-closed" display="none">${eyeClosed}</g>
+      ${nose}${whiskers}
+      <g class="ps-mouth-w">${mouthW}</g><g class="ps-mouth-o" display="none">${mouthO}</g><g class="ps-tongue" display="none">${tongue}</g>
+      ${cheek}${faceWear}${headWear}
+    </g></g>
+  </g>
+</svg>`;
+}
 /* ===== outfit drawing (pet viewBox 240) ===== */
 function wearSvg(W, x){
   const out = { neck:'', face:'', head:'', defs:'' };
@@ -2755,16 +3105,20 @@ function updateClock(){
 }
 
 /* ----- the pet on stage ----- */
-/* 体勢（docs/MOTION_DESIGN.md 4-3）：入れものの クラス pose-<id>（すわる は クラスなし）と、体勢ごとの 頭・口の 高さ（うちのこの わくの 上から の 割合）・
-   ふきだしを 下げる px（--by）。2026-11-26 だんかい 0 は すわる・ねる だけ（ねる も いまの 位置の まま＝見た目を かえない）。
-   たつ・ふせる・ごろん・おねだり と 位置の 数字は だんかい 2 で 見本を 見て 決める */
+/* 体勢（docs/MOTION_DESIGN.md 4-3・10章・12章）：入れものの クラス pose-<id>（すわる は クラスなし）と、体勢ごとの 頭・口の 高さ（うちのこの わくの 上から の 割合）・
+   ふきだしを 下げる px（--by）。side:true は よこむきの 絵（renderPetSide。たつ・あるく）で、hx は 頭の よこの 位置（右むきの とき。左むきは 1−hx）。
+   2026-11-27 だんかい 2：たつ・あるく（よこ）・ふせる・ねる（あごを 前あしに）・ごろん（A おなか）・おねだり */
 const POSE = {
   sit:   { head:.38, mouth:.52, bubble:0 },
-  sleep: { head:.38, mouth:.52, bubble:0 },
+  stand: { head:.37, mouth:.5, bubble:6, side:true, hx:.68 },
+  walk:  { head:.37, mouth:.5, bubble:6, side:true, hx:.68 },
+  down:  { head:.5, mouth:.64, bubble:20 },
+  sleep: { head:.54, mouth:.68, bubble:26 },
+  side:  { head:.56, mouth:.72, bubble:22 },
+  beg:   { head:.32, mouth:.46, bubble:-10 },
 };
 /* しぐさ（4-4・10章。2026-11-26 だんかい 1）：{ ms, poses:[できる 体勢], sp:'dog'|'cat'|'both', calm:true＝ねていても よい }。
-   クラス g-<id> を ms だけ つける（CSS は head.html）。poses には だんかい 2 の 体勢も 書いておく（いまは すわる・ねる だけ）。
-   のび（stretch）・くんくん（sniff）は よこむきの 絵で 作るので だんかい 2 で 足す */
+   クラス g-<id> を ms だけ つける（CSS は head.html）。のび（stretch）・くんくん（sniff）は よこむきの 絵で「たつ」の ときだけ（2026-11-27 だんかい 2） */
 const GESTURE = {
   ear:     { ms:750,  poses:['sit','stand','down','sleep','beg','side'], sp:'both', calm:true },   /* 耳ぴく */
   look:    { ms:1800, poses:['sit','down'], sp:'both' },                                       /* きょろきょろ */
@@ -2776,9 +3130,15 @@ const GESTURE = {
   tailup:  { ms:1400, poses:['sit','stand'], sp:'both' },                                      /* しっぽ ぴん */
   pant:    { ms:1600, poses:['sit','stand'], sp:'dog' },                                       /* はぁはぁ（あそんだ あと） */
   lick:    { ms:1000, poses:['sit'], sp:'both' },                                              /* ぺろり（たべた あと） */
+  stretch: { ms:1900, poses:['stand'], sp:'both' },                                            /* のび（よこむき） */
+  sniff:   { ms:1600, poses:['stand'], sp:'both' },                                            /* くんくん（よこむき。鼻を 床へ） */
 };
+/* 体勢ごとの 部品（ふせる・ねる＝前に のばした 前あし、おねだり＝胸の 前の 前あし）。ほかの 体勢へ うつる ときに ふわっと けす */
+const POSE_PART = { down:'down', sleep:'down', beg:'beg' };
+const calmMotion = () => !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const Pet = {
   el: $('#pet'), x:50, y:80, busy:false, sleeping:false, expr:null, tok:0, sayT:null, wakeUntil:0, pose:'sit', gest:null, gtok:0, ateAt:0, playedAt:0,
+  view:'front', dir:'r', ttok:0, ptok:0, rub:null,
   scaleAt(y){ return .84 + clamp((y - 66) / 24, 0, 1) * .22; },
   apply(){
     this.el.style.left = this.x + '%';
@@ -2786,27 +3146,75 @@ const Pet = {
     this.el.style.zIndex = String(10 + Math.round(this.y));
     this.el.style.setProperty('--s', this.scaleAt(this.y).toFixed(3));
   },
+  /* 絵は 2まい：正面（renderPet）と よこむき（renderPetSide）。見せるのは どちらか 1つ（.pet の view-side。head.html の 12章の CSS） */
   mount(){
-    $('#petArt').innerHTML = renderPet(S.pet.look, { wear:petWear() });
+    const wear = petWear();
+    $('#petArt').innerHTML = `<div class="pet-turn"><div class="view-f">${renderPet(S.pet.look, { wear })}</div><div class="view-s">${renderPetSide(S.pet.look, { wear })}</div></div>`;
     this.apply();
+    this.applyView();
     this.setExpr(this.expr);
   },
   poseAt(){ return hasId(POSE, this.pose) ? POSE[this.pose] : POSE.sit; },
+  /* 頭の よこの 位置（わくの 左から の 割合）。よこむきは 頭が 前に ある */
+  poseX(){ const P = this.poseAt(); return P.hx ? (this.dir === 'l' ? 1 - P.hx : P.hx) : .5; },
   headPoint(){
     const r = this.el.getBoundingClientRect(), s = stage.getBoundingClientRect();
-    return { x:r.left - s.left + r.width / 2, y:r.top - s.top + r.height * this.poseAt().head };
+    return { x:r.left - s.left + r.width * this.poseX(), y:r.top - s.top + r.height * this.poseAt().head };
   },
   mouthPoint(){
     const r = this.el.getBoundingClientRect(), s = stage.getBoundingClientRect();
-    return { x:r.left - s.left + r.width / 2, y:r.top - s.top + r.height * this.poseAt().mouth };
+    return { x:r.left - s.left + r.width * this.poseX(), y:r.top - s.top + r.height * this.poseAt().mouth };
   },
-  /* 体勢を かえる（見た目だけ。セーブ・ルールに さわらない）。知らない 体勢は すわる */
-  setPose(p){
+  /* 体勢を かえる（見た目だけ。セーブ・ルールに さわらない）。知らない 体勢は すわる。
+     正面と よこむきが かわる ときは turn なら くるっと まわる（またない＝おせわの 長さは かわらない）。ほかの 体勢へは 0.5秒で なめらかに（CSS の transition） */
+  setPose(p, turn){
     if (!hasId(POSE, p)) p = 'sit';
+    this.ptok++;
+    const was = POSE_PART[this.pose], part = POSE_PART[p];
+    if (part) this.el.classList.remove('leave-' + part);
+    if (was && was !== part) this.leave(was);
     for (const k in POSE) if (k !== 'sit') this.el.classList.toggle('pose-' + k, k === p);
     this.pose = p;
     const by = POSE[p].bubble;
     if (by) this.el.style.setProperty('--by', by + 'px'); else this.el.style.removeProperty('--by');
+    this.setView(POSE[p].side ? 'side' : 'front', turn);
+  },
+  /* 体勢の 部品（pvx-down・pvx-beg）を ふわっと けす（display:none に すると いっしゅんで きえて、前あしが ない コマが 出る） */
+  leave(part){
+    const c = 'leave-' + part, k = 'leaveT_' + part;
+    this.el.classList.remove(c); void this.el.offsetWidth; this.el.classList.add(c);
+    clearTimeout(this[k]); this[k] = setTimeout(() => this.el.classList.remove(c), 360);
+  },
+  /* しばらく その 体勢で、ms たったら すわる（とちゅうで ほかの 体勢に なったら なにも しない） */
+  poseFor(p, ms){
+    this.setPose(p, true);
+    const tok = this.ptok;
+    return sleep(ms).then(() => { if (tok === this.ptok && !this.busy) this.setPose('sit', true); });
+  },
+  setView(v, turn){
+    if (v === this.view) return;
+    this.view = v;
+    if (turn) this.turn(); else this.snap();
+  },
+  /* 左右の むき（left で 左）。よこむきの ときは くるっと まわる */
+  face(left, turn){
+    const d = left ? 'l' : 'r';
+    if (d === this.dir) return;
+    this.dir = d;
+    if (turn && this.view === 'side') this.turn(); else this.applyView();
+  },
+  applyView(){
+    this.el.classList.toggle('view-side', this.view === 'side');
+    this.el.classList.toggle('dir-l', this.dir === 'l');
+  },
+  snap(){ this.ttok++; this.el.classList.remove('turning'); this.applyView(); },
+  /* くるっ：入れもの（.pet-turn）を 0.32秒で scaleX 1→0.08→1。まんなか（0.16秒）で 絵と むきを 入れかえる。うごきを へらす 設定では すぐ */
+  turn(){
+    if (calmMotion()) return this.snap();
+    const tok = ++this.ttok;
+    this.el.classList.remove('turning'); void this.el.offsetWidth; this.el.classList.add('turning');
+    setTimeout(() => this.applyView(), 160);
+    setTimeout(() => { if (tok === this.ttok) this.el.classList.remove('turning'); }, 330);
   },
   /* しぐさ（GESTURE の id）が いま できるか。おせわ・げいの とちゅう・ほかの しぐさの とちゅう・合わない 体勢や 種類・ねている（calm で ない もの）・
      パズルや ランの ページを ひらいている（うしろでは 見えない）・うごきを へらす 設定 の ときは できない */
@@ -2817,7 +3225,7 @@ const Pet = {
     if (this.sleeping && !g.calm) return false;
     if (g.poses && g.poses.indexOf(this.pose) < 0) return false;
     if (PuzzleUI.page || document.documentElement.classList.contains('run-open')) return false;
-    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+    if (calmMotion()) return false;
     return true;
   },
   /* しぐさを 1つ。おわったら true（しなかった・とちゅうで とめたら false）の Promise */
@@ -2865,34 +3273,50 @@ const Pet = {
   flash(e, ms){ this.setExpr(e); clearTimeout(this.flashT); this.flashT = setTimeout(() => this.setExpr(null), ms); },
   say(text, ms = 2400){
     const b = $('#bubble');
-    b.textContent = text; b.style.removeProperty('--bx'); b.classList.add('show');
-    /* おへやの はしで 切れないように、ふきだしだけ 内がわへ ずらす（しっぽは うちのこを さしたまま。うちのこは --s で 大きさが かわる） */
+    b.textContent = text; b.style.removeProperty('--bx'); b.style.removeProperty('--bt'); b.classList.add('show');
+    /* ふきだしは 頭の 上（よこむきは 頭が 前に ある）。おへやの はしで 切れないように、ふきだしだけ 内がわへ ずらす
+       （しっぽ〈--bt〉は 頭を さしたまま。うちのこは --s で 大きさが かわる） */
     try {
       const sc = Number(getComputedStyle(this.el).getPropertyValue('--s')) || 1;
       const pr = this.el.getBoundingClientRect(), sr = stage.getBoundingClientRect();
-      const half = b.offsetWidth * sc / 2, cx = pr.left + pr.width / 2, pad = 6;
+      const half = b.offsetWidth * sc / 2, cx = pr.left + pr.width * this.poseX(), pad = 6;
       const dx = cx - half < sr.left + pad ? sr.left + pad - (cx - half) : cx + half > sr.right - pad ? sr.right - pad - (cx + half) : 0;
-      if (dx) b.style.setProperty('--bx', (dx / sc).toFixed(1) + 'px');
+      const base = cx - (pr.left + pr.width / 2);
+      if (dx || base){ b.style.setProperty('--bx', ((base + dx) / sc).toFixed(1) + 'px'); b.style.setProperty('--bt', (dx / sc).toFixed(1) + 'px'); }
     } catch(e){}
     clearTimeout(this.sayT); this.sayT = setTimeout(() => b.classList.remove('show'), ms);
   },
-  moveTo(x, y, speed = 1){
+  /* あるく（2026-11-27 だんかい 2）：よこむきに なって 行く ほうを むき（くるっ）、4本足で あるく。着いたら end の 体勢
+     （end なし：おせわの とちゅうは すわる＝正面で たべる・げい、ひまな ときは たつ）。かかる 時間は 前と 同じ（くるっは あるきながら）。
+     ちいさな うごき（2.5 より 近い）は むきを かえない（end が あれば その 体勢に） */
+  moveTo(x, y, speed = 1, end){
     const d = Math.hypot(x - this.x, (y - this.y) * 1.6);
     const ms = Math.max(260, d * 36 / speed);
     const tok = ++this.tok;
+    const walk = d >= 2.5;
     this.el.style.transition = `left ${ms}ms linear, top ${ms}ms linear, transform ${ms}ms linear`;
-    this.el.classList.add('walking');
-    this.el.classList.toggle('dir-l', x < this.x);
+    if (walk){
+      this.stopGesture(); this.lean(null); this.rub = null;
+      const step = clamp(.56 / Math.sqrt(speed), .3, .75);
+      this.el.style.setProperty('--step', step.toFixed(2) + 's');
+      this.el.style.setProperty('--half', (step / 2).toFixed(2) + 's');
+      this.el.style.setProperty('--lag', (-step / 2).toFixed(2) + 's');
+      this.face(x < this.x, true);
+      this.setPose('walk', true);
+    }
     this.x = x; this.y = y; this.apply();
-    return sleep(ms).then(() => { if (tok === this.tok) this.el.classList.remove('walking'); });
+    return sleep(ms).then(() => {
+      if (tok !== this.tok) return;
+      if (end || walk) this.setPose(end || (this.busy ? 'sit' : 'stand'), true);
+    });
   },
   jump(){ this.el.classList.remove('jump'); void this.el.offsetWidth; this.el.classList.add('jump'); setTimeout(() => this.el.classList.remove('jump'), 520); },
   tilt(){ this.el.classList.remove('tilt'); void this.el.offsetWidth; this.el.classList.add('tilt'); setTimeout(() => this.el.classList.remove('tilt'), 1000); },
   wag(ms = 1500){ this.el.classList.add('wag-fast'); clearTimeout(this.wagT); this.wagT = setTimeout(() => this.el.classList.remove('wag-fast'), ms); },
   zz:null,
   sleep(){
-    this.sleeping = true;
-    this.setPose('sleep');
+    this.sleeping = true; this.rub = null;
+    this.setPose('sleep', true);
     this.setExpr(null);
     clearInterval(this.zz);
     this.zz = setInterval(() => { const h = this.headPoint(); fx('z', h.x + 20, h.y - 10, 'z'); }, 1700);
@@ -2914,18 +3338,35 @@ function idleTick(delay){
   clearTimeout(idleT);
   idleT = setTimeout(idleStep, delay != null ? delay : 3200 + Math.random() * 5200);
 }
-/* ひまな ときの 行動（docs/MOTION_DESIGN.md 4-6。2026-11-26 だんかい 1）：重みの 表。w(c) が 0 なら えらばない、さっきの 2つも えらばない。
-   g は しぐさ（Pet.canGesture で できる ときだけ）。c：tod（morning・day・evening・night）・full・mood・ate／played（たべた・あそんだ あと 1分）・chat（ひとことを いえる）。
-   見た目だけ（Math.random で よい。ルール・セーブに さわらない）。うごく 多さは「おちつき」（2026-11-26 オーナー）：あるく・しぐさ は それぞれ 3回に 1回 くらい。
-   体勢（たつ・ふせる・ごろん・おねだり）と 行き先（まど・ラグ）は だんかい 2 で 足す */
+/* ひまな ときの 行動（docs/MOTION_DESIGN.md 4-6・12章。2026-11-26 だんかい 1、2026-11-27 だんかい 2）：重みの 表。w(c) が 0 なら えらばない、さっきの 2つも えらばない。
+   g は しぐさ（Pet.canGesture で できる ときだけ）。c：tod（morning・day・evening・night）・full・mood・ate／played（たべた・あそんだ あと 1分）・chat（ひとことを いえる）・
+   pose（いまの 体勢）・cat。見た目だけ（Math.random で よい。ルール・セーブに さわらない）。
+   うごく 多さは「おちつき」（2026-11-26 オーナー）：あるく（行き先も）・しぐさ は それぞれ 3回に 1回 くらい。体勢が かわるのは 15〜20秒に 1回 くらい。
+   行き先：ベッドで ふせる、ごはん皿の 前で すわる、まどの 下で たつ、ラグの まんなかで ごろん（ねこは 多め）、ゆかの においを かぐ */
+const SIT_POSES = ['sit','stand'];
 const IDLE = [
-  { id:'walk',  w:() => 30, run:() => Pet.moveTo(22 + Math.random() * 56, 70 + Math.random() * 18, .7 + Math.random() * .4) },
-  { id:'tilt',  w:() => 8, run:() => Pet.tilt() },
-  { id:'hop',   w:c => c.mood > 60 ? 6 : 0, run:() => { Pet.jump(); Pet.flash('happy', 1000); Pet.wag(1200); } },
+  { id:'walk',  w:() => 20, run:() => Pet.moveTo(22 + Math.random() * 56, 70 + Math.random() * 18, .7 + Math.random() * .4, Math.random() < .5 ? 'sit' : 'stand') },
+  { id:'sit',   w:c => c.pose === 'stand' ? 24 : c.pose === 'sit' ? 0 : 30, run:() => Pet.setPose('sit', true) },
+  { id:'tilt',  w:c => c.pose === 'sit' || c.pose === 'stand' || c.pose === 'down' ? 8 : 0, run:() => Pet.tilt() },
+  { id:'hop',   w:c => c.mood > 60 && SIT_POSES.indexOf(c.pose) >= 0 ? 6 : 0, run:() => { Pet.jump(); Pet.flash('happy', 1000); Pet.wag(1200); } },
   { id:'chat',  w:c => c.chat ? 14 : 0, run:() => { lastChat = now(); Pet.say(ambientLine()); } },
-  /* おなかが すいたら ごはん皿の 前へ 行って まわりを 見る */
+  /* おなかが すいたら ごはん皿の 前へ 行って すわって まわりを 見る */
   { id:'bowl',  w:c => c.full < 25 && Math.hypot(Pet.x - BOWL.x - 12, Pet.y - BOWL.y + 4) > 6 ? 14 : 0,
-    run:async () => { await Pet.moveTo(BOWL.x + 12, BOWL.y - 4, .8); if (!Pet.busy) await Pet.gesture('look'); } },
+    run:async () => { await Pet.moveTo(BOWL.x + 12, BOWL.y - 4, .8, 'sit'); if (!Pet.busy) await Pet.gesture('look'); } },
+  /* ベッドで ふせる（夕方・夜・おなか いっぱいは 多め） */
+  { id:'bed',   w:c => c.pose === 'down' ? 0 : (c.tod === 'evening' || c.tod === 'night' || c.full > 85) ? 8 : 4,
+    run:() => Pet.moveTo(BED.x, BED.y - 1, .8, 'down') },
+  /* その場で ふせる・おねだり（すわっている とき） */
+  { id:'lie',   w:c => c.pose === 'sit' ? 3 : 0, run:() => Pet.setPose('down', true) },
+  { id:'beg',   w:c => c.pose === 'sit' ? 3 : 0, run:() => Pet.poseFor('beg', 2400) },
+  /* まどの 下で たって 見あげる・耳ぴく */
+  { id:'win',   w:c => c.tod === 'night' ? 2 : 5, run:async () => { await Pet.moveTo(22, 70, .8, 'stand'); if (!Pet.busy) await Pet.gesture('ear'); } },
+  /* ラグの まんなかで ごろん（おなかを 見せる） */
+  { id:'rug',   w:c => c.pose === 'side' ? 0 : c.cat ? 5 : 2, run:() => Pet.moveTo(50, 84, .8, 'side') },
+  /* ゆかの においを かぐ（よこむきで 鼻を 床へ） */
+  { id:'sniffwalk', w:() => 5, run:async () => { await Pet.moveTo(28 + Math.random() * 44, 74 + Math.random() * 14, .7, 'stand'); if (!Pet.busy) await Pet.gesture('sniff'); } },
+  { g:'sniff',   w:() => 8 },
+  { g:'stretch', w:() => 5 },
   { g:'ear',     w:() => 8 },
   { g:'look',    w:() => 7 },
   { g:'yawn',    w:c => c.tod === 'morning' || c.tod === 'night' ? 10 : 3 },
@@ -2939,7 +3380,8 @@ const IDLE = [
 ];
 function idlePick(){
   const t = now();
-  const c = { tod:stage.dataset.tod, full:S.stats.full, mood:S.stats.mood, chat:t - lastChat > 30000, ate:t - Pet.ateAt < 60000, played:t - Pet.playedAt < 60000 };
+  const c = { tod:stage.dataset.tod, full:S.stats.full, mood:S.stats.mood, chat:t - lastChat > 30000, ate:t - Pet.ateAt < 60000, played:t - Pet.playedAt < 60000,
+              pose:Pet.pose, cat:S.pet.species === 'cat' };
   const list = IDLE.filter(a => idleLast.indexOf(a.g || a.id) < 0 && (!a.g || Pet.canGesture(a.g)));
   const ws = list.map(a => Math.max(0, a.w(c) || 0));
   let r = Math.random() * ws.reduce((x, y) => x + y, 0);
@@ -2947,7 +3389,9 @@ function idlePick(){
   return null;
 }
 async function idleStep(){
-  if (!S || Pet.busy || dragging || document.hidden) return idleTick();
+  if (!S || Pet.busy || dragging || document.hidden || Pet.rub) return idleTick();
+  /* パズル・ランの ページの うしろでは なにも しない（見えない。電池の ため） */
+  if (PuzzleUI.page || document.documentElement.classList.contains('run-open')) return idleTick();
   const night = stage.dataset.tod === 'night';
   if (Pet.sleeping){
     if (!night && Math.random() < .35){ Pet.wake(); Pet.say(pick(['ふぁ〜あ','よくねた〜'])); }
@@ -2955,8 +3399,10 @@ async function idleStep(){
     return idleTick();
   }
   if (now() > Pet.wakeUntil && (night ? Math.random() < .55 : Math.random() < .05)){
-    await Pet.moveTo(BED.x, BED.y - 1, .8);
-    if (!Pet.busy) Pet.sleep();
+    /* ベッドへ 行って ふせて から ねる（あごを 前あしに のせる） */
+    await Pet.moveTo(BED.x, BED.y - 1, .8, 'down');
+    if (!Pet.busy && Pet.pose === 'down') await sleep(900);
+    if (!Pet.busy && Pet.pose === 'down') Pet.sleep();
     return idleTick(night ? 20000 : 14000 + Math.random() * 10000);
   }
   const a = idlePick();
@@ -3087,8 +3533,9 @@ function begin(){
   if (!S || Pet.busy) return false;
   decay();
   Pet.busy = true; lockDock(true); clearTimeout(idleT);
-  Pet.stopGesture(); Pet.lean(null);   /* しぐさは すぐ やめる（おせわの 長さは かえない） */
+  Pet.stopGesture(); Pet.lean(null); Pet.rub = null;   /* しぐさは すぐ やめる（おせわの 長さは かえない） */
   if (Pet.wake()) Pet.say('ふぁ…？', 1200);
+  else if (Pet.pose !== 'sit') Pet.setPose('sit', true);   /* おせわの 前に すわる（またない。2026-11-27 だんかい 2） */
   return true;
 }
 function finish(){
@@ -3246,6 +3693,7 @@ function onStroke(e){
     playEvents(Rules.act(S, 'pet', { n:1, end:false }, { budget:Act.budget }).ev);
   }
   if (!Pet.sleeping && !Pet.busy){ Pet.setExpr('happy'); Pet.wag(1600); }
+  rubbed();
   renderStats();
   clearTimeout(strokeT);
   strokeT = setTimeout(() => {
@@ -3260,6 +3708,27 @@ function onStroke(e){
     commit();
   }, 700);
 }
+/* たくさん なでたら（1回の なでなでで 8回）：ねこは ごろん（おなかを 見せる）、いぬは ふせて しっぽ ぶんぶん。なでている あいだは そのまま、
+   手を とめて 3秒で すわる。回数は 見た目の ためだけ（セーブしない）。おせわ・タップ・あるく と ねている ときは しない（4-5。2026-11-27 だんかい 2） */
+let rubN = 0, rubT = null, rubEndT = null;
+function rubbed(){
+  if (!S || Pet.busy || Pet.sleeping){ rubN = 0; return; }
+  clearTimeout(rubT); rubT = setTimeout(() => { rubN = 0; }, 1500);
+  if (!Pet.rub){
+    if (++rubN < 8) return;
+    rubN = 0;
+    Pet.stopGesture(); Pet.lean(null);
+    Pet.rub = S.pet.species === 'cat' ? 'side' : 'down';
+    Pet.setPose(Pet.rub, true);
+  }
+  if (Pet.rub === 'down') Pet.wag(3600);
+  clearTimeout(rubEndT);
+  rubEndT = setTimeout(() => {
+    const p = Pet.rub; Pet.rub = null;
+    if (p && Pet.pose === p && !Pet.busy && !Pet.sleeping) Pet.setPose('sit', true);
+    idleTick(4000);
+  }, 3000);
+}
 function onTap(){
   if (!S) return;
   if (Pet.sleeping){
@@ -3268,18 +3737,21 @@ function onTap(){
     return;
   }
   if (Pet.busy) return;
-  /* へんじ（4-5。2026-11-26 だんかい 1）：はねて かしげる・はねて 耳ぴく・しっぽ ぴんで かしげる を まぜる（同じ へんじは つづけない）。
-     おねだりは だんかい 2（体勢） */
-  Pet.stopGesture();
-  const r = pick(TAP_REPLY.filter(x => x !== tapLast));
+  /* へんじ（4-5。2026-11-26 だんかい 1、2026-11-27 だんかい 2）：はねて かしげる・はねて 耳ぴく・しっぽ ぴんで かしげる・おねだり を まぜる
+     （同じ へんじは つづけない）。すわって いなければ まず すわる（くるっ）。おねだりは すわっていた ときだけ */
+  Pet.stopGesture(); Pet.rub = null;
+  const sat = Pet.pose === 'sit';
+  if (!sat) Pet.setPose('sit', true);
+  const r = pick(TAP_REPLY.filter(x => x !== tapLast && (sat || x !== 'beg')));
   tapLast = r;
   if (r === 'ear'){ Pet.jump(); Pet.gesture('ear'); Pet.wag(1200); }
   else if (r === 'tailup'){ Pet.gesture('tailup'); Pet.tilt(); }
+  else if (r === 'beg'){ Pet.poseFor('beg', 1700); Pet.wag(1600); }
   else { Pet.jump(); Pet.tilt(); Pet.wag(1200); }
   Pet.say(pick(S.pet.species === 'cat' ? ['にゃ？','にゃーん','なあに？'] : ['ワン！','わふっ','なあに？']), 1600);
   idleTick(4000);
 }
-const TAP_REPLY = ['hop', 'ear', 'tailup'];
+const TAP_REPLY = ['hop', 'ear', 'tailup', 'beg'];
 let tapLast = '';
 Pet.el.addEventListener('pointerdown', e => {
   if (!S) return;
@@ -3612,7 +4084,7 @@ const Game = {
     decay();
     renderHeader();
     setPlayIcon();
-    Pet.sleeping = false; clearInterval(Pet.zz); Pet.stopGesture(); Pet.setPose('sit');
+    Pet.sleeping = false; clearInterval(Pet.zz); Pet.stopGesture(); Pet.rub = null; Pet.setPose('sit');
     Pet.x = 50; Pet.y = 80; Pet.mount();
     renderStats();
     updateClock();
@@ -4206,6 +4678,7 @@ async function doTrick(tk){
     Pet.el.classList.add(cls);
     await sleep(TRICK_MS[tk.anim] || 1200);
     Pet.el.classList.remove(cls);
+    if (tk.anim === 'down') Pet.leave('down');   /* 前に のばした 前あしを ふわっと けす */
     Pet.setExpr('happy'); Pet.wag(1500); hearts(3);
     playEvents(r.ev);
     if (r.learned){

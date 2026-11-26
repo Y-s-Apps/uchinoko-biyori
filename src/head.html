@@ -168,25 +168,32 @@ button{font:inherit;color:inherit}
 .ex-eat .pv-head-g{animation:chomp .32s ease-in-out infinite alternate}
 .wag-fast .pv-tail-g{animation-duration:.38s}
 .tilt .pv-head-g{animation:tilt 1s ease-in-out}
-.pose-sleep .pv-legs{opacity:0}
-.pose-sleep .pv-body{transform:scaleY(.8)}
-.pose-sleep .pv-head{transform:translate(0,22px) rotate(-7deg)}
-.pose-sleep .pv-neck{transform:translate(0,21px) rotate(-7deg)}
 .ex-eat .pv-neck-g{animation:chomp .32s ease-in-out infinite alternate}
-.pose-sleep .pv-tail{transform:translate(-8px,12px) rotate(30deg)}
+/* ふせる・ねる（docs/MOTION_DESIGN.md 10章の 見本 2。2026-11-27 だんかい 2）：前あしを 前に のばし（pvx-down）、からだを ひくく、あごを 下げる。
+   ねる は ふせる ＋ あごを 前あしに のせる・しっぽを まく。げい「ふせ」（tr-down）も ふせる と 同じ 数字。首（pv-neck）は 頭と かならず 同じ 数字 */
+.pet-svg .pv-tail,.pet-svg .pv-haunch,.pet-svg .pv-feet{transition:transform .5s ease}
+@keyframes pvxIn{from{opacity:0}}
+@keyframes pvxOut{to{opacity:0}}
+/* ほかの 体勢へ うつる ときは 部品を ふわっと けす（Pet.leave。0.36秒だけ leave-<部品>） */
+.leave-down .pvx-down,.leave-beg .pvx-beg{display:inline;animation:pvxOut .3s ease both}
+.leave-beg .pvx-beg{transform:translateY(-7px)}
+.pose-down .pv-legs,.pose-sleep .pv-legs,.tr-down .pv-legs{opacity:0}
+.pose-down .pvx-down,.pose-sleep .pvx-down,.tr-down .pvx-down{display:inline;animation:pvxIn .35s ease both}
+.pose-down .pv-body,.pose-sleep .pv-body,.tr-down .pv-body{transform:scale(1.05,.72)}
+.pose-down .pv-haunch,.pose-sleep .pv-haunch,.tr-down .pv-haunch{transform:scale(1.16,.9)}
+.pose-down .pv-head,.pose-down .pv-neck,.tr-down .pv-head,.tr-down .pv-neck{transform:translateY(30px)}
+.pose-down .pv-tail,.tr-down .pv-tail{transform:translate(6px,16px) rotate(16deg)}
+.pose-sleep .pv-head,.pose-sleep .pv-neck{transform:translate(-2px,38px) rotate(-8deg)}
+.pose-sleep .pv-tail{transform:translate(-10px,16px) rotate(34deg)}
 .pose-sleep .pv-tail-g{animation:none}
 .pose-sleep .pv-all{animation-duration:4.6s}
 #petArt{transform-origin:50% 93.3%;will-change:transform;transform:translateZ(0)}
-.pet.walking #petArt{animation:hop .34s ease-in-out infinite}
-.pet.walking .pet-svg{transform:rotate(4deg)}
-.pet.walking.dir-l .pet-svg{transform:rotate(-4deg)}
 .pet.jump #petArt{animation:jump .5s ease-out}
 @keyframes breathe{50%{transform:scaleY(1.018)}}
 @keyframes wag{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(10deg)}}
 @keyframes blink{0%,93%,100%{transform:scaleY(1)}95.5%{transform:scaleY(.08)}}
 @keyframes chomp{to{transform:translateY(5px) rotate(1deg)}}
 @keyframes tilt{35%,65%{transform:rotate(-10deg)}}
-@keyframes hop{0%,100%{transform:translateZ(0)}50%{transform:translateY(-3.75%)}}
 @keyframes jump{0%,100%{transform:translateZ(0)}40%{transform:translateY(-14.2%) scaleY(1.04)}70%{transform:translateY(0) scaleY(.94)}}
 .pet-svg .pv-legL,.pet-svg .pv-legR,.pet-svg .pv-legL-g,.pet-svg .pv-legR-g{transform-box:view-box}
 .pet-svg .pv-legL,.pet-svg .pv-legL-g{transform-origin:108px 182px}
@@ -198,9 +205,6 @@ button{font:inherit;color:inherit}
 .tr-high .pv-legR-g{animation:trHigh 1.6s ease}
 @keyframes trHigh{25%,70%{transform:translate(8px,-50px) rotate(-75deg)}}
 .tr-high #petArt{animation:jump .5s ease-out .25s}
-.tr-down .pv-legs{opacity:0}
-.tr-down .pv-body{transform:scaleY(.8)}
-.tr-down .pv-head,.tr-down .pv-neck{transform:translate(0,22px)}
 .tr-spin #petArt{animation:trSpin 1s ease-in-out}
 @keyframes trSpin{0%,100%{transform:translateZ(0)}25%{transform:scaleX(0) translateY(-3.3%)}50%{transform:scaleX(-1) translateY(-5%)}75%{transform:scaleX(0) translateY(-3.3%)}}
 .tr-bigjump #petArt{animation:trBig .9s ease-out}
@@ -296,8 +300,113 @@ button{font:inherit;color:inherit}
 @keyframes gLick{0%,100%{opacity:0;transform:translateY(3px)}20%{opacity:1;transform:translateY(-1px)}45%{opacity:1;transform:translate(3px,-8px) rotate(14deg)}65%{opacity:1;transform:translate(-3px,-8px) rotate(-14deg)}85%{opacity:1;transform:translateY(0)}}
 .g-lick .pvx-lick{display:inline;animation:gLick .9s ease-in-out}
 
+/* ===== 体勢と よこむきの 絵（docs/MOTION_DESIGN.md 12章。2026-11-27 だんかい 2） =====
+   #petArt > .pet-turn > .view-f（正面 renderPet）＋ .view-s（よこむき renderPetSide）。見せるのは どちらか 1つ（in flow なので わくの 大きさは かわらない）。
+   .pet の クラス：view-side（よこを 見せる）・dir-l（左むき＝よこを scaleX(-1)）・turning（くるっ：入れものを 0.32秒で scaleX 1→0.08→1。まんなかで 絵を 入れかえる＝Pet.turn）・
+   pose-<id>（Pet.setPose。すわる は なし）。体勢は 外がわの グループの 止まった transform ＋ transition、しぐさ・ずっと つづく アニメは 内がわ（*-g）。
+   体勢の CSS は 表情（ex-*）・しぐさ（g-*）より あと（目・口の 出し入れで 勝つ） */
+.pet .view-s{display:none}
+.pet.view-side .view-f{display:none}
+.pet.view-side .view-s{display:block}
+.pet.dir-l .view-s{transform:scaleX(-1)}
+@keyframes petTurn{0%,100%{transform:scaleX(1)}50%{transform:scaleX(.08)}}
+.pet.turning .pet-turn{animation:petTurn .32s ease-in-out}
+/* よこむき：いつも（いき・しっぽ・まばたき） */
+.pet-side .ps-leg,.pet-side .ps-all,.pet-side .ps-head,.pet-side .ps-head-g,.pet-side .ps-tail,.pet-side .ps-tail-g,.pet-side .ps-body{transform-box:view-box}
+.pet-side .ps-ear{transform-box:fill-box;transform-origin:50% 90%}
+.pet-side .ps-earFlop{transform-origin:50% 8%}
+.pet-side .ps-leg,.pet-side .ps-all,.pet-side .ps-head,.pet-side .ps-tail{transition:transform .5s ease}
+.pet-side .ps-fn{transform-origin:144px 184px}
+.pet-side .ps-ff{transform-origin:133px 184px}
+.pet-side .ps-bn{transform-origin:74px 184px}
+.pet-side .ps-bf{transform-origin:85px 184px}
+.pet-side.ps-short .ps-fn{transform-origin:144px 200px}
+.pet-side.ps-short .ps-ff{transform-origin:133px 200px}
+.pet-side.ps-short .ps-bn{transform-origin:74px 200px}
+.pet-side.ps-short .ps-bf{transform-origin:85px 200px}
+.pet-side .ps-all{transform-origin:110px 216px}
+.pet-side .ps-head,.pet-side .ps-head-g{transform-origin:142px 134px}
+.pet-side .ps-tail,.pet-side .ps-tail-g{transform-origin:64px 160px}
+.pet-side .ps-body{transform-origin:108px 198px}
+.pet-side .ps-scarf{transform-box:fill-box;transform-origin:50% 0}
+@keyframes psBreath{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.025)}}
+@keyframes psBlink{0%,94%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+.pet-side .ps-body{animation:psBreath 3.4s ease-in-out infinite}
+.pet-side .ps-tail-g{animation:wag 1.8s ease-in-out infinite}
+.pet-side .ps-eyes-open{transform-box:fill-box;transform-origin:50% 50%;animation:psBlink 5.4s infinite}
+/* よこむきの 表情・しっぽ・かしげる */
+.ex-happy .ps-eyes-open,.ex-eat .ps-eyes-open,.ex-sleep .ps-eyes-open{display:none}
+.ex-happy .ps-eyes-happy,.ex-eat .ps-eyes-happy{display:inline}
+.ex-sleep .ps-eyes-closed{display:inline}
+.ex-happy .ps-mouth-w,.ex-eat .ps-mouth-w{display:none}
+.ex-happy .ps-mouth-o,.ex-eat .ps-mouth-o{display:inline}
+.wag-fast .ps-tail-g{animation-duration:.38s}
+.tilt .ps-head-g{animation:tilt 1s ease-in-out}
+/* あるく（pose-walk）：対角の 足が いっしょに（てまえ前＋おくうしろ／おく前＋てまえうしろ）。前へ ふる ときに 足を 上げる。
+   1歩きの 長さ --step（はやく うごく ほど みじかい。Pet.moveTo が 入れる）、--half は その 半分、--lag は 半分 おくらせる */
+@keyframes psStep{0%{transform:rotate(22deg)}25%{transform:rotate(0) translateY(-6px)}50%{transform:rotate(-22deg)}75%{transform:rotate(0)}100%{transform:rotate(22deg)}}
+@keyframes psBob{0%{transform:translateY(0)}100%{transform:translateY(-2.5px)}}
+@keyframes psNod{0%,50%,100%{transform:rotate(0)}25%,75%{transform:rotate(2.5deg)}}
+@keyframes psScarf{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(7deg)}}
+.pose-walk .ps-fn,.pose-walk .ps-bf{animation:psStep var(--step,.56s) linear infinite}
+.pose-walk .ps-ff,.pose-walk .ps-bn{animation:psStep var(--step,.56s) linear var(--lag,-.28s) infinite}
+.pose-walk .ps-all{animation:psBob var(--half,.28s) ease-in-out infinite alternate}
+.pose-walk .ps-head-g{animation:psNod var(--step,.56s) ease-in-out infinite}
+.pose-walk .ps-tail-g{animation-duration:var(--step,.56s)}
+.pose-walk .ps-ear{animation:psNod var(--half,.28s) ease-in-out infinite}
+.pose-walk .ps-scarf{animation:psScarf var(--step,.56s) ease-in-out infinite}
+/* よこむきの しぐさ：耳ぴく・しっぽ・はぁはぁ・くんくん（鼻を 床へ）・のび（前足を のばして むねを 下げ、おしりを 上げる） */
+.g-ear .ps-earN{animation:gEar .6s ease}
+.g-tailup .ps-tail-g{animation:gTailUp 1.4s ease}
+.g-sway .ps-tail-g{animation:gSway 2.4s ease-in-out}
+.g-pant .ps-mouth-w{display:none}
+.g-pant .ps-mouth-o,.g-pant .ps-tongue{display:inline}
+.g-pant .ps-head-g{animation:gPant .26s ease-in-out 6}
+@keyframes psSniff{0%,100%{transform:none}18%{transform:rotate(26deg) translateY(10px)}26%,42%,58%,74%{transform:rotate(25deg) translateY(8px)}34%,50%,66%{transform:rotate(27deg) translateY(11px)}84%{transform:rotate(24deg) translateY(9px)}}
+.g-sniff .ps-head-g{animation:psSniff 1.6s ease-in-out}
+.g-sniff .ps-tail-g{animation:wag .5s ease-in-out infinite}
+@keyframes psBowAll{0%,100%{transform:none}25%,75%{transform:rotate(14deg)}}
+@keyframes psBowF{0%,100%{transform:none}25%,75%{transform:rotate(-74deg) translateY(-2px)}}
+@keyframes psBowB{0%,100%{transform:none}25%,75%{transform:rotate(-14deg)}}
+@keyframes psBowHead{0%,100%{transform:none}25%,75%{transform:rotate(-20deg) translate(4px,-2px)}}
+@keyframes psBowTail{0%,100%{transform:none}25%,75%{transform:rotate(-24deg)}}
+.g-stretch .ps-all{transform-origin:76px 216px;animation:psBowAll 1.9s ease-in-out}
+.g-stretch .ps-fn,.g-stretch .ps-ff{animation:psBowF 1.9s ease-in-out}
+.g-stretch .ps-bn,.g-stretch .ps-bf{animation:psBowB 1.9s ease-in-out}
+.g-stretch .ps-head-g{animation:psBowHead 1.9s ease-in-out}
+.g-stretch .ps-tail{animation:psBowTail 1.9s ease-in-out}
+.g-stretch .ps-eyes-open{display:none}
+.g-stretch .ps-eyes-closed{display:inline}
+/* おねだり（pose-beg）：上体を 起こして 前あし（pvx-beg）を 胸の 前で まげて ゆらす */
+.pet-svg .pv-legL,.pet-svg .pv-legR{transition:transform .5s ease}
+.pose-beg .pv-body{transform:translateY(-7px) scale(.97,1.06)}
+.pose-beg .pv-legs{opacity:0}
+.pose-beg .pvx-beg{display:inline;transform:translateY(-7px);animation:pvxIn .35s ease both}
+.pose-beg .pv-head,.pose-beg .pv-neck{transform:translateY(-14px)}
+.pose-beg .pv-tail{transform:translateY(-6px)}
+@keyframes begPaw{0%,100%{transform:rotate(0)}50%{transform:rotate(-10deg) translateY(-2px)}}
+@keyframes begPawR{0%,100%{transform:rotate(0)}50%{transform:rotate(10deg) translateY(-2px)}}
+.pose-beg .pvx-begL{animation:begPaw .9s ease-in-out infinite}
+.pose-beg .pvx-begR{animation:begPawR .9s ease-in-out .45s infinite}
+/* ごろん A（pose-side）：おなかを 見せる。正面の 絵を さかさに して（svg ごと。わくの 中で まわる）前あしを まげ、顔は さかさで こちらを 見る。
+   絵の かげは けして、ゆかに だえんの かげ（.view-f::after） */
+.pet .view-f{position:relative}
+.pet .view-f .pet-svg{transform-origin:50% 50%;transition:transform .55s ease}
+.pet .view-f::after{content:"";position:absolute;left:16%;right:16%;bottom:3%;height:6%;border-radius:50%;background:rgba(58,40,60,.16);opacity:0;transition:opacity .3s;pointer-events:none}
+.pose-side .view-f .pet-svg{transform:translateY(13%) rotate(172deg)}
+.pose-side .view-f::after{opacity:1}
+.pose-side .pv-legL{transform:rotate(-30deg) translateY(-4px)}
+.pose-side .pv-legR{transform:rotate(30deg) translateY(-4px)}
+.pose-side .pv-tail{transform:translate(-6px,6px) rotate(-30deg)}
+.pose-side .pv-shadow{opacity:0}
+.pose-side .pv-eyes-open,.pose-side .pv-brow-sad,.pose-side .pv-mouth-w{display:none}
+.pose-side .pv-eyes-happy,.pose-side .pv-mouth-o{display:inline}
+@keyframes bellyWiggle{0%,100%{transform:rotate(0)}50%{transform:rotate(-5deg)}}
+.pose-side .pv-legL-g{animation:bellyWiggle .9s ease-in-out infinite}
+.pose-side .pv-legR-g{animation:bellyWiggle .9s ease-in-out -.45s infinite}
+
 .bubble{position:absolute;left:50%;bottom:calc(92% - var(--by,0px));z-index:2;transform:translateX(calc(-50% + var(--bx,0px))) scale(.6);transform-origin:50% 100%;opacity:0;pointer-events:none;background:#FFFFFF;color:#3A3147;font-weight:700;font-size:14px;line-height:1.4;padding:7px 13px;border-radius:16px;white-space:nowrap;box-shadow:0 3px 0 rgba(58,49,71,.12);transition:opacity .2s,transform .25s cubic-bezier(.3,1.6,.5,1)}
-.bubble::after{content:"";position:absolute;left:clamp(14px,calc(50% - var(--bx,0px)),calc(100% - 14px));top:100%;border:7px solid transparent;border-top-color:#FFFFFF;transform:translateX(-50%)}
+.bubble::after{content:"";position:absolute;left:clamp(14px,calc(50% - var(--bt,var(--bx,0px))),calc(100% - 14px));top:100%;border:7px solid transparent;border-top-color:#FFFFFF;transform:translateX(-50%)}
 .bubble.show{opacity:1;transform:translateX(calc(-50% + var(--bx,0px))) scale(1)}
 
 /* fx */

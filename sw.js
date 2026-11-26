@@ -1,5 +1,5 @@
 /* うちのこ日和: offline cache */
-const CACHE = 'uchinoko-9b73f3f276';
+const CACHE = 'uchinoko-e474927ebe';
 const PREFIX = 'uchinoko-';
 /* CORE の さいごの 印は build.sh が うちのこラン（仮）の ゲームの ファイル（, 'run-<ハッシュ>.js'）に 置きかえる（RUN_HOME=0 なら 空） */
 const CORE = ['./', 'index.html', 'manifest.webmanifest', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'favicon-32.png', 'favicon-64.png', 'run-5d3805aee4a4.js'];

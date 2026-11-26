@@ -536,6 +536,7 @@ async function doTrick(tk){
     Pet.el.classList.add(cls);
     await sleep(TRICK_MS[tk.anim] || 1200);
     Pet.el.classList.remove(cls);
+    if (tk.anim === 'down') Pet.leave('down');   /* 前に のばした 前あしを ふわっと けす */
     Pet.setExpr('happy'); Pet.wag(1500); hearts(3);
     playEvents(r.ev);
     if (r.learned){
