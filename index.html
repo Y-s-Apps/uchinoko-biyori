@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-IiI8KwK42E8qeiUVfkIxnfpG2vQbypnbbQel03TiEZ0=' https://y-s-apps.github.io/uchinoko-biyori/run-5d3805aee4a4.js; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-fNbZah4We4nkuLaG5dn+8UCfoi2RMS8eVkaBE5Untxg=' https://y-s-apps.github.io/uchinoko-biyori/run-5d3805aee4a4.js; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="写真の犬や猫をそっくりなペットにして、ごはん・おやつ・なでなででのんびり育てるアプリ">
@@ -459,6 +459,86 @@ button{font:inherit;color:inherit}
 @keyframes flStretch{30%,70%{transform:scaleX(1.14)}}
 .tr-bang .pet-floor{animation:flBang 2.2s ease}
 @keyframes flBang{0%,15%,100%{transform:none}35%,75%{transform:translate(36%,10%) scaleX(1.5)}}
+
+/* ===== だんかい 3：ほかの 画面と おせわ・げい・季節の 体勢（docs/MOTION_DESIGN.md 13章。2026-11-27） =====
+   体勢の CSS は ほかの 体勢と 同じ やり方（外がわの グループに 止まった transform ＋ transition、ゆれる ものは 内がわ・部品の アニメ） */
+/* よろこび（ばんざい）pose-cheer：おねだりより 高く 起きて、前あし（pvx-beg）を 顔の よこへ あげて ふる。正面だけ */
+.pose-cheer .pv-body{transform:translateY(-9px) scale(.96,1.08)}
+.pose-cheer .pv-legs{opacity:0}
+.pose-cheer .pvx-beg{display:inline;transform:translateY(-20px);animation:pvxIn .25s ease both}
+/* transform は うごきを へらす 設定（アニメが すぐ おわる）の ときの 形 */
+.pose-cheer .pvx-begL{transform:translateX(-11px) rotate(169deg);animation:cheerL .42s ease-in-out infinite alternate}
+.pose-cheer .pvx-begR{transform:translateX(11px) rotate(-169deg);animation:cheerR .42s ease-in-out -.21s infinite alternate}
+@keyframes cheerL{from{transform:translateX(-10px) rotate(160deg)}to{transform:translateX(-12px) rotate(178deg)}}
+@keyframes cheerR{from{transform:translateX(10px) rotate(-160deg)}to{transform:translateX(12px) rotate(-178deg)}}
+.pose-cheer .pv-head,.pose-cheer .pv-neck{transform:translateY(-17px)}
+.pose-cheer .pv-tail{transform:translateY(-8px)}
+.pose-cheer .pv-tail-g{animation-duration:.38s}
+.pose-cheer .pv-eyes-open,.pose-cheer .pv-brow-sad,.pose-cheer .pv-mouth-w{display:none}
+.pose-cheer .pv-eyes-happy,.pose-cheer .pv-mouth-o{display:inline}
+.leave-cheer:not(.pose-beg) .pvx-beg{display:inline;transform:translateY(-20px);animation:pvxOut .3s ease both}
+.leave-cheer:not(.pose-beg) .pvx-begL{transform:translateX(-11px) rotate(169deg)}
+.leave-cheer:not(.pose-beg) .pvx-begR{transform:translateX(11px) rotate(-169deg)}
+/* 前のめり pose-lean（パズルの のこり 3手）：頭を 下げて 少し 前へ、目は 下（盤）を 見る */
+.pose-lean .pv-head,.pose-lean .pv-neck{transform:translateY(11px) scale(1.06)}
+.pose-lean .pv-body{transform:translateY(3px) scale(1.03,.95)}
+.pose-lean .pv-eye{transform:translateY(3px)}
+/* 見あげる look-up（ピンチの ポップアップ：ふせて 見あげる）：目を 上へ */
+.look-up .pv-eye{transform:translateY(-3px)}
+/* あそぼ（プレイバウ）pose-bow（よこむき）：前足を のばして むねを 下げ、おしりを 上げて しっぽ ぶんぶん（のび の まんなかの 形で とまる） */
+.pet-side .ps-all{transform-origin:76px 216px}
+.pose-bow .ps-all{transform:rotate(13deg)}
+.pose-bow .ps-fn,.pose-bow .ps-ff{transform:rotate(-70deg) translateY(-2px)}
+.pose-bow .ps-bn,.pose-bow .ps-bf{transform:rotate(-13deg)}
+.pose-bow .ps-head{transform:rotate(-18deg) translate(4px,-2px)}
+.pose-bow .ps-tail{transform:rotate(-24deg)}
+.pose-bow .ps-tail-g{animation-duration:.36s}
+.pose-bow .ps-eyes-open,.pose-bow .ps-mouth-w{display:none}
+.pose-bow .ps-eyes-happy,.pose-bow .ps-mouth-o{display:inline}
+/* ボールに とびつく g-pounce（よこむき。0.42秒）：前足で ボールを おさえる */
+@keyframes psPounceAll{0%,100%{transform:none}45%,70%{transform:rotate(11deg) translateY(-3px)}}
+@keyframes psPounceF{0%,100%{transform:none}30%{transform:rotate(-40deg) translateY(-6px)}55%,75%{transform:rotate(-62deg)}}
+.g-pounce .ps-all{animation:psPounceAll .42s ease-out}
+.g-pounce .ps-fn,.g-pounce .ps-ff{animation:psPounceF .42s ease-out}
+.g-pounce .ps-head-g{animation:psBowHead .42s ease-out}
+/* げい「くるっとターン」：正面 → よこ → 反対の よこ → 正面（Pet.spin が くるっを 3回）。からだは 小さく はねる */
+.tr-spin2 #petArt{animation:trSpinHop 1s ease-in-out}
+@keyframes trSpinHop{0%,100%{transform:translateZ(0)}25%,75%{transform:translateY(-3.3%)}50%{transform:translateY(-5%)}}
+.tr-spin2 .pet-floor{animation:flSpin 1s ease-in-out}
+/* げい「のびー」（ねこ）：よこむきで ほんとうの のび（前の 正面の 絵を よこに のばす のは やめる） */
+.view-side.tr-stretch #petArt,.view-side.tr-stretch .pet-floor{animation:none}
+.view-side.tr-stretch .ps-all{animation:psBowAll 1.6s ease-in-out}
+.view-side.tr-stretch .ps-fn,.view-side.tr-stretch .ps-ff{animation:psBowF 1.6s ease-in-out}
+.view-side.tr-stretch .ps-bn,.view-side.tr-stretch .ps-bf{animation:psBowB 1.6s ease-in-out}
+.view-side.tr-stretch .ps-head-g{animation:psBowHead 1.6s ease-in-out}
+.view-side.tr-stretch .ps-tail{animation:psBowTail 1.6s ease-in-out}
+.view-side.tr-stretch .ps-eyes-open{display:none}
+.view-side.tr-stretch .ps-eyes-closed{display:inline}
+/* 上を 見あげる g-lookup（雪・花びらの 日）：頭を 上げて 目で 追う（そのあと JS が ぴょん） */
+@keyframes gLookUp{0%,100%{transform:none}25%,80%{transform:translateY(-5px) rotate(-4deg)}}
+@keyframes gEyeUp{0%,100%{transform:none}25%,80%{transform:translate(1px,-3.5px)}}
+.g-lookup .pv-head-g,.g-lookup .pv-neck-g{animation:gLookUp 1.3s ease-in-out}
+.g-lookup .pv-eye{animation:gEyeUp 1.3s ease-in-out}
+/* パズルの 上（.pz-pet）：ゆかの かげ（.pet-floor。PuzzleUI.open が .pz-art の となりに。はねるのは .pz-art だけ） */
+.pz-pet .pv-shadow{display:none}
+.pz-pet.hop .pet-floor{animation:flPz .45s ease}
+.pz-pet.joy .pet-floor{animation:flPz .45s ease 3}
+@keyframes flPz{40%{transform:scale(.84);opacity:.65}}
+/* ポップアップ（.mpet）：ゆかの かげ（::before）。はねる・かしげる のは 絵だけ */
+.mpet{position:relative}
+.mpet .pet-svg{position:relative}
+.mpet .pv-shadow{display:none}
+.mpet::before{content:"";position:absolute;left:24.17%;top:90.42%;width:51.67%;height:6.67%;border-radius:50%;background:rgba(58,40,60,.16);pointer-events:none}
+.mpet.m-hop .pet-svg{transform-origin:50% 93.75%;animation:mHop 2.2s ease-out .35s infinite}
+.mpet.m-hop::before{animation:mHopF 2.2s ease-out .35s infinite}
+@keyframes mHop{0%,30%,100%{transform:none}10%{transform:translateY(-12%) scaleY(1.03)}20%{transform:translateY(0) scaleY(.95)}}
+@keyframes mHopF{0%,30%,100%{transform:none}10%{transform:scale(.78);opacity:.6}}
+.mpet.m-tilt .pv-head-g,.mpet.m-tilt .pv-neck-g{animation:tilt 2.2s ease-in-out .9s infinite}
+.mpet.m-tail .pv-tail-g{animation:gTailUp 1.4s ease .3s,wag .38s ease-in-out 1.7s infinite}
+.mpet.pose-down::before{transform:scale(1.1,1.05)}
+/* きせかえの タイル：えらんだ 子が ぴょん（タイルの 絵は アニメを とめているので、かげの 外の .pv-all だけ はねる） */
+.tiles .tile.hop .pet-svg .pv-all{animation:tileHop .5s ease-out!important}
+@keyframes tileHop{40%{transform:translateY(-22px) scaleY(1.03)}70%{transform:translateY(0) scaleY(.95)}}
 
 .bubble{position:absolute;left:50%;bottom:calc(92% - var(--by,0px));z-index:2;transform:translateX(calc(-50% + var(--bx,0px))) scale(.6);transform-origin:50% 100%;opacity:0;pointer-events:none;background:#FFFFFF;color:#3A3147;font-weight:700;font-size:14px;line-height:1.4;padding:7px 13px;border-radius:16px;white-space:nowrap;box-shadow:0 3px 0 rgba(58,49,71,.12);transition:opacity .2s,transform .25s cubic-bezier(.3,1.6,.5,1)}
 .bubble::after{content:"";position:absolute;left:clamp(14px,calc(50% - var(--bt,var(--bx,0px))),calc(100% - 14px));top:100%;border:7px solid transparent;border-top-color:#FFFFFF;transform:translateX(-50%)}
@@ -3144,6 +3224,10 @@ const POSE = {
   sleep: { head:.54, mouth:.68, bubble:26 },
   side:  { head:.56, mouth:.72, bubble:22 },
   beg:   { head:.32, mouth:.46, bubble:-10 },
+  /* だんかい 3（2026-11-27）：よろこび（ばんざい）・前のめり（パズル）・あそぼ（プレイバウ。よこむき） */
+  cheer: { head:.3, mouth:.44, bubble:-12 },
+  lean:  { head:.42, mouth:.56, bubble:6 },
+  bow:   { head:.5, mouth:.62, bubble:18, side:true, hx:.72 },
 };
 /* しぐさ（4-4・10章。2026-11-26 だんかい 1）：{ ms, poses:[できる 体勢], sp:'dog'|'cat'|'both', calm:true＝ねていても よい }。
    クラス g-<id> を ms だけ つける（CSS は head.html）。のび（stretch）・くんくん（sniff）は よこむきの 絵で「たつ」の ときだけ（2026-11-27 だんかい 2） */
@@ -3160,13 +3244,14 @@ const GESTURE = {
   lick:    { ms:1000, poses:['sit'], sp:'both' },                                              /* ぺろり（たべた あと） */
   stretch: { ms:1900, poses:['stand'], sp:'both' },                                            /* のび（よこむき） */
   sniff:   { ms:1600, poses:['stand'], sp:'both' },                                            /* くんくん（よこむき。鼻を 床へ） */
+  lookup:  { ms:1300, poses:['sit'], sp:'both' },                                              /* 上を 見あげる（雪・花びらの 日。だんかい 3） */
 };
 /* 体勢ごとの 部品（ふせる・ねる＝前に のばした 前あし、おねだり＝胸の 前の 前あし）。ほかの 体勢へ うつる ときに ふわっと けす */
-const POSE_PART = { down:'down', sleep:'down', beg:'beg' };
+const POSE_PART = { down:'down', sleep:'down', beg:'beg', cheer:'cheer' };
 const calmMotion = () => !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const Pet = {
   el: $('#pet'), x:50, y:80, busy:false, sleeping:false, expr:null, tok:0, sayT:null, wakeUntil:0, pose:'sit', gest:null, gtok:0, ateAt:0, playedAt:0,
-  view:'front', dir:'r', ttok:0, ptok:0, rub:null,
+  view:'front', dir:'r', ttok:0, ptok:0, rub:null, stok:0,
   scaleAt(y){ return .84 + clamp((y - 66) / 24, 0, 1) * .22; },
   apply(){
     this.el.style.left = this.x + '%';
@@ -3339,6 +3424,25 @@ const Pet = {
     });
   },
   jump(){ this.el.classList.remove('jump'); void this.el.offsetWidth; this.el.classList.add('jump'); setTimeout(() => this.el.classList.remove('jump'), 520); },
+  /* クラスを ms だけ（おせわ・げいの とちゅうの 動き。Pet.gesture と ちがって busy でも する） */
+  cls(c, ms){
+    this.el.classList.remove(c); void this.el.offsetWidth; this.el.classList.add(c);
+    const k = 'clsT_' + c;
+    clearTimeout(this[k]); this[k] = setTimeout(() => this.el.classList.remove(c), ms);
+  },
+  /* くるっと 1回転（げい「くるっとターン」・きせかえを 見せる。だんかい 3）：正面 → よこ → 反対の よこ → 正面。からだは 小さく はねる（tr-spin2）。
+     1秒。とちゅうで ほかの むき・体勢に なったら やめる */
+  spin(){
+    this.stopGesture(); this.lean(null); this.rub = null;
+    if (this.pose !== 'sit') this.setPose('sit');
+    this.cls('tr-spin2', 1000);
+    if (calmMotion()) return sleep(1000);
+    const tok = ++this.stok, pt = this.ptok, live = () => tok === this.stok && pt === this.ptok;
+    this.dir = 'r'; this.setView('side', true);
+    return sleep(330).then(() => { if (live()) this.face(true, true); return sleep(330); })
+      .then(() => { if (live()) this.setView('front', true); return sleep(340); })
+      .then(() => { if (live()){ this.dir = 'r'; this.applyView(); } });
+  },
   tilt(){ this.el.classList.remove('tilt'); void this.el.offsetWidth; this.el.classList.add('tilt'); setTimeout(() => this.el.classList.remove('tilt'), 1000); },
   wag(ms = 1500){ this.el.classList.add('wag-fast'); clearTimeout(this.wagT); this.wagT = setTimeout(() => this.el.classList.remove('wag-fast'), ms); },
   zz:null,
@@ -3405,11 +3509,29 @@ const IDLE = [
   { g:'tailup',  w:c => c.mood > 50 ? 4 : 2 },
   { g:'pant',    w:c => c.played ? 30 : 0 },
   { g:'lick',    w:c => c.ate ? 30 : 0 },
+  /* 季節（だんかい 3。もようがえの 季節の かざりつけが「あり」の とき）：雪・花びらの 日は 上を 見あげて ぴょん（つかまえる）、
+     つゆの 雨の 日は まどの 下で ふせて 外を 気に する */
+  { id:'catch', w:c => (c.weather === 'snow' || c.weather === 'petals') && Pet.canGesture('lookup') ? 8 : 0,
+    run:async () => {
+      const done = Pet.gesture('lookup');
+      await sleep(900);
+      if (Pet.gest !== 'lookup') return done;
+      Pet.jump(); Pet.flash('happy', 1000); Pet.wag(1200);
+      if (now() - lastChat > 30000){ lastChat = now(); Pet.say(weatherOf() === 'petals' ? 'はなびらだ！' : 'ゆきだ！', 1600); }
+      return done;
+    } },
+  { id:'rainwin', w:c => c.weather === 'rain' && c.pose !== 'down' ? 7 : 0,
+    run:async () => {
+      await Pet.moveTo(24, 72, .8, 'down');
+      if (!Pet.busy && Pet.pose === 'down') await Pet.gesture('ear');
+      if (!Pet.busy && Pet.pose === 'down') await Pet.gesture('look');
+      if (!Pet.busy && Pet.pose === 'down' && now() - lastChat > 30000){ lastChat = now(); Pet.say('あめ、やまないね', 1800); }
+    } },
 ];
 function idlePick(){
   const t = now();
   const c = { tod:stage.dataset.tod, full:S.stats.full, mood:S.stats.mood, chat:t - lastChat > 30000, ate:t - Pet.ateAt < 60000, played:t - Pet.playedAt < 60000,
-              pose:Pet.pose, cat:S.pet.species === 'cat' };
+              pose:Pet.pose, cat:S.pet.species === 'cat', weather:S.room && S.room.season ? weatherOf() : null };
   const list = IDLE.filter(a => idleLast.indexOf(a.g || a.id) < 0 && (!a.g || Pet.canGesture(a.g)));
   const ws = list.map(a => Math.max(0, a.w(c) || 0));
   let r = Math.random() * ws.reduce((x, y) => x + y, 0);
@@ -3586,7 +3708,11 @@ async function feed(){
   await sleep(300);
   Pet.say(S.pet.species === 'cat' ? 'ごはんだ！' : 'ごはん！ごはん！', 1400);
   Pet.wag(4000);
-  await Pet.moveTo(BOWL.x, BOWL.y - 3.5, 1.3);
+  /* お皿の 前で おねだり（前あしを ふって まつ）してから すわって たべる（だんかい 3。おねだりは 1.2秒＝オーナー「もう少し 長く」。
+     たべる 長さ・かけらの 数は 前と 同じ） */
+  await Pet.moveTo(BOWL.x, BOWL.y - 3.5, 1.3, 'beg');
+  await sleep(1200);
+  Pet.setPose('sit', true);
   Pet.setExpr('eat');
   const crumbs = setInterval(() => { const m = Pet.mouthPoint(); fx('crumb', m.x + (Math.random() * 30 - 15), m.y + 26, '', { '--dx': (Math.random() * 30 - 15).toFixed(0) + 'px' }); }, 260);
   await sleep(2700);
@@ -3616,9 +3742,11 @@ async function giveTreat(t){
   pop.innerHTML = `<svg viewBox="0 0 48 48">${treatIcon(t)}</svg>`;
   pop.style.left = h.x + 'px'; pop.style.top = (h.y - stage.clientHeight * .22) + 'px';
   stage.appendChild(pop);
+  /* おやつを 見あげて おねだり → さいごに ぴょんと とる（だんかい 3。前は 2回 はねた。長さは 同じ） */
   Pet.setExpr('happy'); Pet.wag(4000);
-  await sleep(450); Pet.jump();
-  await sleep(700); Pet.jump();
+  Pet.setPose('beg', true);
+  await sleep(1150);
+  Pet.setPose('sit', true); Pet.jump();
   await sleep(600);
   const m = Pet.mouthPoint();
   pop.style.top = m.y + 'px'; pop.style.left = m.x + 'px';
@@ -3676,21 +3804,30 @@ async function play(){
   toy.style.left = Pet.x + '%'; toy.style.top = '96%'; toy.style.zIndex = '150';
   stage.appendChild(toy);
   Pet.setExpr('happy'); Pet.wag(9000);
-  for (let i = 0; i < 3; i++){
+  /* はじめに「あそぼ！」の ポーズ（前足を のばして おしりを 上げる。1つめの ボールの ほうを むく）。おいかけて 着いたら よこむきの まま
+     前足で とびつく（前は 着く たびに 正面で すわって はねた）。さいごに すわる（だんかい 3。0.6秒 ながく なる。乱数を つかう 順と 数は 前と 同じ） */
+  const aim = () => {
     let tx = 18 + Math.random() * 64;
     if (Math.abs(tx - Pet.x) < 18) tx = Pet.x > 50 ? tx - 28 : tx + 28;
-    tx = clamp(tx, 16, 84);
-    const ty = 72 + Math.random() * 18;
+    return [clamp(tx, 16, 84), 72 + Math.random() * 18];
+  };
+  let next = aim();
+  Pet.face(next[0] < Pet.x, false); Pet.setPose('bow', true);
+  Pet.say('あそぼ！', 1100);
+  await sleep(600);
+  for (let i = 0; i < 3; i++){
+    const [tx, ty] = i ? aim() : next;
     toy.style.transition = 'left .8s cubic-bezier(.3,.7,.4,1), top .8s cubic-bezier(.3,.7,.4,1)';
     await sleep(30);
     toy.style.left = tx + '%'; toy.style.top = (ty + 1) + '%';
     toy.style.zIndex = String(11 + Math.round(ty));
     await sleep(220);
-    await Pet.moveTo(tx, ty, 2.2);
-    Pet.jump();
+    await Pet.moveTo(tx, ty, 2.2, 'stand');
+    Pet.cls('g-pounce', 420);
     hearts(1);
     await sleep(420);
   }
+  Pet.setPose('sit', true);
   toy.style.transition = 'opacity .3s'; toy.style.opacity = '0';
   setTimeout(() => toy.remove(), 350);
   const r = await job;
@@ -3832,7 +3969,7 @@ function celebrate(lv, before){
   const nx = lv < MAX_LV ? nextReward(lv) : null;
   Modal.show({
     label:'なかよしレベルアップ', confetti:true,
-    html:() => `<div class="mpet ex-happy wag-fast">${renderPet(S.pet.look, { wear:petWear() })}</div>
+    html:() => `<div class="mpet ${MPET.joy}">${renderPet(S.pet.look, { wear:petWear() })}</div>
     <h3>${lv >= MAX_LV ? 'なかよしMAX！' : 'なかよしLv ' + lv}</h3><p>${esc(S.pet.name)}と さらに なかよく なりました${newTitle ? `<br>あたらしい関係「${esc(titleFor(lv))}」` : ''}</p>
     ${items.length ? `<ul>${items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>` : ''}
     ${nx ? nextupHtml(nx) : ''}
@@ -3843,8 +3980,24 @@ function celebrate(lv, before){
 /* ----- sheets ----- */
 const ICON_X = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>';
 let sheetReturn = null;
+/* きせかえを 見せる（だんかい 3）：きせかえの シートで 着がえて とじたら・イベントの「つけてみる」の あと、おへやで くるっと 1回転して
+   「にあう？」（はずしたら「すっきり！」）と かしげる。dressShow は シートで 着がえた しるし（null＝着がえていない） */
+let dressShow = null;
+async function showOutfit(wore){
+  if (!S || Pet.busy || Pet.sleeping) return;
+  clearTimeout(idleT);
+  await sleep(250);   /* シート・ポップアップが しまる あいだ */
+  if (Pet.busy || Pet.sleeping) return;
+  Pet.setExpr('happy');
+  await Pet.spin();
+  if (Pet.busy || Pet.sleeping) return;
+  Pet.say(wore ? 'にあう？' : 'すっきり！'); Pet.tilt(); Pet.wag(1400);
+  setTimeout(() => { if (!Pet.busy && Pet.expr === 'happy') Pet.setExpr(null); }, 1400);
+  idleTick(4000);
+}
 function openSheet(title, html, after){
   sheetReturn = document.activeElement;
+  dressShow = null;
   const sh = $('#sheet');
   sh.innerHTML = `<div class="sheet-head"><h2 id="sheetTitle">${esc(title)}</h2><button class="closebtn" type="button" data-close aria-label="とじる">${ICON_X}</button></div>${html}`;
   $('#sheetWrap').classList.add('open');
@@ -3855,6 +4008,7 @@ function openSheet(title, html, after){
 function closeSheet(){
   $('#sheetWrap').classList.remove('open');
   if (sheetReturn && sheetReturn.focus) sheetReturn.focus();
+  if (dressShow != null){ const w = dressShow; dressShow = null; showOutfit(w); }
 }
 $('#sheetWrap').addEventListener('click', e => { if (e.target.id === 'sheetWrap') closeSheet(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
@@ -3913,7 +4067,10 @@ function openDress(){
         playEvents(r.ev);
         rerender();
         Pet.mount();
-        if (!Pet.busy && !Pet.sleeping){ Pet.flash('happy', 1400); Pet.say(b.dataset.w ? 'にあう？' : 'すっきり！'); }
+        /* えらんだ タイルの 子が ぴょん。シートを とじたら おへやで くるっと 見せる（だんかい 3。前は シートの うしろで「にあう？」＝見えなかった） */
+        const t = box.querySelector(`[data-w="${b.dataset.w || ''}"]`);
+        if (t){ t.classList.add('hop'); setTimeout(() => t.classList.remove('hop'), 520); }
+        dressShow = !!b.dataset.w;
         commit();
       }));
     };
@@ -4361,6 +4518,9 @@ function confettiIn(box){
     setTimeout(() => el.remove(), 1300);
   }
 }
+/* ポップアップの うちのこ（だんかい 3：できごとに あわせた 体勢。head.html の .mpet・m-*）：
+   よろこび＝ばんざい＋はねる、おみやげ＝しっぽ ぴん → ぶんぶん、イベント・記念日＝かしげて はねる、ピンチ・とぎれた＝ふせて 見あげる */
+const MPET = { joy:'pose-cheer ex-happy wag-fast m-hop', souv:'ex-happy m-tail', hello:'ex-happy wag-fast m-tilt m-hop', pinch:'pose-down ex-sad look-up' };
 function petCard(wear, cls = 'ex-happy wag-fast'){
   return `<div class="mpet ${cls}">${renderPet(S.pet.look, { wear:wear || petWear() })}</div>`;
 }
@@ -4424,7 +4584,7 @@ const nextRescueDay = () => Rules.nextRescueDay(S);
 function rescueModal(){
   setTimeout(() => Modal.show({
     label:'れんぞく記録をつないだ', confetti:true,
-    html:() => `${petCard()}<h3>れんぞく記録が<br>つながった！</h3>
+    html:() => `${petCard('', MPET.joy)}<h3>れんぞく記録が<br>つながった！</h3>
       <div class="stampbig rescue">${mini('rescue')}</div>
       <p>おやすみの日を おたすけスタンプで つないだよ<br>れんぞく <b>${S.streak.n}日</b>！</p>
       <button class="btn primary" type="button" data-close>やったね</button>`,
@@ -4433,7 +4593,7 @@ function rescueModal(){
 function brokeModal(e){
   Modal.show({
     label:'れんぞく記録',
-    html:() => `${petCard('', 'ex-sad')}<h3>れんぞく記録が<br>とぎれちゃった…</h3>
+    html:() => `${petCard('', MPET.pinch)}<h3>れんぞく記録が<br>とぎれちゃった…</h3>
       <p>きのうは おやすみだったね。<br>おたすけの おねがいは ${RESCUE_EVERY}日に 1回までなので、こんかいは つなげません。<br>つぎに つかえるのは <b>${mdOfKey(e.next)}</b>から。</p>
       <p class="quote">「また きょうから がんばろうね」</p>
       <button class="btn primary" type="button" data-close>うん</button>`,
@@ -4442,7 +4602,7 @@ function brokeModal(e){
 function pinchModal(e){
   Modal.show({
     label:'れんぞく記録のピンチ',
-    html:() => `${petCard('', 'ex-sad')}<h3>れんぞく記録が ピンチ！</h3>
+    html:() => `${petCard('', MPET.pinch)}<h3>れんぞく記録が ピンチ！</h3>
       <p>きのうは おやすみだったね。<br>きょうの うちに いつもの おねがい3つと、この おたすけの おねがいを かなえると、れんぞく <b>${e.n}日</b>の 記録が つづくよ。</p>
       <p class="rescueline">${mini('rescue')}<span><small>おたすけのおねがい</small>${esc(reqText(S.daily.rescue))}</span></p>
       <p class="note" style="margin:0 0 12px">おたすけは ${RESCUE_EVERY}日に 1回まで。2日いじょう あいたときは つなげません。</p>
@@ -4460,7 +4620,7 @@ function renderReqBadge(){
 function allDoneModal(e){
   setTimeout(() => Modal.show({
     label:'きょうのおねがい コンプリート', confetti:true,
-    html:() => `${petCard()}<h3>きょうのおねがい<br>ぜんぶかなえた！</h3>
+    html:() => `${petCard('', MPET.joy)}<h3>きょうのおねがい<br>ぜんぶかなえた！</h3>
       <div class="stampbig">${mini('stamp')}</div>
       <p>ごほうび ♥+10<br>${e.bridged ? `おたすけスタンプで つながって<br>れんぞく <b>${S.streak.n}日</b>！` : e.waiting ? `あとは おたすけの おねがい<br>「${esc(reqText(S.daily.rescue))}」で<br>れんぞく <b>${(S.streak.saved ? S.streak.saved.n : 0) + 1}日</b>に つながるよ！` : S.streak.n > 1 ? `れんぞく <b>${S.streak.n}日</b>！` : 'スタンプカードに スタンプを おしたよ'}</p>
       <button class="btn primary" type="button" data-close>やったね</button>`,
@@ -4499,7 +4659,7 @@ function souvenirModal(e){
   if (!pickS) return;
   Modal.show({
     label:'おるすばんのおみやげ',
-    html:() => `<div class="souvwrap">${petCard()}<div class="souvitem"><svg viewBox="0 0 48 48" aria-hidden="true">${souvenirIcon(pickS.icon)}</svg>${e.isNew ? '<span class="newpill">NEW</span>' : ''}</div></div>
+    html:() => `<div class="souvwrap">${petCard('', MPET.souv)}<div class="souvitem"><svg viewBox="0 0 48 48" aria-hidden="true">${souvenirIcon(pickS.icon)}</svg>${e.isNew ? '<span class="newpill">NEW</span>' : ''}</div></div>
       <h3>おるすばん ありがとう！</h3>
       <p>${esc(S.pet.name)}が ${isCat() ? 'ねこの パトロール' : 'おさんぽ'}で<br><b>「${esc(pickS.ja)}」</b>を 見つけてきたよ</p>
       <p class="quote">「${esc(pickS.line)}」</p>
@@ -4516,7 +4676,7 @@ function eventModal(e){
   const trial = Object.assign({}, petWear(), { [w.slot]:w.id });
   Modal.show({
     label:ev.ja, confetti:true,
-    html:`${petCard(trial)}<h3>${esc(ev.ja)}が はじまったよ！</h3>
+    html:`${petCard(trial, MPET.hello)}<h3>${esc(ev.ja)}が はじまったよ！</h3>
       <p class="quote">「${esc(ev.hello)}」</p>
       <p>期間中は おへやが かざりつけされて、限定の おやつ <b>「${esc(ev.treat.ja)}」</b>が あげられます。</p>
       ${e.had ? '' : `<p class="giftline"><span>${mini('gift')} プレゼント <b>「${esc(w.ja)}」</b></span></p>`}
@@ -4526,12 +4686,13 @@ function eventModal(e){
     const r = await Act.run('dress', { slot:w.slot, id:w.id });
     if (!r.ok) return;
     playEvents(r.ev);
-    Pet.mount(); Pet.flash('happy', 1400); Pet.say('にあう？'); commit();
+    Pet.mount(); commit();
+    showOutfit(true);
   });
 }
 function annivModal(e){
   Modal.show({ label:'うちのこ記念日', confetti:true,
-    html:`${petCard()}<h3>うちのこ記念日！</h3><p>${esc(S.pet.name)}が うちにきて、きょうで <b>${e.years}年</b>。<br>いつも ありがとう。</p><button class="btn primary" type="button" data-close>おめでとう</button>` });
+    html:`${petCard('', MPET.hello)}<h3>うちのこ記念日！</h3><p>${esc(S.pet.name)}が うちにきて、きょうで <b>${e.years}年</b>。<br>いつも ありがとう。</p><button class="btn primary" type="button" data-close>おめでとう</button>` });
 }
 
 /* ===== room: decoration, window view, seasonal decor ===== */
@@ -4669,6 +4830,8 @@ function wireRoomTab(root, rerender){
 
 /* ===== tricks ===== */
 const TRICK_MS = { sit:1100, paw:1600, down:1500, spin:1000, bigjump:900, high:1600, roll:1300, bow:1400, dance:1800, bang:2200, stretch:1600, punch:1500 };
+/* げいの 前に まんなかで まつ 体勢（だんかい 3。ない げいは すわる）：「おすわり」は たって まって すわる、「のびー」は よこむきで のび */
+const TRICK_WAIT = { sit:'stand', stretch:'stand' };
 function trickState(id){ return S.tricks[id] || (S.tricks[id] = { p:0, ok:false }); }
 function openTricks(){
   if (Pet.busy || !S) return;
@@ -4695,29 +4858,34 @@ async function doTrick(tk){
   if (why){ careRefused({ why }); return; }
   begin();
   const job = Act.run('trick', { id:tk.id });   /* the rules decide whether it works (on the LINE server: the server) */
-  await Pet.moveTo(50, 80, 1.2);
+  await Pet.moveTo(50, 80, 1.2, TRICK_WAIT[tk.anim]);
   Pet.say(tk.cue, 1100);
   await sleep(800);
   const r = await job;
-  if (!r.ok){ careRefused(r); await sleep(600); Pet.setExpr(null); finish(); return; }
+  if (!r.ok){ careRefused(r); await sleep(600); Pet.setExpr(null); if (Pet.pose !== 'sit') Pet.setPose('sit', true); finish(); return; }
   if (r.success){
     const cls = 'tr-' + tk.anim;
     if (tk.anim === 'bang') Pet.setExpr('sleep'); else Pet.setExpr('happy');
-    Pet.el.classList.add(cls);
+    /* だんかい 3：「おすわり」は たって いた ところから くるっと すわる（ぽすん）、「くるっとターン」は よこむきの 絵で ほんとうに まわる、
+       「のびー」は よこむきの まま のび（head.html の .view-side.tr-stretch）してから すわる */
+    if (tk.anim === 'sit') Pet.setPose('sit', true);
+    if (tk.anim === 'spin') Pet.spin(); else Pet.el.classList.add(cls);
     await sleep(TRICK_MS[tk.anim] || 1200);
     Pet.el.classList.remove(cls);
     if (tk.anim === 'down') Pet.leave('down');   /* 前に のばした 前あしを ふわっと けす */
+    if (Pet.pose !== 'sit') Pet.setPose('sit', true);
     Pet.setExpr('happy'); Pet.wag(1500); hearts(3);
     playEvents(r.ev);
     if (r.learned){
       Pet.say('できるように なったよ！');
       Modal.show({ label:'げいをおぼえた', confetti:true,
-        html:`${petCard()}<h3>げい「${esc(tk.ja)}」を<br>おぼえた！</h3><p>これからは いつでも 見せてくれます。<br>♥+5</p><button class="btn primary" type="button" data-close>すごいね！</button>` });
+        html:`${petCard('', MPET.joy)}<h3>げい「${esc(tk.ja)}」を<br>おぼえた！</h3><p>これからは いつでも 見せてくれます。<br>♥+5</p><button class="btn primary" type="button" data-close>すごいね！</button>` });
     } else if (!r.known) Pet.say(`できた！（${r.p}/${r.need}）`);
     else Pet.say(pick(['どう？','じょうずでしょ！','えへへ','もっと見る？']));
   } else {
     Pet.tilt(); Pet.say(pick(['？？？','えっと…','むずかしいな…']), 1400);
     await sleep(1200);
+    if (Pet.pose !== 'sit') Pet.setPose('sit', true);
     Pet.say('もういっかい やってみる！', 1600);
   }
   playEvents(r.after);
@@ -4866,6 +5034,7 @@ const PZ_TREATS = { dog:['bolo','apple','blueberry','milkgum','jerky'], cat:['ki
 const PZ_MIN = 264;   /* 盤の いちばん 小さい 一辺（1マス 44px） */
 const PuzzleUI = {
   g:null, seed:0, rid:null, els:[], moves:[], sel:-1, busy:false, page:null, box:null, cleared:false, tok:0, tapAt:0, back:null, onFit:null, onKey:null, shown:null, cheerT:null, viaKey:false,
+  idleT:null, idleN:0, hurrayT:null,
   kinds(){ const sp = isCat() ? 'cat' : 'dog'; return PZ_TREATS[sp].map(id => TREATS[sp].find(t => t.id === id)); },
   q(sel){ return this.page ? this.page.querySelector(sel) : null; },
   open(){
@@ -4885,7 +5054,7 @@ const PuzzleUI = {
         <div class="pz-hero">
           <div class="pz-wall" aria-hidden="true"></div><div class="pz-floor" aria-hidden="true"></div>
           <p class="pz-say" id="pzSay" role="status"></p>
-          <div class="pz-pet" id="pzPet"><div class="pz-art" id="pzArt">${renderPet(S.pet.look, { wear:petWear() })}</div></div>
+          <div class="pz-pet" id="pzPet"><div class="pet-floor" aria-hidden="true"><i></i></div><div class="pz-art" id="pzArt">${renderPet(S.pet.look, { wear:petWear() })}</div></div>
         </div>
         <div class="pz-nums">
           <div class="pz-n"><small>のこり</small><span><b id="pzLeft">${PUZZLE.moves}</b>手</span></div>
@@ -4940,8 +5109,10 @@ const PuzzleUI = {
     this.els = this.g.b.map((k, i) => this.tile(i, k));
     this.card(null);
     this.q('#pzPet').className = 'pz-pet';
+    clearTimeout(this.hurrayT); this.hurrayT = null;
     this.nums();
     this.say(!S.firsts.puzzle ? 'となりと 入れかえて、3つ そろえてね' : isCat() ? 'いっしょに がんばるにゃ！' : 'いっしょに がんばろ！');
+    this.idleArm();
   },
   tile(i, k, fromRow){
     const t = this.kinds()[k];
@@ -4968,6 +5139,47 @@ const PuzzleUI = {
     p.classList.add(kind || 'hop', 'ex-happy', 'wag-fast');
     clearTimeout(this.cheerT);
     if (kind !== 'joy') this.cheerT = setTimeout(() => { const x = this.q('#pzPet'); if (x) x.classList.remove('ex-happy', 'wag-fast'); }, 1400);
+  },
+  /* うちのこの 体勢（だんかい 3。head.html の pose-cheer・pose-lean）：sit・cheer（ばんざい）・lean（前のめり）。ばんざい から かわる ときは
+     前あしを ふわっと けす（leave-cheer） */
+  pose(p){
+    const el = this.q('#pzPet');
+    if (!el) return;
+    const was = el.classList.contains('pose-cheer');
+    el.classList.toggle('pose-cheer', p === 'cheer');
+    el.classList.toggle('pose-lean', p === 'lean');
+    if (was && p !== 'cheer') this.flash('leave-cheer', 360);
+  },
+  /* ふだんの 体勢：のこり 3手から 前のめり（盤を じっと 見る） */
+  basePose(){ return this.g && !this.g.end && this.g.left > 0 && this.g.left <= 3 ? 'lean' : 'sit'; },
+  /* れんさ：ばんざい（ms あとに ふだんの 体勢へ） */
+  hurray(ms){
+    this.pose('cheer');
+    clearTimeout(this.hurrayT);
+    this.hurrayT = setTimeout(() => { this.hurrayT = null; if (this.page && !this.g.end) this.pose(this.basePose()); }, ms);
+  },
+  /* クラスを ms だけ（しぐさ・かしげる など） */
+  flash(c, ms){
+    const p = this.q('#pzPet');
+    if (!p) return;
+    p.classList.remove(c); void p.offsetWidth; p.classList.add(c);
+    const k = 'flashT_' + c;
+    clearTimeout(this[k]); this[k] = setTimeout(() => { const x = this.q('#pzPet'); if (x) x.classList.remove(c); }, ms);
+  },
+  /* まつ あいだ（7秒 さわらない）：きょろきょろ・耳ぴく・しっぽ（ねこは ゆらり、いぬは ぴん）を じゅんばんに。乱数は つかわない。
+     うごきを へらす 設定では しない */
+  idleArm(){
+    clearTimeout(this.idleT);
+    if (!this.page || calmMotion()) return;
+    this.idleT = setTimeout(() => {
+      if (!this.page) return;
+      if (this.ready()){
+        const list = isCat() ? [['look', 1800], ['ear', 750], ['sway', 2400]] : [['look', 1800], ['ear', 750], ['tailup', 1400]];
+        const [g, ms] = list[this.idleN++ % list.length];
+        this.flash('g-' + g, ms);
+      }
+      this.idleArm();
+    }, 7000);
   },
   /* 数字：のこりの手・けした数（と バー）・点数。got・score を わたすと その数で（れんさの だんかいごとに ふやす とき） */
   nums(got = this.g.got, score = this.g.score){
@@ -5061,6 +5273,7 @@ const PuzzleUI = {
     if (code < 0 || !this.page || this.busy || this.g.end) return;
     const live = () => this.page && this.tok === tok;   /* とちゅうで とじた・はじめなおした あとは つづけない */
     this.busy = true;
+    this.idleArm();
     const a = this.els[i], b = this.els[j];
     this.place(a, j); this.place(b, i);
     await sleep(190);
@@ -5080,6 +5293,7 @@ const PuzzleUI = {
     this.nums(from.got, from.score);
     for (const st of steps){ await this.animate(st); if (!live()) return; }
     this.nums();
+    if (!this.g.end && !this.hurrayT) this.pose(this.basePose());
     this.busy = false;
     /* キーボードで うごかした おやつが きえると フォーカスが 画面の 外へ 出るので、うごかした 先の マスに もどす（指・マウスの ときは さわらない） */
     if (this.viaKey && !this.page.contains(document.activeElement)) this.refocus(this.els[j]);
@@ -5098,7 +5312,7 @@ const PuzzleUI = {
     }
     for (const i of st.hit) this.els[i].classList.add('pop');
     this.nums(this.shown.got + st.hit.length, this.shown.score + st.pts);
-    if (st.chain >= 2){ this.say(st.chain >= 3 ? 'すごい すごい！' : 'れんさだ！'); this.cheer(); }
+    if (st.chain >= 2){ this.say(st.chain >= 3 ? 'すごい すごい！' : 'れんさだ！'); this.cheer(); this.hurray(1300); }
     else if (st.hit.length >= 4){ this.say(pick(['たくさん けせたね！', 'じょうず！'])); this.cheer(); }
     else if (Math.random() < .35) this.say(pick(isCat() ? ['いいかんじにゃ', 'その ちょうし！', 'おいしそう…'] : ['いいね！', 'その ちょうし！', 'おいしそう…']));
     await sleep(240);
@@ -5130,7 +5344,10 @@ const PuzzleUI = {
     const g = this.g;
     this.cleared = g.clear;
     this.pick(-1);
-    if (g.clear) this.cheer('joy'); else this.cheer();
+    clearTimeout(this.idleT); clearTimeout(this.hurrayT); this.hurrayT = null;
+    /* クリア：ばんざい＋はねる 3回。おしかった：かなしまずに かしげて しっぽ（ねこは ゆらり、いぬは ぴん。だんかい 3） */
+    if (g.clear){ this.cheer('joy'); this.pose('cheer'); }
+    else { this.pose('sit'); this.flash('tilt', 1000); this.flash(isCat() ? 'g-sway' : 'g-tailup', isCat() ? 2400 : 1400); }
     this.say(g.clear ? (isCat() ? 'クリア！ やったにゃ！' : 'クリア！ やったね！') : 'おしかったね！ また あそぼ');
     return this.send();
   },
@@ -5197,7 +5414,7 @@ const PuzzleUI = {
     const page = this.page;
     if (!page) return;
     this.page = null; this.box = null; this.els = []; this.tok++; this.busy = false;
-    clearTimeout(this.cheerT);
+    clearTimeout(this.cheerT); clearTimeout(this.idleT); clearTimeout(this.hurrayT); this.hurrayT = null;
     removeEventListener('resize', this.onFit);
     if (window.visualViewport) visualViewport.removeEventListener('resize', this.onFit);
     document.removeEventListener('keydown', this.onKey, true);

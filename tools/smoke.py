@@ -254,6 +254,7 @@ async def main(args):
                 errors.append(f'よるの ひとこと が ちがいます：{first} {second!r} {again!r}')
         await gesture_checks(page, snap, errors)
         await pose_checks(page, snap, errors)
+        await stage3_checks(page, snap, errors)
         if args.line:
             info = await page.evaluate('''() => ({
                 sw: !!(navigator.serviceWorker && navigator.serviceWorker.controller),
@@ -356,7 +357,7 @@ async def main(args):
         await run_checks(page, ctx, snap, errors, args, port)   # うちのこラン（LINE版は P6 から。ここは ゲスト＝端末の ルール）
         if args.line:
             await line_run_edges(page, ctx, snap, errors, args)
-        await page.click('#actFeed'); await page.wait_for_timeout(5500)
+        await page.click('#actFeed'); await page.wait_for_timeout(7500)   # だんかい 3 で お皿の 前の おねだり 1.2秒 ぶん ながく
         await close_popups()
         await snap('after_meal')
         # なでる（指の まね）：うちのこを 下に こすると なでた ことに なり、タップは へんじ。さわった ところで ブラウザの 動きを
@@ -487,14 +488,14 @@ async def pose_checks(page, snap, errors):
     おせわの 前に すわる、タップの おねだり"""
     bad = []
     await page.evaluate("() => { clearTimeout(idleT); window.__idle = window.idleTick; window.idleTick = () => {}; Pet.wake(); Pet.stopGesture(); Pet.setPose('sit'); Pet.el.style.transition = 'none'; Pet.x = 50; Pet.y = 80; Pet.apply(); }")
-    want = {'sit': False, 'stand': True, 'walk': True, 'down': False, 'sleep': False, 'side': False, 'beg': False}
+    want = {'sit': False, 'stand': True, 'walk': True, 'down': False, 'sleep': False, 'side': False, 'beg': False, 'cheer': False, 'lean': False, 'bow': True}
     for p, side in want.items():
         await page.evaluate('p => p === "sleep" ? Pet.sleep() : Pet.setPose(p, true)', p)
         await page.wait_for_timeout(700)
         st = await page.evaluate(POSE_STATE_JS)
         if st['side'] != side or st['sideShown'] != side or st['front'] == side or st['turning'] or st['cls'] != ('' if p == 'sit' else 'pose-' + p) or not st['head']:
             bad.append(f'{p}:{st}')
-        if p in ('stand', 'down', 'sleep', 'side', 'beg'):
+        if p in ('stand', 'down', 'sleep', 'side', 'beg', 'cheer', 'bow'):
             await snap('pose_' + p)
         if p == 'sleep':
             await page.evaluate('() => Pet.wake()')
@@ -539,6 +540,68 @@ async def pose_checks(page, snap, errors):
     await page.evaluate("() => { Pet.setPose('sit'); Pet.face(false); window.idleTick = window.__idle; Pet.el.style.transition = 'none'; Pet.x = 50; Pet.y = 80; Pet.apply(); }")
     if bad:
         errors.append('体勢が ちがいます：' + ' / '.join(bad))
+
+
+async def stage3_checks(page, snap, errors):
+    """だんかい 3（docs/MOTION_DESIGN.md 13章。2026-11-27）：ゆかの かげ（おへや〈げいで まわらない〉・パズル・ポップアップ。絵の かげは けす）、
+    くるっと 1回転（Pet.spin：よこ → 反対の よこ → 正面）、ばんざいの 前あし（すわると ふわっと けす）、きせかえを とじると くるっと「にあう？」、
+    げい「おすわり」（たって まって → くるっと すわる）、パズルの ばんざい → ふだん・のこり 3手で 前のめり"""
+    bad = []
+    await page.evaluate("() => { clearTimeout(idleT); window.__idle = window.idleTick; window.idleTick = () => {}; Pet.wake(); Pet.stopGesture(); Pet.setPose('sit'); Pet.el.style.transition = 'none'; Pet.x = 50; Pet.y = 80; Pet.apply(); }")
+    sh = await page.evaluate('''() => { const f = Pet.el.querySelector('.pet-floor i'), s = Pet.el.querySelector('.pv-shadow');
+        Pet.el.classList.add('tr-roll'); const fl = Pet.el.querySelector('.pet-floor');
+        const anim = document.getAnimations().some(a => a.effect && a.effect.target === fl); Pet.el.classList.remove('tr-roll');
+        return { floor: !!f && getComputedStyle(f).display !== 'none', svg: getComputedStyle(s).display, outside: !Pet.el.querySelector('#petArt .pet-floor'), anim }; }''')
+    if not (sh['floor'] and sh['svg'] == 'none' and sh['outside'] and sh['anim']):
+        bad.append(f'かげ：{sh}')
+    await page.evaluate("() => { window.__sp = Pet.spin(); }")
+    await page.wait_for_timeout(260); a = await page.evaluate(POSE_STATE_JS)
+    await page.wait_for_timeout(340); b = await page.evaluate(POSE_STATE_JS)
+    await page.evaluate('async () => await window.__sp'); await page.wait_for_timeout(120); c = await page.evaluate(POSE_STATE_JS)
+    spin_ok = a['side'] and not a['dirl'] and b['side'] and b['dirl'] and not c['side'] and not c['dirl'] and c['pose'] == 'sit'
+    ch = await page.evaluate('''async () => { Pet.setPose('cheer'); await sleep(450); const v = getComputedStyle(Pet.el.querySelector('.pvx-beg')).display;
+        Pet.setPose('sit'); const leave = Pet.el.classList.contains('leave-cheer'); await sleep(500);
+        return { v, leave, gone: getComputedStyle(Pet.el.querySelector('.pvx-beg')).display }; }''')
+    await page.evaluate("() => { dressShow = true; closeSheet(); }")
+    await page.wait_for_timeout(420); spun = await page.evaluate("Pet.el.classList.contains('tr-spin2')")
+    await page.wait_for_timeout(1100); said = await page.evaluate("document.querySelector('#bubble').textContent")
+    await page.wait_for_timeout(1500)
+    trick = await page.evaluate('''async () => { const t = (TRICKS[S.pet.species] || []).find(x => x.anim === 'sit'); if (!t) return 'none';
+        const orig = Act.run; Act.run = function(type){ if (type === 'trick'){ Act.run = orig; return Promise.resolve({ ok:true, success:true, known:true, ev:[], after:[] }); } return orig.apply(this, arguments); };
+        doTrick(t); await sleep(600); const w = Pet.pose; await sleep(1100); const s1 = Pet.pose, sq = Pet.el.classList.contains('tr-sit');
+        for (let i = 0; i < 80 && Pet.busy; i++) await sleep(100);
+        return [w, s1, sq, Pet.pose, Pet.busy]; }''')
+    await page.evaluate("() => { clearTimeout(idleT); }")
+    await snap('stage3_trick_sit')
+    pz = await page.evaluate('''async () => { PuzzleUI.open(); await sleep(300); const el = document.querySelector('#pzPet');
+        if (!el) return 'closed';
+        const floor = !!el.querySelector(':scope > .pet-floor'), svg = getComputedStyle(el.querySelector('.pv-shadow')).display;
+        PuzzleUI.hurray(300); const ch = el.classList.contains('pose-cheer'); await sleep(450); const back = !el.classList.contains('pose-cheer');
+        PuzzleUI.g.left = 3; PuzzleUI.pose(PuzzleUI.basePose()); const lean = el.classList.contains('pose-lean');
+        return { floor, svg, ch, back, lean }; }''')
+    await snap('stage3_puzzle_lean')
+    await page.evaluate("() => PuzzleUI.close()"); await page.wait_for_timeout(300)
+    pop = await page.evaluate('''async () => { Modal.show({ label:'t', html:() => `${petCard('', MPET.joy)}<h3>ためし</h3><button class="btn primary" type="button" data-close>OK</button>` });
+        await sleep(500); const m = document.querySelector('.levelup .mpet');
+        return { cls: m ? m.className : '', svg: m ? getComputedStyle(m.querySelector('.pv-shadow')).display : '', floor: m ? getComputedStyle(m, '::before').content : '' }; }''')
+    await snap('stage3_popup')
+    await page.evaluate("() => { const b = document.querySelector('.levelup .btn.primary'); if (b) b.click(); }"); await page.wait_for_timeout(400)
+    print('だんかい 3：かげ', sh, '／ くるっ', spin_ok, '／ ばんざい', ch, '／ きせかえ', spun, said, '／ おすわり', trick, '／ パズル', pz, '／ ポップアップ', pop['cls'])
+    if not spin_ok:
+        bad.append(f'くるっと 1回転：{a} {b} {c}')
+    if not (ch['v'] == 'inline' and ch['leave'] and ch['gone'] == 'none'):
+        bad.append(f'ばんざい：{ch}')
+    if not (spun and said == 'にあう？'):
+        bad.append(f'きせかえを 見せる：{spun} {said!r}')
+    if trick != 'none' and trick != ['stand', 'sit', True, 'sit', False]:
+        bad.append(f'げい「おすわり」：{trick}')
+    if not (isinstance(pz, dict) and pz['floor'] and pz['svg'] == 'none' and pz['ch'] and pz['back'] and pz['lean']):
+        bad.append(f'パズル：{pz}')
+    if not ('pose-cheer' in pop['cls'] and 'm-hop' in pop['cls'] and pop['svg'] == 'none' and pop['floor'] not in ('', 'none')):
+        bad.append(f'ポップアップ：{pop}')
+    await page.evaluate("() => { Pet.setPose('sit'); window.idleTick = window.__idle; }")
+    if bad:
+        errors.append('だんかい 3 が ちがいます：' + ' / '.join(bad))
 
 
 async def run_checks(page, ctx, snap, errors, args, port):

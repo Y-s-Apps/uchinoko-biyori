@@ -191,6 +191,9 @@ function confettiIn(box){
     setTimeout(() => el.remove(), 1300);
   }
 }
+/* ポップアップの うちのこ（だんかい 3：できごとに あわせた 体勢。head.html の .mpet・m-*）：
+   よろこび＝ばんざい＋はねる、おみやげ＝しっぽ ぴん → ぶんぶん、イベント・記念日＝かしげて はねる、ピンチ・とぎれた＝ふせて 見あげる */
+const MPET = { joy:'pose-cheer ex-happy wag-fast m-hop', souv:'ex-happy m-tail', hello:'ex-happy wag-fast m-tilt m-hop', pinch:'pose-down ex-sad look-up' };
 function petCard(wear, cls = 'ex-happy wag-fast'){
   return `<div class="mpet ${cls}">${renderPet(S.pet.look, { wear:wear || petWear() })}</div>`;
 }
@@ -254,7 +257,7 @@ const nextRescueDay = () => Rules.nextRescueDay(S);
 function rescueModal(){
   setTimeout(() => Modal.show({
     label:'れんぞく記録をつないだ', confetti:true,
-    html:() => `${petCard()}<h3>れんぞく記録が<br>つながった！</h3>
+    html:() => `${petCard('', MPET.joy)}<h3>れんぞく記録が<br>つながった！</h3>
       <div class="stampbig rescue">${mini('rescue')}</div>
       <p>おやすみの日を おたすけスタンプで つないだよ<br>れんぞく <b>${S.streak.n}日</b>！</p>
       <button class="btn primary" type="button" data-close>やったね</button>`,
@@ -263,7 +266,7 @@ function rescueModal(){
 function brokeModal(e){
   Modal.show({
     label:'れんぞく記録',
-    html:() => `${petCard('', 'ex-sad')}<h3>れんぞく記録が<br>とぎれちゃった…</h3>
+    html:() => `${petCard('', MPET.pinch)}<h3>れんぞく記録が<br>とぎれちゃった…</h3>
       <p>きのうは おやすみだったね。<br>おたすけの おねがいは ${RESCUE_EVERY}日に 1回までなので、こんかいは つなげません。<br>つぎに つかえるのは <b>${mdOfKey(e.next)}</b>から。</p>
       <p class="quote">「また きょうから がんばろうね」</p>
       <button class="btn primary" type="button" data-close>うん</button>`,
@@ -272,7 +275,7 @@ function brokeModal(e){
 function pinchModal(e){
   Modal.show({
     label:'れんぞく記録のピンチ',
-    html:() => `${petCard('', 'ex-sad')}<h3>れんぞく記録が ピンチ！</h3>
+    html:() => `${petCard('', MPET.pinch)}<h3>れんぞく記録が ピンチ！</h3>
       <p>きのうは おやすみだったね。<br>きょうの うちに いつもの おねがい3つと、この おたすけの おねがいを かなえると、れんぞく <b>${e.n}日</b>の 記録が つづくよ。</p>
       <p class="rescueline">${mini('rescue')}<span><small>おたすけのおねがい</small>${esc(reqText(S.daily.rescue))}</span></p>
       <p class="note" style="margin:0 0 12px">おたすけは ${RESCUE_EVERY}日に 1回まで。2日いじょう あいたときは つなげません。</p>
@@ -290,7 +293,7 @@ function renderReqBadge(){
 function allDoneModal(e){
   setTimeout(() => Modal.show({
     label:'きょうのおねがい コンプリート', confetti:true,
-    html:() => `${petCard()}<h3>きょうのおねがい<br>ぜんぶかなえた！</h3>
+    html:() => `${petCard('', MPET.joy)}<h3>きょうのおねがい<br>ぜんぶかなえた！</h3>
       <div class="stampbig">${mini('stamp')}</div>
       <p>ごほうび ♥+10<br>${e.bridged ? `おたすけスタンプで つながって<br>れんぞく <b>${S.streak.n}日</b>！` : e.waiting ? `あとは おたすけの おねがい<br>「${esc(reqText(S.daily.rescue))}」で<br>れんぞく <b>${(S.streak.saved ? S.streak.saved.n : 0) + 1}日</b>に つながるよ！` : S.streak.n > 1 ? `れんぞく <b>${S.streak.n}日</b>！` : 'スタンプカードに スタンプを おしたよ'}</p>
       <button class="btn primary" type="button" data-close>やったね</button>`,
@@ -329,7 +332,7 @@ function souvenirModal(e){
   if (!pickS) return;
   Modal.show({
     label:'おるすばんのおみやげ',
-    html:() => `<div class="souvwrap">${petCard()}<div class="souvitem"><svg viewBox="0 0 48 48" aria-hidden="true">${souvenirIcon(pickS.icon)}</svg>${e.isNew ? '<span class="newpill">NEW</span>' : ''}</div></div>
+    html:() => `<div class="souvwrap">${petCard('', MPET.souv)}<div class="souvitem"><svg viewBox="0 0 48 48" aria-hidden="true">${souvenirIcon(pickS.icon)}</svg>${e.isNew ? '<span class="newpill">NEW</span>' : ''}</div></div>
       <h3>おるすばん ありがとう！</h3>
       <p>${esc(S.pet.name)}が ${isCat() ? 'ねこの パトロール' : 'おさんぽ'}で<br><b>「${esc(pickS.ja)}」</b>を 見つけてきたよ</p>
       <p class="quote">「${esc(pickS.line)}」</p>
@@ -346,7 +349,7 @@ function eventModal(e){
   const trial = Object.assign({}, petWear(), { [w.slot]:w.id });
   Modal.show({
     label:ev.ja, confetti:true,
-    html:`${petCard(trial)}<h3>${esc(ev.ja)}が はじまったよ！</h3>
+    html:`${petCard(trial, MPET.hello)}<h3>${esc(ev.ja)}が はじまったよ！</h3>
       <p class="quote">「${esc(ev.hello)}」</p>
       <p>期間中は おへやが かざりつけされて、限定の おやつ <b>「${esc(ev.treat.ja)}」</b>が あげられます。</p>
       ${e.had ? '' : `<p class="giftline"><span>${mini('gift')} プレゼント <b>「${esc(w.ja)}」</b></span></p>`}
@@ -356,12 +359,13 @@ function eventModal(e){
     const r = await Act.run('dress', { slot:w.slot, id:w.id });
     if (!r.ok) return;
     playEvents(r.ev);
-    Pet.mount(); Pet.flash('happy', 1400); Pet.say('にあう？'); commit();
+    Pet.mount(); commit();
+    showOutfit(true);
   });
 }
 function annivModal(e){
   Modal.show({ label:'うちのこ記念日', confetti:true,
-    html:`${petCard()}<h3>うちのこ記念日！</h3><p>${esc(S.pet.name)}が うちにきて、きょうで <b>${e.years}年</b>。<br>いつも ありがとう。</p><button class="btn primary" type="button" data-close>おめでとう</button>` });
+    html:`${petCard('', MPET.hello)}<h3>うちのこ記念日！</h3><p>${esc(S.pet.name)}が うちにきて、きょうで <b>${e.years}年</b>。<br>いつも ありがとう。</p><button class="btn primary" type="button" data-close>おめでとう</button>` });
 }
 
 /* ===== room: decoration, window view, seasonal decor ===== */
@@ -499,6 +503,8 @@ function wireRoomTab(root, rerender){
 
 /* ===== tricks ===== */
 const TRICK_MS = { sit:1100, paw:1600, down:1500, spin:1000, bigjump:900, high:1600, roll:1300, bow:1400, dance:1800, bang:2200, stretch:1600, punch:1500 };
+/* げいの 前に まんなかで まつ 体勢（だんかい 3。ない げいは すわる）：「おすわり」は たって まって すわる、「のびー」は よこむきで のび */
+const TRICK_WAIT = { sit:'stand', stretch:'stand' };
 function trickState(id){ return S.tricks[id] || (S.tricks[id] = { p:0, ok:false }); }
 function openTricks(){
   if (Pet.busy || !S) return;
@@ -525,29 +531,34 @@ async function doTrick(tk){
   if (why){ careRefused({ why }); return; }
   begin();
   const job = Act.run('trick', { id:tk.id });   /* the rules decide whether it works (on the LINE server: the server) */
-  await Pet.moveTo(50, 80, 1.2);
+  await Pet.moveTo(50, 80, 1.2, TRICK_WAIT[tk.anim]);
   Pet.say(tk.cue, 1100);
   await sleep(800);
   const r = await job;
-  if (!r.ok){ careRefused(r); await sleep(600); Pet.setExpr(null); finish(); return; }
+  if (!r.ok){ careRefused(r); await sleep(600); Pet.setExpr(null); if (Pet.pose !== 'sit') Pet.setPose('sit', true); finish(); return; }
   if (r.success){
     const cls = 'tr-' + tk.anim;
     if (tk.anim === 'bang') Pet.setExpr('sleep'); else Pet.setExpr('happy');
-    Pet.el.classList.add(cls);
+    /* だんかい 3：「おすわり」は たって いた ところから くるっと すわる（ぽすん）、「くるっとターン」は よこむきの 絵で ほんとうに まわる、
+       「のびー」は よこむきの まま のび（head.html の .view-side.tr-stretch）してから すわる */
+    if (tk.anim === 'sit') Pet.setPose('sit', true);
+    if (tk.anim === 'spin') Pet.spin(); else Pet.el.classList.add(cls);
     await sleep(TRICK_MS[tk.anim] || 1200);
     Pet.el.classList.remove(cls);
     if (tk.anim === 'down') Pet.leave('down');   /* 前に のばした 前あしを ふわっと けす */
+    if (Pet.pose !== 'sit') Pet.setPose('sit', true);
     Pet.setExpr('happy'); Pet.wag(1500); hearts(3);
     playEvents(r.ev);
     if (r.learned){
       Pet.say('できるように なったよ！');
       Modal.show({ label:'げいをおぼえた', confetti:true,
-        html:`${petCard()}<h3>げい「${esc(tk.ja)}」を<br>おぼえた！</h3><p>これからは いつでも 見せてくれます。<br>♥+5</p><button class="btn primary" type="button" data-close>すごいね！</button>` });
+        html:`${petCard('', MPET.joy)}<h3>げい「${esc(tk.ja)}」を<br>おぼえた！</h3><p>これからは いつでも 見せてくれます。<br>♥+5</p><button class="btn primary" type="button" data-close>すごいね！</button>` });
     } else if (!r.known) Pet.say(`できた！（${r.p}/${r.need}）`);
     else Pet.say(pick(['どう？','じょうずでしょ！','えへへ','もっと見る？']));
   } else {
     Pet.tilt(); Pet.say(pick(['？？？','えっと…','むずかしいな…']), 1400);
     await sleep(1200);
+    if (Pet.pose !== 'sit') Pet.setPose('sit', true);
     Pet.say('もういっかい やってみる！', 1600);
   }
   playEvents(r.after);
@@ -696,6 +707,7 @@ const PZ_TREATS = { dog:['bolo','apple','blueberry','milkgum','jerky'], cat:['ki
 const PZ_MIN = 264;   /* 盤の いちばん 小さい 一辺（1マス 44px） */
 const PuzzleUI = {
   g:null, seed:0, rid:null, els:[], moves:[], sel:-1, busy:false, page:null, box:null, cleared:false, tok:0, tapAt:0, back:null, onFit:null, onKey:null, shown:null, cheerT:null, viaKey:false,
+  idleT:null, idleN:0, hurrayT:null,
   kinds(){ const sp = isCat() ? 'cat' : 'dog'; return PZ_TREATS[sp].map(id => TREATS[sp].find(t => t.id === id)); },
   q(sel){ return this.page ? this.page.querySelector(sel) : null; },
   open(){
@@ -715,7 +727,7 @@ const PuzzleUI = {
         <div class="pz-hero">
           <div class="pz-wall" aria-hidden="true"></div><div class="pz-floor" aria-hidden="true"></div>
           <p class="pz-say" id="pzSay" role="status"></p>
-          <div class="pz-pet" id="pzPet"><div class="pz-art" id="pzArt">${renderPet(S.pet.look, { wear:petWear() })}</div></div>
+          <div class="pz-pet" id="pzPet"><div class="pet-floor" aria-hidden="true"><i></i></div><div class="pz-art" id="pzArt">${renderPet(S.pet.look, { wear:petWear() })}</div></div>
         </div>
         <div class="pz-nums">
           <div class="pz-n"><small>のこり</small><span><b id="pzLeft">${PUZZLE.moves}</b>手</span></div>
@@ -770,8 +782,10 @@ const PuzzleUI = {
     this.els = this.g.b.map((k, i) => this.tile(i, k));
     this.card(null);
     this.q('#pzPet').className = 'pz-pet';
+    clearTimeout(this.hurrayT); this.hurrayT = null;
     this.nums();
     this.say(!S.firsts.puzzle ? 'となりと 入れかえて、3つ そろえてね' : isCat() ? 'いっしょに がんばるにゃ！' : 'いっしょに がんばろ！');
+    this.idleArm();
   },
   tile(i, k, fromRow){
     const t = this.kinds()[k];
@@ -798,6 +812,47 @@ const PuzzleUI = {
     p.classList.add(kind || 'hop', 'ex-happy', 'wag-fast');
     clearTimeout(this.cheerT);
     if (kind !== 'joy') this.cheerT = setTimeout(() => { const x = this.q('#pzPet'); if (x) x.classList.remove('ex-happy', 'wag-fast'); }, 1400);
+  },
+  /* うちのこの 体勢（だんかい 3。head.html の pose-cheer・pose-lean）：sit・cheer（ばんざい）・lean（前のめり）。ばんざい から かわる ときは
+     前あしを ふわっと けす（leave-cheer） */
+  pose(p){
+    const el = this.q('#pzPet');
+    if (!el) return;
+    const was = el.classList.contains('pose-cheer');
+    el.classList.toggle('pose-cheer', p === 'cheer');
+    el.classList.toggle('pose-lean', p === 'lean');
+    if (was && p !== 'cheer') this.flash('leave-cheer', 360);
+  },
+  /* ふだんの 体勢：のこり 3手から 前のめり（盤を じっと 見る） */
+  basePose(){ return this.g && !this.g.end && this.g.left > 0 && this.g.left <= 3 ? 'lean' : 'sit'; },
+  /* れんさ：ばんざい（ms あとに ふだんの 体勢へ） */
+  hurray(ms){
+    this.pose('cheer');
+    clearTimeout(this.hurrayT);
+    this.hurrayT = setTimeout(() => { this.hurrayT = null; if (this.page && !this.g.end) this.pose(this.basePose()); }, ms);
+  },
+  /* クラスを ms だけ（しぐさ・かしげる など） */
+  flash(c, ms){
+    const p = this.q('#pzPet');
+    if (!p) return;
+    p.classList.remove(c); void p.offsetWidth; p.classList.add(c);
+    const k = 'flashT_' + c;
+    clearTimeout(this[k]); this[k] = setTimeout(() => { const x = this.q('#pzPet'); if (x) x.classList.remove(c); }, ms);
+  },
+  /* まつ あいだ（7秒 さわらない）：きょろきょろ・耳ぴく・しっぽ（ねこは ゆらり、いぬは ぴん）を じゅんばんに。乱数は つかわない。
+     うごきを へらす 設定では しない */
+  idleArm(){
+    clearTimeout(this.idleT);
+    if (!this.page || calmMotion()) return;
+    this.idleT = setTimeout(() => {
+      if (!this.page) return;
+      if (this.ready()){
+        const list = isCat() ? [['look', 1800], ['ear', 750], ['sway', 2400]] : [['look', 1800], ['ear', 750], ['tailup', 1400]];
+        const [g, ms] = list[this.idleN++ % list.length];
+        this.flash('g-' + g, ms);
+      }
+      this.idleArm();
+    }, 7000);
   },
   /* 数字：のこりの手・けした数（と バー）・点数。got・score を わたすと その数で（れんさの だんかいごとに ふやす とき） */
   nums(got = this.g.got, score = this.g.score){
@@ -891,6 +946,7 @@ const PuzzleUI = {
     if (code < 0 || !this.page || this.busy || this.g.end) return;
     const live = () => this.page && this.tok === tok;   /* とちゅうで とじた・はじめなおした あとは つづけない */
     this.busy = true;
+    this.idleArm();
     const a = this.els[i], b = this.els[j];
     this.place(a, j); this.place(b, i);
     await sleep(190);
@@ -910,6 +966,7 @@ const PuzzleUI = {
     this.nums(from.got, from.score);
     for (const st of steps){ await this.animate(st); if (!live()) return; }
     this.nums();
+    if (!this.g.end && !this.hurrayT) this.pose(this.basePose());
     this.busy = false;
     /* キーボードで うごかした おやつが きえると フォーカスが 画面の 外へ 出るので、うごかした 先の マスに もどす（指・マウスの ときは さわらない） */
     if (this.viaKey && !this.page.contains(document.activeElement)) this.refocus(this.els[j]);
@@ -928,7 +985,7 @@ const PuzzleUI = {
     }
     for (const i of st.hit) this.els[i].classList.add('pop');
     this.nums(this.shown.got + st.hit.length, this.shown.score + st.pts);
-    if (st.chain >= 2){ this.say(st.chain >= 3 ? 'すごい すごい！' : 'れんさだ！'); this.cheer(); }
+    if (st.chain >= 2){ this.say(st.chain >= 3 ? 'すごい すごい！' : 'れんさだ！'); this.cheer(); this.hurray(1300); }
     else if (st.hit.length >= 4){ this.say(pick(['たくさん けせたね！', 'じょうず！'])); this.cheer(); }
     else if (Math.random() < .35) this.say(pick(isCat() ? ['いいかんじにゃ', 'その ちょうし！', 'おいしそう…'] : ['いいね！', 'その ちょうし！', 'おいしそう…']));
     await sleep(240);
@@ -960,7 +1017,10 @@ const PuzzleUI = {
     const g = this.g;
     this.cleared = g.clear;
     this.pick(-1);
-    if (g.clear) this.cheer('joy'); else this.cheer();
+    clearTimeout(this.idleT); clearTimeout(this.hurrayT); this.hurrayT = null;
+    /* クリア：ばんざい＋はねる 3回。おしかった：かなしまずに かしげて しっぽ（ねこは ゆらり、いぬは ぴん。だんかい 3） */
+    if (g.clear){ this.cheer('joy'); this.pose('cheer'); }
+    else { this.pose('sit'); this.flash('tilt', 1000); this.flash(isCat() ? 'g-sway' : 'g-tailup', isCat() ? 2400 : 1400); }
     this.say(g.clear ? (isCat() ? 'クリア！ やったにゃ！' : 'クリア！ やったね！') : 'おしかったね！ また あそぼ');
     return this.send();
   },
@@ -1027,7 +1087,7 @@ const PuzzleUI = {
     const page = this.page;
     if (!page) return;
     this.page = null; this.box = null; this.els = []; this.tok++; this.busy = false;
-    clearTimeout(this.cheerT);
+    clearTimeout(this.cheerT); clearTimeout(this.idleT); clearTimeout(this.hurrayT); this.hurrayT = null;
     removeEventListener('resize', this.onFit);
     if (window.visualViewport) visualViewport.removeEventListener('resize', this.onFit);
     document.removeEventListener('keydown', this.onKey, true);

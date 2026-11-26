@@ -78,11 +78,20 @@ STATES = [
     ('s-pant',    'g-pant',               [0],                       False, 'side'),
     ('s-sniff',   'g-sniff',              [300, 900],                False, 'side'),
     ('s-stretch', 'g-stretch',            [500, 1000],               False, 'side'),
+    # だんかい 3（2026-11-27）：ばんざい・前のめり・ふせて 見あげる・見あげる（正面）、あそぼ・とびつく・げい「のびー」（よこむき）
+    ('p-cheer',   'pose-cheer',           [400, 610],                True),
+    ('p-cheer-leave', 'leave-cheer',      [120],                     False),
+    ('p-lean',    'pose-lean',            [600],                     True),
+    ('p-down-up', 'pose-down ex-sad look-up', [450],                 True),
+    ('g-lookup',  'g-lookup',             [500],                     True),
+    ('s-bow',     'pose-bow',             [600],                     False, 'side'),
+    ('s-pounce',  'g-pounce',             [230],                     False, 'side'),
+    ('s-trstretch', 'view-side tr-stretch', [600],                   False, 'side'),
 ]
 # はみだしの 上限を 場面ごとに ゆるめる ところ（--max-out の かわり。はかり方は 形ごとの 外わくなので、まわした 形は 大きめに 出る）。
 # 2026-11-27 に ピクセルで はかった ほんとうの はみだし：ごろん 40（下。うさぎのみみ・大きい 耳が さかさで ゆかの 前へ。体勢は 止まった まま＝
 # svg ごと まわすので グループが わくの 外へ うごく アニメでは ない）、のび 17（右。みじかい足の 前足の 先）、くんくん 0
-OUT_OK = {'p-side': 50, 'p-side-sad': 50, 's-sniff': 36, 's-stretch': 40}
+OUT_OK = {'p-side': 50, 'p-side-sad': 50, 's-sniff': 36, 's-stretch': 40, 's-bow': 40, 's-pounce': 40, 's-trstretch': 40}
 CARD_CSS = '.pv-eyes-open,.pv-eyes-closed,.pv-brow-sad,.pv-mouth-w{display:none}.pv-cheek{opacity:.8}'   # js_line.js の CardArt と 同じ
 
 HARNESS_CSS = r'''

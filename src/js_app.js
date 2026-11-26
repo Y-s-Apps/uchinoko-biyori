@@ -233,6 +233,10 @@ const POSE = {
   sleep: { head:.54, mouth:.68, bubble:26 },
   side:  { head:.56, mouth:.72, bubble:22 },
   beg:   { head:.32, mouth:.46, bubble:-10 },
+  /* だんかい 3（2026-11-27）：よろこび（ばんざい）・前のめり（パズル）・あそぼ（プレイバウ。よこむき） */
+  cheer: { head:.3, mouth:.44, bubble:-12 },
+  lean:  { head:.42, mouth:.56, bubble:6 },
+  bow:   { head:.5, mouth:.62, bubble:18, side:true, hx:.72 },
 };
 /* しぐさ（4-4・10章。2026-11-26 だんかい 1）：{ ms, poses:[できる 体勢], sp:'dog'|'cat'|'both', calm:true＝ねていても よい }。
    クラス g-<id> を ms だけ つける（CSS は head.html）。のび（stretch）・くんくん（sniff）は よこむきの 絵で「たつ」の ときだけ（2026-11-27 だんかい 2） */
@@ -249,13 +253,14 @@ const GESTURE = {
   lick:    { ms:1000, poses:['sit'], sp:'both' },                                              /* ぺろり（たべた あと） */
   stretch: { ms:1900, poses:['stand'], sp:'both' },                                            /* のび（よこむき） */
   sniff:   { ms:1600, poses:['stand'], sp:'both' },                                            /* くんくん（よこむき。鼻を 床へ） */
+  lookup:  { ms:1300, poses:['sit'], sp:'both' },                                              /* 上を 見あげる（雪・花びらの 日。だんかい 3） */
 };
 /* 体勢ごとの 部品（ふせる・ねる＝前に のばした 前あし、おねだり＝胸の 前の 前あし）。ほかの 体勢へ うつる ときに ふわっと けす */
-const POSE_PART = { down:'down', sleep:'down', beg:'beg' };
+const POSE_PART = { down:'down', sleep:'down', beg:'beg', cheer:'cheer' };
 const calmMotion = () => !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const Pet = {
   el: $('#pet'), x:50, y:80, busy:false, sleeping:false, expr:null, tok:0, sayT:null, wakeUntil:0, pose:'sit', gest:null, gtok:0, ateAt:0, playedAt:0,
-  view:'front', dir:'r', ttok:0, ptok:0, rub:null,
+  view:'front', dir:'r', ttok:0, ptok:0, rub:null, stok:0,
   scaleAt(y){ return .84 + clamp((y - 66) / 24, 0, 1) * .22; },
   apply(){
     this.el.style.left = this.x + '%';
@@ -428,6 +433,25 @@ const Pet = {
     });
   },
   jump(){ this.el.classList.remove('jump'); void this.el.offsetWidth; this.el.classList.add('jump'); setTimeout(() => this.el.classList.remove('jump'), 520); },
+  /* クラスを ms だけ（おせわ・げいの とちゅうの 動き。Pet.gesture と ちがって busy でも する） */
+  cls(c, ms){
+    this.el.classList.remove(c); void this.el.offsetWidth; this.el.classList.add(c);
+    const k = 'clsT_' + c;
+    clearTimeout(this[k]); this[k] = setTimeout(() => this.el.classList.remove(c), ms);
+  },
+  /* くるっと 1回転（げい「くるっとターン」・きせかえを 見せる。だんかい 3）：正面 → よこ → 反対の よこ → 正面。からだは 小さく はねる（tr-spin2）。
+     1秒。とちゅうで ほかの むき・体勢に なったら やめる */
+  spin(){
+    this.stopGesture(); this.lean(null); this.rub = null;
+    if (this.pose !== 'sit') this.setPose('sit');
+    this.cls('tr-spin2', 1000);
+    if (calmMotion()) return sleep(1000);
+    const tok = ++this.stok, pt = this.ptok, live = () => tok === this.stok && pt === this.ptok;
+    this.dir = 'r'; this.setView('side', true);
+    return sleep(330).then(() => { if (live()) this.face(true, true); return sleep(330); })
+      .then(() => { if (live()) this.setView('front', true); return sleep(340); })
+      .then(() => { if (live()){ this.dir = 'r'; this.applyView(); } });
+  },
   tilt(){ this.el.classList.remove('tilt'); void this.el.offsetWidth; this.el.classList.add('tilt'); setTimeout(() => this.el.classList.remove('tilt'), 1000); },
   wag(ms = 1500){ this.el.classList.add('wag-fast'); clearTimeout(this.wagT); this.wagT = setTimeout(() => this.el.classList.remove('wag-fast'), ms); },
   zz:null,
@@ -494,11 +518,29 @@ const IDLE = [
   { g:'tailup',  w:c => c.mood > 50 ? 4 : 2 },
   { g:'pant',    w:c => c.played ? 30 : 0 },
   { g:'lick',    w:c => c.ate ? 30 : 0 },
+  /* 季節（だんかい 3。もようがえの 季節の かざりつけが「あり」の とき）：雪・花びらの 日は 上を 見あげて ぴょん（つかまえる）、
+     つゆの 雨の 日は まどの 下で ふせて 外を 気に する */
+  { id:'catch', w:c => (c.weather === 'snow' || c.weather === 'petals') && Pet.canGesture('lookup') ? 8 : 0,
+    run:async () => {
+      const done = Pet.gesture('lookup');
+      await sleep(900);
+      if (Pet.gest !== 'lookup') return done;
+      Pet.jump(); Pet.flash('happy', 1000); Pet.wag(1200);
+      if (now() - lastChat > 30000){ lastChat = now(); Pet.say(weatherOf() === 'petals' ? 'はなびらだ！' : 'ゆきだ！', 1600); }
+      return done;
+    } },
+  { id:'rainwin', w:c => c.weather === 'rain' && c.pose !== 'down' ? 7 : 0,
+    run:async () => {
+      await Pet.moveTo(24, 72, .8, 'down');
+      if (!Pet.busy && Pet.pose === 'down') await Pet.gesture('ear');
+      if (!Pet.busy && Pet.pose === 'down') await Pet.gesture('look');
+      if (!Pet.busy && Pet.pose === 'down' && now() - lastChat > 30000){ lastChat = now(); Pet.say('あめ、やまないね', 1800); }
+    } },
 ];
 function idlePick(){
   const t = now();
   const c = { tod:stage.dataset.tod, full:S.stats.full, mood:S.stats.mood, chat:t - lastChat > 30000, ate:t - Pet.ateAt < 60000, played:t - Pet.playedAt < 60000,
-              pose:Pet.pose, cat:S.pet.species === 'cat' };
+              pose:Pet.pose, cat:S.pet.species === 'cat', weather:S.room && S.room.season ? weatherOf() : null };
   const list = IDLE.filter(a => idleLast.indexOf(a.g || a.id) < 0 && (!a.g || Pet.canGesture(a.g)));
   const ws = list.map(a => Math.max(0, a.w(c) || 0));
   let r = Math.random() * ws.reduce((x, y) => x + y, 0);
@@ -675,7 +717,11 @@ async function feed(){
   await sleep(300);
   Pet.say(S.pet.species === 'cat' ? 'ごはんだ！' : 'ごはん！ごはん！', 1400);
   Pet.wag(4000);
-  await Pet.moveTo(BOWL.x, BOWL.y - 3.5, 1.3);
+  /* お皿の 前で おねだり（前あしを ふって まつ）してから すわって たべる（だんかい 3。おねだりは 1.2秒＝オーナー「もう少し 長く」。
+     たべる 長さ・かけらの 数は 前と 同じ） */
+  await Pet.moveTo(BOWL.x, BOWL.y - 3.5, 1.3, 'beg');
+  await sleep(1200);
+  Pet.setPose('sit', true);
   Pet.setExpr('eat');
   const crumbs = setInterval(() => { const m = Pet.mouthPoint(); fx('crumb', m.x + (Math.random() * 30 - 15), m.y + 26, '', { '--dx': (Math.random() * 30 - 15).toFixed(0) + 'px' }); }, 260);
   await sleep(2700);
@@ -705,9 +751,11 @@ async function giveTreat(t){
   pop.innerHTML = `<svg viewBox="0 0 48 48">${treatIcon(t)}</svg>`;
   pop.style.left = h.x + 'px'; pop.style.top = (h.y - stage.clientHeight * .22) + 'px';
   stage.appendChild(pop);
+  /* おやつを 見あげて おねだり → さいごに ぴょんと とる（だんかい 3。前は 2回 はねた。長さは 同じ） */
   Pet.setExpr('happy'); Pet.wag(4000);
-  await sleep(450); Pet.jump();
-  await sleep(700); Pet.jump();
+  Pet.setPose('beg', true);
+  await sleep(1150);
+  Pet.setPose('sit', true); Pet.jump();
   await sleep(600);
   const m = Pet.mouthPoint();
   pop.style.top = m.y + 'px'; pop.style.left = m.x + 'px';
@@ -765,21 +813,30 @@ async function play(){
   toy.style.left = Pet.x + '%'; toy.style.top = '96%'; toy.style.zIndex = '150';
   stage.appendChild(toy);
   Pet.setExpr('happy'); Pet.wag(9000);
-  for (let i = 0; i < 3; i++){
+  /* はじめに「あそぼ！」の ポーズ（前足を のばして おしりを 上げる。1つめの ボールの ほうを むく）。おいかけて 着いたら よこむきの まま
+     前足で とびつく（前は 着く たびに 正面で すわって はねた）。さいごに すわる（だんかい 3。0.6秒 ながく なる。乱数を つかう 順と 数は 前と 同じ） */
+  const aim = () => {
     let tx = 18 + Math.random() * 64;
     if (Math.abs(tx - Pet.x) < 18) tx = Pet.x > 50 ? tx - 28 : tx + 28;
-    tx = clamp(tx, 16, 84);
-    const ty = 72 + Math.random() * 18;
+    return [clamp(tx, 16, 84), 72 + Math.random() * 18];
+  };
+  let next = aim();
+  Pet.face(next[0] < Pet.x, false); Pet.setPose('bow', true);
+  Pet.say('あそぼ！', 1100);
+  await sleep(600);
+  for (let i = 0; i < 3; i++){
+    const [tx, ty] = i ? aim() : next;
     toy.style.transition = 'left .8s cubic-bezier(.3,.7,.4,1), top .8s cubic-bezier(.3,.7,.4,1)';
     await sleep(30);
     toy.style.left = tx + '%'; toy.style.top = (ty + 1) + '%';
     toy.style.zIndex = String(11 + Math.round(ty));
     await sleep(220);
-    await Pet.moveTo(tx, ty, 2.2);
-    Pet.jump();
+    await Pet.moveTo(tx, ty, 2.2, 'stand');
+    Pet.cls('g-pounce', 420);
     hearts(1);
     await sleep(420);
   }
+  Pet.setPose('sit', true);
   toy.style.transition = 'opacity .3s'; toy.style.opacity = '0';
   setTimeout(() => toy.remove(), 350);
   const r = await job;
@@ -921,7 +978,7 @@ function celebrate(lv, before){
   const nx = lv < MAX_LV ? nextReward(lv) : null;
   Modal.show({
     label:'なかよしレベルアップ', confetti:true,
-    html:() => `<div class="mpet ex-happy wag-fast">${renderPet(S.pet.look, { wear:petWear() })}</div>
+    html:() => `<div class="mpet ${MPET.joy}">${renderPet(S.pet.look, { wear:petWear() })}</div>
     <h3>${lv >= MAX_LV ? 'なかよしMAX！' : 'なかよしLv ' + lv}</h3><p>${esc(S.pet.name)}と さらに なかよく なりました${newTitle ? `<br>あたらしい関係「${esc(titleFor(lv))}」` : ''}</p>
     ${items.length ? `<ul>${items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>` : ''}
     ${nx ? nextupHtml(nx) : ''}
@@ -932,8 +989,24 @@ function celebrate(lv, before){
 /* ----- sheets ----- */
 const ICON_X = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>';
 let sheetReturn = null;
+/* きせかえを 見せる（だんかい 3）：きせかえの シートで 着がえて とじたら・イベントの「つけてみる」の あと、おへやで くるっと 1回転して
+   「にあう？」（はずしたら「すっきり！」）と かしげる。dressShow は シートで 着がえた しるし（null＝着がえていない） */
+let dressShow = null;
+async function showOutfit(wore){
+  if (!S || Pet.busy || Pet.sleeping) return;
+  clearTimeout(idleT);
+  await sleep(250);   /* シート・ポップアップが しまる あいだ */
+  if (Pet.busy || Pet.sleeping) return;
+  Pet.setExpr('happy');
+  await Pet.spin();
+  if (Pet.busy || Pet.sleeping) return;
+  Pet.say(wore ? 'にあう？' : 'すっきり！'); Pet.tilt(); Pet.wag(1400);
+  setTimeout(() => { if (!Pet.busy && Pet.expr === 'happy') Pet.setExpr(null); }, 1400);
+  idleTick(4000);
+}
 function openSheet(title, html, after){
   sheetReturn = document.activeElement;
+  dressShow = null;
   const sh = $('#sheet');
   sh.innerHTML = `<div class="sheet-head"><h2 id="sheetTitle">${esc(title)}</h2><button class="closebtn" type="button" data-close aria-label="とじる">${ICON_X}</button></div>${html}`;
   $('#sheetWrap').classList.add('open');
@@ -944,6 +1017,7 @@ function openSheet(title, html, after){
 function closeSheet(){
   $('#sheetWrap').classList.remove('open');
   if (sheetReturn && sheetReturn.focus) sheetReturn.focus();
+  if (dressShow != null){ const w = dressShow; dressShow = null; showOutfit(w); }
 }
 $('#sheetWrap').addEventListener('click', e => { if (e.target.id === 'sheetWrap') closeSheet(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
@@ -1002,7 +1076,10 @@ function openDress(){
         playEvents(r.ev);
         rerender();
         Pet.mount();
-        if (!Pet.busy && !Pet.sleeping){ Pet.flash('happy', 1400); Pet.say(b.dataset.w ? 'にあう？' : 'すっきり！'); }
+        /* えらんだ タイルの 子が ぴょん。シートを とじたら おへやで くるっと 見せる（だんかい 3。前は シートの うしろで「にあう？」＝見えなかった） */
+        const t = box.querySelector(`[data-w="${b.dataset.w || ''}"]`);
+        if (t){ t.classList.add('hop'); setTimeout(() => t.classList.remove('hop'), 520); }
+        dressShow = !!b.dataset.w;
         commit();
       }));
     };

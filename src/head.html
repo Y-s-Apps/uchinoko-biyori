@@ -433,6 +433,86 @@ button{font:inherit;color:inherit}
 .tr-bang .pet-floor{animation:flBang 2.2s ease}
 @keyframes flBang{0%,15%,100%{transform:none}35%,75%{transform:translate(36%,10%) scaleX(1.5)}}
 
+/* ===== だんかい 3：ほかの 画面と おせわ・げい・季節の 体勢（docs/MOTION_DESIGN.md 13章。2026-11-27） =====
+   体勢の CSS は ほかの 体勢と 同じ やり方（外がわの グループに 止まった transform ＋ transition、ゆれる ものは 内がわ・部品の アニメ） */
+/* よろこび（ばんざい）pose-cheer：おねだりより 高く 起きて、前あし（pvx-beg）を 顔の よこへ あげて ふる。正面だけ */
+.pose-cheer .pv-body{transform:translateY(-9px) scale(.96,1.08)}
+.pose-cheer .pv-legs{opacity:0}
+.pose-cheer .pvx-beg{display:inline;transform:translateY(-20px);animation:pvxIn .25s ease both}
+/* transform は うごきを へらす 設定（アニメが すぐ おわる）の ときの 形 */
+.pose-cheer .pvx-begL{transform:translateX(-11px) rotate(169deg);animation:cheerL .42s ease-in-out infinite alternate}
+.pose-cheer .pvx-begR{transform:translateX(11px) rotate(-169deg);animation:cheerR .42s ease-in-out -.21s infinite alternate}
+@keyframes cheerL{from{transform:translateX(-10px) rotate(160deg)}to{transform:translateX(-12px) rotate(178deg)}}
+@keyframes cheerR{from{transform:translateX(10px) rotate(-160deg)}to{transform:translateX(12px) rotate(-178deg)}}
+.pose-cheer .pv-head,.pose-cheer .pv-neck{transform:translateY(-17px)}
+.pose-cheer .pv-tail{transform:translateY(-8px)}
+.pose-cheer .pv-tail-g{animation-duration:.38s}
+.pose-cheer .pv-eyes-open,.pose-cheer .pv-brow-sad,.pose-cheer .pv-mouth-w{display:none}
+.pose-cheer .pv-eyes-happy,.pose-cheer .pv-mouth-o{display:inline}
+.leave-cheer:not(.pose-beg) .pvx-beg{display:inline;transform:translateY(-20px);animation:pvxOut .3s ease both}
+.leave-cheer:not(.pose-beg) .pvx-begL{transform:translateX(-11px) rotate(169deg)}
+.leave-cheer:not(.pose-beg) .pvx-begR{transform:translateX(11px) rotate(-169deg)}
+/* 前のめり pose-lean（パズルの のこり 3手）：頭を 下げて 少し 前へ、目は 下（盤）を 見る */
+.pose-lean .pv-head,.pose-lean .pv-neck{transform:translateY(11px) scale(1.06)}
+.pose-lean .pv-body{transform:translateY(3px) scale(1.03,.95)}
+.pose-lean .pv-eye{transform:translateY(3px)}
+/* 見あげる look-up（ピンチの ポップアップ：ふせて 見あげる）：目を 上へ */
+.look-up .pv-eye{transform:translateY(-3px)}
+/* あそぼ（プレイバウ）pose-bow（よこむき）：前足を のばして むねを 下げ、おしりを 上げて しっぽ ぶんぶん（のび の まんなかの 形で とまる） */
+.pet-side .ps-all{transform-origin:76px 216px}
+.pose-bow .ps-all{transform:rotate(13deg)}
+.pose-bow .ps-fn,.pose-bow .ps-ff{transform:rotate(-70deg) translateY(-2px)}
+.pose-bow .ps-bn,.pose-bow .ps-bf{transform:rotate(-13deg)}
+.pose-bow .ps-head{transform:rotate(-18deg) translate(4px,-2px)}
+.pose-bow .ps-tail{transform:rotate(-24deg)}
+.pose-bow .ps-tail-g{animation-duration:.36s}
+.pose-bow .ps-eyes-open,.pose-bow .ps-mouth-w{display:none}
+.pose-bow .ps-eyes-happy,.pose-bow .ps-mouth-o{display:inline}
+/* ボールに とびつく g-pounce（よこむき。0.42秒）：前足で ボールを おさえる */
+@keyframes psPounceAll{0%,100%{transform:none}45%,70%{transform:rotate(11deg) translateY(-3px)}}
+@keyframes psPounceF{0%,100%{transform:none}30%{transform:rotate(-40deg) translateY(-6px)}55%,75%{transform:rotate(-62deg)}}
+.g-pounce .ps-all{animation:psPounceAll .42s ease-out}
+.g-pounce .ps-fn,.g-pounce .ps-ff{animation:psPounceF .42s ease-out}
+.g-pounce .ps-head-g{animation:psBowHead .42s ease-out}
+/* げい「くるっとターン」：正面 → よこ → 反対の よこ → 正面（Pet.spin が くるっを 3回）。からだは 小さく はねる */
+.tr-spin2 #petArt{animation:trSpinHop 1s ease-in-out}
+@keyframes trSpinHop{0%,100%{transform:translateZ(0)}25%,75%{transform:translateY(-3.3%)}50%{transform:translateY(-5%)}}
+.tr-spin2 .pet-floor{animation:flSpin 1s ease-in-out}
+/* げい「のびー」（ねこ）：よこむきで ほんとうの のび（前の 正面の 絵を よこに のばす のは やめる） */
+.view-side.tr-stretch #petArt,.view-side.tr-stretch .pet-floor{animation:none}
+.view-side.tr-stretch .ps-all{animation:psBowAll 1.6s ease-in-out}
+.view-side.tr-stretch .ps-fn,.view-side.tr-stretch .ps-ff{animation:psBowF 1.6s ease-in-out}
+.view-side.tr-stretch .ps-bn,.view-side.tr-stretch .ps-bf{animation:psBowB 1.6s ease-in-out}
+.view-side.tr-stretch .ps-head-g{animation:psBowHead 1.6s ease-in-out}
+.view-side.tr-stretch .ps-tail{animation:psBowTail 1.6s ease-in-out}
+.view-side.tr-stretch .ps-eyes-open{display:none}
+.view-side.tr-stretch .ps-eyes-closed{display:inline}
+/* 上を 見あげる g-lookup（雪・花びらの 日）：頭を 上げて 目で 追う（そのあと JS が ぴょん） */
+@keyframes gLookUp{0%,100%{transform:none}25%,80%{transform:translateY(-5px) rotate(-4deg)}}
+@keyframes gEyeUp{0%,100%{transform:none}25%,80%{transform:translate(1px,-3.5px)}}
+.g-lookup .pv-head-g,.g-lookup .pv-neck-g{animation:gLookUp 1.3s ease-in-out}
+.g-lookup .pv-eye{animation:gEyeUp 1.3s ease-in-out}
+/* パズルの 上（.pz-pet）：ゆかの かげ（.pet-floor。PuzzleUI.open が .pz-art の となりに。はねるのは .pz-art だけ） */
+.pz-pet .pv-shadow{display:none}
+.pz-pet.hop .pet-floor{animation:flPz .45s ease}
+.pz-pet.joy .pet-floor{animation:flPz .45s ease 3}
+@keyframes flPz{40%{transform:scale(.84);opacity:.65}}
+/* ポップアップ（.mpet）：ゆかの かげ（::before）。はねる・かしげる のは 絵だけ */
+.mpet{position:relative}
+.mpet .pet-svg{position:relative}
+.mpet .pv-shadow{display:none}
+.mpet::before{content:"";position:absolute;left:24.17%;top:90.42%;width:51.67%;height:6.67%;border-radius:50%;background:rgba(58,40,60,.16);pointer-events:none}
+.mpet.m-hop .pet-svg{transform-origin:50% 93.75%;animation:mHop 2.2s ease-out .35s infinite}
+.mpet.m-hop::before{animation:mHopF 2.2s ease-out .35s infinite}
+@keyframes mHop{0%,30%,100%{transform:none}10%{transform:translateY(-12%) scaleY(1.03)}20%{transform:translateY(0) scaleY(.95)}}
+@keyframes mHopF{0%,30%,100%{transform:none}10%{transform:scale(.78);opacity:.6}}
+.mpet.m-tilt .pv-head-g,.mpet.m-tilt .pv-neck-g{animation:tilt 2.2s ease-in-out .9s infinite}
+.mpet.m-tail .pv-tail-g{animation:gTailUp 1.4s ease .3s,wag .38s ease-in-out 1.7s infinite}
+.mpet.pose-down::before{transform:scale(1.1,1.05)}
+/* きせかえの タイル：えらんだ 子が ぴょん（タイルの 絵は アニメを とめているので、かげの 外の .pv-all だけ はねる） */
+.tiles .tile.hop .pet-svg .pv-all{animation:tileHop .5s ease-out!important}
+@keyframes tileHop{40%{transform:translateY(-22px) scaleY(1.03)}70%{transform:translateY(0) scaleY(.95)}}
+
 .bubble{position:absolute;left:50%;bottom:calc(92% - var(--by,0px));z-index:2;transform:translateX(calc(-50% + var(--bx,0px))) scale(.6);transform-origin:50% 100%;opacity:0;pointer-events:none;background:#FFFFFF;color:#3A3147;font-weight:700;font-size:14px;line-height:1.4;padding:7px 13px;border-radius:16px;white-space:nowrap;box-shadow:0 3px 0 rgba(58,49,71,.12);transition:opacity .2s,transform .25s cubic-bezier(.3,1.6,.5,1)}
 .bubble::after{content:"";position:absolute;left:clamp(14px,calc(50% - var(--bt,var(--bx,0px))),calc(100% - 14px));top:100%;border:7px solid transparent;border-top-color:#FFFFFF;transform:translateX(-50%)}
 .bubble.show{opacity:1;transform:translateX(calc(-50% + var(--bx,0px))) scale(1)}
