@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>うちのこの 体勢と しぐさ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<style>
+/* VOICE: やさしい。うちのこ日和の 中の ことばと 色の まま
+   IDEA: アプリの おへやと タイル。見本を 指で ためして えらぶ 見本帳
+   PICTURE: いちばん上に おへや。うちのこが 自由に すごす（うごく 多さ・ごろんの 案・犬と 猫が すぐ 効く）
+   COLOUR and TYPE: アプリの トークン（ground・mint・berry）、見出しは Mochiy Pop One、本文は Zen Maru Gothic
+   LAYOUT: 1列（スマホ）。おへや → 体勢 6つ → しぐさ 12こ → ごろん 3案 → えらんだ ものを コピー */
+:root{color-scheme:light dark;--bg:#EDF3F0;--card:#FFFFFF;--card2:#F3F7F5;--ink:#3A3147;--soft:#6E657E;--line:#DCE4E1;--mint:#4FAE9A;--onmint:#163029;--berry:#B93B5E;--pill:#E4EFEA;--lift:0 6px 0 rgba(58,49,71,.07)}
+@media (prefers-color-scheme: dark){:root:not([data-theme=light]){--bg:#1B1922;--card:#27242F;--card2:#211E29;--ink:#EFEBF6;--soft:#A9A1B9;--line:#3A3546;--mint:#6CCBB6;--onmint:#1B1922;--berry:#FF8BA6;--pill:#322E3B;--lift:0 6px 0 rgba(0,0,0,.28)}}
+:root[data-theme=dark]{color-scheme:dark;--bg:#1B1922;--card:#27242F;--card2:#211E29;--ink:#EFEBF6;--soft:#A9A1B9;--line:#3A3546;--mint:#6CCBB6;--onmint:#1B1922;--berry:#FF8BA6;--pill:#322E3B;--lift:0 6px 0 rgba(0,0,0,.28)}
+:root[data-theme=light]{color-scheme:light}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:500 16px/1.6 "Zen Maru Gothic","Hiragino Maru Gothic ProN",system-ui,sans-serif;overflow-x:clip;word-break:keep-all;overflow-wrap:anywhere}
+.wrap{max-width:760px;margin:0 auto;padding:20px 16px 48px}
+h1,h2{font-family:"Mochiy Pop One","Zen Maru Gothic",sans-serif;font-weight:400;line-height:1.15;margin:0;text-wrap:balance}
+h1{font-size:30px}
+h2{font-size:22px;margin:36px 0 4px}
+.lead{color:var(--soft);margin:6px 0 16px;font-size:15px}
+.note{color:var(--soft);font-size:14px;margin:4px 0 12px}
+.rec{display:block;width:fit-content;margin-top:6px;background:var(--pill);color:var(--ink);border-radius:12px;padding:3px 10px;font-size:13px;font-weight:700}
+/* おへや */
+.room{position:relative;aspect-ratio:4/3;border-radius:28px;overflow:hidden;background:#F4E9DD;box-shadow:var(--lift);touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.room>svg.bg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.room .pp{position:absolute;width:36%;aspect-ratio:1;transform:translate(-50%,-93%) scale(var(--s,1));transform-origin:50% 93%;cursor:pointer;touch-action:none}
+ul.chg{margin:6px 0 0;padding-left:1.2em;font-size:14px;color:var(--soft)}
+ul.chg li{margin:3px 0}
+ul.chg b{color:var(--ink)}
+.now{display:flex;align-items:center;gap:8px;margin:10px 2px 0;font-weight:700;min-height:28px}
+.now i{font-style:normal;color:var(--soft);font-weight:500;font-size:14px}
+.fx{position:absolute;pointer-events:none;z-index:9;font-family:"Mochiy Pop One",sans-serif;color:#fff;text-shadow:0 2px 0 rgba(40,40,90,.35)}
+.fx.h{width:22px;height:22px;margin:-11px;animation:rise 1.2s ease-out forwards}
+.fx.z{font-size:16px;animation:zz 2.4s ease-out forwards}
+/* えらぶ ボタン */
+.ctl{display:grid;gap:10px;margin-top:12px}
+.seg{display:flex;align-items:flex-start;gap:8px}
+.seg>span{font-weight:700;font-size:14px;flex:none;width:6.2em;padding-top:11px}
+.seg .opts{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+button{font:inherit;color:inherit}
+.opt{min-height:44px;padding:8px 14px;border:0;border-radius:999px;background:var(--card);box-shadow:inset 0 0 0 2px var(--line);font-weight:700;font-size:14px;cursor:pointer}
+.opt[aria-pressed=true]{background:var(--mint);color:var(--onmint);box-shadow:none}
+.opt:focus-visible,.card:focus-visible,.keep:focus-visible,.copy:focus-visible{outline:3px solid var(--berry);outline-offset:2px}
+/* カード */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.grid.g3{grid-template-columns:repeat(auto-fill,minmax(108px,1fr))}
+.card{position:relative;background:var(--card);border-radius:20px;padding:10px 10px 12px;box-shadow:var(--lift);display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;border:0;cursor:pointer;width:100%}
+.card .stage{width:100%;max-width:140px;aspect-ratio:1;position:relative;display:grid;place-items:center}
+.card .pp{position:relative;width:86%;aspect-ratio:1}
+.card b{font-size:16px;line-height:1.3}
+.g3 .card{padding:8px 5px 10px}
+.g3 .card b{font-size:15px}
+.g3 .keep{min-width:0;width:100%;max-width:110px}
+.card small{display:block;color:var(--soft);font-size:13px;line-height:1.45}
+.card .tag{font-size:12px;font-weight:700;color:var(--soft);background:var(--card2);border-radius:999px;padding:1px 8px}
+.card.off .stage{opacity:.38}
+.keep{min-height:36px;min-width:96px;margin-top:4px;border:0;border-radius:999px;padding:4px 12px;font-size:13px;font-weight:700;cursor:pointer;background:var(--mint);color:var(--onmint)}
+.card.off .keep{background:var(--card2);color:var(--soft);box-shadow:inset 0 0 0 2px var(--line)}
+.g41{grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:6px}
+.g41 .card{padding:6px 4px 8px;gap:0}
+.g41 .card b{font-size:12px;font-weight:700}
+.side3 .card[aria-pressed=true]{box-shadow:inset 0 0 0 3px var(--mint),var(--lift)}
+/* まとめ */
+.sum{background:var(--card);border-radius:20px;padding:14px;box-shadow:var(--lift)}
+.sum textarea{width:100%;min-height:12.5em;border:0;background:var(--card2);color:var(--ink);border-radius:14px;padding:10px 12px;font:500 15px/1.6 "Zen Maru Gothic",sans-serif;resize:vertical}
+.copy{min-height:44px;margin-top:8px;padding:8px 18px;border:0;border-radius:999px;background:var(--mint);color:var(--onmint);font-weight:900;cursor:pointer}
+.copied{margin-left:8px;color:var(--soft);font-size:14px}
+ol.dec{padding-left:1.3em;margin:8px 0}
+ol.dec li{margin:6px 0}
+footer{color:var(--soft);font-size:13px;margin-top:28px}
+@keyframes rise{0%{transform:translate(0,0) scale(.4);opacity:0}15%{opacity:1;transform:translate(0,-8px) scale(1.1)}100%{transform:translate(var(--dx,0px),-64px) scale(.9);opacity:0}}
+@keyframes zz{0%{transform:translate(0,0) scale(.6);opacity:0}20%{opacity:1}100%{transform:translate(24px,-54px) scale(1.2);opacity:0}}
+@media (prefers-reduced-motion: reduce){.fx{display:none}}
+</style>
+<style>/*PET_CSS*/</style>
+<style>/*MOTION_CSS*/</style>
+</head><body>
+<div class="wrap">
+  <h1>うちのこの 体勢と しぐさ</h1>
+  <p class="lead">見本 2（アプリは まだ かわっていません）。おへやの うちのこは 自由に すごします。タップで 返事、こすると なでなで。</p>
+  <div class="sum" style="margin:0 0 16px"><b>見本 1 から かえたこと</b>
+    <ul class="chg"><li>あるく・たつ・のび・くんくん は <b>よこむきの 絵</b>を 新しく かいて、4本の 足で 歩く（対角の 足が いっしょに 前へ）</li>
+    <li>ふせる・ねる・おねだり は 正面のまま、その 体勢用の 前あしを かいた（前に のばす・胸の 前で まげる）</li>
+    <li>かく は <b>うしろ足</b>で 耳の うしろを、けづくろい（ねこ）は 前足を 顔の 前に もってきて なめる</li>
+    <li>ごろん は 2案（さかさで おなかを 見せる／のびて ねそべる）。むきを かえる ときは くるっと まわる</li></ul></div>
+
+  <div class="room" id="room">
+    <svg class="bg" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A9D8F2"/><stop offset="1" stop-color="#DDF1FA"/></linearGradient></defs>
+      <rect width="400" height="300" fill="#F4E9DD"/>
+      <g fill="#EBDCCB"><circle cx="40" cy="30" r="3"/><circle cx="120" cy="22" r="3"/><circle cx="200" cy="34" r="3"/><circle cx="280" cy="20" r="3"/><circle cx="360" cy="32" r="3"/><circle cx="80" cy="150" r="3"/><circle cx="240" cy="140" r="3"/><circle cx="330" cy="120" r="3"/></g>
+      <rect x="52" y="34" width="104" height="94" rx="14" fill="#FFFFFF"/><rect x="60" y="42" width="88" height="78" rx="9" fill="url(#sky)"/>
+      <rect x="102" y="42" width="4" height="78" fill="#FFFFFF"/><rect x="60" y="79" width="88" height="4" fill="#FFFFFF"/>
+      <circle cx="128" cy="62" r="9" fill="#FFF3C4"/>
+      <rect x="0" y="182" width="400" height="118" fill="#E6CBA5"/><rect x="0" y="178" width="400" height="6" fill="#D9BC94"/>
+      <g stroke="#D7B88E" stroke-width="2"><path d="M0 216H400M0 252H400"/><path d="M90 184V216M250 184V216M170 216V252M330 216V252M60 252V300M220 252V300"/></g>
+      <ellipse cx="200" cy="246" rx="122" ry="36" fill="#8FAEDF"/><ellipse cx="200" cy="246" rx="96" ry="26" fill="none" stroke="#B9CDEE" stroke-width="5"/>
+      <ellipse cx="322" cy="262" rx="64" ry="21" fill="#E89AAE"/><ellipse cx="322" cy="258" rx="50" ry="14" fill="#F4C3D0"/>
+      <path d="M62 262h52l-6 16a7 7 0 0 1-7 5H75a7 7 0 0 1-7-5z" fill="#4FAE9A"/><rect x="58" y="258" width="60" height="6" rx="3" fill="#3E9A86"/>
+      <g transform="translate(350 120)"><path d="M-10 58h20l-3 22h-14z" fill="#D88C6C"/><path d="M0 58C-4 40-16 30-22 18 -8 24-2 36 0 50 2 34 8 22 22 14 16 30 6 42 0 58Z" fill="#6FB07E"/></g>
+    </svg>
+    <div class="pp" id="pet" role="button" tabindex="0" aria-label="うちのこ（タップで 返事・こすると なでなで）"><div class="art"></div></div>
+  </div>
+  <p class="now" id="now" aria-live="polite">すわっている</p>
+
+  <div class="ctl">
+    <div class="seg"><span>うちのこ</span><div class="opts" data-g="kid"><button class="opt" type="button" data-v="dog">だいず</button><button class="opt" type="button" data-v="cat">ねこ（茶トラ）</button></div></div>
+    <div class="seg"><span>うごく 多さ</span><div class="opts" data-g="speed"><button class="opt" type="button" data-v="calm">おちつき</button><button class="opt" type="button" data-v="normal">ふつう</button><button class="opt" type="button" data-v="lively">げんき</button></div></div>
+    <div class="seg"><span>ごろん</span><div class="opts" data-g="side"><button class="opt" type="button" data-v="a">A おなか</button><button class="opt" type="button" data-v="b">B ねそべる</button></div></div>
+  </div>
+  <p class="note" id="speedNote"></p>
+
+  <h2>体勢 7つ</h2>
+  <p class="note">すわる から かわる ところを くりかえします（タップで もういちど）。<span class="rec">おすすめ：ぜんぶ いれる</span></p>
+  <div class="grid" id="poses"></div>
+
+  <h2>しぐさ 12こ</h2>
+  <p class="note">数秒ごとに くりかえします（タップで もういちど）。いぬだけ・ねこだけ の しぐさも、見本では どちらでも 見られます。<span class="rec">おすすめ：ぜんぶ いれる（いぬ・ねこの わけかたは 表どおり）</span></p>
+  <div class="grid g3" id="gests"></div>
+
+  <h2>ごろんの 見え方</h2>
+  <p class="note">えらぶと 上の おへやにも 出ます（ねこを なでなで 8回、ラグの まんなか でも）。<span class="rec">おすすめ：B（からだの 形が いちばん 自然）</span></p>
+  <div class="grid side3" id="sides"></div>
+
+  <h2>よこむきの 絵（41しゅるい）</h2>
+  <p class="note">あるく 絵は 種類ごとに 耳・しっぽ・毛・もようを 引きつぎます。タップで とまる／あるく。きせかえは あたまの ものを 小さく のせ、かお・くびは よこむき用に かきなおしています（くわしい 形は 実装の ときに ととのえます）。</p>
+  <div class="grid g41" id="breeds"></div>
+
+  <h2>えらんだ もの</h2>
+  <div class="sum">
+    <p class="note" style="margin-top:0">カードの「いれる」と 上の ボタンで えらぶと、ここに まとまります。コピーして チャットに はってね。</p>
+    <ol class="dec">
+      <li>入れる 体勢・しぐさ（カードの「いれる／いらない」）</li>
+      <li>ごろんの 見え方（A・B・C）</li>
+      <li>うごく 多さ（おちつき・ふつう・げんき）</li>
+      <li>うしろ向き（だんかい 4・新しい 絵）：
+        <span class="opts" data-g="back" style="display:inline-flex;gap:6px;flex-wrap:wrap;vertical-align:middle"><button class="opt" type="button" data-v="later">あとで</button><button class="opt" type="button" data-v="yes">やる</button><button class="opt" type="button" data-v="no">やらない</button></span>
+        <br><span class="rec">おすすめ：あとで（1〜3 を だいずで しばらく 見てから）</span></li>
+    </ol>
+    <textarea id="sumText" readonly aria-label="えらんだ もの"></textarea>
+    <button class="copy" type="button" id="copy">コピー</button><span class="copied" id="copied" aria-live="polite"></span>
+  </div>
+  <footer>見本の 子：だいず（クリームの ポメラニアン。色は 見本用）と 茶トラ。正面の 絵は アプリと 同じ コード（だんかい 0 の 形）。よこむきの 絵と、体勢用の 足・舌は 見本で 新しく かいた もので、実装の ときに アプリの 絵の しくみに 入れます。</footer>
+</div>
+<script>/*PET_JS*/</script>
+<script>/*SIDE_JS*/</script>
+<script>/*EXTRA_JS*/</script>
+<script>/*SPLIT_JS*/</script>
+<script>
+/*MAIN_JS*/
+</script>
+</body></html>
