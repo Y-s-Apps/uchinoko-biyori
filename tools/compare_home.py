@@ -8,6 +8,9 @@
 同じ順に おせわをして（記念日・季節のイベント・おみやげ・おたすけのピンチが出る日、ごはん・おやつ・あそぶ・げい・なでる・
 もようがえ・きせかえ、つぎの日に開き直す）、最後のセーブ（S）をくらべる。
 時刻（last・updated・アルバムの t・おやつの時刻）は、動きのタイミングでずれてよいので、くらべない。
+ひまな ときの 行動（idleStep。見た目だけ）は 両方とも とめる：Math.random を ルールと 同じ 列から つかうので、
+見た目の 行動を かえると（2026-11-26 だんかい 1 の しぐさ など）ルールの 偶然が ずれる おそれが ある ため
+（だんかい 1 は とめなくても「おなじ」だったが、だんかい 2 で 行動が ふえても くらべられる ように）。
 """
 import asyncio, calendar, datetime, functools, http.server, json, os, socketserver, subprocess, sys, tempfile, threading, time
 
@@ -18,6 +21,10 @@ T0 = calendar.timegm(time.strptime('2026-12-05 04:00:00', '%Y-%m-%d %H:%M:%S')) 
 
 SEEDED = '''(() => { let a = 20261106; Math.random = () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a);
   t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; })();'''
+
+
+# ひまな ときの 行動を とめる（時計は とまっているので、ひらいた すぐ あとなら まだ 1回も 動いていない）
+NO_IDLE = "() => { clearTimeout(idleT); window.idleTick = () => {}; }"
 
 
 def day_key(ms):
@@ -98,6 +105,7 @@ async def run(browser, root, label):
     await page.route('https://fonts.gstatic.com/**', lambda r: r.abort())
     step('open')
     await page.goto(f'http://127.0.0.1:{port}/', wait_until='domcontentloaded')
+    await page.evaluate(NO_IDLE)
     await tick(2000)
     await popups()                                   # 記念日・クリスマス（つけてみる）・おみやげ・おたすけのピンチ
     step('feed'); await act('#actFeed')
@@ -131,7 +139,7 @@ async def run(browser, root, label):
     await page.goto('about:blank')
     await page.clock.pause_at(at(end + DAY + 2 * 3600e3))
     step('next day')
-    await page.goto(f'http://127.0.0.1:{port}/', wait_until='domcontentloaded'); await tick(2000); await popups()
+    await page.goto(f'http://127.0.0.1:{port}/', wait_until='domcontentloaded'); await page.evaluate(NO_IDLE); await tick(2000); await popups()
     await act('#actFeed')
     st = await page.evaluate('() => JSON.parse(JSON.stringify(S))')
     await ctx.close(); httpd.shutdown()

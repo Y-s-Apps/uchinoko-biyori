@@ -5,10 +5,11 @@
 1まいの ページを 2つ 作り、同じ 場面を 同じ 時刻で とめて スクリーンショットを とり、1px でも ちがえば しらせる。
 
   場面：41種 ×（きせかえ なし・あたま／かお／くびの 組みあわせ）、きせかえ 48こ を 1つずつ（だいず〈クリームの ポメラニアン〉と 猫）、
-        表情（ex-*）・ねる（pose-sleep）・げい（tr-*）・くびかしげ（tilt）・しっぽ（wag-fast）を、アニメの とちゅうの いくつかの 時刻で。
-        CSS なしの 絵（うちのこカード CardArt と 同じ 形）も。
+        表情（ex-*）・ねる（pose-sleep）・げい（tr-*）・くびかしげ（tilt）・しっぽ（wag-fast）・しぐさ（g-*。2026-11-26 だんかい 1）を、
+        アニメの とちゅうの いくつかの 時刻で。CSS なしの 絵（うちのこカード CardArt と 同じ 形）も。
+        くらべる 版の head.html に ない クラスの 場面（あたらしい しぐさ・体勢）は くらべず「あたらしい」と 出す（一覧の PNG で 目で 見る）。
   ほかに 数える もの（いまの 版だけ）：絵が わく（viewBox 240）から どれだけ はみ出すか（--max-out）、
-        体勢の 場面で 首（pv-neck）が 頭（pv-head）と どれだけ ずれるか（--max-neck。きせかえの 首が ずれない ように）。
+        体勢と 頭を うごかす しぐさの 場面で 首（pv-neck-g）が 頭（pv-head-g）と どれだけ ずれるか（--max-neck。きせかえの 首が ずれない ように）。
 
   python3 tools/poses.py                    # HEAD と くらべる。一覧の PNG は smoke-out/poses/
   python3 tools/poses.py --ref b5e13c4      # くらべる 版
@@ -26,7 +27,8 @@ JS_FILES = ['js_data.js', 'js_data2.js', 'js_data3.js', 'js_pet.js', 'js_wear.js
 CHROMIUM_ARGS = ['--disable-gpu', '--disable-gpu-compositing', '--disable-partial-raster', '--num-raster-threads=1',
                  '--disable-threaded-animation', '--disable-lcd-text', '--disable-skia-runtime-opts']
 
-# 場面：(名前, 入れものの クラス, とめる 時刻〈ミリ秒〉のリスト, 体勢か〈首と 頭の ずれを 数える〉)
+# 場面：(名前, 入れものの クラス, とめる 時刻〈ミリ秒〉のリスト, 首と 頭の ずれを 数えるか〈体勢と 頭を うごかす しぐさ〉)
+# くらべる 版の head.html に その クラスが ない 場面（あたらしい しぐさ など）は くらべない（一覧と はみだし・首の ずれ だけ）
 STATES = [
     ('sit',       '',                     [0, 450, 900, 1700, 5160], True),
     ('happy',     'ex-happy',             [0],                       False),
@@ -42,6 +44,19 @@ STATES = [
     ('punch',     'tr-punch',             [175, 350],                False),
     ('bow',       'tr-bow',               [420, 700],                False),
     ('dance',     'tr-dance',             [180, 450, 1300],          False),
+    # しぐさ（だんかい 1。2026-11-26）。g-shake の からだの ゆれは #petArt（わくの 外がわ）なので ここには 出ない
+    ('g-ear',     'g-ear',                [100, 250, 420],           False),
+    ('g-look',    'g-look',               [450, 1250],               True),
+    ('g-yawn',    'g-yawn',               [600, 1000],               True),
+    ('g-shake',   'g-shake',              [150, 250],                False),
+    ('g-scratch', 'g-scratch',            [300, 800, 1400],          True),
+    ('g-groom',   'g-groom',              [500, 1100, 1400, 1800],   True),
+    ('g-sway',    'g-sway',               [600, 1200],               False),
+    ('g-tailup',  'g-tailup',             [500],                     False),
+    ('g-pant',    'g-pant',               [0, 130],                  True),
+    ('g-lick',    'g-lick',               [250, 480, 620],           False),
+    ('g-yawn-sad', 'g-yawn ex-sad',       [800],                     True),
+    ('g-ear-sleep', 'g-ear pose-sleep ex-sleep', [250],              True),
 ]
 CARD_CSS = '.pv-eyes-open,.pv-eyes-closed,.pv-brow-sad,.pv-mouth-w{display:none}.pv-cheek{opacity:.8}'   # js_line.js の CardArt と 同じ
 
@@ -98,7 +113,8 @@ HARNESS_JS = r'''
           const o = Math.max(wr.left - r.left, r.right - wr.right, wr.top - r.top, r.bottom - wr.bottom, 0) * k;
           if (o > out.v) out = { v:o, at:cases[i].label };
         }
-        const h = w.querySelector('.pv-head'), n = w.querySelector('.pv-neck');
+        /* 内がわ（*-g）の CTM は 外がわ（体勢）も ふくむ：体勢と しぐさの 両方で 首が 頭に ついてくるか */
+        const h = w.querySelector('.pv-head-g') || w.querySelector('.pv-head'), n = w.querySelector('.pv-neck-g') || w.querySelector('.pv-neck');
         if (h && n && h.getScreenCTM && n.getScreenCTM()){
           const hm = h.getScreenCTM(), nm = n.getScreenCTM();
           for (const [x, y] of [[120, 146], [120, 100], [80, 150], [160, 150]]){
@@ -189,20 +205,25 @@ async def main(a):
         if old is not None and n != await old.evaluate('psx.n'):
             problems.append('場面の 数が ちがう（ためしの 作り方の まちがい）')
         print(f'場面：{n} こ × {sum(len(s[2]) for s in states)} とおり（{a.ref if old else "くらべない"}）')
-        same = total = 0
+        ref_css = '' if a.no_ref else read_src('head.html', a.ref)
+        same = total = fresh_n = 0
         for name, cls, times, pose in states:
+            # くらべる 版に ない クラス（あたらしい しぐさ・体勢）の 場面は くらべない
+            fresh = old is not None and any(not re.search(r'\.' + re.escape(c) + r'(?![\w-])', ref_css) for c in cls.split())
             for i, t in enumerate(times):
                 img = await shoot(new, cls, t)
-                if i == 0:
-                    with open(os.path.join(out, f'poses-{name}.png'), 'wb') as f:
-                        f.write(img)
+                with open(os.path.join(out, f'poses-{name}.png' if i == 0 else f'poses-{name}-{t}.png'), 'wb') as f:
+                    f.write(img)
                 m = await new.evaluate('psx.measure()')
                 if m['out']['v'] > a.max_out:
                     problems.append(f'{name}@{t}ms：わくから {m["out"]["v"]:.1f} はみだす（{m["out"]["at"]}）')
                 if pose and m['neck']['v'] > a.max_neck:
                     problems.append(f'{name}@{t}ms：首と 頭が {m["neck"]["v"]:.1f} ずれる（{m["neck"]["at"]}）')
                 note = f'はみだし {m["out"]["v"]:.1f}' + (f'・首 {m["neck"]["v"]:.1f}' if pose else '')
-                if old is not None:
+                if fresh:
+                    fresh_n += 1
+                    print(f'  {name:10s} {t:5d}ms  あたらしい  {note}')
+                elif old is not None:
                     total += 1
                     n_px, d = diff(await shoot(old, cls, t), img)
                     if n_px == 0:
@@ -230,7 +251,7 @@ async def main(a):
                 await pn.close(); await po.close()
         await browser.close()
     if old is not None:
-        print(f'くらべた：{total} とおり、おなじ {same}')
+        print(f'くらべた：{total} とおり、おなじ {same}' + (f'（あたらしい 場面 {fresh_n} とおりは くらべない）' if fresh_n else ''))
     for e in errors:
         print('ERROR', e, file=sys.stderr)
     for q in problems:

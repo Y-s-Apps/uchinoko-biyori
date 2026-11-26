@@ -9,7 +9,7 @@
 （Edge Function は deno.json の URL から game.js を読みこむので、デプロイで game.js を送らなくてよい）。
 
 画面と同じ ensureState()・carryExtras()・引っこしコードの読みとりと、おせわのルール（js_rules.js の Rules）を、
-サーバーでもそのまま使うため。データのファイル（js_data*.js と js_pet.js）と js_rules.js は丸ごと、
+サーバーでもそのまま使うため。データのファイル（js_data*.js と js_pet.js）と js_rules.js は丸ごと（js_pet.js は 絵の 関数 renderPet より 前まで。2026-11-26）、
 js_app.js と js_features.js からは下の名前の関数・定数だけを取り出す（DOM にさわるところは入れない）。
 js_onboard.js からは、AIの読みとりの頼み方（buildPrompt）と返事の確かめ（parseAI）を取り出す（Claude版と同じもの）。
 ルールの時計（Clock）は、サーバーでは日付を日本時間（Asia/Tokyo、UTC+9・夏時間なし）にし、偶然は crypto で決める。
@@ -24,6 +24,8 @@ SRC = os.path.join(ROOT, 'src')
 OUT = os.path.join(ROOT, 'supabase', 'functions', 'api', 'game.js')
 
 WHOLE = ['js_data.js', 'js_data2.js', 'js_data3.js', 'js_pet.js', 'js_rules.js']
+# js_pet.js は この 行の 前まで（下は 絵の 関数 renderPet など。サーバーは 絵を かかないので 入れない＝絵を かえても デプロイが いらない。2026-11-26 オーナー決定）
+CUT = {'js_pet.js': '/* ===== ここから 下は 絵（renderPet と その 道具）。'}
 PICK = {
     'js_app.js': ['PHOTO_RE', 'safePhoto', 'MOVE_PREFIX', 'MOVE_MAX', 'readMoveCode', 'decodeMovePayload'],
     'js_features.js': ['cleanText', 'ensureState', 'carryExtras'],
@@ -58,7 +60,15 @@ def build():
              '/* eslint-disable */']
     for f in WHOLE:
         with open(os.path.join(SRC, f), encoding='utf-8') as fh:
-            parts.append(f'/* ---- src/{f} ---- */\n' + fh.read().strip())
+            text = fh.read()
+        if f in CUT:
+            at = text.find(CUT[f])
+            if at < 0:
+                sys.exit(f'build_server: {f} に 切る 行（{CUT[f]}）が 見つかりません')
+            text = text[:at]
+            parts.append(f'/* ---- src/{f}（絵の 関数より 前まで） ---- */\n' + text.strip())
+            continue
+        parts.append(f'/* ---- src/{f} ---- */\n' + text.strip())
     for f, names in PICK.items():
         with open(os.path.join(SRC, f), encoding='utf-8') as fh:
             text = fh.read()

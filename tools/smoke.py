@@ -252,6 +252,7 @@ async def main(args):
             print('よるの ひとこと：', first['say'], '→', second)
             if not (first['say'] == 'もうすぐ きょうが おわるよ' and first['show'] and first['badge'] and first['day'] and first['inside'] and second == f"おねがい、あと{first['n']}つ！" and again == second):
                 errors.append(f'よるの ひとこと が ちがいます：{first} {second!r} {again!r}')
+        await gesture_checks(page, snap, errors)
         if args.line:
             info = await page.evaluate('''() => ({
                 sw: !!(navigator.serviceWorker && navigator.serviceWorker.controller),
@@ -372,12 +373,20 @@ async def main(args):
         await finger('touchStart', px, py)
         for i in range(1, 9):
             await finger('touchMove', px, py + i * 12); await page.wait_for_timeout(16)
+        # なでている あいだ 目と 頭が 指の ほうへ（Pet.lean。2026-11-26 だんかい 1）
+        leaned = await page.evaluate("() => [Pet.el.querySelector('.pv-eye').style.transform, Pet.el.querySelector('.pv-head-g').style.transform]")
         await finger('touchEnd', 0, 0); await page.wait_for_timeout(200)
         await finger('touchStart', px, py); await finger('touchEnd', 0, 0); await page.wait_for_timeout(300)
         pt = await page.evaluate('Object.assign(__pt, { y1: scrollY })')
-        print('なでる（指）：', pt)
+        print('なでる（指）：', pt, '目と 頭：', leaned)
         if not (pt['stroke'] >= 1 and pt['tap'] == 1 and pt['ev'] >= 10 and pt['still'] == pt['ev'] and pt['y1'] == pt['y0']):
             errors.append(f'なでる（指）が ちがいます：{pt}')
+        if not (leaned[0].startswith('translateX(') and leaned[1].startswith('translate(')):
+            errors.append(f'なでている あいだ 目と 頭が 指の ほうへ むきません：{leaned}')
+        await page.wait_for_timeout(700)
+        back = await page.evaluate("() => [...Pet.el.querySelectorAll('.pv-eye,.pv-head-g,.pv-neck-g')].map(n => n.style.transform).join('')")
+        if back:
+            errors.append(f'なでおわっても 目と 頭が もどりません：{back}')
         if not args.line and not args.fresh:
             # 組織の ほかのアプリの キャッシュに 同じ URL（index.html）が あっても、オフラインで ひらくのは うちのこ日和（診断 2-4）
             # ページは https のときだけ Service Worker を入れるので、ここ（http://127.0.0.1）では 手で入れる
@@ -431,6 +440,33 @@ RUN_SPY_JS = r'''() => { window.__rt = { ev: 0, still: 0, y0: scrollY, inputs: [
 RUN_TAP_JS = r'''() => { const c = document.querySelector('#runPage .run-canvas'), o = { pointerId: 77, isPrimary: true, pointerType: 'touch', clientX: 195, clientY: 520, bubbles: true };
   c.dispatchEvent(new PointerEvent('pointerdown', o)); c.dispatchEvent(new PointerEvent('pointerup', o)); }'''
 NO_WEBGL_JS = "{ const g = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function(t, ...a){ return /webgl/i.test(t) ? null : g.call(this, t, ...a); }; }"
+
+
+async def gesture_checks(page, snap, errors):
+    """しぐさ（docs/MOTION_DESIGN.md 4-4。2026-11-26 だんかい 1）：その子の しゅるいで できる しぐさを 1回ずつ。
+    ねている・パズルや ランの ページの あいだは しない（耳ぴく・しっぽ ゆらり だけは ねていても よい）。おわったら クラスが のこらない"""
+    info = await page.evaluate('''() => { clearTimeout(idleT); Pet.wake(); Pet.stopGesture();
+        const cat = S.pet.species === 'cat', ids = Object.keys(GESTURE);
+        const want = ids.filter(id => GESTURE[id].sp === 'both' || GESTURE[id].sp === (cat ? 'cat' : 'dog'));
+        const html = document.documentElement;
+        html.classList.add('run-open'); const run = Pet.canGesture('ear'); html.classList.remove('run-open');
+        Pet.sleep(); const sleepLook = Pet.canGesture('look'), sleepEar = Pet.canGesture('ear'); Pet.wake();
+        return { ids, want, run, sleepLook, sleepEar }; }''')
+    done, bad = [], []
+    for gid in info['want']:
+        ms = await page.evaluate('id => GESTURE[id].ms', gid)
+        started = await page.evaluate('id => { window.__g = Pet.gesture(id); return Pet.gest === id && Pet.el.classList.contains("g-" + id); }', gid)
+        if not started:
+            bad.append(gid); continue
+        await page.wait_for_timeout(min(700, ms // 2))
+        if gid in ('scratch', 'groom', 'pant'):
+            await snap('gesture_' + gid)
+        ok = await page.evaluate('async () => await window.__g')
+        left = await page.evaluate('() => [...Pet.el.classList].filter(c => c.startsWith("g-")).join(" ") + (Pet.gest || "")')
+        (done if ok and not left else bad).append(gid)
+    print('しぐさ：', '・'.join(done), '／ できない：', '・'.join(bad) or 'なし', f'（ラン {info["run"]}・ねていて きょろきょろ {info["sleepLook"]}・耳ぴく {info["sleepEar"]}）')
+    if bad or info['run'] or info['sleepLook'] or not info['sleepEar']:
+        errors.append(f'しぐさが ちがいます：できない {bad}・{info}')
 
 
 async def run_checks(page, ctx, snap, errors, args, port):

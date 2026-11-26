@@ -229,10 +229,23 @@ const POSE = {
   sit:   { head:.38, mouth:.52, bubble:0 },
   sleep: { head:.38, mouth:.52, bubble:0 },
 };
-/* しぐさ（4-4）：{ ms, poses:[できる 体勢], sp:'dog'|'cat'|'both', calm:true＝ねていても よい }。クラス g-<id> を ms だけ つける。だんかい 1 で 足す */
-const GESTURE = {};
+/* しぐさ（4-4・10章。2026-11-26 だんかい 1）：{ ms, poses:[できる 体勢], sp:'dog'|'cat'|'both', calm:true＝ねていても よい }。
+   クラス g-<id> を ms だけ つける（CSS は head.html）。poses には だんかい 2 の 体勢も 書いておく（いまは すわる・ねる だけ）。
+   のび（stretch）・くんくん（sniff）は よこむきの 絵で 作るので だんかい 2 で 足す */
+const GESTURE = {
+  ear:     { ms:750,  poses:['sit','stand','down','sleep','beg','side'], sp:'both', calm:true },   /* 耳ぴく */
+  look:    { ms:1800, poses:['sit','down'], sp:'both' },                                       /* きょろきょろ */
+  yawn:    { ms:1600, poses:['sit','down'], sp:'both' },                                       /* あくび */
+  shake:   { ms:800,  poses:['sit'], sp:'dog' },                                               /* ぶるぶる */
+  scratch: { ms:1700, poses:['sit'], sp:'both' },                                              /* かく（うしろ足で 耳の うしろ） */
+  groom:   { ms:2400, poses:['sit'], sp:'cat' },                                               /* けづくろい */
+  sway:    { ms:2400, poses:['sit','stand','down','sleep','beg','side'], sp:'cat', calm:true }, /* しっぽ ゆらり */
+  tailup:  { ms:1400, poses:['sit','stand'], sp:'both' },                                      /* しっぽ ぴん */
+  pant:    { ms:1600, poses:['sit','stand'], sp:'dog' },                                       /* はぁはぁ（あそんだ あと） */
+  lick:    { ms:1000, poses:['sit'], sp:'both' },                                              /* ぺろり（たべた あと） */
+};
 const Pet = {
-  el: $('#pet'), x:50, y:80, busy:false, sleeping:false, expr:null, tok:0, sayT:null, wakeUntil:0, pose:'sit', gest:null,
+  el: $('#pet'), x:50, y:80, busy:false, sleeping:false, expr:null, tok:0, sayT:null, wakeUntil:0, pose:'sit', gest:null, gtok:0, ateAt:0, playedAt:0,
   scaleAt(y){ return .84 + clamp((y - 66) / 24, 0, 1) * .22; },
   apply(){
     this.el.style.left = this.x + '%';
@@ -262,19 +275,48 @@ const Pet = {
     const by = POSE[p].bubble;
     if (by) this.el.style.setProperty('--by', by + 'px'); else this.el.style.removeProperty('--by');
   },
-  /* しぐさ（GESTURE の id）を 1つ。おせわ・げいの とちゅう・ほかの しぐさの とちゅう・合わない 体勢や 種類・うごきを へらす 設定 の ときは 何も しない。
-     おわったら true（しなかったら false）の Promise */
-  gesture(id){
+  /* しぐさ（GESTURE の id）が いま できるか。おせわ・げいの とちゅう・ほかの しぐさの とちゅう・合わない 体勢や 種類・ねている（calm で ない もの）・
+     パズルや ランの ページを ひらいている（うしろでは 見えない）・うごきを へらす 設定 の ときは できない */
+  canGesture(id){
     const g = hasId(GESTURE, id) ? GESTURE[id] : null;
-    if (!g || !S || this.busy || this.gest) return Promise.resolve(false);
-    if (g.sp && g.sp !== 'both' && g.sp !== (S.pet.species === 'cat' ? 'cat' : 'dog')) return Promise.resolve(false);
-    if (this.sleeping && !g.calm) return Promise.resolve(false);
-    if (g.poses && g.poses.indexOf(this.pose) < 0) return Promise.resolve(false);
-    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return Promise.resolve(false);
-    const cls = 'g-' + id;
+    if (!g || !S || this.busy || this.gest) return false;
+    if (g.sp && g.sp !== 'both' && g.sp !== (S.pet.species === 'cat' ? 'cat' : 'dog')) return false;
+    if (this.sleeping && !g.calm) return false;
+    if (g.poses && g.poses.indexOf(this.pose) < 0) return false;
+    if (PuzzleUI.page || document.documentElement.classList.contains('run-open')) return false;
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+    return true;
+  },
+  /* しぐさを 1つ。おわったら true（しなかった・とちゅうで とめたら false）の Promise */
+  gesture(id){
+    if (!this.canGesture(id)) return Promise.resolve(false);
+    const cls = 'g-' + id, tok = ++this.gtok;
     this.gest = id;
+    void this.el.offsetWidth;   /* とめた すぐ あとに 同じ しぐさでも はじめから */
     this.el.classList.add(cls);
-    return sleep(g.ms).then(() => { this.el.classList.remove(cls); if (this.gest === id) this.gest = null; return true; });
+    return sleep(GESTURE[id].ms).then(() => {
+      if (tok !== this.gtok) return false;
+      this.el.classList.remove(cls); this.gest = null;
+      return true;
+    });
+  },
+  /* いまの しぐさを すぐ やめる（おせわ・げい・タップの 前） */
+  stopGesture(){
+    if (!this.gest) return;
+    this.el.classList.remove('g-' + this.gest);
+    this.gest = null; this.gtok++;
+  },
+  /* なでている あいだ、目（±4px）と 頭（±5px・±4°）を 指の ほうへ（x は 画面の x。null で もどす）。すわっていて、ねていない・おせわの とちゅうで ない とき */
+  lean(x){
+    let head = '', eye = '';
+    if (x != null && !this.sleeping && !this.busy && this.pose === 'sit'){
+      const r = this.el.getBoundingClientRect();
+      const k = r.width ? clamp((x - (r.left + r.width / 2)) / (r.width * .5), -1, 1) : 0;
+      head = `translate(${(k * 5).toFixed(1)}px,0) rotate(${(k * 4).toFixed(1)}deg)`;
+      eye = `translateX(${(k * 4).toFixed(1)}px)`;
+    }
+    this.el.querySelectorAll('.pv-head-g,.pv-neck-g').forEach(n => { n.style.transform = head; });
+    this.el.querySelectorAll('.pv-eye').forEach(n => { n.style.transform = eye; });
   },
   baseExpr(){
     if (this.sleeping) return 'sleep';
@@ -334,16 +376,49 @@ const Pet = {
 };
 
 /* ----- idle life ----- */
-let idleT = null, lastChat = 0, dragging = false;
+let idleT = null, lastChat = 0, dragging = false, idleLast = [];
 function idleTick(delay){
   clearTimeout(idleT);
   idleT = setTimeout(idleStep, delay != null ? delay : 3200 + Math.random() * 5200);
+}
+/* ひまな ときの 行動（docs/MOTION_DESIGN.md 4-6。2026-11-26 だんかい 1）：重みの 表。w(c) が 0 なら えらばない、さっきの 2つも えらばない。
+   g は しぐさ（Pet.canGesture で できる ときだけ）。c：tod（morning・day・evening・night）・full・mood・ate／played（たべた・あそんだ あと 1分）・chat（ひとことを いえる）。
+   見た目だけ（Math.random で よい。ルール・セーブに さわらない）。うごく 多さは「おちつき」（2026-11-26 オーナー）：あるく・しぐさ は それぞれ 3回に 1回 くらい。
+   体勢（たつ・ふせる・ごろん・おねだり）と 行き先（まど・ラグ）は だんかい 2 で 足す */
+const IDLE = [
+  { id:'walk',  w:() => 30, run:() => Pet.moveTo(22 + Math.random() * 56, 70 + Math.random() * 18, .7 + Math.random() * .4) },
+  { id:'tilt',  w:() => 8, run:() => Pet.tilt() },
+  { id:'hop',   w:c => c.mood > 60 ? 6 : 0, run:() => { Pet.jump(); Pet.flash('happy', 1000); Pet.wag(1200); } },
+  { id:'chat',  w:c => c.chat ? 14 : 0, run:() => { lastChat = now(); Pet.say(ambientLine()); } },
+  /* おなかが すいたら ごはん皿の 前へ 行って まわりを 見る */
+  { id:'bowl',  w:c => c.full < 25 && Math.hypot(Pet.x - BOWL.x - 12, Pet.y - BOWL.y + 4) > 6 ? 14 : 0,
+    run:async () => { await Pet.moveTo(BOWL.x + 12, BOWL.y - 4, .8); if (!Pet.busy) await Pet.gesture('look'); } },
+  { g:'ear',     w:() => 8 },
+  { g:'look',    w:() => 7 },
+  { g:'yawn',    w:c => c.tod === 'morning' || c.tod === 'night' ? 10 : 3 },
+  { g:'scratch', w:() => 5 },
+  { g:'shake',   w:() => 4 },
+  { g:'groom',   w:() => 9 },
+  { g:'sway',    w:() => 7 },
+  { g:'tailup',  w:c => c.mood > 50 ? 4 : 2 },
+  { g:'pant',    w:c => c.played ? 30 : 0 },
+  { g:'lick',    w:c => c.ate ? 30 : 0 },
+];
+function idlePick(){
+  const t = now();
+  const c = { tod:stage.dataset.tod, full:S.stats.full, mood:S.stats.mood, chat:t - lastChat > 30000, ate:t - Pet.ateAt < 60000, played:t - Pet.playedAt < 60000 };
+  const list = IDLE.filter(a => idleLast.indexOf(a.g || a.id) < 0 && (!a.g || Pet.canGesture(a.g)));
+  const ws = list.map(a => Math.max(0, a.w(c) || 0));
+  let r = Math.random() * ws.reduce((x, y) => x + y, 0);
+  for (let i = 0; i < list.length; i++){ if (ws[i] > 0 && (r -= ws[i]) < 0) return list[i]; }
+  return null;
 }
 async function idleStep(){
   if (!S || Pet.busy || dragging || document.hidden) return idleTick();
   const night = stage.dataset.tod === 'night';
   if (Pet.sleeping){
     if (!night && Math.random() < .35){ Pet.wake(); Pet.say(pick(['ふぁ〜あ','よくねた〜'])); }
+    else if (Math.random() < .3) Pet.gesture(S.pet.species === 'cat' && Math.random() < .5 ? 'sway' : 'ear');   /* ねたまま 耳ぴく・しっぽ ゆらり */
     return idleTick();
   }
   if (now() > Pet.wakeUntil && (night ? Math.random() < .55 : Math.random() < .05)){
@@ -351,17 +426,10 @@ async function idleStep(){
     if (!Pet.busy) Pet.sleep();
     return idleTick(night ? 20000 : 14000 + Math.random() * 10000);
   }
-  const r = Math.random();
-  if (r < .5){
-    const tx = 22 + Math.random() * 56, ty = 70 + Math.random() * 18;
-    await Pet.moveTo(tx, ty, .7 + Math.random() * .4);
-  } else if (r < .66){
-    Pet.tilt();
-  } else if (r < .78 && S.stats.mood > 60){
-    Pet.jump(); Pet.flash('happy', 1000); Pet.wag(1200);
-  } else if (now() - lastChat > 30000){
-    lastChat = now();
-    Pet.say(ambientLine());
+  const a = idlePick();
+  if (a){
+    idleLast = [a.g || a.id].concat(idleLast).slice(0, 2);
+    await (a.g ? Pet.gesture(a.g) : a.run());
   }
   idleTick();
 }
@@ -486,6 +554,7 @@ function begin(){
   if (!S || Pet.busy) return false;
   decay();
   Pet.busy = true; lockDock(true); clearTimeout(idleT);
+  Pet.stopGesture(); Pet.lean(null);   /* しぐさは すぐ やめる（おせわの 長さは かえない） */
   if (Pet.wake()) Pet.say('ふぁ…？', 1200);
   return true;
 }
@@ -518,6 +587,7 @@ async function feed(){
   const r = await job;
   if (!r.ok){ Pet.setExpr(null); careRefused(r); finish(); return; }
   playEvents(r.ev);
+  Pet.ateAt = now();   /* このあと しばらく ひまな ときに ぺろり */
   Pet.setExpr('happy'); Pet.say('ごちそうさま！'); hearts(3);
   await sleep(1500);
   Pet.setExpr(null);
@@ -552,6 +622,7 @@ async function giveTreat(t){
   const r = await job;
   if (!r.ok){ Pet.setExpr(null); careRefused(r); finish(); return; }
   playEvents(r.ev);
+  Pet.ateAt = now();
   Pet.setExpr('happy'); Pet.say(t.line); hearts(4);
   await sleep(1600);
   Pet.setExpr(null);
@@ -617,6 +688,7 @@ async function play(){
   const r = await job;
   if (!r.ok){ Pet.setExpr(null); careRefused(r); finish(); return; }
   playEvents(r.ev);
+  Pet.playedAt = now();   /* このあと しばらく ひまな ときに はぁはぁ（いぬ） */
   Pet.say(pick(S.pet.species === 'cat' ? ['たのしかった！','もっかい！','ふんふん♪'] : ['たのしかった！','もっとあそぼ！','わんわん♪']));
   await sleep(1400);
   Pet.setExpr(null);
@@ -663,10 +735,19 @@ function onTap(){
     return;
   }
   if (Pet.busy) return;
-  Pet.jump(); Pet.tilt(); Pet.wag(1200);
+  /* へんじ（4-5。2026-11-26 だんかい 1）：はねて かしげる・はねて 耳ぴく・しっぽ ぴんで かしげる を まぜる（同じ へんじは つづけない）。
+     おねだりは だんかい 2（体勢） */
+  Pet.stopGesture();
+  const r = pick(TAP_REPLY.filter(x => x !== tapLast));
+  tapLast = r;
+  if (r === 'ear'){ Pet.jump(); Pet.gesture('ear'); Pet.wag(1200); }
+  else if (r === 'tailup'){ Pet.gesture('tailup'); Pet.tilt(); }
+  else { Pet.jump(); Pet.tilt(); Pet.wag(1200); }
   Pet.say(pick(S.pet.species === 'cat' ? ['にゃ？','にゃーん','なあに？'] : ['ワン！','わふっ','なあに？']), 1600);
   idleTick(4000);
 }
+const TAP_REPLY = ['hop', 'ear', 'tailup'];
+let tapLast = '';
 Pet.el.addEventListener('pointerdown', e => {
   if (!S) return;
   drag = { x:e.clientX, y:e.clientY, dist:0, acc:0 };
@@ -677,12 +758,15 @@ Pet.el.addEventListener('pointermove', e => {
   if (!drag) return;
   const d = Math.hypot(e.clientX - drag.x, e.clientY - drag.y);
   drag.x = e.clientX; drag.y = e.clientY; drag.dist += d; drag.acc += d;
+  if (drag.dist >= 12) Pet.lean(e.clientX);   /* なでている あいだ 目と 頭が 指の ほうへ */
   if (drag.acc > 55){ drag.acc = 0; onStroke(e); }
 });
+let leanT = null;
 const endDrag = () => {
   if (!drag) return;
   const tap = drag.dist < 12;
   drag = null; dragging = false;
+  clearTimeout(leanT); leanT = setTimeout(() => { if (!drag) Pet.lean(null); }, 500);   /* 手を とめたら もどす */
   if (tap) onTap();
 };
 /* LINE の 中で うちのこを 下に こすると、はじめの 1回だけ ページごと 引っぱられた（ミニアプリの 最小化）。
@@ -691,7 +775,7 @@ const petStill = e => { if (e.cancelable) e.preventDefault(); };
 Pet.el.addEventListener('touchstart', petStill, { passive:false });
 Pet.el.addEventListener('touchmove', petStill, { passive:false });
 Pet.el.addEventListener('pointerup', endDrag);
-Pet.el.addEventListener('pointercancel', () => { drag = null; dragging = false; });
+Pet.el.addEventListener('pointercancel', () => { drag = null; dragging = false; Pet.lean(null); });
 Pet.el.addEventListener('keydown', e => {
   if (e.key === 'Enter' || e.key === ' '){
     e.preventDefault();
@@ -995,7 +1079,7 @@ const Game = {
     decay();
     renderHeader();
     setPlayIcon();
-    Pet.sleeping = false; clearInterval(Pet.zz); Pet.setPose('sit');
+    Pet.sleeping = false; clearInterval(Pet.zz); Pet.stopGesture(); Pet.setPose('sit');
     Pet.x = 50; Pet.y = 80; Pet.mount();
     renderStats();
     updateClock();

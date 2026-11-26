@@ -1,4 +1,6 @@
-/* ===== 正面の 絵に 足す 部品（見本。だんかい 2 で renderPet に 入れる 予定。ふだんは opacity="0"＝見た目は かわらない） =====
+/* ===== 2026-11-26 だんかい 1 で src/js_pet.js の renderPet に 入れた（そちらは ふだん display="none"＝opacity="0" だと ほかの 線の ふちが かわる。docs/MOTION_DESIGN.md 11章）。
+   この ファイルは 見本 2 の 記録（見本では renderPet の 部品と かさなるが、見本の CSS は こちらの opacity の 部品を つかうので 見え方は 同じ） =====
+   ===== 正面の 絵に 足す 部品（見本。だんかい 2 で renderPet に 入れる 予定。ふだんは opacity="0"＝見た目は かわらない） =====
    pvx-down（ふせる・ねる：前に のばした 前あし）、pvx-beg（おねだり：上げて まげた 前あし。むなげ・首の きせかえより 前＝いちばん うしろに かく）、pvx-hind（かく：うしろ足）、
    pvx-pawup（けづくろい：顔の 前の 前足。頭の 上に かく）、pvx-tongue（はぁはぁ・ぺろり：頭の 中）、pv-footL/R（うしろ足の 先を 左右べつに） */
 function petFront(rawLook, wear){

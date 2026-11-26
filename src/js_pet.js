@@ -51,6 +51,8 @@ function normalizeLook(raw){
   return L;
 }
 
+/* ===== ここから 下は 絵（renderPet と その 道具）。サーバーの game.js には 入れない（tools/build_server.py が この 行で 切る。2026-11-26）。
+   サーバーは 絵を かかないので、絵を かえても サーバーの デプロイは いらない。サーバーで つかう 関数（normalizeLook・hasId・色）は この 行より 上に 書く ===== */
 /* ===== geometry helpers ===== */
 const f1 = n => Math.round(n * 10) / 10;
 function ellD(cx, cy, rx, ry){ return `M${f1(cx - rx)} ${f1(cy)}a${rx} ${ry} 0 1 0 ${f1(2 * rx)} 0a${rx} ${ry} 0 1 0 ${f1(-2 * rx)} 0Z`; }
@@ -131,13 +133,26 @@ function renderPet(rawLook, opts = {}){
   body += `</g><path d="${bodyD}" fill="none" stroke="${ol(c.body)}" stroke-width="${SW}"/>`;
   /* おしり・うしろあしの 先は 体勢（たつ・ふせる）で うごかす グループ（docs/MOTION_DESIGN.md 4-2。見た目は かえない） */
   const haunch = (x, k) => `<g class="pv-haunch pv-haunch${k}">` + (fluffy || curly ? `<path d="${blob(x, 206, hrr, 16, 9, .07)}" ${S(haunchCol)}/>` : `<ellipse cx="${x}" cy="206" rx="${hrr}" ry="16" ${S(haunchCol)}/>`) + '</g>';
-  const feet = `<g class="pv-feet"><ellipse cx="${hx1 - 6}" cy="219" rx="12" ry="6.5" ${S(c.paws)}/><ellipse cx="${hx2 + 6}" cy="219" rx="12" ry="6.5" ${S(c.paws)}/></g>`;
-  const legPart = (x, px, toes, sx) => `<rect x="${x}" y="${legTop}" width="19" height="${218 - legTop}" rx="9.5" ${S(c.body)}/>` +
+  /* うしろあしの 先は 左右べつ（pv-footL・pv-footR。しぐさ「かく」で 上げる ほうを かくす） */
+  const feet = `<g class="pv-feet"><g class="pv-footL"><ellipse cx="${hx1 - 6}" cy="219" rx="12" ry="6.5" ${S(c.paws)}/></g><g class="pv-footR"><ellipse cx="${hx2 + 6}" cy="219" rx="12" ry="6.5" ${S(c.paws)}/></g></g>`;
+  /* 前あしは 腕（pv-arm*）と 足先（pv-paw*）に わける */
+  const legPart = (x, px, toes, sx, k) => `<g class="pv-arm${k}"><rect x="${x}" y="${legTop}" width="19" height="${218 - legTop}" rx="9.5" ${S(c.body)}/>` +
     (m.stripes && L.legs !== 'short' ? `<path d="M${sx} 194h6M${sx} 202h6" stroke="${m.stripes}" stroke-width="3.5" stroke-linecap="round"/>` : '') +
-    `<ellipse cx="${px}" cy="217" rx="12" ry="7.5" ${S(c.paws)}/>` +
-    `<path d="M${toes[0]} 213.5v5M${toes[1]} 213.5v5" stroke="${ol(c.paws)}" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>`;
+    `</g><g class="pv-paw${k}"><ellipse cx="${px}" cy="217" rx="12" ry="7.5" ${S(c.paws)}/>` +
+    `<path d="M${toes[0]} 213.5v5M${toes[1]} 213.5v5" stroke="${ol(c.paws)}" stroke-width="1.6" stroke-linecap="round" opacity=".7"/></g>`;
   /* 前あし：外がわ（pv-legL・pv-legR）は 体勢、内がわ（*-g）は しぐさ・げい */
-  const legs = `<g class="pv-legL"><g class="pv-legL-g">${legPart(99, 108.5, [104.5, 112.5], 101)}</g></g><g class="pv-legR"><g class="pv-legR-g">${legPart(122, 131.5, [127.5, 135.5], 133)}</g></g>`;
+  const legs = `<g class="pv-legL"><g class="pv-legL-g">${legPart(99, 108.5, [104.5, 112.5], 101, 'L')}</g></g><g class="pv-legR"><g class="pv-legR-g">${legPart(122, 131.5, [127.5, 135.5], 133, 'R')}</g></g>`;
+  /* 体勢・しぐさ用の 部品（docs/MOTION_DESIGN.md 10章。2026-11-26 だんかい 1）。ふだんは display="none" の 属性で 見えない
+     （ページの CSS が 効かない うちのこカード・写真立て でも 見えない。CSS の しぐさ・体勢の ときだけ display:inline。
+     opacity="0" だと 見えなくても ほかの 線の ふちの ぬり方が すこし かわった＝tools/poses.py が 前の 版と 1px で くらべる）。
+     pvx-down＝ふせる・ねる の 前に のばした 前あし、pvx-hind＝かく の うしろ足（頭の 前）、pvx-beg＝おねだり の 胸の 前で まげた 前あし、
+     pvx-pawup＝けづくろい の 顔の 前の 前足（beg・pawup は 首の きせかえより 前＝いちばん うしろに かく）、pvx-tongue＝はぁはぁ の 舌、pvx-lick＝ぺろり の 舌 */
+  const toes = (x, y) => `<path d="M${x - 4} ${y - 3.5}v5M${x + 4} ${y - 3.5}v5" stroke="${ol(c.paws)}" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>`;
+  const xDown = [108.5, 131.5].map(x => `<rect x="${x - 9.5}" y="198" width="19" height="18" rx="9.5" ${S(c.body)}/><ellipse cx="${x}" cy="215" rx="12.5" ry="8" ${S(c.paws)}/>${toes(x, 215)}`).join('');
+  const xBeg = [[101, -8, 'L'], [139, 8, 'R']].map(([x, r, k]) => `<g class="pvx-beg${k}"><g transform="rotate(${r} ${x} 150)"><rect x="${x - 9.5}" y="146" width="19" height="25" rx="9.5" ${S(c.body)}/><ellipse cx="${x}" cy="172" rx="12.5" ry="8.5" ${S(c.paws)}/>${toes(x, 173)}</g></g>`).join('');
+  const xHind = `<g class="pvx-hindleg">` + thick(`M${hx1 - 4} 204C${hx1 - 30} 196 ${hx1 - 34} 164 ${hx1 - 22} 134`, c.body, 17) +
+    `<ellipse cx="${hx1 - 21}" cy="128" rx="11" ry="8.5" transform="rotate(-24 ${hx1 - 21} 128)" ${S(c.paws)}/></g>`;
+  const xPawup = thick('M134 186C140 168 136 146 128 132', c.body, 17) + `<ellipse cx="126" cy="127" rx="11" ry="9.5" ${S(c.paws)}/>${toes(126, 124)}`;
 
   /* head */
   const backEar = ['pointy','big','small'].includes(L.ear);
@@ -227,6 +242,12 @@ function renderPet(rawLook, opts = {}){
     mouthW = `<path d="M120 ${NY + 3}V${NY + 6}M113 ${NY + 6}Q116.5 ${NY + 10} 120 ${NY + 6}Q123.5 ${NY + 10} 127 ${NY + 6}" fill="none" stroke="${mouthCol}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`;
     mouthO = `<path d="M113 ${NY + 6}Q120 ${NY + 20} 127 ${NY + 6}Q120 ${NY + 9} 113 ${NY + 6}Z" fill="#7A2F43"/><ellipse cx="120" cy="${NY + 13}" rx="3.6" ry="2.8" fill="#F38BA0"/>`;
   }
+  const xTongue = cat
+    ? `<path d="M116.5 ${NY + 9}c0 6 1.6 9 3.5 9s3.5-3 3.5-9z" fill="#F38BA0" stroke="#C25A72" stroke-width="1.2"/>`
+    : `<path d="M114 ${NY + 13}c0 9 2.6 14 6 14s6-5 6-14z" fill="#F38BA0" stroke="#C25A72" stroke-width="1.4"/><path d="M120 ${NY + 16}v7" stroke="#C25A72" stroke-width="1.2" stroke-linecap="round"/>`;
+  const xLick = cat
+    ? `<ellipse cx="120" cy="${NY + 6}" rx="3.6" ry="4.4" fill="#F38BA0" stroke="#C25A72" stroke-width="1.1"/>`
+    : `<ellipse cx="120" cy="${NY + 10}" rx="5" ry="6" fill="#F38BA0" stroke="#C25A72" stroke-width="1.3"/>`;
   const cheeks = `<g class="pv-cheek"><ellipse cx="${EX[0] - 12}" cy="${NY + 2}" rx="8.5" ry="5" fill="#FF9DB2"/><ellipse cx="${EX[1] + 12}" cy="${NY + 2}" rx="8.5" ry="5" fill="#FF9DB2"/></g>`;
   let whiskers = '';
   if (cat){
@@ -247,6 +268,7 @@ function renderPet(rawLook, opts = {}){
     <g class="pv-brow-sad">${browSad}</g>
     ${nose}${whiskers}
     <g class="pv-mouth-w">${mouthW}</g>
+    <g class="pvx-tongue" display="none">${xTongue}</g><g class="pvx-lick" display="none">${xLick}</g>
     <g class="pv-mouth-o">${mouthO}</g>
     ${cheeks}${WS.face}${WS.head}`;
 
@@ -266,8 +288,10 @@ function renderPet(rawLook, opts = {}){
   <g class="pv-all">
     <g class="pv-tail"><g class="pv-tail-g">${tail}</g></g>
     <g class="pv-body"><g class="pv-body-g">${haunch(hx1, 'L')}${haunch(hx2, 'R')}${feet}${body}<g class="pv-legs">${legs}</g></g></g>
+    <g class="pvx-down" display="none">${xDown}</g><g class="pvx-hind" display="none">${xHind}</g>
     <g class="pv-head"><g class="pv-head-g">${head}</g></g>
     <g class="pv-neck"><g class="pv-neck-g">${WS.neck}</g></g>
+    <g class="pvx-beg" display="none">${xBeg}</g><g class="pvx-pawup" display="none">${xPawup}</g>
   </g>
 </svg>`;
 }
