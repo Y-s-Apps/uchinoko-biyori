@@ -175,6 +175,44 @@ function wearSvg(W, x){
         `<path d="M110 ${y0 - 4}L114 ${y0 - 18}L120 ${y0 - 8}L126 ${y0 - 18}L130 ${y0 - 4}" fill="#E4E8F2" stroke="#A9AFC2" stroke-width="2" stroke-linejoin="round"/>` +
         `<path d="M120 ${y0 - 22}l5 7-5 7-5-7z" fill="#C9B6F2" stroke="#7D6AB0" stroke-width="1.6" stroke-linejoin="round"/>` +
         `<circle cx="100" cy="${y0 - 2}" r="2.6" fill="#F7A9C4"/><circle cx="140" cy="${y0 - 2}" r="2.6" fill="#F7A9C4"/>`;
+    } else if (h.kind === 'acorn'){
+      /* 2026-11-27 の イベント：どんぐりぼうし・みかんのぼうし・おにの つの・ひしもちリボン（よこむきは 正面を 小さく、うしろは 左右 反対） */
+      /* どんぐりの ぼうし：ぼうしの ぶぶん（かさ）の うろこ もようと、上に ちょこんと じく。すこし かたむける */
+      const y = HY - 34;
+      const cap = `M82 ${y}C80 ${y - 28} 98 ${y - 38} 120 ${y - 38}C142 ${y - 38} 160 ${y - 28} 158 ${y}Q149 ${y + 6} 139 ${y + 1}Q129 ${y + 7} 120 ${y + 1}Q111 ${y + 7} 101 ${y + 1}Q91 ${y + 6} 82 ${y}Z`;
+      let scales = '';
+      [[y - 27, 100, 140], [y - 18, 92, 148], [y - 9, 88, 152]].forEach(([yy, a, b], r) => {
+        for (let x = a + (r % 2 ? 5 : 0); x <= b - 8; x += 10) scales += `<path d="M${x} ${yy}q4 5 8 0" fill="none" stroke="#C99466" stroke-width="2" stroke-linecap="round"/>`;
+      });
+      out.head = `<g transform="rotate(-8 120 ${y - 10})"><path d="${cap}" fill="#9A6A43" stroke="#5E3B22" stroke-width="${SW}" stroke-linejoin="round"/>${scales}` +
+        `<path d="M120 ${y - 38}q1-8 6-12" fill="none" stroke="#5E3B22" stroke-width="${5 + SW}" stroke-linecap="round"/><path d="M120 ${y - 38}q1-8 6-12" fill="none" stroke="#8B5A3C" stroke-width="5" stroke-linecap="round"/></g>`;
+    } else if (h.kind === 'mikanhat'){
+      /* みかんの ぼうし：まるい みかん色の ぼうし・ぶつぶつ・はっぱと へた */
+      const y = HY - 32;
+      const dots = [[100, y - 22], [114, y - 30], [132, y - 28], [146, y - 18], [108, y - 12], [126, y - 16], [140, y - 8], [94, y - 8]].map(([a, b]) => `<circle cx="${a}" cy="${b}" r="1.8" fill="#F7BE5E"/>`).join('');
+      out.head = `<path d="M80 ${y}C80 ${y - 46} 160 ${y - 46} 160 ${y}Q120 ${y + 10} 80 ${y}Z" fill="#F5A031" stroke="#B8691C" stroke-width="${SW}" stroke-linejoin="round"/>${dots}` +
+        `<path d="M92 ${y - 18}q8-14 22-18" fill="none" stroke="#FFFFFF" stroke-opacity=".45" stroke-width="5" stroke-linecap="round"/>` +
+        `<path d="M118 ${y - 36}c0-4 2-7 6-8" stroke="#5C7A2E" stroke-width="4" stroke-linecap="round" fill="none"/>` +
+        `<path d="M124 ${y - 42}c8-7 18-6 21 0-7 6-15 6-21 0z" fill="#6DB35A" stroke="#3E7A30" stroke-width="2" stroke-linejoin="round"/><path d="M126 ${y - 42}q8-2 16 0" stroke="#3E7A30" stroke-width="1.4" fill="none"/>`;
+    } else if (h.kind === 'oni'){
+      /* おにの つの：赤い カチューシャに きいろの つの 2本（しま もよう）。こわくない 大きさ */
+      const band = `M76 ${HY - 22}Q120 ${HY - 66} 164 ${HY - 22}`;
+      const horn = (bx, dir) => {
+        const tip = bx + dir * -6, y0 = HY - 37;
+        const d = `M${bx - 9} ${y0}Q${bx - 7} ${y0 - 24} ${tip} ${y0 - 36}Q${bx + 7} ${y0 - 22} ${bx + 9} ${y0}Q${bx} ${y0 + 4} ${bx - 9} ${y0}Z`;
+        return `<path d="${d}" fill="#F5C843" stroke="#A8822A" stroke-width="2.2" stroke-linejoin="round"/>` +
+          `<path d="M${bx - 7.5} ${y0 - 9}Q${bx} ${y0 - 6} ${bx + 7.5} ${y0 - 9}M${bx - 6} ${y0 - 19}Q${bx} ${y0 - 16.5} ${bx + 5.5} ${y0 - 19}" fill="none" stroke="#C98A2A" stroke-width="2.4" stroke-linecap="round"/>`;
+      };
+      out.head = `<path d="${band}" fill="none" stroke="#9A2E36" stroke-width="${5 + SW}" stroke-linecap="round" opacity=".55"/><path d="${band}" fill="none" stroke="#E8505A" stroke-width="5" stroke-linecap="round"/>` +
+        horn(98, -1) + horn(142, 1);
+    } else if (h.kind === 'hishi'){
+      /* ひしもちリボン：ももいろ・しろ・みどりの 3だんの リボン（ひしもちの 色） */
+      const loops = 'M0 0L-18-11Q-23 0-18 11ZM0 0L18-11Q23 0 18 11Z';
+      const id = x.id + 'hs';
+      out.head = `<g transform="translate(150 ${HY - 44}) rotate(14)"><defs><clipPath id="${id}"><path d="${loops}"/></clipPath></defs>` +
+        `<g clip-path="url(#${id})"><rect x="-24" y="-13" width="48" height="9" fill="#F497B0"/><rect x="-24" y="-4" width="48" height="8" fill="#FFFFFF"/><rect x="-24" y="4" width="48" height="9" fill="#8CC26A"/></g>` +
+        `<path d="${loops}" fill="none" stroke="#9A5A6E" stroke-width="${SW}" stroke-linejoin="round"/>` +
+        `<circle cx="0" cy="0" r="5.5" fill="#FFFFFF" stroke="#9A5A6E" stroke-width="${SW}"/><circle cx="0" cy="0" r="2.2" fill="#F497B0"/></g>`;
     }
   }
   return out;

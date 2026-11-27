@@ -537,8 +537,8 @@ const IDLE = [
   { g:'lick',    w:c => c.ate ? 30 : 0 },
   /* 季節（だんかい 3。もようがえの 季節の かざりつけが「あり」の とき）：雪・花びらの 日は 上を 見あげて ぴょん（つかまえる）、
      つゆの 雨の 日は まどの 下で ふせて 外を 気に する */
-  /* だんかい 4：雪・花びらは まどの 下へ 行って うしろを むいて 見あげて ぴょん、雨は うしろを むいて ふせて ながめる（雪・雨は まどの 中に ふる） */
-  { id:'catch', w:c => (c.weather === 'snow' || c.weather === 'petals') && !calmMotion() ? 8 : 0,
+  /* だんかい 4：雪・花びら・おちば（もみじがり）は まどの 下へ 行って うしろを むいて 見あげて ぴょん、雨は うしろを むいて ふせて ながめる（雪・雨は まどの 中に ふる） */
+  { id:'catch', w:c => (c.weather === 'snow' || c.weather === 'petals' || c.weather === 'leaves') && !calmMotion() ? 8 : 0,
     run:async () => {
       const at = p => !Pet.busy && !Pet.sleeping && Pet.pose === p;
       await Pet.moveTo(WIN.x, WIN.y, .9, 'bsit');
@@ -546,7 +546,7 @@ const IDLE = [
       if (!at('bsit')) return; Pet.setPose('bup'); await sleep(900);
       if (!at('bup')) return;
       Pet.jump(); Pet.wag(1600);
-      if (now() - lastChat > 30000){ lastChat = now(); Pet.say(weatherOf() === 'petals' ? 'はなびらだ！' : 'ゆきだ！', 1600); }
+      if (now() - lastChat > 30000){ lastChat = now(); const w = weatherOf(); Pet.say(w === 'petals' ? 'はなびらだ！' : w === 'leaves' ? 'はっぱだ！' : 'ゆきだ！', 1600); }
       await sleep(700); if (at('bup')) Pet.jump();
     } },
   { id:'rainwin', w:c => c.weather === 'rain' && c.pose !== 'bdown' ? 7 : 0,

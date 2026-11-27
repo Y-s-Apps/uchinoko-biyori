@@ -458,6 +458,8 @@ async def browser_tests(srv_port):
         ctx, page, errs, calls = await open_page('Ufour', local=sample('とどかない'), server_down=True)
         i = await info(page)
         ok(i['server'] == 'failed' and i['mode'] == 'local' and i['name'] == 'とどかない', 'この端末に保存して遊べる', i)
+        await close_popups(page)   # 季節の イベントの お知らせ（ためしの 日が イベントの 期間の とき。2026-11-27 もみじがり）
+        i = await info(page)
         await page.click('#actFeed'); await page.wait_for_timeout(7000)
         i2 = await info(page)
         ok(i2['meals'] == i['meals'] + 1, 'ゲストの子は おせわできる', i2)
@@ -517,6 +519,7 @@ async def browser_tests(srv_port):
         ok(not calls, 'サーバーには何も送らない', calls)
         all_errs += errs; await ctx.close()
         ctx, page, errs, calls = await open_page('Ufive', local=sample('そと'), external=True, owner='someone')
+        await close_popups(page)
         await page.click('#actFeed'); await page.wait_for_timeout(900)
         ok(await page.query_selector('.levelup .card[aria-label="つながるまで まってね"]') is not None and not calls, 'LINEの子は「LINEの中で ひらいてね」', calls)
         all_errs += errs; await ctx.close()
@@ -613,6 +616,7 @@ async def browser_tests(srv_port):
             await page.click('.levelup [data-close]'); await page.wait_for_timeout(500)
         n_calls = len(calls)
         await page.evaluate("S.stats.full = 40")   # さっき ごはんを あげたので、おなかを すかせておく
+        await close_popups(page)
         await page.click('#actFeed'); await page.wait_for_timeout(7000)
         await close_popups(page)
         i2 = await info(page)
@@ -812,10 +816,12 @@ async def browser_tests(srv_port):
         c = cards()
         ok(state('Ucard') is None and not c['rows'] and not c['objects'], '「LINEの データを けす」と カードの画像も すぐ消える', c)
         await page.click('.levelup [data-close]'); await page.wait_for_timeout(500)
+        await close_popups(page)   # ゲストに もどった 子の 季節の イベントの お知らせ（ためしの 日が イベントの 期間の とき）
         await page.click('#menuBtn'); await page.wait_for_timeout(400)
         ok(await page.query_selector('#mCard') is None, 'けしたあと（ゲスト）は ボタンを出さない')
         all_errs += errs; await ctx.close()
         ctx, page, errs, calls = await open_page('Ucard2', local=sample('そとのこ'), external=True)
+        await close_popups(page)
         await page.click('#menuBtn'); await page.wait_for_timeout(400)
         ok(await page.query_selector('#mCard') is None, 'LINEの外では ボタンを出さない')
         all_errs += errs; await ctx.close()
@@ -837,6 +843,7 @@ async def browser_tests(srv_port):
         i = await info(page)
         ok(len(reopens(calls)) == 1 and reopens(calls)[0].endswith('miniapp.line.me/2012410263-cuCI7vQS') and i['server'] == 'failed' and i['mode'] == 'local',
            'ひらきなおしても とおらないときは くりかえさない（開発用の LIFF ID・この端末で あそべる）', {'calls': calls, 'info': i})
+        await close_popups(page)
         await page.click('#menuBtn'); await page.wait_for_timeout(400)
         st = await page.evaluate("(()=>{const p=document.querySelector('#sheet .line-status')||{};return [p.textContent||'', (p.dataset||{}).why||'']})()")
         ok('badtoken' not in st[0] and 'ひらきなおして' in st[0] and st[1] == 'badtoken', 'プロフィールの1行は やさしい ことば（合図は data-why に）', st)
@@ -875,6 +882,7 @@ async def browser_tests(srv_port):
         if m:
             no = await page.query_selector('.levelup [data-close=""]')
             await no.click(); await page.wait_for_timeout(700)
+        await close_popups(page)
         await page.click('#menuBtn'); await page.wait_for_timeout(400)
         await page.click('#mMove'); await page.wait_for_timeout(600)
         card = await page.evaluate(keep_js)

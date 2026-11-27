@@ -131,8 +131,22 @@ ok(Rules.treatList(st)[0].id === 'ev_xmascake', '限定のおやつが先頭');
 T = Date.UTC(2027, 11, 3, 3, 0);
 ev = []; Rules.open(st, 0, ev);
 ok(ev.some(e => e.k === 'event' && e.had), 'つぎの年も お知らせ（プレゼントは もっている）', ev);
-T = Date.UTC(2027, 11, 26, 3, 0);
+T = Date.UTC(2028, 0, 10, 3, 0);    /* 1/10（12/26〜31 は としこし。2026-11-27 から） */
 ok(!Rules.treatList(st).some(t => t.ev), 'イベントが おわると限定のおやつは出ない');
+/* 2026-11-27 に 足した イベント：もみじがり・としこし・せつぶん・ひなまつり（プレゼント・限定の おやつ。期間の はしも） */
+for (const [y, m, d, h, id, gift, treat] of [[2027, 10, 1, 3, 'momiji', 'ev_acorn', 'ev_momijicookie'], [2027, 11, 26, 3, 'toshikoshi', 'ev_mikanhat', 'ev_mikanjelly'],
+                                             [2028, 1, 1, 3, 'setsubun', 'ev_oni', 'ev_mamebolo'], [2028, 2, 3, 3, 'hina', 'ev_hishiribbon', 'ev_arare']]){
+  T = Date.UTC(y, m, d, h, 0);
+  ev = []; Rules.open(st, 0, ev);
+  ok(ev.some(e => e.k === 'event' && e.id === id && !e.had) && st.events.got.includes(gift) && Rules.treatList(st)[0].id === treat,
+     `${id}：プレゼント・限定の おやつ（${jst(T)}）`, [ev, st.events.got.slice(-1), Rules.treatList(st)[0].id]);
+}
+T = Date.UTC(2027, 10, 30, 14, 59);   /* 11/30 23:59：まだ もみじがり */
+ok(Rules.treatList(st)[0].id === 'ev_momijicookie', 'もみじがりは 11/30 まで');
+T = Date.UTC(2027, 10, 30, 15, 0);    /* 12/1 0:00：クリスマス */
+ok(Rules.treatList(st)[0].id === 'ev_xmascake', '12/1 から クリスマス');
+T = Date.UTC(2027, 9, 31, 14, 59);    /* 10/31 23:59：まだ ハロウィン */
+ok(Rules.treatList(st)[0].id === 'ev_pumpkincookie', '10/31 は ハロウィン（もみじがりと かさならない）');
 st = child();
 st.created = T - 365 * D;   /* 1年まえの きょう（日本時間） */
 st.milestones = {};

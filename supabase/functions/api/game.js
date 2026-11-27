@@ -162,6 +162,10 @@ function treatIcon(t){
     case 'shrimp': return '<path d="M33 13c-10-2-21 4-21 14 0 6 4 10 10 10" fill="none" stroke="#B5482F" stroke-width="11" stroke-linecap="round"/><path d="M33 13c-10-2-21 4-21 14 0 6 4 10 10 10" fill="none" stroke="#F48A63" stroke-width="7" stroke-linecap="round"/><path d="M22 35l-7 7 10-1z" fill="#E8604A" stroke="#B5482F" stroke-width="1.6" stroke-linejoin="round"/><path d="M26 15l1 5M19 19l3 3M15 26l4 1" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round"/>';
     case 'kanikama': return '<g transform="rotate(-15 24 24)"><rect x="9" y="19" width="30" height="11" rx="5" fill="#FFFFFF" stroke="#C9B9B0" stroke-width="2"/><rect x="10" y="20" width="28" height="4.5" rx="2.2" fill="#E8604A"/></g>';
     case 'leaf': return '<path d="M12 38C18 28 26 18 36 10" stroke="#7A5A3A" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M20 28c-8-2-10-10-6-14 6 2 8 8 6 14zM28 20c2-8 10-10 14-6-2 6-8 8-14 6z" fill="#7CC26A" stroke="#4F8F45" stroke-width="2"/>';
+    /* 2026-11-27 の イベント：もみじクッキー・みかんゼリー・ひなあられ */
+    case 'momijicookie': return '<path d="M24 7l3.2 7.4 6.4-3.4-1.8 7.6 7.6.6-5.4 5.2 4.6 4.4-8-.2-.8 8.4L24 31.6l-5.8 5.4-.8-8.4-8 .2 4.6-4.4-5.4-5.2 7.6-.6-1.8-7.6 6.4 3.4z" fill="#EE9A57" stroke="#A85A2A" stroke-width="2" stroke-linejoin="round"/><path d="M24 14v17M24 22l-6-4M24 22l6-4M24 27l-7 1M24 27l7 1" stroke="#F7C48A" stroke-width="1.8" stroke-linecap="round"/><path d="M24 37v6" stroke="#A85A2A" stroke-width="2.4" stroke-linecap="round"/>';
+    case 'mikanjelly': return '<path d="M11 22h26l-3 16H14z" fill="#F7B24A" stroke="#C0761E" stroke-width="2" stroke-linejoin="round" opacity=".92"/><path d="M15 30q4-3 8 0t8 0" stroke="#FCD58E" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M9 22h30" stroke="#C0761E" stroke-width="3" stroke-linecap="round"/><circle cx="29" cy="15" r="6" fill="#F5A031" stroke="#B8691C" stroke-width="1.8"/><path d="M29 9c3-3 7-2 8 0-3 2-6 2-8 0z" fill="#6DB35A"/>';
+    case 'arare': return [[14,30,'#F497B0'],[22,34,'#FFFFFF'],[30,31,'#8CC26A'],[19,22,'#8CC26A'],[28,22,'#F497B0'],[35,26,'#FFFFFF'],[24,14,'#FFFFFF'],[11,22,'#FFFFFF']].map(([x, y, c]) => `<circle cx="${x}" cy="${y}" r="4.6" fill="${c}" stroke="${c === '#FFFFFF' ? '#C9B9B0' : mix(c, '#2A1E2A', .3)}" stroke-width="1.6"/>`).join('');
     case 'jubako': return '<rect x="9" y="14" width="30" height="24" rx="3" fill="#2E2A33" stroke="#1A161E" stroke-width="2"/><rect x="12" y="17" width="24" height="18" rx="1.5" fill="#B9373E"/><path d="M24 17v18M12 26h24" stroke="#F5C84C" stroke-width="1.6"/><circle cx="18" cy="21.5" r="2.6" fill="#F7D774"/><circle cx="30" cy="30.5" r="2.6" fill="#7CC26A"/><path d="M27 20h6M15 30h5" stroke="#FBF3E6" stroke-width="2.6" stroke-linecap="round"/>';
     case 'heartcookie': return '<path d="M24 40c-14-8-17-17-12-22 4-4 10-3 12 2 2-5 8-6 12-2 5 5 2 14-12 22z" fill="#E9B872" stroke="#A9743E" stroke-width="2"/><path d="M24 34c-8-5-9-10-6.5-12.5 2-2 5-1.5 6.5 1 1.5-2.5 4.5-3 6.5-1 2.5 2.5 1.5 7.5-6.5 12.5z" fill="#F497B0"/>';
     case 'koicookie': return '<path d="M7 24c6-8 22-10 30-4l5-5v18l-5-5c-8 6-24 4-30-4z" fill="#E9B872" stroke="#A9743E" stroke-width="2" stroke-linejoin="round"/><path d="M8 24c7-4 20-5 28-2" stroke="#5B8FD9" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="13" cy="22" r="2.6" fill="#FFFFFF" stroke="#2E2A33" stroke-width="1.2"/><circle cx="13" cy="22" r="1" fill="#2E2A33"/>';
@@ -257,7 +261,8 @@ const TRICKS = {
   ],
 };
 
-/* ===== seasons & events (month-day of the rules' clock: this device's date, or Japan time on the LINE server) ===== */
+/* ===== seasons & events (month-day of the rules' clock: this device's date, or Japan time on the LINE server) =====
+   2026-11-27：せつぶん・ひなまつり・もみじがり・としこし を 足した（見本 5 で オーナー決定。期間は かさならない＝activeEvent は 1つだけ） */
 function mdOf(d){ return (d.getMonth() + 1) * 100 + d.getDate(); }
 function seasonOf(d = clockDate()){
   const m = d.getMonth() + 1;
@@ -266,7 +271,9 @@ function seasonOf(d = clockDate()){
 const EV = (id, ja, from, to, gift, treat, decor, hello) => ({ id, ja, from, to, gift, treat, decor, hello });
 const EVENTS = [
   EV('newyear','おしょうがつ',101,107,'ev_hachimaki',{ id:'ev_osechi', ja:'ペット用おせち', icon:['jubako'] },'newyear','あけましておめでとう！ことしもよろしくね'),
+  EV('setsubun','せつぶん',201,203,'ev_oni',{ id:'ev_mamebolo', ja:'まめボーロ', icon:['balls','#EED19A','#B08A4E'] },'setsubun','おには そと！ ふくは うち！'),
   EV('valentine','バレンタイン',207,214,'ev_heartband',{ id:'ev_heartcookie', ja:'ハートのクッキー', icon:['heartcookie'] },'valentine','バレンタインだよ！だいすき！'),
+  EV('hina','ひなまつり',301,303,'ev_hishiribbon',{ id:'ev_arare', ja:'ひなあられ', icon:['arare'] },'hina','ひなまつりだよ！ おひなさま、きれいだね'),
   EV('sakura','おはなみ',325,410,'ev_sakurapin',{ id:'ev_sakurabolo', ja:'さくらボーロ', icon:['balls','#F9C6D3','#D98AA0'] },'sakura','さくらがさいたよ！'),
   EV('kodomo','こどもの日',501,505,'ev_kabuto',{ id:'ev_koicookie', ja:'こいのぼりクッキー', icon:['koicookie'] },'kodomo','こいのぼりがおよいでるね'),
   EV('tsuyu','つゆ',610,630,'ev_rainhat',{ id:'ev_ajisai', ja:'あじさいゼリー', icon:['jelly'] },'tsuyu','あめの日も、いっしょだね'),
@@ -274,7 +281,9 @@ const EVENTS = [
   EV('summer','なつやすみ',720,831,'ev_ukiwa',{ id:'ev_suika', ja:'ひんやりすいか', icon:['suika'] },'summer','なつだ！あついね〜'),
   EV('tsukimi','おつきみ',915,930,'ev_usagi',{ id:'ev_dango', ja:'おつきみボーロ', icon:['dango'] },'tsukimi','おつきさま、まんまるだね'),
   EV('halloween','ハロウィン',1001,1031,'ev_pumpkin',{ id:'ev_pumpkincookie', ja:'かぼちゃクッキー', icon:['pumpkincookie'] },'halloween','トリック・オア・トリート！'),
+  EV('momiji','もみじがり',1101,1130,'ev_acorn',{ id:'ev_momijicookie', ja:'もみじクッキー', icon:['momijicookie'] },'momiji','もみじが まっかだね'),
   EV('christmas','クリスマス',1201,1225,'ev_santa',{ id:'ev_xmascake', ja:'クリスマスケーキ', icon:['cake',true] },'christmas','メリークリスマス！'),
+  EV('toshikoshi','としこし',1226,1231,'ev_mikanhat',{ id:'ev_mikanjelly', ja:'みかんゼリー', icon:['mikanjelly'] },'toshikoshi','ことしも いっしょに いてくれて ありがとう'),
 ];
 function activeEvent(d = clockDate()){
   const md = mdOf(d);
@@ -285,6 +294,8 @@ function weatherOf(d = clockDate()){
   if (ev && ev.id === 'christmas') return 'snow';
   if (ev && ev.id === 'sakura') return 'petals';
   if (ev && ev.id === 'tsuyu') return 'rain';
+  if (ev && ev.id === 'momiji') return 'leaves';
+  if (ev && ev.id === 'toshikoshi') return 'snow';
   if (m === 1 || m === 2) return 'snow';
   return null;
 }
@@ -302,6 +313,11 @@ const EVENT_WEAR = [
   Wr('ev_starband','head','おほしさまカチューシャ',0,'starband'),
   Wr('ev_usagi','head','うさぎのみみ',0,'usagi'),
   Wr('ev_ukiwa','neck','うきわ',0,'ukiwa'),
+  /* 2026-11-27 */
+  Wr('ev_acorn','head','どんぐりぼうし',0,'acorn'),
+  Wr('ev_mikanhat','head','みかんのぼうし',0,'mikanhat'),
+  Wr('ev_oni','head','おにの つの',0,'oni'),
+  Wr('ev_hishiribbon','head','ひしもちリボン',0,'hishi'),
 ];
 EVENT_WEAR.forEach(w => { w.ev = true; WEAR.push(w); WEAR_BY_ID[w.id] = w; });
 

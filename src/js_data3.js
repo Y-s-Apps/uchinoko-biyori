@@ -27,7 +27,8 @@ const TRICKS = {
   ],
 };
 
-/* ===== seasons & events (month-day of the rules' clock: this device's date, or Japan time on the LINE server) ===== */
+/* ===== seasons & events (month-day of the rules' clock: this device's date, or Japan time on the LINE server) =====
+   2026-11-27：せつぶん・ひなまつり・もみじがり・としこし を 足した（見本 5 で オーナー決定。期間は かさならない＝activeEvent は 1つだけ） */
 function mdOf(d){ return (d.getMonth() + 1) * 100 + d.getDate(); }
 function seasonOf(d = clockDate()){
   const m = d.getMonth() + 1;
@@ -36,7 +37,9 @@ function seasonOf(d = clockDate()){
 const EV = (id, ja, from, to, gift, treat, decor, hello) => ({ id, ja, from, to, gift, treat, decor, hello });
 const EVENTS = [
   EV('newyear','おしょうがつ',101,107,'ev_hachimaki',{ id:'ev_osechi', ja:'ペット用おせち', icon:['jubako'] },'newyear','あけましておめでとう！ことしもよろしくね'),
+  EV('setsubun','せつぶん',201,203,'ev_oni',{ id:'ev_mamebolo', ja:'まめボーロ', icon:['balls','#EED19A','#B08A4E'] },'setsubun','おには そと！ ふくは うち！'),
   EV('valentine','バレンタイン',207,214,'ev_heartband',{ id:'ev_heartcookie', ja:'ハートのクッキー', icon:['heartcookie'] },'valentine','バレンタインだよ！だいすき！'),
+  EV('hina','ひなまつり',301,303,'ev_hishiribbon',{ id:'ev_arare', ja:'ひなあられ', icon:['arare'] },'hina','ひなまつりだよ！ おひなさま、きれいだね'),
   EV('sakura','おはなみ',325,410,'ev_sakurapin',{ id:'ev_sakurabolo', ja:'さくらボーロ', icon:['balls','#F9C6D3','#D98AA0'] },'sakura','さくらがさいたよ！'),
   EV('kodomo','こどもの日',501,505,'ev_kabuto',{ id:'ev_koicookie', ja:'こいのぼりクッキー', icon:['koicookie'] },'kodomo','こいのぼりがおよいでるね'),
   EV('tsuyu','つゆ',610,630,'ev_rainhat',{ id:'ev_ajisai', ja:'あじさいゼリー', icon:['jelly'] },'tsuyu','あめの日も、いっしょだね'),
@@ -44,7 +47,9 @@ const EVENTS = [
   EV('summer','なつやすみ',720,831,'ev_ukiwa',{ id:'ev_suika', ja:'ひんやりすいか', icon:['suika'] },'summer','なつだ！あついね〜'),
   EV('tsukimi','おつきみ',915,930,'ev_usagi',{ id:'ev_dango', ja:'おつきみボーロ', icon:['dango'] },'tsukimi','おつきさま、まんまるだね'),
   EV('halloween','ハロウィン',1001,1031,'ev_pumpkin',{ id:'ev_pumpkincookie', ja:'かぼちゃクッキー', icon:['pumpkincookie'] },'halloween','トリック・オア・トリート！'),
+  EV('momiji','もみじがり',1101,1130,'ev_acorn',{ id:'ev_momijicookie', ja:'もみじクッキー', icon:['momijicookie'] },'momiji','もみじが まっかだね'),
   EV('christmas','クリスマス',1201,1225,'ev_santa',{ id:'ev_xmascake', ja:'クリスマスケーキ', icon:['cake',true] },'christmas','メリークリスマス！'),
+  EV('toshikoshi','としこし',1226,1231,'ev_mikanhat',{ id:'ev_mikanjelly', ja:'みかんゼリー', icon:['mikanjelly'] },'toshikoshi','ことしも いっしょに いてくれて ありがとう'),
 ];
 function activeEvent(d = clockDate()){
   const md = mdOf(d);
@@ -55,6 +60,8 @@ function weatherOf(d = clockDate()){
   if (ev && ev.id === 'christmas') return 'snow';
   if (ev && ev.id === 'sakura') return 'petals';
   if (ev && ev.id === 'tsuyu') return 'rain';
+  if (ev && ev.id === 'momiji') return 'leaves';
+  if (ev && ev.id === 'toshikoshi') return 'snow';
   if (m === 1 || m === 2) return 'snow';
   return null;
 }
@@ -72,6 +79,11 @@ const EVENT_WEAR = [
   Wr('ev_starband','head','おほしさまカチューシャ',0,'starband'),
   Wr('ev_usagi','head','うさぎのみみ',0,'usagi'),
   Wr('ev_ukiwa','neck','うきわ',0,'ukiwa'),
+  /* 2026-11-27 */
+  Wr('ev_acorn','head','どんぐりぼうし',0,'acorn'),
+  Wr('ev_mikanhat','head','みかんのぼうし',0,'mikanhat'),
+  Wr('ev_oni','head','おにの つの',0,'oni'),
+  Wr('ev_hishiribbon','head','ひしもちリボン',0,'hishi'),
 ];
 EVENT_WEAR.forEach(w => { w.ev = true; WEAR.push(w); WEAR_BY_ID[w.id] = w; });
 

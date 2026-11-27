@@ -418,6 +418,8 @@ function garland(shape, cols){
     else if (shape === 'star') s += `<path d="M${x.toFixed(1)} ${(y).toFixed(1)}l1.2 2.6 2.8.3-2.1 1.9.6 2.8-2.5-1.4-2.5 1.4.6-2.8-2.1-1.9 2.8-.3z" fill="${c}"/>`;
     else if (shape === 'ball') s += `<circle cx="${x.toFixed(1)}" cy="${(y + 2.5).toFixed(1)}" r="2.4" fill="${c}"/>`;
     else if (shape === 'flower') s += `<circle cx="${x.toFixed(1)}" cy="${(y + 2.5).toFixed(1)}" r="2.6" fill="${c}"/><circle cx="${x.toFixed(1)}" cy="${(y + 2.5).toFixed(1)}" r="1" fill="#F5C04A"/>`;
+    /* もみじの はっぱ（もみじがり。2026-11-27） */
+    else if (shape === 'leaf') s += `<path transform="translate(${x.toFixed(1)} ${(y + 3).toFixed(1)}) scale(.16)" d="M0-17l3.2 7.4 6.4-3.4-1.8 7.6 7.6.6-5.4 5.2 4.6 4.4-8-.2-.8 8.4L0 7.6-5.8 13-6.6 4.6l-8 .2 4.6-4.4-5.4-5.2 7.6-.6-1.8-7.6 6.4 3.4z" fill="${c}"/>`;
   }
   return `<svg class="garland" viewBox="0 0 100 18" preserveAspectRatio="none" aria-hidden="true">${s}</svg>`;
 }
@@ -432,6 +434,29 @@ const SEASON_DECOR = {
   tanabata:{ g:['star', ['#F5C843','#FFFFFF','#9FB4EA']], item:'<svg viewBox="0 0 80 100"><path d="M40 98C40 70 38 40 34 6" stroke="#5C8A3A" stroke-width="3.4" fill="none" stroke-linecap="round"/>' + [[22,26],[52,22],[18,48],[58,46],[26,70],[56,70]].map(([x, y], i) => `<path d="M${x} ${y}c${x < 40 ? 10 : -10} -4 ${x < 40 ? 14 : -14} -2 ${x < 40 ? 16 : -16} 2" stroke="#7CC26A" stroke-width="5" fill="none" stroke-linecap="round"/><rect x="${x - 3}" y="${y + 2}" width="6" height="14" rx="1" fill="${['#F0728E','#F5C843','#7EC4E8','#B8A6EC','#7CC26A','#F0A04B'][i]}"/>`).join('') + '</svg>' },
   summer:{ g:null, item:'<svg viewBox="0 0 80 70"><path d="M8 50h64a32 32 0 0 1-64 0z" transform="translate(0 -14)" fill="#E8505A" stroke="#3E8A45" stroke-width="4"/><g fill="#2E2A33"><ellipse cx="26" cy="44" rx="1.6" ry="2.6"/><ellipse cx="40" cy="48" rx="1.6" ry="2.6"/><ellipse cx="54" cy="44" rx="1.6" ry="2.6"/></g></svg>', hang:'<svg viewBox="0 0 40 60"><path d="M20 0v12" stroke="#9AA3B5" stroke-width="1.4"/><path d="M8 26a12 12 0 0 1 24 0z" fill="#CDEEF7" stroke="#6FA8C2" stroke-width="1.8"/><path d="M12 22q4-4 8 0" stroke="#F0728E" stroke-width="2" fill="none"/><path d="M20 26v10" stroke="#9AA3B5" stroke-width="1"/><rect x="15" y="36" width="10" height="20" rx="1" fill="#FFF3C9" stroke="#C9A44C" stroke-width="1.2"/></svg>' },
   tsukimi:{ g:null, item:'<svg viewBox="0 0 80 90"><path d="M24 88V40M28 88C28 60 22 36 10 22M30 88c0-30 8-50 22-62" stroke="#B9A06A" stroke-width="2.4" fill="none"/><path d="M10 22c-4 6-2 12 2 14M52 26c4-4 10-4 12 0M24 40c-4-6-2-14 4-16" stroke="#E7D9B0" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M44 88h30l-4-8H48z" fill="#C9A97A"/><circle cx="52" cy="74" r="6" fill="#FFFFFF" stroke="#C9B9B0" stroke-width="1.6"/><circle cx="66" cy="74" r="6" fill="#FFFFFF" stroke="#C9B9B0" stroke-width="1.6"/><circle cx="59" cy="64" r="6" fill="#FFFFFF" stroke="#C9B9B0" stroke-width="1.6"/></svg>' },
+  /* 2026-11-27：もみじがり（もみじの ガーランド・おちばと やきいも）・としこし（こたつと みかん）・せつぶん（旗・ますと おにの おめん）・ひなまつり（ももの 花・おひなさま） */
+  momiji:{ g:['leaf', ['#E8505A','#F0A04B','#F5C843','#D9772E']],
+    item:'<svg viewBox="0 0 80 70"><path d="M8 66c4-14 18-22 32-22s28 8 32 22z" fill="#E7A05A" stroke="#A8642A" stroke-width="2.2"/>' +
+      [[20,56,'#E8505A',-20],[34,50,'#F5C843',10],[48,52,'#D9772E',-8],[60,58,'#E8505A',24],[28,62,'#F0A04B',0],[52,63,'#F5C843',-30]].map(([x, y, c, r]) => `<path transform="translate(${x} ${y}) rotate(${r}) scale(.42)" d="M0-17l3.2 7.4 6.4-3.4-1.8 7.6 7.6.6-5.4 5.2 4.6 4.4-8-.2-.8 8.4L0 7.6-5.8 13-6.6 4.6l-8 .2 4.6-4.4-5.4-5.2 7.6-.6-1.8-7.6 6.4 3.4z" fill="${c}" stroke="${mix(c, '#2A1E2A', .35)}" stroke-width="2.4" stroke-linejoin="round"/>`).join('') +
+      '<g transform="rotate(-14 50 40)"><path d="M30 40c2-8 14-12 26-9 6 2 6 9 0 12-10 5-27 6-26-3z" fill="#9B5C9E" stroke="#6E3E73" stroke-width="2.2"/><ellipse cx="58" cy="35" rx="3.6" ry="5.4" fill="#F7D774" stroke="#6E3E73" stroke-width="2"/></g>' +
+      '<path d="M44 26q-3-6 0-12M52 24q-3-6 0-12" stroke="#BDB5C8" stroke-width="2" fill="none" stroke-linecap="round"/></svg>' },
+  toshikoshi:{ g:null,
+    item:'<svg viewBox="0 0 80 70"><path d="M6 66l6-26h56l6 26z" fill="#E8505A" stroke="#9A2E36" stroke-width="2.2" stroke-linejoin="round"/>' +
+      '<path d="M14 50h52M10 60h60" stroke="#F7C1C6" stroke-width="2" stroke-dasharray="4 4"/>' +
+      '<rect x="4" y="34" width="72" height="8" rx="2" fill="#C9A97A" stroke="#8B6A3E" stroke-width="2.2"/>' +
+      '<path d="M26 34c0-6 6-8 14-8s14 2 14 8z" fill="#E6D2AE" stroke="#8B6A3E" stroke-width="2"/>' +
+      [[32,24],[44,22],[38,16]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="6" fill="#F5A031" stroke="#B8691C" stroke-width="1.8"/><path d="M${x} ${y - 6}l1-2" stroke="#3E7A30" stroke-width="2" stroke-linecap="round"/>`).join('') + '</svg>' },
+  setsubun:{ g:['flag', ['#E8505A','#5B8FD9','#F5C843']],
+    item:'<svg viewBox="0 0 80 70"><path d="M6 40h40l-3 26H9z" fill="#D9B886" stroke="#8B6A3E" stroke-width="2.2" stroke-linejoin="round"/><path d="M6 40h40" stroke="#8B6A3E" stroke-width="3"/>' +
+      [[14,38],[21,36],[28,38],[35,36],[18,32],[30,32],[25,30]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="3.6" fill="#EED19A" stroke="#B08A4E" stroke-width="1.4"/>`).join('') +
+      '<g transform="rotate(10 60 40)"><ellipse cx="60" cy="42" rx="16" ry="18" fill="#E8505A" stroke="#9A2E36" stroke-width="2.2"/><path d="M50 26l-3-12 7 9zM70 26l3-12-7 9z" fill="#F5C843" stroke="#A8822A" stroke-width="1.6" stroke-linejoin="round"/>' +
+      '<path d="M50 38q4-4 8 0M62 38q4-4 8 0" stroke="#2E2A33" stroke-width="2.4" fill="none" stroke-linecap="round"/><path d="M53 49q7 5 14 0" stroke="#2E2A33" stroke-width="2.2" fill="none" stroke-linecap="round"/><path d="M55 50l1.4 3 1.4-3M62 50l1.4 3 1.4-3" fill="#FFFFFF"/>' +
+      '<path d="M46 30q-4-8 2-14M74 30q4-8-2-14" stroke="#5A3A24" stroke-width="3" fill="none" stroke-linecap="round"/></g></svg>' },
+  hina:{ g:['flower', ['#F7A8C0','#FFFFFF','#FBC9D8']],
+    item:'<svg viewBox="0 0 80 80"><path d="M2 78h76l-4-14H6z" fill="#E8505A" stroke="#9A2E36" stroke-width="2.2" stroke-linejoin="round"/><path d="M8 64h64" stroke="#F5C843" stroke-width="2"/>' +
+      '<path d="M10 62l6-26h16l6 26z" fill="#2E3A6E" stroke="#1C2448" stroke-width="2" stroke-linejoin="round"/><path d="M18 36l6 26M30 36l-6 26" stroke="#5B6FB0" stroke-width="2"/><circle cx="24" cy="28" r="9" fill="#FBF3EA" stroke="#C9B9B0" stroke-width="2"/><path d="M15 25q9-10 18 0" fill="#2E2A33"/><rect x="21" y="13" width="6" height="9" rx="2" fill="#2E2A33"/><path d="M21 31q3 2 6 0" stroke="#3A2A33" stroke-width="1.4" fill="none" stroke-linecap="round"/>' +
+      '<path d="M42 62l6-26h16l6 26z" fill="#E8505A" stroke="#9A2E36" stroke-width="2" stroke-linejoin="round"/><path d="M50 36l6 26M62 36l-6 26" stroke="#F7C1C6" stroke-width="2"/><path d="M44 52h24" stroke="#F5C843" stroke-width="3"/><circle cx="56" cy="28" r="9" fill="#FBF3EA" stroke="#C9B9B0" stroke-width="2"/><path d="M47 27q9-12 18 0" fill="#2E2A33"/><path d="M50 18l6-6 6 6" fill="#F5C843" stroke="#A8822A" stroke-width="1.4" stroke-linejoin="round"/><path d="M53 31q3 2 6 0" stroke="#3A2A33" stroke-width="1.4" fill="none" stroke-linecap="round"/>' +
+      '<circle cx="20" cy="31" r="2" fill="#FF9DB2" opacity=".7"/><circle cx="28" cy="31" r="2" fill="#FF9DB2" opacity=".7"/><circle cx="52" cy="31" r="2" fill="#FF9DB2" opacity=".7"/><circle cx="60" cy="31" r="2" fill="#FF9DB2" opacity=".7"/></svg>' }
 };
 function applyRoom(){
   if (!S) return;
