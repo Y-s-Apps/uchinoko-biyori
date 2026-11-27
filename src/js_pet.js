@@ -543,8 +543,11 @@ function renderPetSide(rawLook, opts = {}){
    左右は 正面と 反対：正面の 左がわの もよう（patchL・耳の 色）は うしろでは 右がわ。
    41種の 耳（7しゅるい）・しっぽ（6）・毛（ふわふわ・くるくる）・せなかと うしろあたまの もよう（しま・ぶち・サドル・ぶち〈patch〉・てん）を 引きつぐ。
    グループ：pb-all > pb-legs（立つ・あるく ときの うしろ足。ふだんは display="none"）、pb-feet（すわった ときの かかと・前あしの 先）、
-   pb-body > pb-body-g（おしり pb-haunchL/R・からだ・せなかの もよう）、pb-ruff、pb-tail > pb-tail-g、
-   pb-head > pb-head-g（耳 pb-earL/R・頭・うしろあたまの もよう・かおの きせかえの つる・あたまの きせかえ）、pb-neck（首の きせかえ。頭と しっぽより てまえ＝うなじの 帯が かくれない）。
+   pb-body > pb-body-g（おしり pb-haunchL/R・からだ・せなかの もよう）、pb-ruff、
+   pb-neck.pb-neck-b（せなかに たれる 首の きせかえ：マフラーの 端・バンダナの 先）、うきわ、pb-tail.pb-tail-lo > pb-tail-g、
+   pb-head > pb-head-g（耳 pb-earL/R・頭・うしろあたまの もよう・かおの きせかえの つる・あたまの きせかえ）、pb-neck（うなじの 帯。頭と しっぽより てまえ＝帯が かくれない）、
+   pb-tail.pb-tail-hi（しっぽの 2まい目。ふだんは visibility="hidden"。ふせる・奥へ あるく ときだけ 見せて、しっぽを 頭・首の 帯より 前に）。
+   うしろから 見ると しっぽが いちばん てまえ（2026-11-27 オーナーの 声：前は マフラーの 端が しっぽの 上に かさなっていた）。
    きせかえ（wearBack）：首は うなじの 帯（バンダナは むすび目、すずは 金具、マフラーは 端を 1本 せなかへ）、かおは めがねの つる、
    あたまは 正面の 絵を 左右 反対に して（王冠・かぼちゃ・ティアラ・かぶと・はちまき・うさぎのみみ は うしろ用に かいた） */
 function renderPetBack(rawLook, opts = {}){
@@ -675,17 +678,20 @@ function renderPetBack(rawLook, opts = {}){
     ${legs}
     <g class="pb-body"><g class="pb-body-g">${haunch(hx1, 'L')}${haunch(hx2, 'R')}${feet}${body}</g></g>
     ${ruff}
-    <g class="pb-tail"><g class="pb-tail-g">${tail}</g></g>
+    <g class="pb-neck pb-neck-b">${WS.back}</g>
+    ${WS.over}
+    <g class="pb-tail pb-tail-lo"><g class="pb-tail-g">${tail}</g></g>
     <g class="pb-head"><g class="pb-head-g">${head}</g></g>
     <g class="pb-neck">${WS.neck}</g>
-    ${WS.over}
+    <g class="pb-tail pb-tail-hi" visibility="hidden"><g class="pb-tail-g">${tail}</g></g>
   </g>
 </svg>`;
 }
 
-/* うしろから 見た きせかえ。x：id・SW・HX・HY・hrx（頭の よこはば）・EY（目の 高さ）・ear */
+/* うしろから 見た きせかえ。x：id・SW・HX・HY・hrx（頭の よこはば）・EY（目の 高さ）・ear
+   neck＝うなじの 帯（しっぽより 前）、back＝せなかに たれる ところ（しっぽの うしろ）、over＝うきわ（しっぽの うしろ） */
 function wearBack(W, x){
-  const out = { neck:'', face:'', head:'', defs:'', over:'' };
+  const out = { neck:'', back:'', face:'', head:'', defs:'', over:'' };
   const SW = x.SW, HX = x.HX, HY = x.HY, EY = x.EY;
   const ink = col => mix(col, '#2A1E2A', .42);
   const band = 'M86 152Q120 168 154 152';
@@ -700,10 +706,11 @@ function wearBack(W, x){
       /* うしろは むすび目と 2本の 先 */
       let fill = p.c;
       if (p.check){ out.defs += `<pattern id="${x.id}ck" width="9" height="9" patternUnits="userSpaceOnUse"><rect width="9" height="9" fill="#FFFFFF"/><rect width="4.5" height="9" fill="${p.c}" opacity=".55"/><rect width="9" height="4.5" fill="${p.c}" opacity=".55"/></pattern>`; fill = `url(#${x.id}ck)`; }
+      out.back = `<path d="M118 162L104 178L112 181ZM122 162L136 178L128 181Z" fill="${fill}" stroke="${ink(p.c)}" stroke-width="${SW}" stroke-linejoin="round"/>` +
+        (p.d ? [[110,174],[130,174]].map(([a, b]) => `<circle cx="${a}" cy="${b}" r="2.1" fill="${p.d}"/>`).join('') : '');
       out.neck = bandStroke(p.c, 9) +
-        `<path d="M118 162L104 178L112 181ZM122 162L136 178L128 181Z" fill="${fill}" stroke="${ink(p.c)}" stroke-width="${SW}" stroke-linejoin="round"/>` +
         `<ellipse cx="120" cy="161" rx="7" ry="6" fill="${fill}" stroke="${ink(p.c)}" stroke-width="${SW}"/>` +
-        (p.d ? [[98,158],[142,158],[110,174],[130,174]].map(([a, b]) => `<circle cx="${a}" cy="${b}" r="2.1" fill="${p.d}"/>`).join('') : '');
+        (p.d ? [[98,158],[142,158]].map(([a, b]) => `<circle cx="${a}" cy="${b}" r="2.1" fill="${p.d}"/>`).join('') : '');
     } else if (n.kind === 'bell'){
       /* すずは 前。うしろは 帯と 金具 */
       let col = p.c, edge = ink(p.c);
@@ -727,13 +734,13 @@ function wearBack(W, x){
           `<rect x="78" y="${153 + i * 6}" width="32" height="6" fill="${[a2, a3, a1][i % 3]}" transform="rotate(10 94 ${156 + i * 6})"/>`).join('') + '</g>';
         bandFill = `<path d="${band}" fill="none" stroke="${a2}" stroke-width="14" stroke-dasharray="6 12"/><path d="${band}" fill="none" stroke="${a3}" stroke-width="14" stroke-dasharray="6 12" stroke-dashoffset="-6"/>`;
       }
-      out.neck = `<g class="pb-scarf"><path d="${tail}" fill="${p.c}" stroke="${edge}" stroke-width="${SW}" stroke-linejoin="round"/>${tailFill}` +
+      out.back = `<g class="pb-scarf"><path d="${tail}" fill="${p.c}" stroke="${edge}" stroke-width="${SW}" stroke-linejoin="round"/>${tailFill}` +
         `<path d="${tail}" fill="none" stroke="${edge}" stroke-width="${SW}" stroke-linejoin="round"/>` +
-        `<path d="M86 194l-1 6M91 195l0 6M96 196l1 6" stroke="${p.tri ? p.tri[0] : edge}" stroke-width="2.4" stroke-linecap="round"/></g>` +
-        `<path d="${band}" fill="none" stroke="${edge}" stroke-width="${14 + SW * 2}" stroke-linecap="round"/><path d="${band}" fill="none" stroke="${p.c}" stroke-width="14" stroke-linecap="round"/>${bandFill}` +
+        `<path d="M86 194l-1 6M91 195l0 6M96 196l1 6" stroke="${p.tri ? p.tri[0] : edge}" stroke-width="2.4" stroke-linecap="round"/></g>`;
+      out.neck = `<path d="${band}" fill="none" stroke="${edge}" stroke-width="${14 + SW * 2}" stroke-linecap="round"/><path d="${band}" fill="none" stroke="${p.c}" stroke-width="14" stroke-linecap="round"/>${bandFill}` +
         `<path d="M94 155l2 6M106 159l1 6M134 159l-1 6M146 155l-2 6" stroke="#FFFFFF" stroke-opacity=".18" stroke-width="2" stroke-linecap="round"/>`;
     } else if (n.kind === 'ukiwa'){
-      /* うきわは からだの まわり。うしろからも 同じ（しっぽの 上に かさねる） */
+      /* うきわは からだの まわり。うしろからも 同じ（しっぽは こしから 出て うきわの 上に のる＝しっぽの うしろ） */
       out.over = `<path d="M74 168a46 21 0 1 0 92 0a46 21 0 1 0 -92 0Z" fill="#FFFFFF" stroke="#9AA3B5" stroke-width="${SW}"/>` +
         `<path d="M74 168a46 21 0 0 0 23 18.2L105 174a20 9 0 0 1 -9-6Z" fill="#F27B7B"/><path d="M166 168a46 21 0 0 1 -23 18.2L135 174a20 9 0 0 0 9-6Z" fill="#F27B7B"/>` +
         `<path d="M97 150.2a46 21 0 0 1 46 0L136 161a20 9 0 0 0 -32 0Z" fill="#F27B7B"/>` +

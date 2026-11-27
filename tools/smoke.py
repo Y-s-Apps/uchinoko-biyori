@@ -205,6 +205,8 @@ async def main(args):
             for x in await page.evaluate(LOOKS_JS):
                 errors.append(f'見た目（{name}）：{x}')
 
+        clicked = []
+
         async def close_popups():
             for _ in range(6):
                 await page.wait_for_timeout(600)
@@ -212,6 +214,7 @@ async def main(args):
                 if not btn:
                     return
                 await snap('popup')
+                clicked.append((await btn.text_content() or '').strip())
                 await btn.click()
 
         async def close_sheet():
@@ -237,6 +240,11 @@ async def main(args):
         if not args.fresh:
             # よるの ひとこと（通知：画面の中の お知らせ）：21時を すぎて おねがいが のこっていたら、うちのこが ふきだしで 1日1回
             # うちのこが おへやの 右はし（ベッド）に いても、ふきだしは おへやの 中に おさまる
+            # 季節の イベントの お知らせで「つけてみる」を おした あとは、きせかえの「にあう？」（まんなかへ あるいて くるりん）が おわるのを まつ
+            # （まえは とちゅうで ふきだしが「にあう？」に かわって まちがえた。イベントの 期間に ひらいた 日だけ）
+            if any('つけてみる' in t for t in clicked):
+                await poll(page, "() => document.querySelector('#bubble').textContent === 'にあう？'", timeout=8000)
+                await poll(page, "() => !document.querySelector('#bubble').classList.contains('show')", timeout=4000)
             await page.evaluate("() => { clearTimeout(idleT); Pet.el.style.transition = 'none'; Pet.x = 80; Pet.y = 84; Pet.apply(); }")
             await page.wait_for_timeout(300)
             await page.evaluate("() => { window.__hour = Clock.hour; Clock.hour = () => 21; localStorage.removeItem('uchinoko-biyori:nudge-day'); Nudge.shown = ''; Nudge.check(); }")

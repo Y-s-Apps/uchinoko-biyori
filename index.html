@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-5Fq/LzWG7LLGdYCMiDYzG/bSrDJX4bPownG3u1har8U=' https://y-s-apps.github.io/uchinoko-biyori/run-5d3805aee4a4.js; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-NBtFA8n0mFvXXL4BPmpcBXvpJWzI7jmjvP5bmWqAIeE=' https://y-s-apps.github.io/uchinoko-biyori/run-5d3805aee4a4.js; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="写真の犬や猫をそっくりなペットにして、ごはん・おやつ・なでなででのんびり育てるアプリ">
@@ -585,6 +585,11 @@ button{font:inherit;color:inherit}
 .pose-bwalk .pb-head-g{animation:pbBob var(--half,.28s) ease-in-out infinite}
 .pose-bwalk .pb-tail-g{animation:pbWag var(--step,.56s) ease-in-out infinite}
 .pose-bwalk .pb-scarf{animation:pbScarf var(--step,.56s) ease-in-out infinite}
+/* うしろから 見ると しっぽが いちばん てまえ（2026-11-27 オーナーの 声）。すわる・見あげる は しっぽの 先が 首の 帯の 下に かくれる（帯・むすび目が 見える）、
+   ふせる（頭と 首が しっぽの 上まで 下がる）・奥へ あるく（しっぽを 上げる）は 頭・首の きせかえより 前の 2まい目（js_pet.js の pb-tail-hi）で 出す。
+   display で なく visibility（display:none からは transition・アニメが つづかない） */
+.pose-bdown .pb-tail-lo,.pose-bwalk .pb-tail-lo{visibility:hidden}
+.pose-bdown .pb-tail-hi,.pose-bwalk .pb-tail-hi{visibility:visible}
 .pose-bwalk .pet-floor i{transform:scale(.86,1)}
 @keyframes pbStep{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px) scaleY(.9)}}
 @keyframes pbBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
@@ -663,7 +668,7 @@ button{font:inherit;color:inherit}
 .newpill,.evpill,.okpill{display:inline-block;border-radius:99px;padding:1px 8px;font-size:11px;font-weight:900;line-height:1.5}
 .newpill{position:absolute;top:-6px;right:-6px;background:var(--badge);color:#FFFFFF}
 .evpill{background:color-mix(in srgb,var(--honey) 30%,var(--surface));color:var(--ink)}
-.okpill{background:color-mix(in srgb,var(--mint) 22%,var(--surface));color:color-mix(in srgb,var(--mint) 70%,var(--ink))}
+.okpill{background:color-mix(in srgb,var(--mint) 22%,var(--surface));color:color-mix(in srgb,var(--mint) 45%,var(--ink))}
 .stampbig{width:72px;height:72px;margin:6px auto 8px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--berry) 12%,var(--surface));box-shadow:inset 0 0 0 3px color-mix(in srgb,var(--berry) 40%,var(--surface));transform:rotate(-12deg);animation:pop .5s .3s both cubic-bezier(.3,1.6,.5,1)}
 .stampbig .mini{width:44px;height:44px}
 @keyframes pop{from{transform:scale(.7);opacity:0}}
@@ -721,7 +726,8 @@ button{font:inherit;color:inherit}
 .req-st{flex:none;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
 .req-st .cnt{font-weight:900;font-variant-numeric:tabular-nums}
 .req-st small{font-size:11px;color:var(--berry-ink);font-weight:700}
-.req.done{opacity:.8}
+/* かなえた おねがいは うすく。「かなえた」の しるし（.req-st）は うすく しない＝文字と 地の 色の 差 4.5 より 大きく（2026-11-27。前は 行ごと .8 で ライト 2.5・ダーク 4.4） */
+.req.done .req-ic,.req.done .req-body{opacity:.8}
 .req.done .bar i{background:var(--mint)}
 .rescuebox{background:color-mix(in srgb,var(--mint) 12%,var(--surface));border-radius:20px;padding:12px;margin-bottom:12px;box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--mint) 45%,var(--surface))}
 .rescuebox>p{margin:0 0 10px;font-size:13px;line-height:1.6;color:var(--ink-soft)}
@@ -2190,8 +2196,11 @@ function renderPetSide(rawLook, opts = {}){
    左右は 正面と 反対：正面の 左がわの もよう（patchL・耳の 色）は うしろでは 右がわ。
    41種の 耳（7しゅるい）・しっぽ（6）・毛（ふわふわ・くるくる）・せなかと うしろあたまの もよう（しま・ぶち・サドル・ぶち〈patch〉・てん）を 引きつぐ。
    グループ：pb-all > pb-legs（立つ・あるく ときの うしろ足。ふだんは display="none"）、pb-feet（すわった ときの かかと・前あしの 先）、
-   pb-body > pb-body-g（おしり pb-haunchL/R・からだ・せなかの もよう）、pb-ruff、pb-tail > pb-tail-g、
-   pb-head > pb-head-g（耳 pb-earL/R・頭・うしろあたまの もよう・かおの きせかえの つる・あたまの きせかえ）、pb-neck（首の きせかえ。頭と しっぽより てまえ＝うなじの 帯が かくれない）。
+   pb-body > pb-body-g（おしり pb-haunchL/R・からだ・せなかの もよう）、pb-ruff、
+   pb-neck.pb-neck-b（せなかに たれる 首の きせかえ：マフラーの 端・バンダナの 先）、うきわ、pb-tail.pb-tail-lo > pb-tail-g、
+   pb-head > pb-head-g（耳 pb-earL/R・頭・うしろあたまの もよう・かおの きせかえの つる・あたまの きせかえ）、pb-neck（うなじの 帯。頭と しっぽより てまえ＝帯が かくれない）、
+   pb-tail.pb-tail-hi（しっぽの 2まい目。ふだんは visibility="hidden"。ふせる・奥へ あるく ときだけ 見せて、しっぽを 頭・首の 帯より 前に）。
+   うしろから 見ると しっぽが いちばん てまえ（2026-11-27 オーナーの 声：前は マフラーの 端が しっぽの 上に かさなっていた）。
    きせかえ（wearBack）：首は うなじの 帯（バンダナは むすび目、すずは 金具、マフラーは 端を 1本 せなかへ）、かおは めがねの つる、
    あたまは 正面の 絵を 左右 反対に して（王冠・かぼちゃ・ティアラ・かぶと・はちまき・うさぎのみみ は うしろ用に かいた） */
 function renderPetBack(rawLook, opts = {}){
@@ -2322,17 +2331,20 @@ function renderPetBack(rawLook, opts = {}){
     ${legs}
     <g class="pb-body"><g class="pb-body-g">${haunch(hx1, 'L')}${haunch(hx2, 'R')}${feet}${body}</g></g>
     ${ruff}
-    <g class="pb-tail"><g class="pb-tail-g">${tail}</g></g>
+    <g class="pb-neck pb-neck-b">${WS.back}</g>
+    ${WS.over}
+    <g class="pb-tail pb-tail-lo"><g class="pb-tail-g">${tail}</g></g>
     <g class="pb-head"><g class="pb-head-g">${head}</g></g>
     <g class="pb-neck">${WS.neck}</g>
-    ${WS.over}
+    <g class="pb-tail pb-tail-hi" visibility="hidden"><g class="pb-tail-g">${tail}</g></g>
   </g>
 </svg>`;
 }
 
-/* うしろから 見た きせかえ。x：id・SW・HX・HY・hrx（頭の よこはば）・EY（目の 高さ）・ear */
+/* うしろから 見た きせかえ。x：id・SW・HX・HY・hrx（頭の よこはば）・EY（目の 高さ）・ear
+   neck＝うなじの 帯（しっぽより 前）、back＝せなかに たれる ところ（しっぽの うしろ）、over＝うきわ（しっぽの うしろ） */
 function wearBack(W, x){
-  const out = { neck:'', face:'', head:'', defs:'', over:'' };
+  const out = { neck:'', back:'', face:'', head:'', defs:'', over:'' };
   const SW = x.SW, HX = x.HX, HY = x.HY, EY = x.EY;
   const ink = col => mix(col, '#2A1E2A', .42);
   const band = 'M86 152Q120 168 154 152';
@@ -2347,10 +2359,11 @@ function wearBack(W, x){
       /* うしろは むすび目と 2本の 先 */
       let fill = p.c;
       if (p.check){ out.defs += `<pattern id="${x.id}ck" width="9" height="9" patternUnits="userSpaceOnUse"><rect width="9" height="9" fill="#FFFFFF"/><rect width="4.5" height="9" fill="${p.c}" opacity=".55"/><rect width="9" height="4.5" fill="${p.c}" opacity=".55"/></pattern>`; fill = `url(#${x.id}ck)`; }
+      out.back = `<path d="M118 162L104 178L112 181ZM122 162L136 178L128 181Z" fill="${fill}" stroke="${ink(p.c)}" stroke-width="${SW}" stroke-linejoin="round"/>` +
+        (p.d ? [[110,174],[130,174]].map(([a, b]) => `<circle cx="${a}" cy="${b}" r="2.1" fill="${p.d}"/>`).join('') : '');
       out.neck = bandStroke(p.c, 9) +
-        `<path d="M118 162L104 178L112 181ZM122 162L136 178L128 181Z" fill="${fill}" stroke="${ink(p.c)}" stroke-width="${SW}" stroke-linejoin="round"/>` +
         `<ellipse cx="120" cy="161" rx="7" ry="6" fill="${fill}" stroke="${ink(p.c)}" stroke-width="${SW}"/>` +
-        (p.d ? [[98,158],[142,158],[110,174],[130,174]].map(([a, b]) => `<circle cx="${a}" cy="${b}" r="2.1" fill="${p.d}"/>`).join('') : '');
+        (p.d ? [[98,158],[142,158]].map(([a, b]) => `<circle cx="${a}" cy="${b}" r="2.1" fill="${p.d}"/>`).join('') : '');
     } else if (n.kind === 'bell'){
       /* すずは 前。うしろは 帯と 金具 */
       let col = p.c, edge = ink(p.c);
@@ -2374,13 +2387,13 @@ function wearBack(W, x){
           `<rect x="78" y="${153 + i * 6}" width="32" height="6" fill="${[a2, a3, a1][i % 3]}" transform="rotate(10 94 ${156 + i * 6})"/>`).join('') + '</g>';
         bandFill = `<path d="${band}" fill="none" stroke="${a2}" stroke-width="14" stroke-dasharray="6 12"/><path d="${band}" fill="none" stroke="${a3}" stroke-width="14" stroke-dasharray="6 12" stroke-dashoffset="-6"/>`;
       }
-      out.neck = `<g class="pb-scarf"><path d="${tail}" fill="${p.c}" stroke="${edge}" stroke-width="${SW}" stroke-linejoin="round"/>${tailFill}` +
+      out.back = `<g class="pb-scarf"><path d="${tail}" fill="${p.c}" stroke="${edge}" stroke-width="${SW}" stroke-linejoin="round"/>${tailFill}` +
         `<path d="${tail}" fill="none" stroke="${edge}" stroke-width="${SW}" stroke-linejoin="round"/>` +
-        `<path d="M86 194l-1 6M91 195l0 6M96 196l1 6" stroke="${p.tri ? p.tri[0] : edge}" stroke-width="2.4" stroke-linecap="round"/></g>` +
-        `<path d="${band}" fill="none" stroke="${edge}" stroke-width="${14 + SW * 2}" stroke-linecap="round"/><path d="${band}" fill="none" stroke="${p.c}" stroke-width="14" stroke-linecap="round"/>${bandFill}` +
+        `<path d="M86 194l-1 6M91 195l0 6M96 196l1 6" stroke="${p.tri ? p.tri[0] : edge}" stroke-width="2.4" stroke-linecap="round"/></g>`;
+      out.neck = `<path d="${band}" fill="none" stroke="${edge}" stroke-width="${14 + SW * 2}" stroke-linecap="round"/><path d="${band}" fill="none" stroke="${p.c}" stroke-width="14" stroke-linecap="round"/>${bandFill}` +
         `<path d="M94 155l2 6M106 159l1 6M134 159l-1 6M146 155l-2 6" stroke="#FFFFFF" stroke-opacity=".18" stroke-width="2" stroke-linecap="round"/>`;
     } else if (n.kind === 'ukiwa'){
-      /* うきわは からだの まわり。うしろからも 同じ（しっぽの 上に かさねる） */
+      /* うきわは からだの まわり。うしろからも 同じ（しっぽは こしから 出て うきわの 上に のる＝しっぽの うしろ） */
       out.over = `<path d="M74 168a46 21 0 1 0 92 0a46 21 0 1 0 -92 0Z" fill="#FFFFFF" stroke="#9AA3B5" stroke-width="${SW}"/>` +
         `<path d="M74 168a46 21 0 0 0 23 18.2L105 174a20 9 0 0 1 -9-6Z" fill="#F27B7B"/><path d="M166 168a46 21 0 0 1 -23 18.2L135 174a20 9 0 0 0 9-6Z" fill="#F27B7B"/>` +
         `<path d="M97 150.2a46 21 0 0 1 46 0L136 161a20 9 0 0 0 -32 0Z" fill="#F27B7B"/>` +
