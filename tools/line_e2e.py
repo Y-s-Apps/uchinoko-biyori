@@ -391,7 +391,7 @@ async def browser_tests(srv_port):
         w0 = await page.evaluate(bar)
         await page.click('#actFeed'); await page.wait_for_timeout(1500)
         w1, mid = await page.evaluate(bar), await info(page)
-        await page.wait_for_timeout(5500)
+        await page.wait_for_timeout(7000)   # ごはんの 動きは 6.5秒ほど（だんかい 3 で 1.2秒 ながく なった。5.5 では ぎりぎりで ときどき まにあわない）
         w2 = await page.evaluate(bar)
         ok(mid['meals'] == before['meals'] + 1 and w1 == w0 and w2 != w0,
            'メーターは ごはんの動きが おわってから動く（返事は先に とどいても）', {'w0': w0, 'w1': w1, 'w2': w2, 'meals': mid['meals']})
@@ -1311,6 +1311,52 @@ async def browser_tests(srv_port):
         ok(await page.evaluate(row_js) is None, 'サーバーに トークンが ないときも スイッチなし')
         all_errs += errs; await ctx.close()
         dbg('/__debug/notify', {'token': 'e2e-push'})
+
+        print('24. プロフィールで 名前・みためを かえる（「これでOK」の あとの open で もどらない。2026-11-27 オーナー）')
+        async def edit_pet(page, name, breed):
+            await close_popups(page)
+            await page.click('#menuBtn'); await page.wait_for_timeout(500)
+            await page.click('#mEdit'); await page.wait_for_timeout(500)
+            await page.click('[data-sp="dog"]'); await page.wait_for_timeout(200)
+            await page.click(f'[data-g="{breed}"]'); await page.fill('#edName', name)
+            await page.click('#edGo')
+        look_js = "() => [S.pet.name, S.pet.breedId, document.getElementById('petName').textContent]"
+        ctx, page, errs, calls = await open_page('Uedit')
+        await page.click('#obManual'); await page.wait_for_timeout(300)
+        await page.click('[data-g="shiba"]'); await page.fill('#edName', 'まえのこ')
+        await page.click('#edGo'); await page.wait_for_timeout(2600)
+        await close_popups(page)
+        n0 = len(calls)
+        await edit_pet(page, 'あとのこ', 'pomeranian')
+        seen = []
+        for _ in range(8):
+            await page.wait_for_timeout(500); seen.append(await page.evaluate(look_js))
+        s = state('Uedit')
+        ok(all(v == ['あとのこ', 'pomeranian', 'あとのこ'] for v in seen), 'かえた 名前・みためが おへやで もどらない', seen)
+        ok(s['name'] == 'あとのこ', 'サーバーにも とどく', s)
+        mine = [c for c in calls[n0:] if c.startswith('POST ')]
+        ok(mine[:2] == ['POST /save', 'POST /act'], '名前・みための /save が ひらいた ときの /act より 先', mine)
+        edited = state('Uedit')
+        all_errs += errs; await ctx.close()
+        ctx, page, errs, calls = await open_page('Uedit', owner=edited['id'])
+        await close_popups(page)
+        v = await page.evaluate(look_js)
+        ok(v == ['あとのこ', 'pomeranian', 'あとのこ'], 'ひらきなおしても かえた まま', v)
+        # とちゅうで つながらなく なった：画面は かえた まま（だまって もどさない）→ つなぎなおすと おくる
+        flaky = {'/save': 2}
+        all_errs += errs; await ctx.close()
+        ctx, page, errs, calls = await open_page('Uedit', owner=edited['id'], fail=flaky)
+        await edit_pet(page, 'みっつめ', 'chihuahua')
+        await page.wait_for_timeout(3500)
+        v, i = await page.evaluate(look_js), await info(page)
+        ok(v == ['みっつめ', 'chihuahua', 'みっつめ'] and i['server'] == 'failed' and state('Uedit')['name'] == 'あとのこ',
+           'とどかない ときも 画面は かえた まま（サーバーは まだ 前の 名前）', {'look': v, 'info': i})
+        await page.evaluate('() => LineSync.retry()'); await page.wait_for_timeout(3000)
+        await close_popups(page)
+        v, s = await page.evaluate(look_js), state('Uedit')
+        ok(v == ['みっつめ', 'chihuahua', 'みっつめ'] and s['name'] == 'みっつめ', 'つなぎなおすと かえた 名前・みためを おくる', {'look': v, 'state': s})
+        await snap(page, 'edit_kept')
+        all_errs += errs; await ctx.close()
 
         await browser.close()
     httpd.shutdown()

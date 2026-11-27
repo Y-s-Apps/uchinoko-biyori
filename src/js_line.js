@@ -378,10 +378,7 @@ const ServerRef = {
       try {
         const sent = await LineSync.pushPending();
         if (sent === 'adopt') setTimeout(() => Act.open(0), 0);
-        else if (!sent && LineSync.created != null && Number(S.created) === LineSync.created && lineIdKey(S) !== LineSync.idSent){
-          const r = await LineSync.send('POST', '/save', { pet:linePet(S) });
-          LineSync.apply(r.save);
-        }
+        else if (!sent) await LineSync.pushEdit();
         LineSync.markOwner();
       } catch(e){
         if (LineSync.pendingRefused(e)) return;
@@ -435,6 +432,26 @@ const LineSync = {
       return 'adopt';
     }
     return null;
+  },
+  /* この端末で かえた 名前・みためが、まだ サーバーに とどいていない（同じ子で、サーバーに いる子の 名前・みためと ちがう） */
+  editPending(){ return !!S && this.created != null && Number(S.created) === this.created && lineIdKey(S) !== this.idSent; },
+  /* 名前・みための へんこうを おくる（queue の中から呼ぶ。おせわより 先に）。プロフィールの「これでOK」の すぐあとに
+     ひらいた ときの /act open が 先に とどくと、サーバーの 前の 名前・みためで 上がきされ、あとから おくる はずの へんこうも
+     「もう 同じ」と 見えて おくられなかった（2026-11-27 オーナー：一瞬 かわって もどる） */
+  async pushEdit(){
+    if (this.state !== 'on' || !this.editPending()) return false;
+    try {
+      const r = await this.send('POST', '/save', { pet:linePet(S) });
+      this.apply(r.save, { edit:false });   /* サーバーが うけとった 形（名前の ながさ など）に そろえる */
+      return true;
+    } catch(e){
+      if (!this.refusal(e) || e.code === 'nosave') throw e;
+      /* サーバーが ことわった：だまって のこさず、LINEの子の 名前・みために もどして 知らせる（つぎの おせわで また おくらない） */
+      try { Object.assign(S.pet, JSON.parse(this.idSent)); } catch(er){}
+      Persist.saveLocal(); Game.refresh();
+      toast('名前と みための へんこうを LINEに ほぞんできませんでした');
+      return false;
+    }
   },
   /* 取りこみを サーバーが ことわった：LINEに ほぞんしている子に もどす（queue の中から呼ぶので、reload は またない） */
   pendingRefused(e){
@@ -561,6 +578,7 @@ const LineSync = {
       }
       else if (S && this.samePet(S, remote)){
         this.apply(save);                                       /* 同じ子：サーバーのほうにそろえる（写真の控えはのこす） */
+        if (this.editPending()) Persist.flush();                /* つながらない あいだに とまった 名前・みための へんこうを おくる */
         const u = this.unsent();
         if (u && u.c === Number(remote.created)) this.markUnsent(null);   /* おくった子は とどいていた（返事だけ なかった） */
         else if (u && mine) this.offerUnsent(null);             /* 前に「おくる」が とどかなかった子を また きく */
@@ -588,6 +606,8 @@ const LineSync = {
     if (this.rev != null && save.rev < this.rev) return;
     const same = S && this.samePet(S, data);
     const photo = 'photo' in o ? safePhoto(o.photo) : (same ? safePhoto(S.pet.photo) : null);
+    /* この端末で かえて まだ とどいていない 名前・みため：とちゅうの おせわの 返事で もどさない（おくるのは pushEdit） */
+    const edit = o.edit !== false && same && this.editPending() ? JSON.parse(JSON.stringify(linePet(S))) : null;
     this.rev = save.rev;
     S = JSON.parse(JSON.stringify(data));
     S.pet.photo = photo;
@@ -597,6 +617,7 @@ const LineSync = {
        （つぎの おせわで サーバーも 同じ計算を する。ホーム画面版の Game.start の decay と 同じ） */
     decay();
     this.know(S);
+    if (edit) Object.assign(S.pet, edit);   /* idSent は サーバーの まま（know の あと）＝まだ おくっていない しるし */
     Persist.base = Number(S.updated) || 0;
     Persist.saveLocal();
     this.markOwner();
@@ -624,6 +645,7 @@ const LineSync = {
       if (this.state !== 'on') return { ok:false, why:'offline', ev:[] };
       try {
         await this.pushPending();   /* むかえたばかりの子が まだなら、先に */
+        await this.pushEdit();      /* 名前・みための へんこうも 先に（「これでOK」の あとの open が 前の 名前に もどさない） */
         const r = await this.send('POST', '/act', Object.assign({ type }, p));
         if (r && r.save) this.apply(r.save);
         return Object.assign({ ev:[] }, r);
