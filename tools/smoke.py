@@ -255,6 +255,7 @@ async def main(args):
         await gesture_checks(page, snap, errors)
         await pose_checks(page, snap, errors)
         await stage3_checks(page, snap, errors)
+        await stage4_checks(page, snap, errors)
         if args.line:
             info = await page.evaluate('''() => ({
                 sw: !!(navigator.serviceWorker && navigator.serviceWorker.controller),
@@ -447,7 +448,8 @@ NO_WEBGL_JS = "{ const g = HTMLCanvasElement.prototype.getContext; HTMLCanvasEle
 async def gesture_checks(page, snap, errors):
     """しぐさ（docs/MOTION_DESIGN.md 4-4。2026-11-26 だんかい 1）：その子の しゅるいで できる しぐさを 1回ずつ。
     ねている・パズルや ランの ページの あいだは しない（耳ぴく・しっぽ ゆらり だけは ねていても よい）。おわったら クラスが のこらない"""
-    info = await page.evaluate('''() => { clearTimeout(idleT); Pet.wake(); Pet.stopGesture();
+    # ひまな ときの 行動を とめる（前の ためしの とちゅうから うごいている 行動〈まどの 下など〉も、体勢が かわれば やめる。2026-11-27 だんかい 4）
+    info = await page.evaluate('''() => { clearTimeout(idleT); window.__idleG = window.idleTick; window.idleTick = () => {}; Pet.tok++; Pet.wake(); Pet.stopGesture(); Pet.setPose('sit');
         const cat = S.pet.species === 'cat', ids = Object.keys(GESTURE);
         const want = ids.filter(id => GESTURE[id].sp === 'both' || GESTURE[id].sp === (cat ? 'cat' : 'dog'));
         const html = document.documentElement;
@@ -468,7 +470,7 @@ async def gesture_checks(page, snap, errors):
         ok = await page.evaluate('async () => await window.__g')
         left = await page.evaluate('() => [...Pet.el.classList].filter(c => c.startsWith("g-")).join(" ") + (Pet.gest || "")')
         (done if ok and not left else bad).append(gid)
-    await page.evaluate("() => Pet.setPose('sit')")
+    await page.evaluate("() => { Pet.setPose('sit'); window.idleTick = window.__idleG; }")
     print('しぐさ：', '・'.join(done), '／ できない：', '・'.join(bad) or 'なし', f'（ラン {info["run"]}・ねていて きょろきょろ {info["sleepLook"]}・耳ぴく {info["sleepEar"]}）')
     if bad or info['run'] or info['sleepLook'] or not info['sleepEar']:
         errors.append(f'しぐさが ちがいます：できない {bad}・{info}')
@@ -478,6 +480,7 @@ POSE_STATE_JS = r'''() => { const s = document.querySelector('#stage').getBoundi
   const vis = sel => { const e = Pet.el.querySelector(sel); return !!e && getComputedStyle(e).display !== 'none'; };
   return { pose: Pet.pose, view: Pet.view, side: Pet.el.classList.contains('view-side'), dirl: Pet.el.classList.contains('dir-l'),
            turning: Pet.el.classList.contains('turning'), front: vis('.view-f'), sideShown: vis('.view-s'),
+           back: Pet.el.classList.contains('view-back'), backShown: vis('.view-b'),
            cls: [...Pet.el.classList].filter(c => c.startsWith('pose-')).join(' '), rub: Pet.rub,
            head: h.x >= 0 && h.x <= s.width && h.y >= 0 && h.y <= s.height }; }'''
 
@@ -540,6 +543,61 @@ async def pose_checks(page, snap, errors):
     await page.evaluate("() => { Pet.setPose('sit'); Pet.face(false); window.idleTick = window.__idle; Pet.el.style.transition = 'none'; Pet.x = 50; Pet.y = 80; Pet.apply(); }")
     if bad:
         errors.append('体勢が ちがいます：' + ' / '.join(bad))
+
+
+async def stage4_checks(page, snap, errors):
+    """だんかい 4（docs/MOTION_DESIGN.md 15章。2026-11-27）：うしろすがた（view-back。正面・よこむきは かくれる・頭が おへやの 中）、
+    奥へ あるく（うしろすがたで → 着いたら 正面で すわる）、まどの 下（IDLE の win：うしろで すわる → 見あげる）・雨（うしろで ふせる）・
+    雪（まどの 下で 見あげて ぴょん）、うしろの ときに タップ（ふりかえって へんじ → 2.2秒で もどる）、おせわの 前は 正面で すわる"""
+    bad = []
+    await page.evaluate("() => { clearTimeout(idleT); window.__idle = window.idleTick; window.idleTick = () => {}; Pet.wake(); Pet.stopGesture(); Pet.setPose('sit'); Pet.el.style.transition = 'none'; Pet.x = 50; Pet.y = 80; Pet.apply(); }")
+    for p in ('bsit', 'bup', 'bdown', 'bwalk'):
+        await page.evaluate('p => Pet.setPose(p, true)', p)
+        await page.wait_for_timeout(700)
+        st = await page.evaluate(POSE_STATE_JS)
+        if not (st['back'] and st['backShown'] and not st['front'] and not st['sideShown'] and not st['turning'] and st['cls'] == 'pose-' + p and st['head']):
+            bad.append(f'{p}:{st}')
+        if p in ('bup', 'bdown'):
+            await snap('pose_' + p)
+    # 奥へ（上へ）あるく → うしろすがた → 着いたら 正面で すわる
+    await page.evaluate("() => { Pet.setPose('sit'); Pet.el.style.transition = 'none'; Pet.x = 54; Pet.y = 88; Pet.apply(); }")
+    await page.wait_for_timeout(100)
+    await page.evaluate("() => { window.__w = Pet.moveTo(46, 70, 1, 'sit'); }")
+    await page.wait_for_timeout(350)
+    w1 = await page.evaluate(POSE_STATE_JS)
+    await snap('pose_bwalk')
+    await page.evaluate('async () => await window.__w'); await page.wait_for_timeout(450)
+    w2 = await page.evaluate(POSE_STATE_JS)
+    if not (w1['pose'] == 'bwalk' and w1['back'] and w2['pose'] == 'sit' and w2['front'] and not w2['back'] and not w2['turning']):
+        bad.append(f'奥へ あるく：{w1} {w2}')
+    # まどの 下（IDLE の win）。ふりかえりは 乱数で きめるので しない ほうに（Math.random を .99）
+    run_idle = """async id => { const a = IDLE.find(x => x.id === id); const r = Math.random; Math.random = () => .99;
+        const done = a.run(); const seen = []; let fin = false; done.then(() => { fin = true; });
+        for (let i = 0; i < 90 && !fin; i++){ await sleep(80); if (seen[seen.length - 1] !== Pet.pose) seen.push(Pet.pose); }
+        await done; Math.random = r; return { seen, pose: Pet.pose, x: Pet.x, back: Pet.el.classList.contains('view-back') }; }"""
+    win = await page.evaluate(run_idle, 'win')
+    await snap('pose_win')
+    if not ('bsit' in win['seen'] and win['pose'] == 'bup' and win['back'] and win['x'] == 22):
+        bad.append(f'まどの 下：{win}')
+    rain = await page.evaluate(run_idle, 'rainwin')
+    if not (rain['pose'] == 'bdown' and rain['back']):
+        bad.append(f'雨：{rain}')
+    await page.evaluate("() => { Pet.setPose('sit'); Pet.el.style.transition = 'none'; Pet.x = 60; Pet.y = 84; Pet.apply(); }")
+    snow = await page.evaluate(run_idle, 'catch')
+    if not ('bsit' in snow['seen'] and snow['pose'] == 'bup' and snow['back']):
+        bad.append(f'雪：{snow}')
+    # うしろの ときに タップ → ふりかえって（正面で すわる）へんじ → 2.2秒で また うしろ
+    tap = await page.evaluate("""async () => { Pet.setPose('bup'); await sleep(400); tapLast = ''; onTap(); const a = [Pet.pose, Pet.view]; await sleep(2600); return [a, Pet.pose, Pet.view]; }""")
+    pre = await page.evaluate("() => { Pet.setPose('bdown'); const ok = begin(); const p = [Pet.pose, Pet.view]; Pet.busy = false; lockDock(false); return ok && p[0] === 'sit' && p[1] === 'front'; }")
+    print('だんかい 4：うしろ', not [b for b in bad if ':' in b and b.split(':')[0] in ('bsit', 'bup', 'bdown', 'bwalk')], '／ 奥へ', w1['pose'], '→', w2['pose'],
+          '／ まど', win['seen'], '／ 雨', rain['pose'], '／ 雪', snow['seen'], '／ タップ', tap, '／ おせわの 前', pre)
+    if tap != [['sit', 'front'], 'bup', 'back']:
+        bad.append(f'うしろで タップ：{tap}')
+    if not pre:
+        bad.append('おせわの 前に 正面で すわらない')
+    await page.evaluate("() => { Pet.setPose('sit'); Pet.face(false); window.idleTick = window.__idle; Pet.el.style.transition = 'none'; Pet.x = 50; Pet.y = 80; Pet.apply(); }")
+    if bad:
+        errors.append('うしろすがたが ちがいます：' + ' / '.join(bad))
 
 
 async def stage3_checks(page, snap, errors):

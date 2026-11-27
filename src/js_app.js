@@ -237,12 +237,19 @@ const POSE = {
   cheer: { head:.3, mouth:.44, bubble:-12 },
   lean:  { head:.42, mouth:.56, bubble:6 },
   bow:   { head:.5, mouth:.62, bubble:18, side:true, hx:.72 },
+  /* だんかい 4（2026-11-27）：うしろすがた（renderPetBack。back:true）。まどの 下で すわる・見あげる・ふせる、奥へ あるく */
+  bsit:  { head:.38, mouth:.52, bubble:0, back:true },
+  bup:   { head:.36, mouth:.5, bubble:-2, back:true },
+  bdown: { head:.5, mouth:.64, bubble:20, back:true },
+  bwalk: { head:.33, mouth:.47, bubble:-6, back:true },
 };
+/* まどの 下（だんかい 4：うしろを むいて 外を 見る ところ） */
+const WIN = { x:22, y:70 };
 /* しぐさ（4-4・10章。2026-11-26 だんかい 1）：{ ms, poses:[できる 体勢], sp:'dog'|'cat'|'both', calm:true＝ねていても よい }。
    クラス g-<id> を ms だけ つける（CSS は head.html）。のび（stretch）・くんくん（sniff）は よこむきの 絵で「たつ」の ときだけ（2026-11-27 だんかい 2） */
 const GESTURE = {
-  ear:     { ms:750,  poses:['sit','stand','down','sleep','beg','side'], sp:'both', calm:true },   /* 耳ぴく */
-  look:    { ms:1800, poses:['sit','down'], sp:'both' },                                       /* きょろきょろ */
+  ear:     { ms:750,  poses:['sit','stand','down','sleep','beg','side','bsit','bup','bdown'], sp:'both', calm:true },   /* 耳ぴく（うしろでも。だんかい 4） */
+  look:    { ms:1800, poses:['sit','down','bsit','bup','bdown'], sp:'both' },                  /* きょろきょろ（うしろでも） */
   yawn:    { ms:1600, poses:['sit','down'], sp:'both' },                                       /* あくび */
   shake:   { ms:800,  poses:['sit'], sp:'dog' },                                               /* ぶるぶる */
   scratch: { ms:1700, poses:['sit'], sp:'both' },                                              /* かく（うしろ足で 耳の うしろ） */
@@ -268,10 +275,10 @@ const Pet = {
     this.el.style.zIndex = String(10 + Math.round(this.y));
     this.el.style.setProperty('--s', this.scaleAt(this.y).toFixed(3));
   },
-  /* 絵は 2まい：正面（renderPet）と よこむき（renderPetSide）。見せるのは どちらか 1つ（.pet の view-side。head.html の 12章の CSS） */
+  /* 絵は 3まい：正面（renderPet）・よこむき（renderPetSide）・うしろ（renderPetBack。だんかい 4）。見せるのは どれか 1つ（.pet の view-side・view-back。head.html） */
   mount(){
     const wear = petWear();
-    $('#petArt').innerHTML = `<div class="pet-turn"><div class="view-f">${renderPet(S.pet.look, { wear })}</div><div class="view-s">${renderPetSide(S.pet.look, { wear })}</div></div>`;
+    $('#petArt').innerHTML = `<div class="pet-turn"><div class="view-f">${renderPet(S.pet.look, { wear })}</div><div class="view-s">${renderPetSide(S.pet.look, { wear })}</div><div class="view-b">${renderPetBack(S.pet.look, { wear })}</div></div>`;
     this.apply();
     this.applyView();
     this.setExpr(this.expr);
@@ -299,7 +306,7 @@ const Pet = {
     this.pose = p;
     const by = POSE[p].bubble;
     if (by) this.el.style.setProperty('--by', by + 'px'); else this.el.style.removeProperty('--by');
-    this.setView(POSE[p].side ? 'side' : 'front', turn);
+    this.setView(POSE[p].back ? 'back' : POSE[p].side ? 'side' : 'front', turn);
   },
   /* 体勢の 部品（pvx-down・pvx-beg）を ふわっと けす（display:none に すると いっしゅんで きえて、前あしが ない コマが 出る） */
   leave(part){
@@ -327,6 +334,7 @@ const Pet = {
   },
   applyView(){
     this.el.classList.toggle('view-side', this.view === 'side');
+    this.el.classList.toggle('view-back', this.view === 'back');
     this.el.classList.toggle('dir-l', this.dir === 'l');
   },
   snap(){ this.ttok++; this.el.classList.remove('turning'); this.applyView(); },
@@ -408,7 +416,7 @@ const Pet = {
     } catch(e){}
     clearTimeout(this.sayT); this.sayT = setTimeout(() => b.classList.remove('show'), ms);
   },
-  /* あるく（2026-11-27 だんかい 2）：よこむきに なって 行く ほうを むき（くるっ）、4本足で あるく。着いたら end の 体勢
+  /* あるく（2026-11-27 だんかい 2）：よこむきに なって 行く ほうを むき（くるっ）、4本足で あるく（奥へは うしろすがた＝だんかい 4）。着いたら end の 体勢
      （end なし：おせわの とちゅうは すわる＝正面で たべる・げい、ひまな ときは たつ）。かかる 時間は 前と 同じ（くるっは あるきながら）。
      ちいさな うごき（2.5 より 近い）は むきを かえない（end が あれば その 体勢に） */
   moveTo(x, y, speed = 1, end){
@@ -423,8 +431,9 @@ const Pet = {
       this.el.style.setProperty('--step', step.toFixed(2) + 's');
       this.el.style.setProperty('--half', (step / 2).toFixed(2) + 's');
       this.el.style.setProperty('--lag', (-step / 2).toFixed(2) + 's');
-      this.face(x < this.x, true);
-      this.setPose('walk', true);
+      /* 奥（かべの ほう）へ むかう ときは うしろすがたで あるく（上へ うごく ぶんが よこより 大きい とき。だんかい 4）。むきは おぼえる だけ */
+      if ((this.y - y) * 1.6 > Math.abs(x - this.x)){ this.dir = x < this.x ? 'l' : 'r'; this.setPose('bwalk', true); }
+      else { this.face(x < this.x, true); this.setPose('walk', true); }
     }
     this.x = x; this.y = y; this.apply();
     return sleep(ms).then(() => {
@@ -487,8 +496,8 @@ function idleTick(delay){
 const SIT_POSES = ['sit','stand'];
 const IDLE = [
   { id:'walk',  w:() => 20, run:() => Pet.moveTo(22 + Math.random() * 56, 70 + Math.random() * 18, .7 + Math.random() * .4, Math.random() < .5 ? 'sit' : 'stand') },
-  { id:'sit',   w:c => c.pose === 'stand' ? 24 : c.pose === 'sit' ? 0 : 30, run:() => Pet.setPose('sit', true) },
-  { id:'tilt',  w:c => c.pose === 'sit' || c.pose === 'stand' || c.pose === 'down' ? 8 : 0, run:() => Pet.tilt() },
+  { id:'sit',   w:c => c.pose === 'stand' ? 24 : c.pose === 'sit' ? 0 : POSE[c.pose] && POSE[c.pose].back ? 14 : 30, run:() => Pet.setPose('sit', true) },
+  { id:'tilt',  w:c => ['sit','stand','down','bsit','bup'].indexOf(c.pose) >= 0 ? 8 : 0, run:() => Pet.tilt() },
   { id:'hop',   w:c => c.mood > 60 && SIT_POSES.indexOf(c.pose) >= 0 ? 6 : 0, run:() => { Pet.jump(); Pet.flash('happy', 1000); Pet.wag(1200); } },
   { id:'chat',  w:c => c.chat ? 14 : 0, run:() => { lastChat = now(); Pet.say(ambientLine()); } },
   /* おなかが すいたら ごはん皿の 前へ 行って すわって まわりを 見る */
@@ -500,8 +509,16 @@ const IDLE = [
   /* その場で ふせる・おねだり（すわっている とき） */
   { id:'lie',   w:c => c.pose === 'sit' ? 3 : 0, run:() => Pet.setPose('down', true) },
   { id:'beg',   w:c => c.pose === 'sit' ? 3 : 0, run:() => Pet.poseFor('beg', 2400) },
-  /* まどの 下で たって 見あげる・耳ぴく */
-  { id:'win',   w:c => c.tod === 'night' ? 2 : 5, run:async () => { await Pet.moveTo(22, 70, .8, 'stand'); if (!Pet.busy) await Pet.gesture('ear'); } },
+  /* まどの 下で 外を 見る（だんかい 4）：うしろを むいて すわり、見あげて 耳ぴく・きょろきょろ。ときどき ふりかえって「なあに？」 */
+  { id:'win',   w:c => c.tod === 'night' ? 2 : 5, run:async () => {
+      const at = p => !Pet.busy && !Pet.sleeping && Pet.pose === p;
+      await Pet.moveTo(WIN.x, WIN.y, .8, 'bsit');
+      if (!at('bsit')) return; await sleep(600);
+      if (!at('bsit')) return; Pet.setPose('bup');
+      await sleep(500); if (!at('bup')) return; await Pet.gesture('ear');
+      await sleep(400); if (!at('bup')) return; await Pet.gesture('look');
+      if (at('bup') && Math.random() < .5) await lookBack('なあに？');
+    } },
   /* ラグの まんなかで ごろん（おなかを 見せる） */
   { id:'rug',   w:c => c.pose === 'side' ? 0 : c.cat ? 5 : 2, run:() => Pet.moveTo(50, 84, .8, 'side') },
   /* ゆかの においを かぐ（よこむきで 鼻を 床へ） */
@@ -520,21 +537,25 @@ const IDLE = [
   { g:'lick',    w:c => c.ate ? 30 : 0 },
   /* 季節（だんかい 3。もようがえの 季節の かざりつけが「あり」の とき）：雪・花びらの 日は 上を 見あげて ぴょん（つかまえる）、
      つゆの 雨の 日は まどの 下で ふせて 外を 気に する */
-  { id:'catch', w:c => (c.weather === 'snow' || c.weather === 'petals') && Pet.canGesture('lookup') ? 8 : 0,
+  /* だんかい 4：雪・花びらは まどの 下へ 行って うしろを むいて 見あげて ぴょん、雨は うしろを むいて ふせて ながめる（雪・雨は まどの 中に ふる） */
+  { id:'catch', w:c => (c.weather === 'snow' || c.weather === 'petals') && !calmMotion() ? 8 : 0,
     run:async () => {
-      const done = Pet.gesture('lookup');
-      await sleep(900);
-      if (Pet.gest !== 'lookup') return done;
-      Pet.jump(); Pet.flash('happy', 1000); Pet.wag(1200);
+      const at = p => !Pet.busy && !Pet.sleeping && Pet.pose === p;
+      await Pet.moveTo(WIN.x, WIN.y, .9, 'bsit');
+      if (!at('bsit')) return; await sleep(400);
+      if (!at('bsit')) return; Pet.setPose('bup'); await sleep(900);
+      if (!at('bup')) return;
+      Pet.jump(); Pet.wag(1600);
       if (now() - lastChat > 30000){ lastChat = now(); Pet.say(weatherOf() === 'petals' ? 'はなびらだ！' : 'ゆきだ！', 1600); }
-      return done;
+      await sleep(700); if (at('bup')) Pet.jump();
     } },
-  { id:'rainwin', w:c => c.weather === 'rain' && c.pose !== 'down' ? 7 : 0,
+  { id:'rainwin', w:c => c.weather === 'rain' && c.pose !== 'bdown' ? 7 : 0,
     run:async () => {
-      await Pet.moveTo(24, 72, .8, 'down');
-      if (!Pet.busy && Pet.pose === 'down') await Pet.gesture('ear');
-      if (!Pet.busy && Pet.pose === 'down') await Pet.gesture('look');
-      if (!Pet.busy && Pet.pose === 'down' && now() - lastChat > 30000){ lastChat = now(); Pet.say('あめ、やまないね', 1800); }
+      const at = () => !Pet.busy && !Pet.sleeping && Pet.pose === 'bdown';
+      await Pet.moveTo(WIN.x + 2, WIN.y + 2, .8, 'bdown');
+      if (at()) await Pet.gesture('ear');
+      if (at()) await Pet.gesture('look');
+      if (at() && now() - lastChat > 30000){ lastChat = now(); Pet.say('あめ、やまないね', 1800); }
     } },
 ];
 function idlePick(){
@@ -903,6 +924,17 @@ function rubbed(){
     idleTick(4000);
   }, 3000);
 }
+/* うしろすがたの とき ふりかえる（だんかい 4）：くるっと 正面で すわって へんじ、すこし して もとの うしろの 体勢へ（とちゅうで ほかの 体勢に なったら もどらない） */
+async function lookBack(text){
+  const back = Pet.pose;
+  Pet.setPose('sit', true);
+  const pt = Pet.ptok;
+  await sleep(170);
+  if (pt !== Pet.ptok || Pet.busy) return;
+  Pet.tilt(); Pet.wag(1200); Pet.say(text, 1500);
+  await sleep(1700);
+  if (pt === Pet.ptok && !Pet.busy && !Pet.sleeping && !Pet.rub) Pet.setPose(back, true);
+}
 function onTap(){
   if (!S) return;
   if (Pet.sleeping){
@@ -915,6 +947,8 @@ function onTap(){
      （同じ へんじは つづけない）。すわって いなければ まず すわる（くるっ）。おねだりは すわっていた ときだけ */
   Pet.stopGesture(); Pet.rub = null;
   const sat = Pet.pose === 'sit';
+  /* うしろを むいて すわる・見あげる・ふせる ときは ふりかえって へんじ、すこし して また 外を 見る（だんかい 4） */
+  const backWas = ['bsit','bup','bdown'].indexOf(Pet.pose) >= 0 ? Pet.pose : null;
   if (!sat) Pet.setPose('sit', true);
   const r = pick(TAP_REPLY.filter(x => x !== tapLast && (sat || x !== 'beg')));
   tapLast = r;
@@ -923,6 +957,10 @@ function onTap(){
   else if (r === 'beg'){ Pet.poseFor('beg', 1700); Pet.wag(1600); }
   else { Pet.jump(); Pet.tilt(); Pet.wag(1200); }
   Pet.say(pick(S.pet.species === 'cat' ? ['にゃ？','にゃーん','なあに？'] : ['ワン！','わふっ','なあに？']), 1600);
+  if (backWas){
+    const pt = Pet.ptok;
+    setTimeout(() => { if (pt === Pet.ptok && !Pet.busy && !Pet.sleeping && !Pet.rub) Pet.setPose(backWas, true); }, 2200);
+  }
   idleTick(4000);
 }
 const TAP_REPLY = ['hop', 'ear', 'tailup', 'beg'];

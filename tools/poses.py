@@ -8,6 +8,7 @@
         表情（ex-*）・ねる（pose-sleep）・げい（tr-*）・くびかしげ（tilt）・しっぽ（wag-fast）・しぐさ（g-*。2026-11-26 だんかい 1）・
         体勢（ふせる・おねだり・ごろん。2026-11-27 だんかい 2）を、アニメの とちゅうの いくつかの 時刻で。CSS なしの 絵（うちのこカード CardArt と 同じ 形）も。
         よこむきの 絵（renderPetSide。だんかい 2）も 同じ 41種 × きせかえで：たつ・あるく（とちゅうの コマ）・のび・くんくん・耳ぴく・しっぽ・はぁはぁ・表情（名前は s-*）。
+        うしろすがた（renderPetBack。だんかい 4）も 同じ 41種 × きせかえで：すわる・見あげる・ふせる・あるく（とちゅうの コマ）・耳ぴく・きょろきょろ・かしげる（名前は b-*）。
         くらべる 版の head.html に ない クラスの 場面（あたらしい しぐさ・体勢）は くらべず「あたらしい」と 出す（一覧の PNG で 目で 見る）。
   ほかに 数える もの（いまの 版だけ）：絵が わく（viewBox 240）から どれだけ はみ出すか（--max-out）、
         体勢と 頭を うごかす しぐさの 場面で 首（pv-neck-g）が 頭（pv-head-g）と どれだけ ずれるか（--max-neck。きせかえの 首が ずれない ように）。
@@ -29,7 +30,7 @@ JS_FILES = ['js_data.js', 'js_data2.js', 'js_data3.js', 'js_pet.js', 'js_wear.js
 CHROMIUM_ARGS = ['--disable-gpu', '--disable-gpu-compositing', '--disable-partial-raster', '--num-raster-threads=1',
                  '--disable-threaded-animation', '--disable-lcd-text', '--disable-skia-runtime-opts']
 
-# 場面：(名前, 入れものの クラス, とめる 時刻〈ミリ秒〉のリスト, 首と 頭の ずれを 数えるか〈体勢と 頭を うごかす しぐさ〉[, 'side'＝よこむきの 絵])
+# 場面：(名前, 入れものの クラス, とめる 時刻〈ミリ秒〉のリスト, 首と 頭の ずれを 数えるか〈体勢と 頭を うごかす しぐさ〉[, 'side'＝よこむきの 絵・'back'＝うしろすがた])
 # くらべる 版の head.html に その クラスが ない 場面（あたらしい しぐさ など）・くらべる 版に ない 絵（よこむき）は くらべない（一覧と はみだし・首の ずれ だけ）
 # 体勢の 部品（pvx-*）は 0.35秒で ふわっと 出る（pvxIn）ので、体勢の 場面は 400ms より あとで とめる
 STATES = [
@@ -87,6 +88,15 @@ STATES = [
     ('s-bow',     'pose-bow',             [600],                     False, 'side'),
     ('s-pounce',  'g-pounce',             [230],                     False, 'side'),
     ('s-trstretch', 'view-side tr-stretch', [600],                   False, 'side'),
+    # うしろすがた（だんかい 4。2026-11-27）。首の きせかえは 頭の 外（うなじ）なので 首の ずれは 数えない
+    ('b-sit',     '',                     [0, 650, 1300],            False, 'back'),
+    ('b-up',      'pose-bup',             [600],                     False, 'back'),
+    ('b-down',    'pose-bdown',           [600],                     False, 'back'),
+    ('b-walk',    'pose-bwalk',           [0, 140, 280, 420],        False, 'back'),
+    ('b-ear',     'g-ear',                [150],                     False, 'back'),
+    ('b-look',    'g-look',               [450, 1250],               False, 'back'),
+    ('b-tilt',    'tilt',                 [400],                     False, 'back'),
+    ('b-wag',     'wag-fast',             [95],                      False, 'back'),
 ]
 # はみだしの 上限を 場面ごとに ゆるめる ところ（--max-out の かわり。はかり方は 形ごとの 外わくなので、まわした 形は 大きめに 出る）。
 # 2026-11-27 に ピクセルで はかった ほんとうの はみだし：ごろん 40（下。うさぎのみみ・大きい 耳が さかさで ゆかの 前へ。体勢は 止まった まま＝
@@ -96,12 +106,12 @@ CARD_CSS = '.pv-eyes-open,.pv-eyes-closed,.pv-brow-sad,.pv-mouth-w{display:none}
 
 HARNESS_CSS = r'''
 html,body{margin:0!important;padding:0!important;background:#F4EFE8!important;min-height:0!important}
-#psxGrid,#psxSide{display:grid;grid-template-columns:repeat(12,120px);padding:8px;width:max-content;background:#F4EFE8}
+#psxGrid,#psxSide,#psxBack{display:grid;grid-template-columns:repeat(12,120px);padding:8px;width:max-content;background:#F4EFE8}
 .psx-cell{width:120px;height:136px;position:relative}
 .psx-w{position:absolute;left:10px;top:8px;width:100px;height:100px}
 .psx-w .pet-svg{display:block;width:100%;height:100%;overflow:visible}
 .psx-lb{position:absolute;left:0;right:0;bottom:2px;text-align:center;font:10px/1.1 monospace;color:#555;white-space:nowrap;overflow:hidden;word-break:normal}
-@media (prefers-color-scheme: dark){html,body,#psxGrid,#psxSide{background:#1B1922!important}.psx-lb{color:#bbb}}
+@media (prefers-color-scheme: dark){html,body,#psxGrid,#psxSide,#psxBack{background:#1B1922!important}.psx-lb{color:#bbb}}
 '''
 
 HARNESS_JS = r'''
@@ -127,9 +137,11 @@ HARNESS_JS = r'''
   g.innerHTML = cases.map(c => `<div class="psx-cell"><div class="psx-w"><div class="view-f">${renderPet(c.look, c.wear ? { wear:c.wear } : {})}</div></div><div class="psx-lb">${c.label}</div></div>`).join('');
   const side = typeof renderPetSide === 'function';
   document.getElementById('psxSide').innerHTML = side ? cases.map(c => `<div class="psx-cell"><div class="psx-w">${renderPetSide(c.look, c.wear ? { wear:c.wear } : {})}</div><div class="psx-lb">${c.label}</div></div>`).join('') : '';
+  const back = typeof renderPetBack === 'function';
+  document.getElementById('psxBack').innerHTML = back ? cases.map(c => `<div class="psx-cell"><div class="psx-w">${renderPetBack(c.look, c.wear ? { wear:c.wear } : {})}</div><div class="psx-lb">${c.label}</div></div>`).join('') : '';
   window.psx = {
     n: cases.length,
-    side,
+    side, back,
     labels: cases.map(c => c.label),
     set(cls){ document.querySelectorAll('.psx-w').forEach(w => { w.className = 'psx-w' + (cls ? ' ' + cls : ''); }); },
     /* アニメは その 時刻で とめる。transition（体勢の うつりかわり）は おわりまで */
@@ -145,7 +157,7 @@ HARNESS_JS = r'''
       const ws = document.querySelectorAll('#' + (grid || 'psxGrid') + ' .psx-w');
       ws.forEach((w, i) => {
         const wr = w.getBoundingClientRect(), k = 240 / wr.width;
-        const a = w.querySelector('.pv-all,.ps-all');
+        const a = w.querySelector('.pv-all,.ps-all,.pb-all');
         if (a){
           /* 見えている 形（path・ellipse など）ごとの 外わくを あわせる（グループの 外わくは まわした 形の 外わくの 外わくに なって 大きく 出すぎるため） */
           let L = Infinity, T = Infinity, R = -Infinity, B = -Infinity;
@@ -190,7 +202,7 @@ def page_html(ref, css=True, extra_css=''):
     js = '\n'.join(read_src(f, ref) for f in JS_FILES)
     js = js.replace('</script', '<\\/script')
     return (f'<!doctype html><html><head><meta charset="utf-8"><style>{styles}</style><style>{HARNESS_CSS}{extra_css}</style></head>'
-            f'<body><div id="psxGrid"></div><div id="psxSide"></div><script>{js}\n{HARNESS_JS}</script></body></html>')
+            f'<body><div id="psxGrid"></div><div id="psxSide"></div><div id="psxBack"></div><script>{js}\n{HARNESS_JS}</script></body></html>')
 
 
 async def shoot(page, cls, t, grid='psxGrid'):
@@ -255,12 +267,13 @@ async def main(a):
         same = total = fresh_n = 0
         changed = set((a.changed or '').split(',')) - {''}
         old_side = old is not None and await old.evaluate('psx.side')
+        old_back = old is not None and await old.evaluate('!!psx.back')
         for st in states:
             name, cls, times, pose = st[:4]
-            grid = 'psxSide' if len(st) > 4 and st[4] == 'side' else 'psxGrid'
+            grid = {'side': 'psxSide', 'back': 'psxBack'}.get(st[4] if len(st) > 4 else '', 'psxGrid')
             # くらべる 版に ない クラス（あたらしい しぐさ・体勢）・ない 絵（よこむき）の 場面は くらべない
             fresh = old is not None and (any(not re.search(r'\.' + re.escape(c) + r'(?![\w-])', ref_css) for c in cls.split())
-                                         or (grid == 'psxSide' and not old_side))
+                                         or (grid == 'psxSide' and not old_side) or (grid == 'psxBack' and not old_back))
             for i, t in enumerate(times):
                 img = await shoot(new, cls, t, grid)
                 with open(os.path.join(out, f'poses-{name}.png' if i == 0 else f'poses-{name}-{t}.png'), 'wb') as f:

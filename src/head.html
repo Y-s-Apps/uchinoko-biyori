@@ -492,6 +492,78 @@ button{font:inherit;color:inherit}
 @keyframes gEyeUp{0%,100%{transform:none}25%,80%{transform:translate(1px,-3.5px)}}
 .g-lookup .pv-head-g,.g-lookup .pv-neck-g{animation:gLookUp 1.3s ease-in-out}
 .g-lookup .pv-eye{animation:gEyeUp 1.3s ease-in-out}
+/* ===== うしろすがた（docs/MOTION_DESIGN.md 14章・15章。2026-11-27 だんかい 4。見本 4 の tools/motion_sample4/back.css から）=====
+   おへやの 絵は .pet-turn に 3まい目 .view-b（renderPetBack）。.pet.view-back で えらぶ（view-side と 同じ しくみ。どれも in flow）。
+   体勢：bsit（うしろ むきで すわる）・bup（すわって 見あげる）・bdown（ふせて 外を 見る）・bwalk（奥へ あるく）。正面⇔うしろ も くるっ（.turning） */
+.pet .view-b{display:none}
+.pet.view-back .view-f,.pet.view-back .view-s{display:none}
+.pet.view-back .view-b{display:block}
+.pet .pb-shadow{display:none}
+.pet-back .pb-head,.pet-back .pb-head-g,.pet-back .pb-neck,.pet-back .pb-body,.pet-back .pb-body-g,.pet-back .pb-tail,.pet-back .pb-tail-g,
+.pet-back .pb-earL,.pet-back .pb-earR,.pet-back .pb-haunch,.pet-back .pb-feet,.pet-back .pb-leg,.pet-back .pb-legs,.pet-back .pb-scarf{transform-box:view-box}
+.pet-back .pb-head,.pet-back .pb-neck{transform-origin:120px 150px;transition:transform .5s ease}
+.pet-back .pb-head-g{transform-origin:120px 150px}
+.pet-back .pb-body{transform-origin:120px 222px;transition:transform .5s ease}
+.pet-back .pb-body-g{transform-origin:120px 222px;animation:pbBreath 3.2s ease-in-out infinite}
+.pet-back .pb-tail{transform-origin:120px 206px;transition:transform .5s ease}
+.pet-back .pb-tail-g{transform-origin:120px 206px;animation:pbWag 2.6s ease-in-out infinite}
+.pet-back.pb-cat .pb-tail-g{animation:pbSway 4.2s ease-in-out infinite}
+.pet-back .pb-earL{transform-origin:88px 66px}
+.pet-back .pb-earR{transform-origin:152px 66px}
+.pet-back .pb-haunchL{transform-origin:80px 206px}
+.pet-back .pb-haunchR{transform-origin:160px 206px}
+.pet-back .pb-feet{transition:opacity .3s}
+.pet-back .pb-legL{transform-origin:97px 196px}
+.pet-back .pb-legR{transform-origin:143px 196px}
+.pet-back .pb-scarf{transform-origin:97px 156px}
+@keyframes pbBreath{0%,100%{transform:scale(1,1)}50%{transform:scale(1.012,1.022)}}
+@keyframes pbWag{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
+@keyframes pbSway{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(5deg)}}
+.wag-fast .pb-tail-g{animation:pbWag .32s ease-in-out infinite}
+/* 耳ぴく（うしろ） */
+.g-ear .pb-earR{animation:pbEar .75s ease}
+.g-ear .pb-earL{animation:pbEar .75s ease .12s}
+@keyframes pbEar{0%,100%{transform:rotate(0)}20%{transform:rotate(-12deg)}40%{transform:rotate(4deg)}60%{transform:rotate(-6deg)}}
+/* きょろきょろ（うしろ：頭を 左右へ） */
+.g-look .pb-head-g{animation:pbLook 1.8s ease-in-out}
+@keyframes pbLook{0%,100%{transform:none}25%{transform:translateX(-5px) rotate(-6deg)}70%{transform:translateX(5px) rotate(6deg)}}
+/* かしげる */
+.tilt .pb-head-g{animation:pbTilt 1s ease}
+@keyframes pbTilt{0%,100%{transform:none}40%{transform:rotate(-10deg)}70%{transform:rotate(-8deg)}}
+/* 見あげる（まどの 外・雪）：頭を 上げて うなじが 少し 見える */
+.pose-bup .pb-head{transform:translateY(-5px) scale(1,.97)}
+.pose-bup .pb-neck{transform:translateY(-1px)}
+.pose-bup .pb-earL{transform:rotate(-5deg)}
+.pose-bup .pb-earR{transform:rotate(5deg)}
+.pose-bup .pb-body{transform:scale(1,1.02)}
+/* ふせる（うしろ）：からだを ひくく、頭は 前あしの 上へ。しっぽは ゆかに */
+.pose-bdown .pb-body{transform:scale(1.08,.74)}
+.pose-bdown .pb-head,.pose-bdown .pb-neck{transform:translateY(28px)}
+.pose-bdown .pb-tail{transform:translateY(5px) scale(1.04,.82)}
+.pose-bdown .pb-feet{opacity:0}
+.pose-bdown .pet-floor i{transform:scale(1.12,1.05)}
+/* 奥へ あるく（うしろ）：おしりを 上げて うしろ足で あるく（対角＝左右 こうご）。からだは 上下、しっぽは ゆれる */
+.pose-bwalk .pb-legs{display:inline}
+.pose-bwalk .pb-feet{opacity:0}
+.pose-bwalk .pb-haunch{transform:translateY(-8px) scale(.74,.74)}
+.pose-bwalk .pb-body{transform:translateY(-16px) scale(.95,.95)}
+.pose-bwalk .pb-head,.pose-bwalk .pb-neck{transform:translateY(-11px)}
+.pose-bwalk .pb-tail{transform:translateY(-16px)}
+/* ゆかに のばす しっぽ（ながい・ふさふさ・まっすぐ）は あるく ときは 上へ 立てる */
+.pose-bwalk .pb-t-long .pb-tail,.pose-bwalk .pb-t-fluffy .pb-tail,.pose-bwalk .pb-t-straight .pb-tail{transform:translateY(-16px) rotate(-66deg)}
+.pose-bwalk .pb-legL{animation:pbStep var(--step,.56s) ease-in-out infinite}
+.pose-bwalk .pb-legR{animation:pbStep var(--step,.56s) ease-in-out var(--lag,-.28s) infinite}
+.pose-bwalk .pb-body-g{animation:pbBob var(--half,.28s) ease-in-out infinite}
+.pose-bwalk .pb-head-g{animation:pbBob var(--half,.28s) ease-in-out infinite}
+.pose-bwalk .pb-tail-g{animation:pbWag var(--step,.56s) ease-in-out infinite}
+.pose-bwalk .pb-scarf{animation:pbScarf var(--step,.56s) ease-in-out infinite}
+.pose-bwalk .pet-floor i{transform:scale(.86,1)}
+@keyframes pbStep{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px) scaleY(.9)}}
+@keyframes pbBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+@keyframes pbScarf{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(4deg)}}
+@media (prefers-reduced-motion: reduce){
+  .pet-back .pb-body-g,.pet-back .pb-tail-g,.pose-bwalk .pb-legL,.pose-bwalk .pb-legR,.pose-bwalk .pb-head-g,.pose-bwalk .pb-scarf{animation:none}
+}
 /* パズルの 上（.pz-pet）：ゆかの かげ（.pet-floor。PuzzleUI.open が .pz-art の となりに。はねるのは .pz-art だけ） */
 .pz-pet .pv-shadow{display:none}
 .pz-pet.hop .pet-floor{animation:flPz .45s ease}
