@@ -54,7 +54,7 @@
 | `src/run_bundle.js` | `src/run/` と Three.js r170 を 1つに まとめた もの（`node tools/run/build_run.mjs` が 作る。**手で 直さない**。`--check` で 確かめる。コミットする）。`build.sh` が `run-<ハッシュ>.js` として ルートと `out/claude/` に 出す |
 | `tools/run/` | うちのこランの 道具：`package.json`・lockfile（Three.js r170・esbuild。はじめに `cd tools/run && npm install`）、`build_run.mjs`（まとめる・`--check`）、`run_shots.py`（ホーム画面版で レース 3コース・アジリティ 4コースを ゴールまで 走らせて スクリーンショットと 走る GIF。`smoke-out/run/`。`--mode both|race|agility`・`--dark`・`--cat`・`--size`・`--gifs`・`--claude`〈Claude版で。`smoke-out/run-claude/`。クラウドの セーブに 入ったかも〉・`--line`〈LINE版で＝ゲスト。`smoke-out/run-line/`。`--android-inset 48` も〉）、`run_min.mjs`（コースの いちばん はやい タイムと `RUN.min` を くらべる。アジリティは ミスなしの いちばん はやい 走りと わざと ミスも）、`pet3d_compare.py`（2D と 3D の 見くらべ）、`pet3d_test.mjs`（41種 × くびの きせかえで 3D を 確かめる） |
 | `_ref/wanrun-v33/` | わんラン v33 の 原本（`wanrun-v33.zip`）と 仕様書（`spec.md`）。読むだけ。`_` の フォルダなので GitHub Pages には 出ない（`.nojekyll` を 足さない） |
-| `docs/REVIEW_PROMPT.md` | レビューの チャットに貼るプロンプト（約束①の 診断・さいごのチェック・パズルの レビュー〈2026-11-16 済み〉の あと、2026-11-22 から うちのこラン（P1〜P6 が 影響する 範囲 ぜんぶ。Opus 5.5 の あたらしい チャットで）の レビュー用〈2026-11-22 済み・直しも 出した〉。前の版は git に） |
+| `docs/REVIEW_PROMPT.md` | レビューの チャットに貼るプロンプト。**2026-11-27 から 認証審査の 前の 包括的な 診断（ぜんぶ・セキュリティも。Opus 5.5 の あたらしい チャットで。うちのこランと 関連する 実装を「完了」に するための のこりも）**。前の 版〈約束①の 診断・さいごのチェック・パズルの レビュー・うちのこランの レビュー〉は git に |
 | `.github/workflows/keepalive.yml` | GitHub Actions「サーバーを起こす」：3日ごとに LINE版のサーバーの `/health` と、DB を1回読む呼び出し（でたらめのセッションで 401）をして、Supabase の無料プランが止まらないようにする。`/health` の この3日の エラーの数が 10以上のときと、この3日に よるの おしらせが 止まった日（`notifyDays`）が あるときも 失敗にする（`docs/PROJECT.md` の10章） |
 | ルートの `index.html` `sw.js` `manifest.webmanifest` `*.png` `run-*.js` | 公開ファイル（ビルド結果なので手で直さない） |
 
