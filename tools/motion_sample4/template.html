@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>うちのこ だんかい 4 見本</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<style>
+/* VOICE: やさしい。うちのこ日和の 中の ことばと 色の まま
+   IDEA: アプリの おへやを 小さく 切りとった 見本帳。うしろすがたを「いま」と「あたらしい」で 見くらべる
+   PICTURE: うごく ミニの おへや（まどの 下・雨・雪・奥へ あるく）と、41種・きせかえの うしろすがたの 一覧
+   COLOUR and TYPE: アプリの トークン（ground・mint・berry）、見出しは Mochiy Pop One、本文は Zen Maru Gothic
+   LAYOUT: 1列（スマホ）。絵の 一覧 → まどの 下 → あるく → えらんだ もの */
+:root{color-scheme:light dark;--bg:#EDF3F0;--card:#FFFFFF;--card2:#F3F7F5;--ink:#3A3147;--soft:#6E657E;--line:#DCE4E1;--mint:#4FAE9A;--onmint:#163029;--berry:#B93B5E;--pill:#E4EFEA;--lift:0 6px 0 rgba(58,49,71,.07);--scrim:rgba(40,34,52,.38)}
+@media (prefers-color-scheme: dark){:root:not([data-theme=light]){--bg:#1B1922;--card:#27242F;--card2:#211E29;--ink:#EFEBF6;--soft:#A9A1B9;--line:#3A3546;--mint:#6CCBB6;--onmint:#1B1922;--berry:#FF8BA6;--pill:#322E3B;--lift:0 6px 0 rgba(0,0,0,.28);--scrim:rgba(0,0,0,.5)}}
+:root[data-theme=dark]{color-scheme:dark;--bg:#1B1922;--card:#27242F;--card2:#211E29;--ink:#EFEBF6;--soft:#A9A1B9;--line:#3A3546;--mint:#6CCBB6;--onmint:#1B1922;--berry:#FF8BA6;--pill:#322E3B;--lift:0 6px 0 rgba(0,0,0,.28);--scrim:rgba(0,0,0,.5)}
+:root[data-theme=light]{color-scheme:light}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:500 16px/1.6 "Zen Maru Gothic","Hiragino Maru Gothic ProN",system-ui,sans-serif;overflow-x:clip;word-break:keep-all;overflow-wrap:anywhere}
+.wrap{max-width:720px;margin:0 auto;padding:20px 16px 48px}
+h1,h2{font-family:"Mochiy Pop One","Zen Maru Gothic",sans-serif;font-weight:400;line-height:1.15;margin:0;text-wrap:balance}
+h1{font-size:30px}
+h2{font-size:22px;margin:34px 0 4px}
+h3{font-size:18px;margin:0;line-height:1.3}
+.lead{color:var(--soft);margin:6px 0 14px;font-size:15px}
+.note{color:var(--soft);font-size:14px;margin:4px 0 12px}
+.rec{display:inline-block;margin-top:4px;background:var(--pill);color:var(--ink);border-radius:12px;padding:2px 10px;font-size:13px;font-weight:700}
+button{font:inherit;color:inherit}
+.opt{min-height:40px;padding:6px 14px;border:0;border-radius:999px;background:var(--card);box-shadow:inset 0 0 0 2px var(--line);font-weight:700;font-size:14px;cursor:pointer}
+.opt[aria-pressed=true]{background:var(--mint);color:var(--onmint);box-shadow:none}
+.opt:focus-visible,.play:focus-visible,.copy:focus-visible{outline:3px solid var(--berry);outline-offset:2px}
+.top{display:flex;gap:8px;align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:20;background:var(--bg);padding:8px 0}
+.top b{font-size:14px}
+/* カード */
+.sc{background:var(--card);border-radius:22px;padding:12px;box-shadow:var(--lift);margin:12px 0}
+.sc-h{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.sc-h .opts{display:flex;gap:6px;flex-wrap:wrap}
+.sc p{margin:6px 0 0;font-size:14px;color:var(--soft)}
+.sc p b{color:var(--ink)}
+.sc .row{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:8px}
+.play{min-height:40px;padding:6px 16px;border:0;border-radius:999px;background:var(--card2);box-shadow:inset 0 0 0 2px var(--line);font-weight:900;font-size:14px;cursor:pointer}
+.cap{margin:8px 0 0;padding:0;list-style:none;font-size:14px}
+.cap li{padding:3px 0 3px 22px;position:relative;color:var(--soft)}
+.cap li::before{content:"";position:absolute;left:6px;top:.75em;width:7px;height:7px;border-radius:50%;background:var(--line)}
+.cap li.on{color:var(--ink);font-weight:700}
+.cap li.on::before{background:var(--mint)}
+/* ミニの おへや */
+.mroom{position:relative;aspect-ratio:16/10;border-radius:18px;overflow:hidden;background:#F4E9DD;margin-top:8px;isolation:isolate}
+.mroom>svg.bg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.mroom .pet{position:absolute;width:34%;aspect-ratio:1;transform:translate(-50%,-93%) scale(var(--s,1));transform-origin:50% 93%;z-index:5;transition:transform .4s ease}
+.mroom .bowlfood{position:absolute;left:24%;top:93%;width:11%;aspect-ratio:3/1;transform:translate(-50%,-150%);border-radius:50% 50% 30% 30%;background:radial-gradient(circle at 30% 60%,#B97A3C 0 22%,transparent 23%),radial-gradient(circle at 55% 45%,#C98A48 0 24%,transparent 25%),radial-gradient(circle at 78% 62%,#B97A3C 0 20%,transparent 21%);opacity:0;transition:opacity .3s;z-index:8}
+.mroom .bowlfood.on{opacity:1}
+.mroom .bowl{position:absolute;left:24%;top:93%;width:17%;transform:translate(-50%,-100%);z-index:9}
+.mroom .bowl svg{display:block;width:100%}
+.mroom .toy{position:absolute;width:7%;aspect-ratio:1;transform:translate(-50%,-100%);z-index:9;transition:left .8s cubic-bezier(.3,.7,.4,1),top .8s cubic-bezier(.3,.7,.4,1)}
+.mroom .toy svg{display:block;width:100%}
+.mroom .treat{position:absolute;width:9%;aspect-ratio:1;transform:translate(-50%,-50%);z-index:12;transition:left .45s ease,top .45s ease,opacity .3s}
+.mroom .weather{position:absolute;inset:-20% 0 0 0;z-index:3;pointer-events:none}
+.weather.w-snow{background:radial-gradient(#FFFFFF 1.6px,transparent 2.2px) 0 0/18px 22px,radial-gradient(#FFFFFF 1.2px,transparent 1.8px) 9px 11px/24px 26px;animation:fall 6s linear infinite}
+.weather.w-rain{background:repeating-linear-gradient(105deg,transparent 0 9px,rgba(255,255,255,.55) 9px 10px,transparent 10px 22px);background-size:100% 40px;animation:rain .5s linear infinite;opacity:.8}
+.mroom.dim::after{content:"";position:absolute;inset:0;background:rgba(60,70,110,.18);z-index:4;pointer-events:none}
+@keyframes fall{to{background-position:0 160px,9px 171px}}
+@keyframes rain{to{background-position:0 40px}}
+/* ふきだし */
+.say{position:absolute;z-index:14;transform:translate(-50%,-100%) scale(.6);transform-origin:50% 100%;opacity:0;pointer-events:none;background:#FFFFFF;color:#3A3147;font-weight:700;font-size:13px;line-height:1.4;padding:5px 11px;border-radius:14px;white-space:nowrap;box-shadow:0 3px 0 rgba(58,49,71,.12);transition:opacity .2s,transform .25s cubic-bezier(.3,1.6,.5,1)}
+.say::after{content:"";position:absolute;left:50%;top:100%;border:6px solid transparent;border-top-color:#FFFFFF;transform:translateX(-50%)}
+.say.show{opacity:1;transform:translate(-50%,-100%) scale(1)}
+.fx{position:absolute;pointer-events:none;z-index:13}
+.fx.h{width:18px;height:18px;margin:-9px;animation:rise 1.2s ease-out forwards}
+.fx.c{width:6px;height:6px;margin:-3px;border-radius:50%;background:#C98A48;animation:crumb .7s ease-in forwards}
+@keyframes rise{0%{transform:translate(0,0) scale(.4);opacity:0}15%{opacity:1;transform:translate(0,-8px) scale(1.1)}100%{transform:translate(var(--dx,0px),-56px) scale(.9);opacity:0}}
+@keyframes crumb{0%{opacity:1}100%{transform:translate(var(--dx,0px),26px);opacity:0}}
+/* まとめ */
+.sum{background:var(--card);border-radius:20px;padding:14px;box-shadow:var(--lift)}
+.sum textarea{width:100%;min-height:15em;border:0;background:var(--card2);color:var(--ink);border-radius:14px;padding:10px 12px;font:500 15px/1.6 "Zen Maru Gothic",sans-serif;resize:vertical}
+.copy{min-height:44px;margin-top:8px;padding:8px 18px;border:0;border-radius:999px;background:var(--mint);color:var(--onmint);font-weight:900;cursor:pointer}
+.copied{margin-left:8px;color:var(--soft);font-size:14px}
+ul.same{margin:6px 0 0;padding-left:1.2em;font-size:14px;color:var(--soft)}
+footer{color:var(--soft);font-size:13px;margin-top:28px}
+@media (prefers-reduced-motion: reduce){.fx{display:none}}
+
+/* まどの 中の 天気（アプリと 同じ：雪・雨は まどの 外に ふる） */
+.mroom .winw{position:absolute;left:14%;top:12%;width:22%;height:29.6%;border-radius:6px;overflow:hidden;z-index:2;pointer-events:none}
+.mroom .winw .weather{inset:-30% 0 0 0}
+.weather.w-snow{background:radial-gradient(#FFFFFF 1.6px,transparent 2.2px) 0 0/14px 16px,radial-gradient(#FFFFFF 1.2px,transparent 1.8px) 7px 8px/18px 20px;animation:fall 6s linear infinite}
+.mroom .pet{cursor:pointer;outline:none}
+.mroom .pet:focus-visible .art{outline:3px solid var(--berry);outline-offset:-6px;border-radius:12px}
+.tapfx{position:absolute;width:34px;height:34px;margin:-17px;border-radius:50%;border:3px solid rgba(255,255,255,.95);box-shadow:0 0 0 2px rgba(58,49,71,.25);opacity:0;z-index:40;pointer-events:none}
+.tapfx.on{animation:tapfx .6s ease-out}
+@keyframes tapfx{0%{opacity:1;transform:scale(.4)}100%{opacity:0;transform:scale(1.4)}}
+/* 一覧 */
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px}
+@media (min-width:480px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}@media (min-width:640px){.grid{grid-template-columns:repeat(6,minmax(0,1fr))}}
+.gi{margin:0;background:var(--card);border-radius:14px;padding:4px 4px 6px;text-align:center;box-shadow:var(--lift)}
+.gi .gp{width:100%;aspect-ratio:1;background:#F4E9DD;border-radius:10px}
+.gi .gp .pet-svg{display:block;width:100%;height:100%}
+.gi .gp .pet-svg g{animation:none!important}
+.gi figcaption{font-size:12px;line-height:1.35;font-weight:700;margin-top:3px}
+.pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px;max-width:420px}
+.gi.big figcaption{font-size:13px}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 0}
+</style>
+<style>/*PET_CSS*/</style>
+<style>/*BACK_CSS*/</style>
+</head><body>
+<div class="wrap">
+  <h1>うちのこ だんかい 4 の 見本</h1>
+  <p class="lead">うしろすがたの 絵と、つかう 場面の 案です（アプリは まだ かわっていません）。カードごとに「いま」と「あたらしい」を 見くらべて、▶ で もういちど。</p>
+  <div class="top"><b>うちのこ</b><span class="opts" data-g="kid"><button class="opt" type="button" data-v="dog" aria-pressed="true">だいず</button><button class="opt" type="button" data-v="cat" aria-pressed="false">ねこ（茶トラ）</button></span></div>
+  <div class="sum"><b>先に 直した こと（もう 出したよ）</b>
+    <ul class="same"><li>きせかえの シートを とじたら、おへやの まんなかへ あるいて、すわってから くるりん「にあう？」</li></ul></div>
+
+  <h2>うしろすがたの 絵</h2>
+  <p class="note">正面の すわった 絵と 同じ 大きさ・位置で かいた うしろすがた。耳・しっぽ・毛・せなかの もよう（しま・サドル・ぶち）を 41種ぶん。左右の もようは 正面と 反対に なる（正面の 左の ぶちは うしろでは 右）。</p>
+  <div class="seg opts" data-g="grid"><button class="opt" type="button" data-v="back" aria-pressed="true">うしろ</button><button class="opt" type="button" data-v="front" aria-pressed="false">正面と くらべる</button></div>
+  <div class="grid" id="breeds"></div>
+  <h3 style="margin-top:18px">きせかえ（48こ）</h3>
+  <p class="note">上の「うちのこ」の 子で。くびは うなじの 帯（バンダナは むすび目、すずは 金具、マフラーは 端を せなかへ）、かおは めがねの つる、あたまは うしろから 見た 形（王冠・かぼちゃ・ティアラ・かぶと・はちまき・うさぎのみみ は うしろ用）。</p>
+  <div class="grid" id="wears"></div>
+  <div class="sc"><div class="sc-h"><h3>マフラーの 端</h3></div>
+    <p>マフラーの 端は 正面では むねの 前。うしろからは 見えないので、<b>せなかへ 1本 たらして</b> マフラーと わかる ように する案と、帯だけの 案。</p>
+    <div class="pair" id="scarfPair"></div>
+    <div class="row"><span></span><span class="opts" data-pick="scarf"><button class="opt" type="button" data-v="on" aria-pressed="true">せなかに たらす</button><button class="opt" type="button" data-v="off" aria-pressed="false">なし（帯だけ）</button></span></div></div>
+  <div class="sc"><div class="sc-h"><h3>絵ぜんたい</h3></div><p>41種と きせかえの うしろすがたは どう？ 直したい 子や きせかえが あれば、えらんだ ものと いっしょに チャットで おしえてね。</p>
+    <div class="row"><span></span><span class="opts" data-pick="art"><button class="opt" type="button" data-v="ok" aria-pressed="true">このままで OK</button><button class="opt" type="button" data-v="fix" aria-pressed="false">直したい ところが ある</button></span></div></div>
+
+  <div id="scenes"></div>
+
+  <h2>かえない もの</h2>
+  <ul class="same"><li>おせわ（ごはん・おやつ・ボール・げい）が はじまったら、いままでどおり すぐ 正面を むいて すわる</li>
+    <li>うちのこカード・写真立て・タイル・ランの 画面・はじめての画面（おすわり の まま）</li>
+    <li>ルール・セーブ・サーバー（見た目だけ）</li></ul>
+  <h2>えらんだ もの</h2>
+  <div class="sum">
+    <p class="note" style="margin-top:0">ボタンで えらぶと ここに まとまります（はじめは ぜんぶ おすすめ）。コピーして チャットに はってね。</p>
+    <textarea id="sumText" readonly aria-label="えらんだ もの"></textarea>
+    <button class="copy" type="button" id="copy">コピー</button><span class="copied" id="copied" aria-live="polite"></span>
+  </div>
+  <footer>見本の 子：だいず（クリームの ポメラニアン。色は 見本用）と 茶トラ。うちのこの 絵と CSS は アプリと 同じ コード（うしろすがたは 見本用の 下書き）。おへやは 見本用に 小さく した もの です。</footer>
+</div>
+<script>/*PET_JS*/</script>
+<script>/*SPLIT_JS*/</script>
+<script>
+/*MAIN_JS*/
+</script>
+</body></html>
