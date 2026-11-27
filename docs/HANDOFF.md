@@ -2,18 +2,18 @@
 
 このファイルは、チャットのいちばん最後に毎回まるごと書き直します。次のチャットは、ここを読めば続きから始められます。オーナーは、更新のたびにプロジェクトナレッジのGitHubを「同期」し、作業ごとに新しいチャットへ移ります（`CLAUDE.md` の作業の流れ 7）。
 
-- 最終更新：2026-11-27 昼（35回目：**きせかえの 直し（`dabb5d5`）と うちのこの 体勢と 動きの だんかい 4＝うしろすがた（`970a187`）を 出した＝体勢と 動きの 設計（だんかい 0〜4）は ぜんぶ 済み。** はじめに オーナーに きいた：① LINE の 認証審査は **審査中で ない** ② だんかい 3 の 感想＝きせかえの あと まんなかで くるりん → 直した。つぎに する ことは「だんかい 4 の 見本から」（包括的な 診断は 開業届の めどが ついたら 申請の 直前に）＝見本 4 を 見て **ぜんぶ おすすめ** → 実装。サーバーの `game.js` は かわらない＝デプロイ なし → Claude版 **バージョン38**。`docs/MOTION_DESIGN.md` 14章・15章）
+- 最終更新：2026-11-27 夕方（36回目：**季節イベントを 4つ 足した＝もみじがり 11/1〜11/30・としこし 12/26〜12/31・せつぶん 2/1〜2/3・ひなまつり 3/1〜3/3（main `1567b54`）。** はじめに オーナーに きいた：だんかい 4 は「まだ ちゃんと 見てない」・つぎは「季節イベントを ふやす」→ 見本 5 で 4つ とも「いれる」→ 実装。データは サーバーとも 共通＝サーバー api **version 31**（`deno.json` を `1567b54` に。`b8f68ea`）→ Claude版 **バージョン39**。もみじがりは きょうから 11/30 まで＝ひらくと すぐ はじまる）
 - リポジトリ：`Y-s-Apps/uchinoko-biyori`（組織 Y-s-Apps）。ホーム画面版：https://y-s-apps.github.io/uchinoko-biyori/
-- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-6f9677436a`**（35回目の だんかい 4。`index.html`・`sw.js` の md5 は `c7a58cfa…`・`7ecc5df9…`＝本番を pg_net で 読んで 同じ。`run-5d3805aee4a4.js` は かわらない `283ca8f2…`）。おせわの 結果は 前と 同じ（`compare_home.py`：おなじ）
-- Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン38**（35回目の だんかい 4。version `1795743184-0f8b`、contract `0.2.73` の まま、capabilities は 引きついだ〈db の ルール 2つ・downloads・sample〈images〉・user〉。**ちがいが 小さい ときは `edit_version` で その 部分だけ 置きかえて よい**＝前の 版を 作りなおして 公開中の sha256 と 同じなのを 確かめ、`diff` の 部分だけ 送り、あとで `list_files` の sha256 が 手元と 同じか 見る）。**ファイルは 2つ：`index.html`（sha256 `d2999f16…`、483,586 バイト）と うちのこランの `run-5d3805aee4a4.js`（`5d3805ae…`。かわらない）**（出す 前に `list_files` で バージョン37 が 記録 どおり〈`38a2dd6c…`〉なのを 確かめ、`3fb1bc9` を 作りなおして 同じ sha256・ちがいは 今回の 直しだけ なのを `diff` で 確かめてから `publish_files`〈patch・index.html だけ〉）。**出し方：** `sh src/build.sh` が `src/out/claude/` に そのまま 出せる 形（`index.html`＝いまの 版と 同じ 1行目 `src/claude_head.html`＋中身＋`</body></html>`、`run-<ハッシュ>.js`）を 作る → `publish_files`（slug は UUID `507aa3eb-87ee-4ddc-80e3-61638a697f56`。短い id は ことわられる。files は その 2つ、`capabilities`・`contract`・`title` は はぶく。ゲームが かわって 名前が かわったら 前の `run-*.js` を `remove`）。出す 前に 前の 版を 作りなおして `list_files` の sha256 と 同じか 確かめる
+- ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-394236dd8d`**（36回目の 季節イベント。`index.html`・`sw.js` の md5 は `81f70b8f…`・`88fc552c…`＝本番を pg_net で 読んで 同じ。`run-5d3805aee4a4.js` は かわらない `283ca8f2…`）。おせわの 結果は 前と 同じ（`compare_home.py`：おなじ）
+- Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン39**（36回目の 季節イベント。version `1795763324-3b37`、contract `0.2.73` の まま、capabilities は 引きついだ〈db の ルール 2つ・downloads・sample〈images〉・user〉。**ちがいが 小さい ときは `edit_version` で その 部分だけ 置きかえて よい**＝前の 版を 作りなおして 公開中の sha256 と 同じなのを 確かめ、`diff` の 部分だけ 送り、あとで `list_files` の sha256 が 手元と 同じか 見る）。**ファイルは 2つ：`index.html`（sha256 `5b29ac81…`、495,889 バイト）と うちのこランの `run-5d3805aee4a4.js`（`5d3805ae…`。かわらない）**（出す 前に `list_files` で バージョン38 が 記録 どおり〈`d2999f16…`〉なのを 確かめてから `publish_files`〈patch・index.html だけ〉）。**出し方：** `sh src/build.sh` が `src/out/claude/` に そのまま 出せる 形（`index.html`＝いまの 版と 同じ 1行目 `src/claude_head.html`＋中身＋`</body></html>`、`run-<ハッシュ>.js`）を 作る → `publish_files`（slug は UUID `507aa3eb-87ee-4ddc-80e3-61638a697f56`。短い id は ことわられる。files は その 2つ、`capabilities`・`contract`・`title` は はぶく。ゲームが かわって 名前が かわったら 前の `run-*.js` を `remove`）。出す 前に 前の 版を 作りなおして `list_files` の sha256 と 同じか 確かめる
 - ためしの アーティファクト「うちのこ日和 P5 ためし」：https://claude.ai/artifact/G6JjwCoMcYMZ96pctVrYQF （slug `7a36bb48-06ef-452f-8c27-c7e849d00828`。ほんものとは べつ。セーブの キーは `uchinoko-p5test:`、ためしの 子「ためし」、db だけ 宣言。ひらくと 読みこみ・integrity・WebGL 2 を しらべて db の `probe/env`、ランを ひらく・走ると `probe/open` に 書く＝`db_list`（collection `probe`）で 読む）。2026-11-22 に オーナーが iPhone で ひらいて 結果を 読んだ（15章）。いらなく なったら オーナーに きいて 消す（`delete_artifact` は オーナーが たのんだ ときだけ）
-- LINE版の画面：Cloudflare Pages（main の push で自動ビルド。**35回目の だんかい 4 の あとの md5 は 本番用・審査用・開発用 `16cefbeb…`（長さ 529,641 文字。3か所とも pg_net で 読んで 同じ）、ゲームの ファイル `/run-5d3805aee4a4.js` は `283ca8f2…`（かわらない）**。`LINE_CFG.oaId` に `@370iymyw`）
+- LINE版の画面：Cloudflare Pages（main の push で自動ビルド。**36回目の 季節イベントの あとの md5 は 本番用・審査用・開発用 `7094c42c…`（長さ 540,908 文字。3か所とも pg_net で 読んで 同じ）、ゲームの ファイル `/run-5d3805aee4a4.js` は `283ca8f2…`（かわらない）**。`LINE_CFG.oaId` に `@370iymyw`）
   - 本番用 https://uchinoko-biyori.pages.dev/ 、審査用 https://uchinoko-biyori.pages.dev/review/ 、開発用 https://uchinoko-biyori.pages.dev/dev/ （同じページ。ひらいた場所で LIFF ID をえらぶ）
   - ヘッダー（`_headers`）：ぜんぶ（`/*`）に `Referrer-Policy: no-referrer`・`X-Content-Type-Options: nosniff`・`Content-Security-Policy: frame-ancestors 'none'`・`X-Frame-Options: DENY`
   - LIFF URL：開発用 https://miniapp.line.me/2012410263-cuCI7vQS ／審査用 https://miniapp.line.me/2012410264-JD4WhzAb （審査担当者だけ）／本番用 https://miniapp.line.me/2012410265-PutgsCLS （未認証なので URL を知っている人は開ける）
   - チャネルID：開発用 `2012410263`・審査用 `2012410264`・本番用 `2012410265`
   - プライバシーポリシー https://uchinoko-biyori.pages.dev/privacy.html ・利用規約 https://uchinoko-biyori.pages.dev/terms.html （ポリシーは **2026-11-22 改定〈うちのこランの 記録〉**＝本番の ページで 改定日と「うちのこラン」の 文を 確かめた）、お問い合わせフォーム https://forms.gle/aywxktpPZettxFSS7
-- LINE版のサーバー：Supabase のプロジェクト「uchinoko-biyori」（`ftakgswltcavwixqxpzi`、東京、組織 `Yuthy's` の無料プラン）。Edge Function `api` は **MCP の version 30**（2026-11-26 23:43 32回目。`index.ts` は かわらない〈sha256 `b2fafd73…`〉・`deno.json` は `game.js` を `4f1c9c3` に 固定〈`game.js` から 絵の 関数 `renderPet` などを はずした ぶん。サーバーの うごきは かわらない〉。`get_edge_function` の 結果を python で 手元と くらべて 2つとも 同じ・`/health` は 200・errors 0・セッションなしの `/act` は 401 `nosession`）。**これからは `js_pet.js` の 絵（`renderPet`・だんかい 2 の `renderPetSide`）を かえても `game.js` は かわらない＝デプロイ いらない（`build_server.py --check` で 確かめる）**
+- LINE版のサーバー：Supabase のプロジェクト「uchinoko-biyori」（`ftakgswltcavwixqxpzi`、東京、組織 `Yuthy's` の無料プラン）。Edge Function `api` は **MCP の version 31**（2026-11-27 夕方 36回目。`index.ts` は かわらない〈sha256 `b2fafd73…`〉・`deno.json` は `game.js` を `1567b54` に 固定〈季節イベント 4つの データ〉。`get_edge_function` の 結果を python で 手元と くらべて 2つとも 同じ・`/health` は 200・errors 0・セッションなしの `/save` は 401 `nosession`。**さいしょの デプロイは 作業環境の 確かめで 止められた → オーナーに 中身を つたえて「もう一度 ためして OK」で 出した**）。`js_pet.js` の 絵（`renderPet`・`renderPetSide`・`renderPetBack`）を かえても `game.js` は かわらない＝デプロイ いらない（`build_server.py --check` で 確かめる）。**イベント・きせかえ・おやつの データ（`js_data2.js`・`js_data3.js`）を かえたら `game.js` が かわる＝デプロイ**
 - **cron の 関数 `app.notify_kick()`：2026-11-19 に `notify_cron_retry` で 置きかえた**（21:05 は とちゅうで 止まった回も。`pg_get_functiondef` の md5 `4fd92ef1…`）
 - 表：`app` スキーマに members・line_accounts・sessions・saves・cards・save_backups・day_quota・error_counts・chores・notify_runs
 - **cron：** pg_cron 1.6.4、ジョブ `uchinoko-notify`（**`0,5 12 * * *`＝日本時間 21:00 と 21:05**。`select app.notify_kick()`。21:05 は 21:00 の回が とどかなかった・ことわられた日だけ 動く）。**2026-11-15 21:00 に はじめて 予定どおり 自分で 動いて 1通 とどいた**（`made 12:00:00 UTC`・`done 12:00:21`・`sent 1`・`failed 0`。21:05 は 送らない。オーナーが LINE で 見た）
@@ -21,6 +21,7 @@
 - Storage：バケット `cards`（公開・PNG だけ・1MB まで、ポリシーなし）。カードは 全員で 1500まい まで
 - サーバーを起こす：GitHub Actions（`.github/workflows/keepalive.yml`、cron `23 18 */3 * *`＝日本時間 3:23 ごろ、数時間 おくれることがある）。`/health` の `errors`（10以上で 失敗）と `notifyDays`（止まった日が あれば 失敗）を 見る。11-17 の回は 失敗（11-16 の 回を 見つけた）→ **11-20 の回（9:43）は 成功に もどった**（24回目に `gh api …/actions/workflows/keepalive.yml/runs` で 見た）。つぎの 予定は 11-23 3:23 ごろ
 - Secrets：`ANTHROPIC_API_KEY`・`LINE_CHANNEL_SECRET`（開発用）・`LINE_CHANNEL_SECRET_2012410264`・`LINE_CHANNEL_SECRET_2012410265`・`APP_DB_PASSWORD`・`LINE_MESSAGING_TOKEN`
+- 本物の DB（2026-11-27 16時・デプロイの あと）：`/health` の errors 0。よるの おしらせ 11-24〜26 は 3日とも おわった。
 - 本物の DB（2026-11-26 23時43分・デプロイの あと）：`/health` の errors 0。よるの おしらせ 11-23〜25 は 3日とも おわった。
 - 本物の DB（2026-11-26 20時29分・デプロイの あと）：`/health` の errors 0。よるの おしらせ 11-23〜25 は 3日とも おわった。
 - 本物の DB（2026-11-22 21時45分・デプロイの あと）：`/health` の errors 0。よるの おしらせ 11-19〜21 は 3日とも おわった。
@@ -33,7 +34,15 @@
 - LINE版の計画書：https://claude.ai/artifact/AgKkCkHCsWAywKGV6VFxwK
 - オーナーの事情（約束②で使う）：claude.ai の このプロジェクトの資料 `claude/owner-notes.md`（非公開）
 
-## 直近のチャットでやったこと（2026-11-27、35回目：きせかえの 直し＋だんかい 4＝うしろすがた。Opus 5.5）
+## 直近のチャットでやったこと（2026-11-27 夕方、36回目：季節イベントを 4つ。Opus 5.5）
+
+- **はじめに（オーナー）：** だんかい 4 は「まだ ちゃんと 見てない」。つぎは「季節イベントを ふやす」。
+- **見本 5：** https://claude.ai/artifact/H3pwLsRJwUQ8B7v1Kj5MRv （slug `81f73f8f-e3b8-478c-a4bb-2926dffdb975`。元は `tools/event_sample5/`。`7d8d7ad`）。オーナーの「えらんだ もの」＝**4つ とも いれる**。
+- **季節イベント（main `1567b54`）：** `js_data3.js` の `EVENTS`（もみじがり・としこし・せつぶん・ひなまつり。期間は かさならない）・`EVENT_WEAR`（`ev_acorn`・`ev_mikanhat`・`ev_oni`・`ev_hishiribbon`）・`weatherOf`（もみじがり＝`leaves`、としこし＝`snow`）、`js_data2.js` の `treatIcon`（`momijicookie`・`mikanjelly`・`arare`）、`js_wear.js` の あたまの kind（`acorn`・`mikanhat`・`oni`・`hishi`）、`js_features.js` の `SEASON_DECOR` と `garland` の 'leaf'、`head.html` の `.weather.w-leaves`、`js_app.js` の ひまな ときの `catch` に おちば「はっぱだ！」。
+- **ためし：** `smoke.py` 6とおり エラー 0・`compare_home.py` おなじ・`rules_test.mjs`（「イベントが おわると…」を 1/10 に、4つの プレゼント・おやつ・期間の はしを 足した）・`line_e2e.py` all passed（ためしの 日が もみじがりで お知らせが ボタンを ふさぐので、`close_popups` を 足した）・`poses.py --no-ref`・`linebreak.py` 0（ホーム画面版 333・LINE版 390 場面）・`build_server.py`。
+- **出したもの：** main `1567b54`（GitHub Pages・Cloudflare とも 成功）→ サーバー api version 31（`b8f68ea`）→ Claude版 バージョン39。本番の md5 は pg_net で 手元と 同じ。
+
+## その前のチャット（2026-11-27 昼、35回目：きせかえの 直し＋だんかい 4＝うしろすがた。Opus 5.5）
 
 - **はじめに（オーナー）：** ① LINE の 認証審査は **審査中で ない**。② だんかい 3 の 感想＝きせかえの あと、おへやの まんなかへ 行ってから くるりん して ほしい（ほかは OK）。
 - **きせかえ（main `dabb5d5`）：** `showOutfit`：まんなか（x 50・y 82）から はなれて いたら あるいて → 正面で すわる → ひと息 0.55秒 → くるりん「にあう？」。動画（GIF）を 見せた。Claude版 バージョン37（`edit_version`）。
@@ -62,10 +71,9 @@
 
 ## 保留・オーナーの判断待ち（つぎのチャットのはじめに）
 
-0. **あたらしい 季節イベントの 見本 5 を 見て えらんで もらう（オーナー）。** 35回目の さいごに オーナーが「つぎは 季節イベントを ふやす」を えらんだ（だんかい 4 は「まだ ちゃんと 見てない」）。見本：https://claude.ai/artifact/H3pwLsRJwUQ8B7v1Kj5MRv （slug `81f73f8f-e3b8-478c-a4bb-2926dffdb975`。元は `tools/event_sample5/`）。案：もみじがり 11/1〜11/30（どんぐりぼうし・もみじクッキー・ガーランド もみじ・おきもの おちばと やきいも・まどの 外 おちば）／としこし 12/26〜12/31（みかんのぼうし・みかんゼリー・おきもの こたつと みかん・雪）／せつぶん 2/1〜2/3（おにの つの・まめボーロ・ガーランド 旗・おきもの ますと おにの おめん・雪）／ひなまつり 3/1〜3/3（ひしもちリボン・ひなあられ・ガーランド ももの 花・おきもの おひなさま）。**入れる ときは データが サーバーとも 共通（`js_data3.js` の `EVENTS`・`EVENT_WEAR`、`js_data2.js` の `treatIcon`）＝`build_server.py` → `line_e2e.py` → push → `--pin` → デプロイ**（CLAUDE.md の サーバーの 流れ）。きせかえの 絵は `js_wear.js` の あたまの kind（よこむきは 正面を 小さく、うしろは 左右 反対で 自動）、かざりは `js_features.js` の `SEASON_DECOR` と `garland`（'leaf'）、天気は `weatherOf`（もみじがり＝`leaves`・としこし＝`snow`）と `head.html` の `.weather.w-leaves`、`IDLE` の `catch` に `leaves`（「はっぱだ！」）。もみじがりは 11/30 まで なので、11月の うちに 出すと すぐ はじまる。
-1. **だいずで だんかい 4（うしろすがた）と きせかえの 直しを しばらく 見てもらう（オーナー）。** iPhone の ホーム画面版（アプリを ひらきなおすと 新しい 版）と LINE で：まどの 下で うしろを むいて 外を 見る（ときどき ふりかえって「なあに？」）・うしろの ときに タップ → ふりかえって へんじ → また 外・奥（かべの ほう）へ あるく ときの うしろすがた・きせかえの あと まんなかで くるりん。**12/1 から クリスマスで 雪**＝まどの 下で 見あげて ぴょん（もようがえの 季節の かざりつけが「あり」の とき）。つゆ（6月）は うしろで ふせて 雨を ながめる。気に なる ところが あれば つぎの チャットで 直す。おかしければ `970a187`（だんかい 4）・`dabb5d5`（きせかえ）を `git revert`（サーバーは かわっていない）。
-2. **つぎに なにを するか きく：** 体勢と 動きの 設計（だんかい 0〜4）は ぜんぶ 済んだ。のこりは ① 認証審査の 前の 包括的な 診断（オーナー決定：開業届の めどが ついたら 申請の 直前に 1回）② `docs/PROJECT.md` 9章の アイデア（複数の 子・おしゃべり・季節イベントの 追加 など）。**はじめに LINE の 認証審査中かも きく**（審査中は LINE版を かえられない）。
-3. ためしの アーティファクト「うちのこ日和 P5 ためし」（slug `7a36bb48-06ef-452f-8c27-c7e849d00828`）は もう いらない。消すかは オーナーに きく（のこしても こまらない）。見本 4（slug `11962d6f-…`）・見本 3（slug `fc7cec86-…`）・見本 2 も 記録として のこしている。
+1. **だいずで 季節イベントと だんかい 4（うしろすがた）を しばらく 見てもらう（オーナー）。** iPhone の ホーム画面版（アプリを ひらきなおすと 新しい 版）と LINE で：**もみじがり（11/30 まで）**＝はじまりの ポップアップ・プレゼント「どんぐりぼうし」・限定おやつ「もみじクッキー」・もみじの ガーランドと おちばと やきいも（もようがえの 季節の かざりつけが「あり」の とき）・まどの 外の おちば・まどの 下で 見あげて ぴょん「はっぱだ！」。**12/1 から クリスマスで 雪、12/26 から としこし**（みかんのぼうし・みかんゼリー・こたつと みかん）。だんかい 4＝まどの 下で うしろを むいて 外を 見る・うしろの ときに タップ → ふりかえって へんじ・奥へ あるく うしろすがた・きせかえの あと まんなかで くるりん。気に なる ところが あれば つぎの チャットで 直す。おかしければ `1567b54`（季節イベント。**サーバーも かわっている**ので もどすなら `deno.json` も 前の `4f1c9c3` に して デプロイ）・`970a187`（だんかい 4）・`dabb5d5`（きせかえ）を `git revert`。
+2. **つぎに なにを するか きく：** 体勢と 動きの 設計（だんかい 0〜4）は ぜんぶ 済んだ。のこりは ① 認証審査の 前の 包括的な 診断（オーナー決定：開業届の めどが ついたら 申請の 直前に 1回）② `docs/PROJECT.md` 9章の アイデア（複数の 子・おしゃべり など。季節イベントは 36回目に 4つ 足して 14こ）。**はじめに LINE の 認証審査中かも きく**（審査中は LINE版を かえられない）。
+3. ためしの アーティファクト「うちのこ日和 P5 ためし」（slug `7a36bb48-06ef-452f-8c27-c7e849d00828`）は もう いらない。消すかは オーナーに きく（のこしても こまらない）。見本 5（slug `81f73f8f-…`）・見本 4（slug `11962d6f-…`）・見本 3（slug `fc7cec86-…`）・見本 2 も 記録として のこしている。
 4. **（オーナーが 決める・いそがない）** Supabase の Data API の「Automatically expose new tables」を オフに するか（いまは `public` に 表が ないので 害は ない）。
 5. 公開の日の 手順 5・6 の こまかい ところ（よるの ひとこと・ひらいたまま つぎの日・トークの カードの ボタン・なでなでの 下スワイプ、家族の LINE で 本番用の LIFF URL が ひらけるか、Android の 下の すき間）は きくだけ。
 5d. **（オーナーが 決める・いそがない）** 2D の 絵の ヨークシャーテリアも「せなかだけ ブルー」に するか（`renderPet`。3つの 版。**いまは サーバーの デプロイ いらない**）。
@@ -76,24 +84,23 @@
 
 ## 次にやること
 
-- オーナー：だいずで だんかい 4 と きせかえの 直しを 見る（上の 保留1）。別プロジェクトで 個人事業主の 申請（開業届など）→ 認証審査の 申請（補足資料の文は `docs/PROJECT.md` 10章）。
-- つぎの チャット：だんかい 4 の 直し（あれば）→ つぎに する ことを オーナーに きく（包括的な 診断 か、9章の アイデア か）。
-- **認証審査の 申請の 前に、包括的な 診断（約束①の ような ぜんぶ）を もう一度 すすめる**（オーナー決定：開業届の めどが ついたら 申請の 直前に 1回。11-16 の パズルの レビューの あとの ラン いがいの 直し `de696b7`・`b34a30d` と、うちのこの 体勢と 動き〈だんかい 0〜4・かげ・きせかえの 直し〉は まだ だれも レビューしていない）。
+- オーナー：だいずで 季節イベント（もみじがり）と だんかい 4・きせかえの 直しを 見る（上の 保留1）。別プロジェクトで 個人事業主の 申請（開業届など）→ 認証審査の 申請（補足資料の文は `docs/PROJECT.md` 10章）。
+- つぎの チャット：季節イベント・だんかい 4 の 直し（あれば）→ つぎに する ことを オーナーに きく（包括的な 診断 か、9章の アイデア か）。
+- **認証審査の 申請の 前に、包括的な 診断（約束①の ような ぜんぶ）を もう一度 すすめる**（オーナー決定：開業届の めどが ついたら 申請の 直前に 1回。11-16 の パズルの レビューの あとの ラン いがいの 直し `de696b7`・`b34a30d` と、うちのこの 体勢と 動き〈だんかい 0〜4・かげ・きせかえの 直し〉・季節イベント 4つは まだ だれも レビューしていない）。
 - 認証審査を申請したら：審査は1〜2週間、「審査中」は 画面とサーバーを 変えない。認証されたら「検索可能にする」は 承認から30日以内。
 
-### つぎの チャットに 貼る プロンプト（見本 5 を 見た あと）
+### つぎの チャットに 貼る プロンプト
 
 ```
-うちのこ日和の つづき（あたらしい 季節イベントを ふやす）。
-GitHub の Y-s-Apps/uchinoko-biyori を push できる形で つないで、CLAUDE.md・docs/PROJECT.md・docs/HANDOFF.md を 読んでから すすめてください（見本 5 の 元は tools/event_sample5/）。
-はじめに LINE の 認証審査中か きいて（審査中は LINE版と サーバーを かえられない）。
-見本 5（https://claude.ai/artifact/H3pwLsRJwUQ8B7v1Kj5MRv）で えらんだ もの：
-（ここに 見本の いちばん下の「えらんだ もの」を はる。名前や プレゼントを かえたい ところも）
-えらんだ イベントを 入れて（データは サーバーとも 共通なので デプロイも）、ためして push してください。そのあと だんかい 4（うしろすがた）を だいずで 見た 感想も きいてください。
+うちのこ日和の つづき（季節イベント 4つ・だんかい 4 の あと）。
+GitHub の Y-s-Apps/uchinoko-biyori を push できる形で つないで、CLAUDE.md・docs/PROJECT.md・docs/HANDOFF.md を 読んでから すすめてください。
+はじめに：① LINE の 認証審査中か きいて（審査中は LINE版と サーバーを かえられない）。② 季節イベント（いまは もみじがり）と だんかい 4（うしろすがた）を だいずで 見た 感想を わたしに きいて（直したい ところが あれば 先に 直して、ためして push）。
+そのあと、つぎに する こと（認証審査の 前の 包括的な 診断 か、docs/PROJECT.md 9章の アイデア か）を、選択肢と おすすめを 出して きいてください。
 ```
 
 ## 気をつけること
 
+- **季節イベント（36回目）：** イベントは `js_data3.js` の `EV(id, ja, from, to, gift, treat, decor, hello)`（期間は かさならない＝`rules_test.mjs` が はしを 見る）。プレゼントの きせかえは `EVENT_WEAR`＋`js_wear.js` の kind（あたまは よこむき・うしろも 自動）、おやつの 絵は `js_data2.js` の `treatIcon`、おへやの かざりは `js_features.js` の `SEASON_DECOR`（`g:[形, 色]` と おきもの `item`）、天気は `weatherOf`。**データは サーバーとも 共通＝かえたら `build_server.py` → `line_e2e.py` → push → `--pin` → デプロイ**。`line_e2e.py` は ためしの 日が イベントの 期間だと はじまりの お知らせが 出るので、ボタンを おす 前に `close_popups`。
 - **うちのこの 体勢と 動き（`docs/MOTION_DESIGN.md` 9章）：**
   - **だんかい 4＝うしろすがた（35回目。15章）：** おへやの 絵は 3まい（`.view-f`・`.view-s`・`.view-b`）。`Pet.view` は 'front'・'side'・'back'、`POSE[p].back` で うしろ。うしろの 体勢は `bsit`・`bup`・`bdown`・`bwalk`（CSS は `.pose-b*`・`.pet-back .pb-*`。しぐさの セレクタは `.g-ear .pb-earR` の ように `.pet` を つけない＝`poses.py` でも 効く）。**うしろで しぐさを ふやす ときは `GESTURE[id].poses` に うしろの 体勢を 足して `.g-<id> .pb-*` の CSS も**（いまは 耳ぴく・きょろきょろ だけ）。`renderPetBack` の 首の きせかえは 頭と しっぽより てまえ（`pb-neck`）。左右は 正面と 反対（`patchL`↔`patchR`）。まどの 下は `WIN`（x 22・y 70）。`moveTo` の 奥へ は 時間を かえない（`compare_home.py`）。ひまな ときの 行動は うしろの 体勢では 体勢を 見て やめる（`at()`・`ptok`）。`smoke.py` の `gesture_checks`・`pose_checks`・`stage4_checks` は ひまな ときの 行動を とめてから。
   - **かげ と だんかい 3（34回目。13章）：** おへやの かげは `#pet > .pet-floor`（`body.html`。外がわ＝げいの アニメ `fl*`、内がわ `i`＝体勢・むきの 形）。`.pet .pv-shadow,.pet .ps-shadow` は けしている＝**体ごと うごく げいを 足したら `.pet-floor` にも あわせた アニメを**（はねる＝小さく うすく、まわる＝よこへ・ひろく）。パズルは `#pzPet > .pet-floor`、ポップアップは `.mpet::before`（はねるのは svg だけ）。
