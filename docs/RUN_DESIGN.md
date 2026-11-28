@@ -346,3 +346,4 @@ Claude版（https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs 、バージョン
   - わんランの ファイル（`src/run/wanrun/`）は `three` の import いがい かえない（README）。うちのこ日和 らしく する ところは `race.js`・`agility.js`・`pet3d.js`・`quality.js`・`run.css`・`js_run.js` に。
   - こまかさの 決まり（`QUALITY`：24こま・2秒・1.2秒・1.5秒）を かえる ときは、オーナーの iPhone（30こま）で さがらない ことを たもつ。
 - **出し方：** `game.js` が かわる（R1-2）ので、main に push → `python3 tools/build_server.py --pin <SHA>` → `index.ts` と `deno.json` を デプロイ（包括的な 診断の サーバーの 直し C1-3・C7-1 と いっしょ）。ゲームの ファイルの 名前が かわる（`run-5d3805aee4a4.js` → `run-d92dc9775d54.js`）ので Claude版も 出しなおす（前の `run-*.js` は `remove`）。
+- **出した（2026-11-28、39回目）：** main `4cb61a4` → `--pin 4cb61a4…` → `api` を version 32 に デプロイ（`get_edge_function` と 手元が 同じ）→ Claude版 バージョン41（前の `run-5d3805aee4a4.js` は `remove`）。pg_net で ホーム画面版（`c409ed09…`・`sw.js` `e75d3190…`）・LINE版 3か所（`8c8c88a7…`）・`/run-d92dc9775d54.js`（`518ccf75…`）・`/health`（errors 0・`notifyMonth` ok）を 確かめた。
