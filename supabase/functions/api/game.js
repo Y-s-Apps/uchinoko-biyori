@@ -1286,18 +1286,20 @@ function ensureState(st){
     if (w) for (const k of ['head','face','neck']) if (w[k]) st.firsts.wear[w[k]] = true;
   }
   st.firsts.wear = obj(st.firsts.wear) ? st.firsts.wear : {};
+  /* ほんとうに ある 日だけ（2026-13-99 の ような 形だけ あう 日は すてる。きょうと ちがうので 前も 害は なかった＝レビュー R1-2。2026-11-28） */
+  const realDayKey = k => isDayKey(k) && keyShift(k, 0) === k;
   /* パズル（2026-11-15）：あそんだ回数（つぎの たね）・クリアの回数・さいこう点・きょうの ほうびの回数 */
   const z = st.puzzle = obj(st.puzzle) ? st.puzzle : {};
   for (const k of ['games','clears']) z[k] = Math.floor(num(z[k], 0, 0, 1e9));
   z.best = Math.floor(num(z.best, 0, 0, PUZZLE.bestMax));
   z.n = Math.floor(num(z.n, 0, 0, PUZZLE.perDay));
-  z.day = isDayKey(z.day) ? z.day : null;
+  z.day = realDayKey(z.day) ? z.day : null;
   /* うちのこラン（2026-11-22 P3）：ゴールした回数・ノーミスで ゴールした回数・きょうの ほうびの回数と その日・コースごとの さいこう記録（ミリ秒）。
      知らない コースの 記録は すてる。記録は そのコースの いちばん はやい タイム（RUN.courses[c].min）から RUN.maxMs まで */
   const rn = st.run = obj(st.run) ? st.run : {};
   for (const k of ['games','clears']) rn[k] = Math.floor(num(rn[k], 0, 0, 1e9));
   rn.n = Math.floor(num(rn.n, 0, 0, RUN.perDay));
-  rn.day = isDayKey(rn.day) ? rn.day : null;
+  rn.day = realDayKey(rn.day) ? rn.day : null;
   const rb = obj(rn.best) ? rn.best : {};
   rn.best = {};
   for (const c of Object.keys(RUN.courses)){

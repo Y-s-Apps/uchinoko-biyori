@@ -11,6 +11,8 @@
 # - /health の notifyDays（この3日の よるの おしらせの 回。さいごのチェック F2-3）で、cron が 動かなかった・合いことばを うけつけなかった・
 #   おくりおわらなかった・トークンが ない（notoken）・トークンが ちがう（auth）・とちゅうで 止まった（error）日が あれば 失敗にする。
 #   月の 通数の 上限（limit）は 失敗に しない（ログに 出す）。だれか・何人かは /health に 出ない。
+# - /health の notifyMonth（この月の よるの おしらせが 無料の 枠〈月200通〉に ちかいか。診断 C7-1。2026-11-28）が near（8わり 以上）か
+#   limit（この月に 上限で 止まった）なら 失敗にする（失敗の メールで 気づける。数は /health に 出ない）。null（DB が 読めない）は 見ない。
 # - GitHub は、60日 リポジトリに動きがないと、予定の仕事を止める。止まったら Actions の画面で もういちど有効にする。
 name: サーバーを起こす
 
@@ -50,5 +52,10 @@ jobs:
           if jq -e '(.notifyDays // []) | any(.note == "limit")' health.json > /dev/null; then echo "よるの おしらせが 月の 通数の 上限（無料 200通）で 止まった日が あります。プランを 見なおしてください"; fi
           if jq -e '(.notifyDays // []) | any((.kicked and .ran and .done and (.note == null or .note == "limit")) | not)' health.json > /dev/null; then
             echo "よるの おしらせが 止まっていた日が あります。app.notify_runs と cron（uchinoko-notify）、Secrets の LINE_MESSAGING_TOKEN を 見てください"; fail=1
+          fi
+          nm=$(jq -r '.notifyMonth // "unknown"' health.json)
+          echo "notify month: $nm"
+          if [ "$nm" = near ] || [ "$nm" = limit ]; then
+            echo "この月の よるの おしらせが 無料の 枠（200通）に ちかい・または 上限で 止まりました（$nm）。LINE公式アカウントの プランか NOTIFY_MONTH_LIMIT を 見なおしてください"; fail=1
           fi
           exit $fail

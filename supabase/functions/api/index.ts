@@ -26,7 +26,8 @@
  *                                    とどかなかった・ことわられた日だけ）。ヘッダー x-notify の 1回きりの
  *                                    合いことばを app.notify_runs の ハッシュと くらべ、オンの人の セーブを ルールで みて、
  *                                    きょうの おねがいが のこっている人だけに LINE公式アカウントから 1通（同じ日に 2通 おくらない）
- *   GET  /health                     動いているか・サーバーの時刻・この3日の エラーの数・この3日の よるの おしらせの 回（おわったか・合図だけ）
+ *   GET  /health                     動いているか・サーバーの時刻・この3日の エラーの数・この3日の よるの おしらせの 回（おわったか・合図だけ）・
+ *                                    この月の よるの おしらせが 無料の 枠に ちかいか（notifyMonth：ok・near・limit の しるし だけ。数は 出さない）
  *
  * - おなか・ごきげんの減り、おやつの回数、おみやげ、きょうのおねがい、連続記録とおたすけ、季節のイベント、
  *   記念日、げいの上限、なでなでのなかよしは、ぜんぶここ（画面と同じ js_rules.js の Rules）で決める。
@@ -156,6 +157,7 @@ const NOTIFY_WORD_SECS = 600;      /* 合いことばが 有効な 秒数（作�
    409 early に なっていた。さいごのチェック F2-1） */
 const NOTIFY_EARLY_MS = 120_000;
 const notifySince = () => env('NOTIFY_SINCE', '2026-11-14');   /* よるの おしらせを はじめた日（/health は これより前の 日を 見ない） */
+const notifyMonthLimit = () => Math.max(1, intEnv('NOTIFY_MONTH_LIMIT', 200, 1_000_000));   /* LINE公式アカウントの 月の 無料の 通数（コミュニケーションプラン） */
 const NOTIFY_KEEP_DAYS = 60;       /* app.notify_runs を とっておく日数 */
 
 /* ----- DB（診断 1-10）-----
@@ -1163,6 +1165,19 @@ async function notifyDays() {
   } catch { return null; }
 }
 
+/* この月（日本時間）の よるの おしらせの 通数が 無料の 枠に ちかいか（/health。「サーバーを起こす」が 知らせる。診断 C7-1。2026-11-28）。
+   'ok'・'near'（NOTIFY_MONTH_LIMIT の 8わり 以上 おくった）・'limit'（この月に 上限で 止まった）の しるし だけ（数・だれかは 出さない）。
+   数えるのは app.notify_runs の sent（60日 とっておく）。DB が 読めないときは null */
+async function notifyMonth(): Promise<string | null> {
+  const first = dayKey().slice(0, 8) + '01';
+  try {
+    const [r] = await sql`select coalesce(sum(sent), 0)::int as n, coalesce(bool_or(note = 'limit'), false) as hit
+      from app.notify_runs where day >= ${first}::date`;
+    if (r.hit) return 'limit';
+    return Number(r.n) >= notifyMonthLimit() * 0.8 ? 'near' : 'ok';
+  } catch { return null; }
+}
+
 /* ----- やめる（退会） ----- */
 /* LINE に、この人が うちのこ日和に あたえた許可を取り消してもらう。結果は 'done'（取り消した）・'already'（もう取り消されていた／トークンが切れている）・
    'nosecret'（その内部チャネルのシークレットがない）・'notoken'（アクセストークンが来なかった）・'failed'（LINE に届かない・ほかのチャネルのトークン など）。
@@ -1227,7 +1242,7 @@ async function route(req: Request): Promise<unknown> {
   const path = new URL(req.url).pathname.replace(/^.*?\/api(?=\/|$)/, '') || '/';
   const m = req.method;
   /* errors：この ERROR_SUM_DAYS 日の サーバーの エラーの数（数えられないときは null。診断 5-2） */
-  if (path === '/health' && m === 'GET') return { ok:true, now:Date.now(), day:dayKey(), cards:!!storageAuth(), notify:!!notifyToken(), errors:await errorTotal(), notifyDays:await notifyDays() };
+  if (path === '/health' && m === 'GET') return { ok:true, now:Date.now(), day:dayKey(), cards:!!storageAuth(), notify:!!notifyToken(), errors:await errorTotal(), notifyDays:await notifyDays(), notifyMonth:await notifyMonth() };
   if (path === '/login' && m === 'POST') return await login(req);
   if (path === '/save' && m === 'GET') return await getSave(await sessionMember(req));
   if (path === '/save' && m === 'POST') return await putSave(req, await sessionMember(req));
@@ -1251,7 +1266,9 @@ Deno.serve(async (req: Request) => {
     return json(await route(req), 200, origin);
   } catch (e) {
     if (e instanceof HttpError) return json({ error:e.code, ...e.extra }, e.status, origin);
-    await oops('server', e instanceof Error ? e.name + ': ' + e.message.slice(0, 200) : 'unknown');
+    /* ログには 例外の 種類（name）と DB の 合図（SQLSTATE の 5文字）だけ。文（message）には 値が 入る ことが あるので 出さない（診断 C1-3。2026-11-28） */
+    const code = String((e as { code?: unknown })?.code ?? '');
+    await oops('server', (e instanceof Error ? String(e.name).replace(/[^A-Za-z0-9_]/g, '').slice(0, 40) || 'Error' : 'unknown') + (/^[0-9A-Z]{5}$/.test(code) ? ' ' + code : ''));
     return json({ error:'server' }, 500, origin);
   }
 });

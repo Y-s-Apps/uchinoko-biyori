@@ -223,6 +223,9 @@ async def main(args):
 
         await page.goto(f'http://127.0.0.1:{port}/')
         await page.wait_for_timeout(1500)
+        # アプリじしんの よるの ひとことを とめる（21時すぎに ためすと、ひらいた 3.5秒 あとに 自分で 出て、下の ためしの ひとこと・
+        # バッジの しるしと かさなる。診断 C6-3）。下の ためしは Nudge.shown を 空に してから よぶ
+        await page.evaluate("() => { if (typeof Nudge !== 'undefined'){ clearTimeout(Nudge.t); Nudge.shown = dayKey(); } }")
         if args.fresh:
             await snap('welcome')
             await page.click('#obManual'); await page.wait_for_timeout(300)
@@ -231,6 +234,7 @@ async def main(args):
             await page.click('#edGo'); await page.wait_for_timeout(1200)
         await close_popups()
         await snap('room')
+        await weather_popup_checks(page, errors)
         # 右上の ボタンの名前は むかえた日だけ（--fresh は きょう むかえた子、ふつうは 10日まえの子。診断 4-5）
         names = await page.evaluate("[...document.querySelectorAll('.top .iconname')].map(e => getComputedStyle(e).display !== 'none' ? e.textContent : '').join('/')")
         want = 'おねがい/アルバム/メニュー' if args.fresh else '//'
@@ -425,6 +429,69 @@ async def main(args):
     for e in errors:
         print('  ' + e)
     return 1 if errors else 0
+
+
+# 天気（雪・花びら・おちば・雨）：1周で うごく 長さが もようの 大きさの 倍数か（ちがうと 1周ごとに カクッと 飛ぶ。2026-11-28 N-1）
+WEATHER_JS = r'''() => {
+  const out = [], kf = {};
+  for (const sh of document.styleSheets){ let rules; try { rules = sh.cssRules; } catch(e){ continue; }
+    for (const r of rules) if (r.type === CSSRule.KEYFRAMES_RULE) kf[r.name] = r; }
+  const host = document.querySelector('#stage') || document.body;
+  for (const w of ['snow', 'petals', 'leaves', 'rain']){
+    const el = document.createElement('div'); el.className = 'weather w-' + w; el.style.animation = 'none'; host.appendChild(el);
+    const cs = getComputedStyle(el);
+    const probe = document.createElement('div'); probe.className = 'weather w-' + w; host.appendChild(probe);
+    const anim = getComputedStyle(probe).animationName; probe.remove();
+    const px = s => s.split(',').map(p => p.trim().split(/\s+/).map(v => parseFloat(v)));
+    const bs = cs.backgroundSize, size = px(bs), start = px(cs.backgroundPosition), rule = kf[anim];
+    el.remove();
+    if (!rule){ out.push(`${w}：@keyframes ${anim} が ない`); continue; }
+    const last = [...rule.cssRules].find(k => k.keyText === '100%' || k.keyText === 'to');
+    const end = px(last.style.backgroundPosition);
+    if (end.length !== size.length){ out.push(`${w}：もようの 数 ${size.length} と うごきの 数 ${end.length} が ちがう`); continue; }
+    size.forEach((sz, i) => {
+      const h = isNaN(sz[1]) ? sz[0] : sz[1], wd = sz[0];
+      const dx = end[i][0] - start[i][0], dy = end[i][1] - start[i][1];
+      /* はばが % の もよう（雨）は よこに うごかない ことだけ 見る */
+      const okx = bs.split(',')[i].includes('%') ? Math.abs(dx) < .01 : Math.abs(dx / wd - Math.round(dx / wd)) < .01;
+      const oky = Math.abs(dy / h - Math.round(dy / h)) < .01;
+      if (!okx || !oky) out.push(`${w} の ${i + 1}まいめ：1周で (${dx}, ${dy})px うごく が もようは ${wd}×${h}px`);
+    });
+  }
+  return out;
+}'''
+# ポップアップの うちのこ：ばんざい（MPET.joy）で はねた いちばん 上でも 耳・きせかえが 絵の わくで 切れない・カードから 出ない（N-2）
+POPUP_PET_JS = r'''() => {
+  const out = [], keep = S.pet.look;
+  const cases = [['chihuahua', null], ['chihuahua', 'ev_usagi'], [keep.breedId, 'ev_usagi']];
+  for (const [bid, head] of cases){
+    const b = BREEDS.find(x => x.id === bid); if (!b) continue;
+    S.pet.look = normalizeLook({ species:b.species, breedId:bid });
+    for (const k of ['joy', 'hello']){
+      const box = document.createElement('div'); box.className = 'levelup';
+      box.innerHTML = `<div class="card">${petCard({ head }, MPET[k])}<h3>ためし</h3></div>`;
+      document.body.appendChild(box);
+      for (const a of box.getAnimations({ subtree:true })){ a.pause(); if (a.animationName === 'mHop') a.currentTime = 350 + 220; }
+      const svg = box.querySelector('.mpet .pet-svg'), card = box.querySelector('.card').getBoundingClientRect();
+      let top = 1e9;
+      for (const e of svg.querySelectorAll('*')){
+        if (e.tagName === 'g' || e.closest('defs,clipPath,mask') || !e.getClientRects().length) continue;
+        const r = e.getBoundingClientRect(); if (r.width || r.height) top = Math.min(top, r.top);
+      }
+      if (getComputedStyle(svg).overflow !== 'visible') out.push(`ポップアップの 絵の overflow が ${getComputedStyle(svg).overflow}（耳が 切れる）`);
+      if (top < card.top) out.push(`ポップアップ（${k}・${bid}・${head || 'なし'}）で 耳か きせかえが カードの 上から ${Math.round((card.top - top) * 10) / 10}px 出る`);
+      box.remove();
+    }
+  }
+  S.pet.look = keep;
+  return [...new Set(out)];
+}'''
+
+
+async def weather_popup_checks(page, errors):
+    bad = await page.evaluate(WEATHER_JS) + await page.evaluate(POPUP_PET_JS)
+    print('天気の もよう・ポップアップの 耳：', 'ok' if not bad else bad)
+    errors.extend(bad)
 
 
 RUN_FIT_JS = r'''() => { const pg = document.querySelector('#runPage'), r = s => { const e = pg.querySelector(s); return e && !e.hidden && e.getClientRects().length ? e.getBoundingClientRect() : null; };
@@ -729,6 +796,14 @@ async def run_checks(page, ctx, snap, errors, args, port):
     if not (fit['card'] and fit['card'][0] >= 0 and fit['card'][2] <= fit['vw'] and fit['card'][3] <= fit['vh'] and fit['x'] and fit['x'][0] >= 0
             and fit['xHit'] and not fit['sheet'] and fit['inert'] and not fit['scroll'] and fit['bottom'] <= fit['vh'] - args.android_inset and fit['select']):
         errors.append(f'ランの 画面が 入りきっていません：{fit}')
+    # スタートの 前（とまっている あいだ）は 3D を 描かない（かわった すぐあとの 0.6秒・3こま だけ。レビュー R3-4。2026-11-28）
+    await page.wait_for_timeout(1200)
+    f1 = await page.evaluate('() => RunUI.ctl.frames')
+    await page.wait_for_timeout(1000)
+    f2 = await page.evaluate('() => RunUI.ctl.frames')
+    print('ランの スタート前の こま：', f1, '→', f2)
+    if f2 != f1:
+        errors.append(f'ランの スタート前も 3D を 描きつづけています（{f1} → {f2}）')
     await page.click('#runPage [data-run="help"]'); await page.wait_for_timeout(400)
     await snap('run_help')
     fit = await page.evaluate(RUN_FIT_JS)
@@ -791,7 +866,7 @@ async def run_checks(page, ctx, snap, errors, args, port):
     fin = await page.evaluate('''() => ({ love: S.stats.love, run: JSON.parse(JSON.stringify(S.run)), min: RUN.courses.park.min, album: S.album.slice(0, 3).map(a => a.ti),
         rec: document.querySelector('#runPage .run-rec').textContent.replace(/\\s+/g, ' ').trim(), puzzle: Rules.puzzleLeft(S),
         next: (document.querySelector('#runPage [data-m="next"]') || {}).textContent || '', select: !!document.querySelector('#runPage [data-m="select"]'),
-        saved: JSON.parse(localStorage.getItem('uchinoko-biyori:v1') || '{}').run })''')
+        saved: JSON.parse(localStorage.getItem('uchinoko-biyori:v1') || '{}').run, quality: RunUI.ctl.quality })''')
     print('ランの ゴール：', {k: v for k, v in fin.items() if k != 'saved'})
     if not (fin['run']['games'] == s0['run']['games'] + 1 and fin['run']['n'] == s0['run']['n'] + 1 and fin['run']['best'].get('park') == fin['min']
             and abs(fin['love'] - s0['love'] - 2) < 1e-6 and 'はじめての きろく' in fin['rec'] and 'ごきげん+5' in fin['rec'] and fin['puzzle'] == s0['puzzle']

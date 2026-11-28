@@ -1,7 +1,7 @@
 /* うちのこラン：レースの 画面（P2・P3。docs/RUN_DESIGN.md）
  *
  *   mountRace({ container, course, look, neckWear, name, rivals, art, best, next, onExit, onSelect, onNext, onFinish })
- *     → { pause, escape, dispose, sim, renderer, frames, status, course }
+ *     → { pause, escape, dispose, sim, renderer, frames, quality, status, course }
  *   COURSES（3コースの 名前・むずかしさ・説明・景色の 色）・courseMap(id)（コースを えらぶ 画面の 小さな 地図 SVG）・helpHtml(id)・formatTime
  *
  * わんラン v33 の race-game.js（mountRace）を、うちのこ日和 用に 作りなおした もの（レースだけ。アジリティは agility.js〈P4〉）。
@@ -16,6 +16,7 @@
  *   （Promise。とどくまで「きろく しているよ…」）。つぎの コースへ（onNext）・コースを えらぶ（onSelect）・おわる（onExit）。 */
 import * as T from 'three';
 import { makePet3D, posePet3D, disposePet3D } from './pet3d.js';
+import { makeQuality } from './quality.js';
 import { footingFor, poseLegs } from './wanrun/dog-gait.js';
 import { RACE, RaceSimulation, gestureAction } from './wanrun/race-sim.js';
 import { routePoint, cornerAt } from './wanrun/race-route.js';
@@ -100,7 +101,7 @@ export function mountRace(opts){
   const petScale = opts.petScale || course.scale;
   const nextC = next && COURSES.some(c => c.id === next) ? courseOf(next) : null;
   let finishTok = 0;
-  let renderer = null, scene = null, camera = null, light = null, track = null, frameId = 0, last = 0, drawn = 0, uiTime = 0;
+  let renderer = null, scene = null, camera = null, light = null, track = null, frameId = 0, last = 0, uiTime = 0, seen = null, settle = 0, settleN = 0, quality = null;
   let disposed = false, pointer = null, helpBack = null, frames = 0, cameraOffset = 6, countLabel = '', cueKey = '', lost = false;
   const pets = [];
   /* 選手と 名前：[うちのこ, おともだち×4]（わんランの cpu0〜3 の じゅん） */
@@ -188,6 +189,7 @@ export function mountRace(opts){
       pets.push({ pet, shadow, mats, depth, fade:1 });
     });
     camera.position.set(0, 2.8, 6);
+    quality = makeQuality(renderer, light);   /* おそい 端末では きめ → かげ の じゅんに 自動で さげる（R3-2） */
     resize();
   }
   function resize(){
@@ -196,7 +198,7 @@ export function mountRace(opts){
     if (r.width < 1 || r.height < 1) return;
     renderer.setSize(r.width, r.height, false);
     camera.aspect = r.width / r.height; camera.fov = r.width > r.height ? 54 : 60; camera.updateProjectionMatrix();
-    drawn = 0;
+    settle = performance.now() + 600; settleN = 3;   /* とまっている ときも 大きさが かわったら 描きなおす */
   }
 
   /* ----- 画面の 上に 出す もの ----- */
@@ -350,9 +352,11 @@ export function mountRace(opts){
       else if (e.type === 'finish') result(true);
     }
     const live = sim.status === 'running' || sim.status === 'countdown';
-    /* とまっている（スタート前・ひとやすみ・ゴールの あと）あいだは 1秒に 10回くらいだけ 描く（でんちの ため） */
-    if (!live && drawn && t - drawn < 100) return;
-    drawn = t || 1;
+    /* とまっている（スタート前・ひとやすみ・ゴールの あと）あいだは、かわった すぐあと（0.6秒・3こま 以上）だけ 描いて、あとは 描かない
+       （でんちの ため。前は 1秒に 10まい 描きつづけていた＝レビュー R3-4。2026-11-28） */
+    if (sim.status !== seen){ seen = sim.status; settle = t + 600; settleN = 3; }
+    if (!live && t > settle && settleN <= 0) return;
+    settleN--;
     const footing = footingFor(sim, false);
     [sim.player, ...sim.cpus].forEach((a, i) => {
       if (sim.status === 'paused') return;
@@ -394,6 +398,7 @@ export function mountRace(opts){
     uiTime += dt;
     if (uiTime > .08 || sim.status === 'countdown'){ updateHUD(); uiTime = 0; }
     else if (!park && sim.status === 'running') updateCue();   /* うみべ・もりは カーブが つづくので 合図を まいこま（わんランと 同じ） */
+    quality.sample(dt, sim.status === 'running');
     renderer.render(scene, camera);
     frames++;
   }
@@ -447,6 +452,7 @@ export function mountRace(opts){
     get sim(){ return sim; },
     get renderer(){ return renderer; },
     get frames(){ return frames; },
+    get quality(){ return quality ? { level:quality.level, pixelRatio:quality.pixelRatio, shadows:quality.shadows } : null; },
     get status(){ return lost ? 'lost' : sim.status; },
     course:courseId,
     pause,

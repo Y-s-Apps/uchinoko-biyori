@@ -1,7 +1,7 @@
 /* うちのこラン：アジリティの 画面（P4。docs/RUN_DESIGN.md）
  *
  *   mountAgility({ container, course, look, neckWear, name, art, best, next, onExit, onSelect, onNext, onFinish })
- *     → { pause, escape, dispose, sim, renderer, frames, status, course, mode }
+ *     → { pause, escape, dispose, sim, renderer, frames, quality, status, course, mode }
  *   AGILITY_COURSES（4コースの 名前・むずかしさ・説明）・agilityMap(id)（コースを えらぶ 画面の 全体図 SVG＝さくの ある 広場と 障害物）・agilityHelpHtml(id)
  *
  * わんラン v33 の race-game.js の アジリティの ところを、うちのこ日和 用に 作りなおした もの（レースは race.js）。
@@ -16,6 +16,7 @@
  * - name・art は ホストが 作った HTML（esc 済み）。アプリを はなれたら 一時停止。dispose() で ぜんぶ 片づける（race.js と 同じ）。 */
 import * as T from 'three';
 import { makePet3D, posePet3D, disposePet3D } from './pet3d.js';
+import { makeQuality } from './quality.js';
 import { footingFor, poseLegs } from './wanrun/dog-gait.js';
 import { gestureAction } from './wanrun/race-sim.js';
 import { AgilitySimulation, AGILITY } from './wanrun/agility-sim.js';
@@ -138,7 +139,7 @@ export function mountAgility(opts){
   const petScale = opts.petScale || SKY.scale;
   const nextC = next && AGILITY_COURSES.some(c => c.id === next) ? courseOf(next) : null;
   let finishTok = 0, recHtml = null;
-  let renderer = null, scene = null, camera = null, light = null, track = null, frameId = 0, last = 0, drawn = 0, uiTime = 0;
+  let renderer = null, scene = null, camera = null, light = null, track = null, frameId = 0, last = 0, uiTime = 0, seen = null, settle = 0, settleN = 0, quality = null;
   let disposed = false, pointer = null, helpBack = null, frames = 0, cameraOffset = 6, countLabel = '', cueKey = '', lost = false;
   let pet = null, shadow = null;
 
@@ -199,6 +200,7 @@ export function mountAgility(opts){
     shadow.rotation.x = -Math.PI / 2;
     scene.add(pet, shadow);
     camera.position.set(0, 2.8, 6);
+    quality = makeQuality(renderer, light);   /* おそい 端末では きめ → かげ の じゅんに 自動で さげる（R3-2） */
     resize();
   }
   function resize(){
@@ -207,7 +209,7 @@ export function mountAgility(opts){
     if (r.width < 1 || r.height < 1) return;
     renderer.setSize(r.width, r.height, false);
     camera.aspect = r.width / r.height; camera.fov = r.width > r.height ? 54 : 60; camera.updateProjectionMatrix();
-    drawn = 0;
+    settle = performance.now() + 600; settleN = 3;   /* とまっている ときも 大きさが かわったら 描きなおす */
   }
 
   /* ----- 画面の 上に 出す もの（race.js と 同じ 形） ----- */
@@ -380,8 +382,10 @@ export function mountAgility(opts){
     /* まんなかに ひとこと（わんランの「クリア！」「ジャンプが届かず +5秒」「止まり損ね」など）は 出さない。クリア・ミスは 下の 1〜6 で わかる */
     for (const e of sim.drainEvents()) if (e.type === 'finish') result(true);
     const live = sim.status === 'running' || sim.status === 'countdown';
-    if (!live && drawn && t - drawn < 100) return;
-    drawn = t || 1;
+    /* とまっている あいだは かわった すぐあと（0.6秒・3こま 以上）だけ 描く（race.js と 同じ。レビュー R3-4） */
+    if (sim.status !== seen){ seen = sim.status; settle = t + 600; settleN = 3; }
+    if (!live && t > settle && settleN <= 0) return;
+    settleN--;
     const a = sim.player;
     if (sim.status !== 'paused'){
       const footing = footingFor(sim, true);
@@ -406,6 +410,7 @@ export function mountAgility(opts){
     light.position.set(anchor.x - 7, 12, anchor.z + 6); light.target.position.set(anchor.x, 0, anchor.z);
     uiTime += dt;
     if (uiTime > .08 || sim.status === 'countdown'){ updateHUD(); uiTime = 0; }
+    quality.sample(dt, sim.status === 'running');
     renderer.render(scene, camera);
     frames++;
   }
@@ -461,6 +466,7 @@ export function mountAgility(opts){
     get sim(){ return sim; },
     get renderer(){ return renderer; },
     get frames(){ return frames; },
+    get quality(){ return quality ? { level:quality.level, pixelRatio:quality.pixelRatio, shadows:quality.shadows } : null; },
     get status(){ return lost ? 'lost' : sim.status; },
     course:courseId,
     pause,

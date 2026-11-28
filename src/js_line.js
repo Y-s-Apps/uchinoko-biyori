@@ -62,6 +62,10 @@ const LINE_REOPEN_KEY = 'uchinoko-biyori:line-reopen';  /* さいごに LIFF URL
    r は おくったときの 番号（rid）。サーバーの セーブに 同じ番号が あれば「返事だけ なかった＝とどいていた」と わかる
    （前の形の しるしは r なし。さいごのチェック F3-2） */
 const LINE_UNSENT_KEY = 'uchinoko-biyori:line-unsent';
+/* この端末で かえて まだ サーバーに とどいていない 名前・みため（{ m:会員ID, c:created, k:かえた あとの lineIdKey }。とどいたら 空に）。
+   かえた すぐあと 電波が 切れて そのまま とじても、つぎに ひらいた とき サーバーの 名前・みために もどさず おくる（診断 C2-1。2026-11-28）。
+   おくっている とちゅうの しるしなので 空にしてよい（line-unsent と 同じ） */
+const LINE_EDIT_KEY = 'uchinoko-biyori:line-edit';
 /* この端末に とっておく子（line-guest）は 5ひきまで（前は 1ぴきで 上書きしていた。診断 3-2） */
 const LINE_KEEP_MAX = 5;
 /* おせわ・取りこみの番号（とどかなくて おくりなおしたとき、サーバーが 2回 数えないため。診断 3-3） */
@@ -373,6 +377,7 @@ const lineIdKey = st => JSON.stringify(linePet(st));
    （おせわの数字は /act でサーバーが決めるので、ここでは送らない） */
 const ServerRef = {
   set(){
+    if (S && LineSync.state === 'on' && LineSync.editPending()) LineSync.markEdit(S);   /* とじる 前に しるし（queue を またない） */
     return LineSync.queue(async () => {
       if (!S || LineSync.state !== 'on') return;
       try {
@@ -440,13 +445,16 @@ const LineSync = {
      「もう 同じ」と 見えて おくられなかった（2026-11-27 オーナー：一瞬 かわって もどる） */
   async pushEdit(){
     if (this.state !== 'on' || !this.editPending()) return false;
+    this.markEdit(S);
     try {
       const r = await this.send('POST', '/save', { pet:linePet(S) });
+      this.markEdit(null);
       this.apply(r.save, { edit:false });   /* サーバーが うけとった 形（名前の ながさ など）に そろえる */
       return true;
     } catch(e){
       if (!this.refusal(e) || e.code === 'nosave') throw e;
       /* サーバーが ことわった：だまって のこさず、LINEの子の 名前・みために もどして 知らせる（つぎの おせわで また おくらない） */
+      this.markEdit(null);
       try { Object.assign(S.pet, JSON.parse(this.idSent)); } catch(er){}
       Persist.saveLocal(); Game.refresh();
       toast('名前と みための へんこうを LINEに ほぞんできませんでした');
@@ -577,6 +585,8 @@ const LineSync = {
         Persist.flush();                                        /* この端末で むかえた子が まだ とどいていない：先に送る */
       }
       else if (S && this.samePet(S, remote)){
+        if (mine && this.editUnsent(S, remote)) this.know(remote);   /* 前に とどかなかった 名前・みための へんこう：apply で もどさない（C2-1） */
+        else this.markEdit(null);
         this.apply(save);                                       /* 同じ子：サーバーのほうにそろえる（写真の控えはのこす） */
         if (this.editPending()) Persist.flush();                /* つながらない あいだに とまった 名前・みための へんこうを おくる */
         const u = this.unsent();
@@ -706,6 +716,18 @@ const LineSync = {
     } catch(e){ return null; }
   },
   unsentIs(st){ const u = this.unsent(); return !!(u && st && Number(st.created) === u.c); },
+  /* とどいていない 名前・みための しるし（LINE_EDIT_KEY） */
+  markEdit(st){
+    try { localStorage.setItem(LINE_EDIT_KEY, st && LineServer.member ? JSON.stringify({ m:LineServer.member, c:Number(st.created) || 0, k:lineIdKey(st) }) : ''); } catch(e){}
+  },
+  /* この端末の子（st）は、とどかなかった へんこうの あとの 名前・みための まま で、サーバーの子（remote）には まだ ない */
+  editUnsent(st, remote){
+    try {
+      const u = JSON.parse(localStorage.getItem(LINE_EDIT_KEY) || 'null');
+      return !!(u && typeof u === 'object' && u.m === LineServer.member && Number(u.c) > 0 && Number(u.c) === Number(remote.created)
+        && Number(st.created) === Number(u.c) && u.k === lineIdKey(st) && lineIdKey(remote) !== u.k);
+    } catch(e){ return false; }
+  },
   markUnsent(st, kind, rid){
     try { localStorage.setItem(LINE_UNSENT_KEY, st && LineServer.member ? JSON.stringify(Object.assign({ m:LineServer.member, c:Number(st.created) || 0, k:kind }, rid ? { r:rid } : {})) : ''); } catch(e){}
   },
@@ -1664,7 +1686,12 @@ const LineRun = {
   },
 };
 if (typeof RunUI !== 'undefined'){
-  const lineRunOpen = RunUI.open, lineRunStart = RunUI.start, lineRunFinish = RunUI.finish, lineRunClose = RunUI.close;
+  const lineRunOpen = RunUI.open, lineRunStart = RunUI.start, lineRunFinish = RunUI.finish, lineRunClose = RunUI.close, lineRunDrop = RunUI.drop;
+  /* ゲームを 片づける（コースを えらぶ・つぎの コース・とじる）ときに、はずれた .run-over を 見るのも やめる（レビュー R5-4。2026-11-28） */
+  RunUI.drop = function(){
+    if (LineRun.mo){ LineRun.mo.disconnect(); LineRun.mo = null; }
+    return lineRunDrop.apply(this, arguments);
+  };
   RunUI.open = function(){
     const had = this.page;
     lineRunOpen.apply(this, arguments);

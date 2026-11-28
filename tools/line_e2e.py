@@ -1357,6 +1357,29 @@ async def browser_tests(srv_port):
         ok(v == ['みっつめ', 'chihuahua', 'みっつめ'] and s['name'] == 'みっつめ', 'つなぎなおすと かえた 名前・みためを おくる', {'look': v, 'state': s})
         await snap(page, 'edit_kept')
         all_errs += errs; await ctx.close()
+        # 24b. かえた すぐあと とどかないまま とじた（ひらきなおす）：つぎに ひらいた とき サーバーの 名前に もどさず おくる（診断 C2-1）
+        flaky = {'/save': 2}   # LineSync.send は 900ms あとに 1回 おくりなおすので 2回 とどかなく する
+        ctx, page, errs, calls = await open_page('Uedit', owner=state('Uedit')['id'], fail=flaky)
+        await edit_pet(page, 'よっつめ', 'shiba')
+        await page.wait_for_timeout(3000)
+        mark = await page.evaluate("() => JSON.parse(localStorage.getItem('uchinoko-biyori:line-edit') || 'null')")
+        ok(bool(mark) and state('Uedit')['name'] == 'みっつめ' and 'よっつめ' in (mark or {}).get('k', ''), 'とどかなかった へんこうの しるしが 端末に のこる', {'mark': mark, 'server': state('Uedit')['name']})
+        n0 = len(calls)
+        await page.reload(); await page.wait_for_timeout(3200)
+        await close_popups(page)
+        v, s = await page.evaluate(look_js), state('Uedit')
+        mark = await page.evaluate("() => localStorage.getItem('uchinoko-biyori:line-edit')")
+        mine = [c for c in calls[n0:] if c.startswith('POST ')]
+        ok(v == ['よっつめ', 'shiba', 'よっつめ'] and s['name'] == 'よっつめ' and not mark and 'POST /save' in mine,
+           'ひらきなおすと サーバーの 名前に もどさず おくる（しるしは 空に）', {'look': v, 'state': s, 'mark': mark, 'calls': mine})
+        # しるしが あっても サーバーで もう かわっていた（ほかの 端末で かえた）ときは サーバーに そろえる
+        await page.evaluate("() => localStorage.setItem('uchinoko-biyori:line-edit', JSON.stringify({ m:LineServer.member, c:Number(S.created), k:'{\"name\":\"べつ\"}' }))")
+        await page.reload(); await page.wait_for_timeout(3200)
+        await close_popups(page)
+        v = await page.evaluate(look_js)
+        ok(v == ['よっつめ', 'shiba', 'よっつめ'] and not await page.evaluate("() => localStorage.getItem('uchinoko-biyori:line-edit')"),
+           'しるしが いまの 子と あわない ときは サーバーの まま（しるしは 空に）', v)
+        all_errs += errs; await ctx.close()
 
         await browser.close()
     httpd.shutdown()

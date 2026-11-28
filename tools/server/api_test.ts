@@ -1056,8 +1056,13 @@ STORE.mode = 'error';
 await call('POST', '/card', { image:png(640, 640, 400) }, bea2.token);
 STORE.mode = 'ok';
 await db`alter table app.saves rename to saves_away`;
-r = await call('GET', '/save', undefined, bea2.token);
+const logged: string[] = [], ce = console.error;
+console.error = (...a: unknown[]) => { logged.push(a.map(String).join(' ')); };
+try { r = await call('GET', '/save', undefined, bea2.token); } finally { console.error = ce; }
 await db`alter table app.saves_away rename to saves`;
+const slog = logged.filter(l => l.startsWith('server'));
+/* ログには 例外の 種類と SQLSTATE だけ（文には 表の 名前や 値が 入る ことが あるので 出さない。C1-3） */
+ok(slog.length === 1 && /^server: [A-Za-z0-9_]+( [0-9A-Z]{5})?$/.test(slog[0]) && !/saves|relation|exist/i.test(slog[0]), 'an unexpected error logs only its kind and SQLSTATE (no message)', slog);
 const e1 = (await call('GET', '/health')).data.errors;
 const ek = (await db`select kind, n from app.error_counts where day = ${jst(Date.now())}::date order by kind`).map((x: any) => x.kind);
 ok(r.status === 500 && r.data.error === 'server' && typeof e0 === 'number' && e1 >= e0 + 2 && ek.includes('server') && ek.includes('card_storage'),
@@ -1273,6 +1278,27 @@ console.log('notify (よるの おしらせ：オン・オフ・21時に のこ�
     ok(JSON.stringify((await call('GET', '/health')).data.notifyDays) === '[]', '/health notifyDays: days before the start (NOTIFY_SINCE) are not shown');
     Deno.env.delete('NOTIFY_SINCE');
     await db`delete from app.notify_runs where day in (${d2}::date, ${d3}::date)`;
+  }
+  /* /health notifyMonth：この月の よるの おしらせが 無料の 枠（200通）に ちかいか の しるし だけ（数は 出さない。C7-1） */
+  {
+    const first = jst(Date.now()).slice(0, 8) + '01';
+    await db`delete from app.notify_runs where day >= ${first}::date`;
+    const hm = async () => (await call('GET', '/health')).data.notifyMonth;
+    const hm0 = await hm();
+    await db`insert into app.notify_runs (day, sent) values (${first}::date, 159)`;
+    const hm1 = await hm();
+    await db`update app.notify_runs set sent = 160 where day = ${first}::date`;
+    const hm2 = await hm();
+    await db`update app.notify_runs set sent = 3, note = 'limit' where day = ${first}::date`;
+    const hm3 = await hm();
+    Deno.env.set('NOTIFY_MONTH_LIMIT', '1000');
+    await db`update app.notify_runs set sent = 300, note = null where day = ${first}::date`;
+    const hm4 = await hm();
+    Deno.env.delete('NOTIFY_MONTH_LIMIT');
+    const hm5 = await hm();
+    await db`delete from app.notify_runs where day >= ${first}::date`;
+    ok(hm0 === 'ok' && hm1 === 'ok' && hm2 === 'near' && hm3 === 'limit' && hm4 === 'ok' && hm5 === 'near',
+       '/health notifyMonth: ok → near (80% of 200) → limit (stopped this month), NOTIFY_MONTH_LIMIT', { hm0, hm1, hm2, hm3, hm4, hm5 });
   }
   /* やめると いっしょに 消える */
   await call('POST', '/leave', { confirm:'leave' }, quin.token);

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-NBtFA8n0mFvXXL4BPmpcBXvpJWzI7jmjvP5bmWqAIeE=' https://y-s-apps.github.io/uchinoko-biyori/run-5d3805aee4a4.js; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-Ys4vcDCsFxe63uQ65h5PZIOAO9C3ObC8rrgmhAOePOo=' https://y-s-apps.github.io/uchinoko-biyori/run-d92dc9775d54.js; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="写真の犬や猫をそっくりなペットにして、ごはん・おやつ・なでなででのんびり育てるアプリ">
@@ -113,11 +113,14 @@ button{font:inherit;color:inherit}
 .stage[data-tod="night"] .view{filter:brightness(.5) saturate(.8)}
 .stage:not([data-tod="night"]) .view{--vwin:rgba(255,255,255,.55)}
 .weather{position:absolute;inset:-20% 0 0 0;z-index:1;pointer-events:none}
-.weather.w-snow{background:radial-gradient(#FFFFFF 1.6px,transparent 2.2px) 0 0/18px 22px,radial-gradient(#FFFFFF 1.2px,transparent 1.8px) 9px 11px/24px 26px;animation:fall 6s linear infinite}
-.weather.w-petals{background:radial-gradient(ellipse 3px 2px,#F9C6D3 90%,transparent) 0 0/26px 30px,radial-gradient(ellipse 2.4px 1.6px,#F4B4C6 90%,transparent) 13px 15px/34px 36px;animation:fall 9s linear infinite}
-.weather.w-leaves{background:radial-gradient(ellipse 3.2px 2.2px,#E8705A 90%,transparent) 0 0/24px 28px,radial-gradient(ellipse 2.6px 1.8px,#F0A04B 90%,transparent) 12px 14px/32px 34px;animation:fall 8s linear infinite}
+.weather.w-snow{background:radial-gradient(#FFFFFF 1.6px,transparent 2.2px) 0 0/18px 22px,radial-gradient(#FFFFFF 1.2px,transparent 1.8px) 9px 11px/24px 26px;animation:fallSnow 6s linear infinite}
+.weather.w-petals{background:radial-gradient(ellipse 3px 2px,#F9C6D3 90%,transparent) 0 0/26px 30px,radial-gradient(ellipse 2.4px 1.6px,#F4B4C6 90%,transparent) 13px 15px/34px 36px;animation:fallPetals 9s linear infinite}
+.weather.w-leaves{background:radial-gradient(ellipse 3.2px 2.2px,#E8705A 90%,transparent) 0 0/24px 28px,radial-gradient(ellipse 2.6px 1.8px,#F0A04B 90%,transparent) 12px 14px/32px 34px;animation:fallLeaves 8s linear infinite}
 .weather.w-rain{background:repeating-linear-gradient(105deg,transparent 0 9px,rgba(255,255,255,.55) 9px 10px,transparent 10px 22px);background-size:100% 40px;animation:rain .5s linear infinite;opacity:.8}
-@keyframes fall{to{background-position:0 120px,9px 131px}}
+/* 天気の もようは 1周で 1まいずつ 自分の 高さの 倍数だけ 下へ（よこは うごかさない）。倍数で ないと 1周ごとに カクッと 飛ぶ（2026-11-28 N-1。smoke.py の weather_checks が 数える） */
+@keyframes fallSnow{to{background-position:0 132px,9px 141px}}
+@keyframes fallPetals{to{background-position:0 120px,13px 123px}}
+@keyframes fallLeaves{to{background-position:0 140px,12px 116px}}
 @keyframes rain{to{background-position:0 40px}}
 .evdeco{position:absolute;inset:0;pointer-events:none;z-index:1}
 .evdeco .gl{position:absolute;left:1%;right:1%;top:1.5%;height:7%}
@@ -604,7 +607,7 @@ button{font:inherit;color:inherit}
 @keyframes flPz{40%{transform:scale(.84);opacity:.65}}
 /* ポップアップ（.mpet）：ゆかの かげ（::before）。はねる・かしげる のは 絵だけ */
 .mpet{position:relative}
-.mpet .pet-svg{position:relative}
+.mpet .pet-svg{position:relative;overflow:visible}
 .mpet .pv-shadow{display:none}
 .mpet::before{content:"";position:absolute;left:24.17%;top:90.42%;width:51.67%;height:6.67%;border-radius:50%;background:rgba(58,40,60,.16);pointer-events:none}
 .mpet.m-hop .pet-svg{transform-origin:50% 93.75%;animation:mHop 2.2s ease-out .35s infinite}
@@ -651,7 +654,7 @@ button{font:inherit;color:inherit}
 .levelup p{margin:0 0 12px;font-size:14px;color:var(--ink-soft)}
 .levelup ul{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
 .levelup li{background:var(--surface-2);border-radius:999px;padding:4px 12px;font-size:13px;font-weight:700}
-.levelup .mpet{width:120px;margin:0 auto}
+.levelup .mpet{width:120px;margin:8px auto 0}   /* 上の 8px：ばんざいで はねた ときも 耳・きせかえが カードから 出ない（N-2） */
 .levelup .mpet .pet-svg{display:block;width:100%;height:auto}
 .levelup .quote{color:var(--ink);font-weight:700}
 .levelup .btnrow{justify-content:center;flex-wrap:nowrap}
@@ -763,7 +766,7 @@ button{font:inherit;color:inherit}
 .mini-seg button{padding:6px 10px;font-size:13px}
 .diary{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .diary li{display:flex;align-items:center;gap:10px;background:var(--surface-2);border-radius:16px;padding:10px 12px}
-.d-date{flex:none;width:44px;text-align:center;font-weight:900;font-size:15px;line-height:1.1;font-variant-numeric:tabular-nums}
+.d-date{flex:none;width:44px;text-align:center;font-weight:900;font-size:15px;line-height:1.1;font-variant-numeric:tabular-nums;white-space:nowrap}
 .d-date small{display:block;font-size:11px;color:var(--ink-soft);font-weight:700}
 .d-ic{flex:none;width:36px;height:36px;border-radius:12px;background:var(--surface);display:grid;place-items:center}
 .d-ic .mini{width:26px;height:26px}
@@ -1236,7 +1239,7 @@ html.run-open,html.run-open body{overflow:hidden;overscroll-behavior:none}
 <div class="onboard" id="onboard" hidden><div class="ob" id="ob"></div></div>
 <script>
 const HOME = true;
-const RUN_SRC = 'run-5d3805aee4a4.js', RUN_SRI = 'sha256-XTgFruSkCDX4pPxmtQsxGokUqaAEjjdouR5s5oN3E7M=';
+const RUN_SRC = 'run-d92dc9775d54.js', RUN_SRI = 'sha256-2S3Jd11Uy19pJGi+z+wzO5MSd+xhHr8oR4q38VWQq5o=';
 /* ===== data: breeds, treats, accessories ===== */
 const DOG_D = { ear:'semi', coat:'smooth', muzzle:'medium', tail:'straight', face:'muzzle', legs:'normal' };
 const CAT_D = { ear:'pointy', coat:'smooth', muzzle:'medium', tail:'long', face:'muzzle', legs:'normal' };
@@ -3683,10 +3686,19 @@ const Pet = {
   /* 絵は 3まい：正面（renderPet）・よこむき（renderPetSide）・うしろ（renderPetBack。だんかい 4）。見せるのは どれか 1つ（.pet の view-side・view-back。head.html） */
   mount(){
     const wear = petWear();
-    $('#petArt').innerHTML = `<div class="pet-turn"><div class="view-f">${renderPet(S.pet.look, { wear })}</div><div class="view-s">${renderPetSide(S.pet.look, { wear })}</div><div class="view-b">${renderPetBack(S.pet.look, { wear })}</div></div>`;
+    $('#petArt').innerHTML = `<div class="pet-turn"><div class="view-f">${renderPet(S.pet.look, { wear })}</div><div class="view-s"></div><div class="view-b"></div></div>`;
     this.apply();
     this.applyView();
     this.setExpr(this.expr);
+  },
+  /* よこむき・うしろの 絵は はじめて その むきに なる ときに かく（mount で 空に もどる＝きせかえ・名前の たびに 3まい かかない。
+     古い 端末で おもく ならない ように。診断 C2-3・C5-3。2026-11-28）。見えていない 絵は display:none なので 大きさは かわらない */
+  draw(v){
+    if ((v !== 'side' && v !== 'back') || !S) return;
+    const box = this.el.querySelector(v === 'side' ? '.view-s' : '.view-b');
+    if (!box || box.firstChild) return;
+    const wear = petWear();
+    box.innerHTML = v === 'side' ? renderPetSide(S.pet.look, { wear }) : renderPetBack(S.pet.look, { wear });
   },
   poseAt(){ return hasId(POSE, this.pose) ? POSE[this.pose] : POSE.sit; },
   /* 頭の よこの 位置（わくの 左から の 割合）。よこむきは 頭が 前に ある */
@@ -3728,6 +3740,7 @@ const Pet = {
   setView(v, turn){
     if (v === this.view) return;
     this.view = v;
+    this.draw(v);   /* くるっの まんなかで 入れかえる 前に かいておく */
     if (turn) this.turn(); else this.snap();
   },
   /* 左右の むき（left で 左）。よこむきの ときは くるっと まわる */
@@ -3738,6 +3751,7 @@ const Pet = {
     if (turn && this.view === 'side') this.turn(); else this.applyView();
   },
   applyView(){
+    this.draw(this.view);
     this.el.classList.toggle('view-side', this.view === 'side');
     this.el.classList.toggle('view-back', this.view === 'back');
     this.el.classList.toggle('dir-l', this.dir === 'l');
@@ -3963,12 +3977,16 @@ const IDLE = [
       if (at() && now() - lastChat > 30000){ lastChat = now(); Pet.say('あめ、やまないね', 1800); }
     } },
 ];
+/* あるいて どこかへ 行く 行動。うごきを へらす 設定では 重みを 1/4 に（しぐさが とまる ぶん あるくのが 目立ち、
+   transition も ほぼ 0秒なので ぱっと うつる。診断 C5-2） */
+const IDLE_WALKS = ['walk','bowl','bed','win','rug','sniffwalk','rainwin'];
 function idlePick(){
   const t = now();
   const c = { tod:stage.dataset.tod, full:S.stats.full, mood:S.stats.mood, chat:t - lastChat > 30000, ate:t - Pet.ateAt < 60000, played:t - Pet.playedAt < 60000,
               pose:Pet.pose, cat:S.pet.species === 'cat', weather:S.room && S.room.season ? weatherOf() : null };
   const list = IDLE.filter(a => idleLast.indexOf(a.g || a.id) < 0 && (!a.g || Pet.canGesture(a.g)));
-  const ws = list.map(a => Math.max(0, a.w(c) || 0));
+  const calm = calmMotion();
+  const ws = list.map(a => Math.max(0, a.w(c) || 0) * (calm && IDLE_WALKS.indexOf(a.id) >= 0 ? .25 : 1));
   let r = Math.random() * ws.reduce((x, y) => x + y, 0);
   for (let i = 0; i < list.length; i++){ if (ws[i] > 0 && (r -= ws[i]) < 0) return list[i]; }
   return null;
@@ -4733,6 +4751,8 @@ const Game = {
     renderHeader();
     setPlayIcon();
     Pet.sleeping = false; clearInterval(Pet.zz); Pet.stopGesture(); Pet.rub = null; Pet.setPose('sit');
+    /* あるいている とちゅうでも まんなかへ すぐ（moveTo の ゆっくりした left・top の transition を けす。のこると すわった まま すべる＝診断 C5-1） */
+    Pet.tok++; Pet.el.style.transition = '';
     Pet.x = 50; Pet.y = 80; Pet.mount();
     renderStats();
     updateClock();
@@ -4884,18 +4904,20 @@ function ensureState(st){
     if (w) for (const k of ['head','face','neck']) if (w[k]) st.firsts.wear[w[k]] = true;
   }
   st.firsts.wear = obj(st.firsts.wear) ? st.firsts.wear : {};
+  /* ほんとうに ある 日だけ（2026-13-99 の ような 形だけ あう 日は すてる。きょうと ちがうので 前も 害は なかった＝レビュー R1-2。2026-11-28） */
+  const realDayKey = k => isDayKey(k) && keyShift(k, 0) === k;
   /* パズル（2026-11-15）：あそんだ回数（つぎの たね）・クリアの回数・さいこう点・きょうの ほうびの回数 */
   const z = st.puzzle = obj(st.puzzle) ? st.puzzle : {};
   for (const k of ['games','clears']) z[k] = Math.floor(num(z[k], 0, 0, 1e9));
   z.best = Math.floor(num(z.best, 0, 0, PUZZLE.bestMax));
   z.n = Math.floor(num(z.n, 0, 0, PUZZLE.perDay));
-  z.day = isDayKey(z.day) ? z.day : null;
+  z.day = realDayKey(z.day) ? z.day : null;
   /* うちのこラン（2026-11-22 P3）：ゴールした回数・ノーミスで ゴールした回数・きょうの ほうびの回数と その日・コースごとの さいこう記録（ミリ秒）。
      知らない コースの 記録は すてる。記録は そのコースの いちばん はやい タイム（RUN.courses[c].min）から RUN.maxMs まで */
   const rn = st.run = obj(st.run) ? st.run : {};
   for (const k of ['games','clears']) rn[k] = Math.floor(num(rn[k], 0, 0, 1e9));
   rn.n = Math.floor(num(rn.n, 0, 0, RUN.perDay));
-  rn.day = isDayKey(rn.day) ? rn.day : null;
+  rn.day = realDayKey(rn.day) ? rn.day : null;
   const rb = obj(rn.best) ? rn.best : {};
   rn.best = {};
   for (const c of Object.keys(RUN.courses)){
@@ -5159,7 +5181,8 @@ function annivModal(e){
 }
 
 /* ===== room: decoration, window view, seasonal decor ===== */
-const svgUrl = s => `url("data:image/svg+xml,${encodeURIComponent(s)}")`;
+/* url('…') の 一重引用符：見本は style="…" の 中に 入るので、" だと とちゅうで とじる（2026-11-28 診断 C6-1。encodeURIComponent は ' を のこすが、SVG の 中に ' は 書かない） */
+const svgUrl = s => `url('data:image/svg+xml,${encodeURIComponent(s)}')`;
 function wallBg(W){
   const pc = W.pc, b = W.base;
   switch (W.pat){
@@ -5518,6 +5541,25 @@ const Features = {
    - おわったら たね（seed）と 手順（moves）だけを Act.run('puzzle') に わたし、クリアしたか・点数・ほうびは ルール（LINE版は サーバー）が
      再生して 決める。LINE に ほぞんしている子は、サーバーに つながっていない あいだは きろく しない（端末だけで 数えない）。
      とちゅうで やめたら なにも おくらない */
+/* ページごと うつる 画面（パズル・ラン）の うしろの #app を さわれなく する。inert を しらない 古い Safari（iOS 15.4 より 前）では、
+   キーボードの フォーカスが #app に 入ったら ページの さいしょの ボタンへ もどす（診断 C2-4。2026-11-28） */
+function appInert(on, page){
+  const app = $('#app');
+  if (!app) return;
+  if (on){ app.setAttribute('aria-hidden', 'true'); app.inert = true; }
+  else { app.removeAttribute('aria-hidden'); app.inert = false; }
+  if ('inert' in HTMLElement.prototype) return;
+  document.removeEventListener('focusin', appInert.trap, true);
+  appInert.page = on ? page : null;
+  if (on) document.addEventListener('focusin', appInert.trap, true);
+}
+appInert.page = null;
+appInert.trap = e => {
+  const app = $('#app'), pg = appInert.page;
+  if (!pg || !pg.isConnected || !app || !app.contains(e.target)) return;
+  const f = pg.querySelector('button:not([disabled]),[href],[tabindex]:not([tabindex="-1"])') || pg;
+  try { f.focus({ preventScroll:true }); } catch(err){ if (e.target.blur) e.target.blur(); }
+};
 const PZ_TREATS = { dog:['bolo','apple','blueberry','milkgum','jerky'], cat:['kibble','paste','niboshi','maguro','catmilk'] };
 const PZ_MIN = 264;   /* 盤の いちばん 小さい 一辺（1マス 44px） */
 const PuzzleUI = {
@@ -5560,8 +5602,7 @@ const PuzzleUI = {
     document.body.appendChild(page);
     this.page = page; this.box = page.querySelector('#pzBoard');
     document.documentElement.classList.add('pz-open');
-    const app = $('#app');
-    if (app){ app.setAttribute('aria-hidden', 'true'); app.inert = true; }
+    appInert(true, page);
     this.bind();
     this.fit();
     this.start();
@@ -5908,8 +5949,7 @@ const PuzzleUI = {
     document.removeEventListener('keydown', this.onKey, true);
     page.remove();
     document.documentElement.classList.remove('pz-open');
-    const app = $('#app');
-    if (app){ app.removeAttribute('aria-hidden'); app.inert = false; }
+    appInert(false);
     const back = this.back && this.back.isConnected ? this.back : $('#actPlay');
     if (back && back.focus) try { back.focus({ preventScroll:true }); } catch(e){}
     if (this.cleared && S && !Pet.busy){
@@ -5990,8 +6030,7 @@ const RunUI = {
     document.body.appendChild(page);
     this.page = page;
     document.documentElement.classList.add('run-open');
-    const app = $('#app');
-    if (app){ app.setAttribute('aria-hidden', 'true'); app.inert = true; }
+    appInert(true, page);
     /* ページを うごかさない（パズルと 同じ。ボタンの 上の タップと、メニュー・コースの 一覧の スクロールは そのまま） */
     const still = e => {
       if (!e.cancelable) return;
@@ -6149,8 +6188,7 @@ const RunUI = {
     document.removeEventListener('keydown', this.onKey, true);
     page.remove();
     document.documentElement.classList.remove('run-open');
-    const app = $('#app');
-    if (app){ app.removeAttribute('aria-hidden'); app.inert = false; }
+    appInert(false);
     const back = this.back && this.back.isConnected ? this.back : $('#actPlay');
     if (back && back.focus) try { back.focus({ preventScroll:true }); } catch(e){}
     if (this.ran && S && !Pet.busy){

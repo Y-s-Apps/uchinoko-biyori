@@ -69,8 +69,7 @@ const RunUI = {
     document.body.appendChild(page);
     this.page = page;
     document.documentElement.classList.add('run-open');
-    const app = $('#app');
-    if (app){ app.setAttribute('aria-hidden', 'true'); app.inert = true; }
+    appInert(true, page);
     /* ページを うごかさない（パズルと 同じ。ボタンの 上の タップと、メニュー・コースの 一覧の スクロールは そのまま） */
     const still = e => {
       if (!e.cancelable) return;
@@ -228,8 +227,7 @@ const RunUI = {
     document.removeEventListener('keydown', this.onKey, true);
     page.remove();
     document.documentElement.classList.remove('run-open');
-    const app = $('#app');
-    if (app){ app.removeAttribute('aria-hidden'); app.inert = false; }
+    appInert(false);
     const back = this.back && this.back.isConnected ? this.back : $('#actPlay');
     if (back && back.focus) try { back.focus({ preventScroll:true }); } catch(e){}
     if (this.ran && S && !Pet.busy){

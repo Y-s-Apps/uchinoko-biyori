@@ -86,11 +86,14 @@ button{font:inherit;color:inherit}
 .stage[data-tod="night"] .view{filter:brightness(.5) saturate(.8)}
 .stage:not([data-tod="night"]) .view{--vwin:rgba(255,255,255,.55)}
 .weather{position:absolute;inset:-20% 0 0 0;z-index:1;pointer-events:none}
-.weather.w-snow{background:radial-gradient(#FFFFFF 1.6px,transparent 2.2px) 0 0/18px 22px,radial-gradient(#FFFFFF 1.2px,transparent 1.8px) 9px 11px/24px 26px;animation:fall 6s linear infinite}
-.weather.w-petals{background:radial-gradient(ellipse 3px 2px,#F9C6D3 90%,transparent) 0 0/26px 30px,radial-gradient(ellipse 2.4px 1.6px,#F4B4C6 90%,transparent) 13px 15px/34px 36px;animation:fall 9s linear infinite}
-.weather.w-leaves{background:radial-gradient(ellipse 3.2px 2.2px,#E8705A 90%,transparent) 0 0/24px 28px,radial-gradient(ellipse 2.6px 1.8px,#F0A04B 90%,transparent) 12px 14px/32px 34px;animation:fall 8s linear infinite}
+.weather.w-snow{background:radial-gradient(#FFFFFF 1.6px,transparent 2.2px) 0 0/18px 22px,radial-gradient(#FFFFFF 1.2px,transparent 1.8px) 9px 11px/24px 26px;animation:fallSnow 6s linear infinite}
+.weather.w-petals{background:radial-gradient(ellipse 3px 2px,#F9C6D3 90%,transparent) 0 0/26px 30px,radial-gradient(ellipse 2.4px 1.6px,#F4B4C6 90%,transparent) 13px 15px/34px 36px;animation:fallPetals 9s linear infinite}
+.weather.w-leaves{background:radial-gradient(ellipse 3.2px 2.2px,#E8705A 90%,transparent) 0 0/24px 28px,radial-gradient(ellipse 2.6px 1.8px,#F0A04B 90%,transparent) 12px 14px/32px 34px;animation:fallLeaves 8s linear infinite}
 .weather.w-rain{background:repeating-linear-gradient(105deg,transparent 0 9px,rgba(255,255,255,.55) 9px 10px,transparent 10px 22px);background-size:100% 40px;animation:rain .5s linear infinite;opacity:.8}
-@keyframes fall{to{background-position:0 120px,9px 131px}}
+/* 天気の もようは 1周で 1まいずつ 自分の 高さの 倍数だけ 下へ（よこは うごかさない）。倍数で ないと 1周ごとに カクッと 飛ぶ（2026-11-28 N-1。smoke.py の weather_checks が 数える） */
+@keyframes fallSnow{to{background-position:0 132px,9px 141px}}
+@keyframes fallPetals{to{background-position:0 120px,13px 123px}}
+@keyframes fallLeaves{to{background-position:0 140px,12px 116px}}
 @keyframes rain{to{background-position:0 40px}}
 .evdeco{position:absolute;inset:0;pointer-events:none;z-index:1}
 .evdeco .gl{position:absolute;left:1%;right:1%;top:1.5%;height:7%}
@@ -577,7 +580,7 @@ button{font:inherit;color:inherit}
 @keyframes flPz{40%{transform:scale(.84);opacity:.65}}
 /* ポップアップ（.mpet）：ゆかの かげ（::before）。はねる・かしげる のは 絵だけ */
 .mpet{position:relative}
-.mpet .pet-svg{position:relative}
+.mpet .pet-svg{position:relative;overflow:visible}
 .mpet .pv-shadow{display:none}
 .mpet::before{content:"";position:absolute;left:24.17%;top:90.42%;width:51.67%;height:6.67%;border-radius:50%;background:rgba(58,40,60,.16);pointer-events:none}
 .mpet.m-hop .pet-svg{transform-origin:50% 93.75%;animation:mHop 2.2s ease-out .35s infinite}
@@ -624,7 +627,7 @@ button{font:inherit;color:inherit}
 .levelup p{margin:0 0 12px;font-size:14px;color:var(--ink-soft)}
 .levelup ul{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
 .levelup li{background:var(--surface-2);border-radius:999px;padding:4px 12px;font-size:13px;font-weight:700}
-.levelup .mpet{width:120px;margin:0 auto}
+.levelup .mpet{width:120px;margin:8px auto 0}   /* 上の 8px：ばんざいで はねた ときも 耳・きせかえが カードから 出ない（N-2） */
 .levelup .mpet .pet-svg{display:block;width:100%;height:auto}
 .levelup .quote{color:var(--ink);font-weight:700}
 .levelup .btnrow{justify-content:center;flex-wrap:nowrap}
@@ -736,7 +739,7 @@ button{font:inherit;color:inherit}
 .mini-seg button{padding:6px 10px;font-size:13px}
 .diary{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .diary li{display:flex;align-items:center;gap:10px;background:var(--surface-2);border-radius:16px;padding:10px 12px}
-.d-date{flex:none;width:44px;text-align:center;font-weight:900;font-size:15px;line-height:1.1;font-variant-numeric:tabular-nums}
+.d-date{flex:none;width:44px;text-align:center;font-weight:900;font-size:15px;line-height:1.1;font-variant-numeric:tabular-nums;white-space:nowrap}
 .d-date small{display:block;font-size:11px;color:var(--ink-soft);font-weight:700}
 .d-ic{flex:none;width:36px;height:36px;border-radius:12px;background:var(--surface);display:grid;place-items:center}
 .d-ic .mini{width:26px;height:26px}
