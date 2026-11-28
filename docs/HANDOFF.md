@@ -2,7 +2,7 @@
 
 このファイルは、チャットのいちばん最後に毎回まるごと書き直します。次のチャットは、ここを読めば続きから始められます。オーナーは、更新のたびにプロジェクトナレッジのGitHubを「同期」し、作業ごとに新しいチャットへ移ります（`CLAUDE.md` の作業の流れ 7）。
 
-- 最終更新：2026-11-28 昼（39回目：**包括的な 診断の 直し（直せる もの ぜんぶ）＋N-1 おちば・雪・花びらの カクッ＋N-2 ポップアップの 耳。うちのこラン「完了」。Opus 5.5。** お父さんの 確かめ：公式アカウントの トーク画面から アプリに いけた〈C8-1 済み〉・名前や 毛の色を かえても もどらない・ランを 1本 走って おもくない・おへやの うごき OK・**よるの おしらせだけ まだ**〈お父さんが これから 見る〉。main `4cb61a4` → サーバー api version 32 → Claude版 バージョン41）
+- 最終更新：2026-11-28 15時（**40回目：プロジェクトの ナレッジの 整理。アプリは かわらない**＝下の「直近のチャット」）。その前は 2026-11-28 昼（39回目：**包括的な 診断の 直し（直せる もの ぜんぶ）＋N-1 おちば・雪・花びらの カクッ＋N-2 ポップアップの 耳。うちのこラン「完了」。Opus 5.5。** お父さんの 確かめ：公式アカウントの トーク画面から アプリに いけた〈C8-1 済み〉・名前や 毛の色を かえても もどらない・ランを 1本 走って おもくない・おへやの うごき OK・**よるの おしらせだけ まだ**〈お父さんが これから 見る〉。main `4cb61a4` → サーバー api version 32 → Claude版 バージョン41）
 - リポジトリ：`Y-s-Apps/uchinoko-biyori`（組織 Y-s-Apps）。ホーム画面版：https://y-s-apps.github.io/uchinoko-biyori/
 - ホーム画面版の公開中の版：`sw.js` のキャッシュ名 **`uchinoko-5169a74015`**（39回目。`index.html`・`sw.js` の md5 は `c409ed09…`・`e75d3190…`＝本番を pg_net で 読んで 同じ。うちのこランの ファイルは **`run-d92dc9775d54.js`**〈`518ccf75…`〉に かわった）。おせわの 結果は 前と 同じ（`compare_home.py`：おなじ）
 - Claude版：https://claude.ai/artifact/AwQ68i8D2TL3L2vfC9Bnqs は**バージョン41**（39回目。version `1795826852-9eba`、contract `0.2.73` の まま、capabilities は 引きついだ〈db の ルール 2つ・downloads・sample〈images〉・user〉）。**ファイルは 2つ：`index.html`（sha256 `520c696e…`、501,049 バイト）と うちのこランの `run-d92dc9775d54.js`（`d92dc977…`）**（前の `run-5d3805aee4a4.js` は `remove`。出す 前に `list_files` で バージョン40 が 記録 どおり〈`dce4fc65…`〉なのと、前の 版〈`0282c5c`〉を べつの worktree で 作りなおして 同じ sha256 なのを 確かめてから `publish_files`）。**出し方：** `sh src/build.sh` が `src/out/claude/` に そのまま 出せる 形（`index.html`＝いまの 版と 同じ 1行目 `src/claude_head.html`＋中身＋`</body></html>`、`run-<ハッシュ>.js`）を 作る → `publish_files`（slug は UUID `507aa3eb-87ee-4ddc-80e3-61638a697f56`。短い id は ことわられる。files は その 2つ、`capabilities`・`contract`・`title` は はぶく。ゲームが かわって 名前が かわったら 前の `run-*.js` を `remove`）。出す 前に 前の 版を 作りなおして `list_files` の sha256 と 同じか 確かめる
@@ -22,12 +22,6 @@
 - サーバーを起こす：GitHub Actions（`.github/workflows/keepalive.yml`、cron `23 18 */3 * *`＝日本時間 3:23 ごろ、数時間 おくれることがある）。`/health` の `errors`（10以上で 失敗）と `notifyDays`（止まった日が あれば 失敗）を 見る。11-17 の回は 失敗（11-16 の 回を 見つけた）→ **11-20 の回（9:43）は 成功に もどった**（24回目に `gh api …/actions/workflows/keepalive.yml/runs` で 見た）。つぎの 予定は 11-23 3:23 ごろ
 - Secrets：`ANTHROPIC_API_KEY`・`LINE_CHANNEL_SECRET`（開発用）・`LINE_CHANNEL_SECRET_2012410264`・`LINE_CHANNEL_SECRET_2012410265`・`APP_DB_PASSWORD`・`LINE_MESSAGING_TOKEN`
 - 本物の DB（2026-11-28 9時半・デプロイの あと）：`/health` の errors 0・よるの おしらせ 11-25〜27 は 3日とも おわった・`notifyMonth` ok。
-- 本物の DB（2026-11-27 16時・デプロイの あと）：`/health` の errors 0。よるの おしらせ 11-24〜26 は 3日とも おわった。
-- 本物の DB（2026-11-26 23時43分・デプロイの あと）：`/health` の errors 0。よるの おしらせ 11-23〜25 は 3日とも おわった。
-- 本物の DB（2026-11-26 20時29分・デプロイの あと）：`/health` の errors 0。よるの おしらせ 11-23〜25 は 3日とも おわった。
-- 本物の DB（2026-11-22 21時45分・デプロイの あと）：`/health` の errors 0。よるの おしらせ 11-19〜21 は 3日とも おわった。
-- 本物の DB（2026-11-22 8時・9時）：エラーの 数 0・会員 1人。よるの おしらせ 11-19〜21 は 3日とも おわった（`/health` の `notifyDays`）。
-- 本物の DB（2026-11-22 2時・4時）：エラーの 数 0（`app.error_counts` 0行）・会員 1人。よるの おしらせ 11-19〜21 は 3日とも 21:00 の 回で おわった（11-19・20 は 1通、11-21 は とばした）。関数の ログ（24時間）は 200×37・204×4。「サーバーを起こす」11-20 は 成功。
 - 本物の DB（2026-11-16 5時半）：**会員 1人＝だいず（本番用。11-16 5:10 に 取りこみ。よるの おしらせ オン・れんぞく 36日・スタンプ 36）**。カード・ひかえ・Storage の `cards` は 0件。`app` の 表に anon・authenticated の 権限は 0。エラーの 数 0。**だいずは 本物の 会員なので、ためしで セーブを さわらない**（`execute_sql` で 書きこまない。読むときも 名前・数だけ）
 - LINE公式アカウント「うちのこ日和」（ベーシックID `@370iymyw`、Messaging API の プロバイダー「Y's Apps」、応答メッセージ・Webhook オフ）。ミニアプリの 友だち追加オプション・デフォルトの公式アカウントも 設定ずみ
 - LINE Developers：Scope は `openid` だけ。「シェアターゲットピッカー」は 有効。認証審査は まだ申請しない（未認証でリリース → 個人事業主 → 申請）
@@ -36,7 +30,14 @@
 - オーナーの事情（約束②で使う）：claude.ai の このプロジェクトの資料 `claude/owner-notes.md`（非公開）
 
 
-## 直近のチャットでやったこと（2026-11-28 朝〜昼、39回目：包括的な 診断の 直し・N-1・N-2。Opus 5.5）
+## 直近のチャットでやったこと（2026-11-28 15時、40回目：プロジェクトの ナレッジの 整理。Opus 5.5）
+
+- **きっかけ（オーナー）：** 「アップデートを かさねて プロジェクトの コンテキストの 容量が 50% を こえた。整理しよう」。うちわけ（見つもり）：生成物 2つ（`src/run_bundle.js`・`supabase/functions/api/game.js`）が 約3割、`docs/PROJECT.md` 約15%（更新履歴が その 1/4）、おわった 設計書 3つ 約8%。オーナーが「生成物を 外す＋書庫へ」（おすすめ）を えらんだ。
+- **した こと（アプリの 中身・ビルド結果は かわらない＝だいずの アプリは 更新されない・デプロイ なし）：** `docs/RUN_DESIGN.md`・`docs/MOTION_DESIGN.md`・`docs/REVIEW_PROMPT.md` を `_archive/` へ（`git mv`。`_archive/README.md`）。まだ 守る 決まりは `docs/PROJECT.md` 5章「うちのこの しぐさと 体勢」「うちのこラン」の おわりに うつした。`PROJECT.md` 8章の 2026-11-23 までを `_archive/HISTORY.md` へ、9章から 済んだ アイデアを はずした。`CLAUDE.md` の ファイルの 表（`docs/`・`_archive/` の 行）と 作業の 流れ 5・6（更新履歴の うつし方・ナレッジに 入れる もの）。この ファイルの 古い「本物の DB」の 行を へらした。
+- **コードの コメントの `docs/RUN_DESIGN.md`・`docs/MOTION_DESIGN.md` は そのまま**（かえると `index.html`・`run-*.js`・`game.js` が かわる）＝`_archive/` の 同じ 名前を 見る。
+- **オーナーに たのんだ こと：** ナレッジの ファイル選択で `src/run_bundle.js` と `supabase/functions/api/game.js` の チェックを はずして「Sync now」。
+
+## その前のチャット（2026-11-28 朝〜昼、39回目：包括的な 診断の 直し・N-1・N-2。Opus 5.5）
 
 - **はじめに（オーナー）：** お父さんは 公式アカウントの「あそぶ」から まだ・ランも まだ・名前や 毛の色の へんこうも まだ。→ **9時に お父さんから 返事：**「5. よるの おしらせ いがいは OK」「トーク画面から アプリに いけるように なっていた」。5つの 確かめ（下の 保留 ③）の 1〜4 と 6 は OK と 読んだ＝**C8-1 済み・名前の 直し OK・ランの 重さ OK〈R3-2 の 実機〉・おへやの うごき OK**。よるの おしらせは お父さんが また 見る。
 - **直したもの（main `4cb61a4`。表は 下の「診断の 直し」）：**
@@ -46,7 +47,7 @@
   - **ラン：** R3-4 とまっている あいだは かわった すぐあと（0.6秒・3こま）だけ 描く（`seen`・`settle`・`settleN`）・R3-2 `src/run/quality.js` の `makeQuality`（24こま より おそいと きめ 1.6 → 1.25 → 1 → かげ。ゲームの `quality`）・R1-2 `ensureState` の `realDayKey`（`run.day`・`puzzle.day`）・R5-4 `RunUI.drop` を 包んで `.run-over` の 見はりを はずす（`js_line.js`）。→ `run_bundle.js`・`run-d92dc9775d54.js`。
   - **サーバー：** C1-3 ログは `server: <e.name> <SQLSTATE>` だけ・C7-1 `/health` の `notifyMonth`（`NOTIFY_MONTH_LIMIT` 既定 200 の 8わり で `near`・上限で 止まった月は `limit`）・`keepalive.yml` が `near`・`limit` で 失敗。
   - **ためし：** `smoke.py`（天気・ポップアップの 耳・ランの スタート前の こま・ゴールの `quality`・C6-3 はじめに `Nudge.shown = dayKey()`）、`line_e2e.py` 24b（`/save` を 2回 とどかなく して ひらきなおす。LineSync.send は 900ms あとに 1回 おくりなおすので 1回では とどいて しまう）、`api_test.ts`（ログの 形・`notifyMonth`）。
-  - **書類：** 補足資料の 文の「そのほか」に 2行（C8-2）・イベントは はじまる 前に 出す（C3-1）・`CLAUDE.md` に `pushEdit`・`line-edit`・`quality.js`（C8-5）・`docs/RUN_DESIGN.md` 18章（完了・「そのまま」の 一覧・ランキング と Dependabot の 決まり＝C4-1・C4-2・C7-2）・Lighthouse（C8-3。圧縮なし 73点・gzip 96点＝直さない）。
+  - **書類：** 補足資料の 文の「そのほか」に 2行（C8-2）・イベントは はじまる 前に 出す（C3-1）・`CLAUDE.md` に `pushEdit`・`line-edit`・`quality.js`（C8-5）・`_archive/RUN_DESIGN.md` 18章（完了・「そのまま」の 一覧・ランキング と Dependabot の 決まり＝C4-1・C4-2・C7-2）・Lighthouse（C8-3。圧縮なし 73点・gzip 96点＝直さない）。
 - **ためし（ぜんぶ とおった）：** `smoke.py` 8とおり（ふつう・`--dark`・`--size 375x667`・`--claude`・`--line --android-inset 48`・`--line --size 375x667 --android-inset 48`・`--line --fresh`・`--fresh`）エラー 0・`compare_home.py` おなじ・`linebreak.py`（ホーム画面版 334・LINE版 391・Claude版 334 場面・`--line --height 603`）0・`poses.py` 109とおり おなじ・`run_shots.py` 3つの 版 エラー 0・`run_min.mjs` ok・`line_e2e.py` all passed（172 ok）・`build_run.mjs --check`・`build_server.py --check`。
 - **出したもの：** main `4cb61a4`（GitHub Pages・Cloudflare とも 成功）→ `--pin 4cb61a4` → api version 32 → Claude版 バージョン41 → 記録の コミット（`deno.json`・書類）。本番の md5 は pg_net で 手元と 同じ。
 
@@ -56,13 +57,13 @@
 
 ## その前のチャット（2026-11-27、33〜37回目。Opus 5.5）
 
-- 37回目：うしろすがたの しっぽ（`1db3a28`）・「かなえた」の 色。36回目：季節イベント 4つ（`1567b54`・api version 31）。35回目：きせかえの くるりん・だんかい 4＝うしろすがた（`dabb5d5`・`970a187`）。34回目：かげ（`8d35b88`）・だんかい 3（`82bda91`）。33回目：だんかい 2（`045ea6c`）。32回目（11-26 夜）：だんかい 1（`4f1c9c3`・api version 30）。くわしくは `docs/PROJECT.md` 8章・`docs/MOTION_DESIGN.md`。
+- 37回目：うしろすがたの しっぽ（`1db3a28`）・「かなえた」の 色。36回目：季節イベント 4つ（`1567b54`・api version 31）。35回目：きせかえの くるりん・だんかい 4＝うしろすがた（`dabb5d5`・`970a187`）。34回目：かげ（`8d35b88`）・だんかい 3（`82bda91`）。33回目：だんかい 2（`045ea6c`）。32回目（11-26 夜）：だんかい 1（`4f1c9c3`・api version 30）。くわしくは `docs/PROJECT.md` 8章・`_archive/MOTION_DESIGN.md`。
 
 ## 保留・オーナーの判断待ち（つぎのチャットのはじめに）
 
 0. **お父さんの よるの おしらせ（のこり 1つ）。** お父さんは 11-27 21:01 に オンに した。21時に きょうの おねがいが のこっている 日だけ とどく（ぜんぶ かなえた 日・14日 ひらいていない 日は とどかない）。とどかない ときは：お父さんが 公式アカウント（`@370iymyw`）を 友だちに しているか・ブロックしていないか・その日 おねがいが のこっていたか。サーバーは `select day, made_at, used_at, done_at, sent, skipped, failed, note from app.notify_runs order by day desc limit 3;`（だれかは 出ない。`sent` の 数だけ）。
 1. **12/1 から クリスマスの 雪・12/26 から としこし（オーナーは「その時に 見る」）。** 雪が 6秒ごとに カクッと しないか（N-1 の 直し）・みかんのぼうし・みかんゼリー・こたつと みかん。おかしければ `4cb61a4`（直し）・`1567b54`（季節イベント。**サーバーも かわっている**ので もどすなら `deno.json` も 前に して デプロイ）を `git revert`。
-2. **うちのこラン：完了（2026-11-28）。** 「そのまま」の 一覧と これから さわる ときの 決まり（ランキングを 足すなら R1-4・R2-3 を 見なおす・Dependabot の PR は 手で マージしない）は `docs/RUN_DESIGN.md` 18章。
+2. **うちのこラン：完了（2026-11-28）。** 「そのまま」の 一覧と これから さわる ときの 決まり（ランキングを 足すなら R1-4・R2-3 を 見なおす・Dependabot の PR は 手で マージしない）は `docs/PROJECT.md` 5章「うちのこラン」の おわり（記録は `_archive/RUN_DESIGN.md` 18章）。
 3. **お父さんの 確かめ（2026-11-28 9時の 返事）：** ① 公式アカウントの「あそぶ」から ひらく → OK（トーク画面から いけた）② 名前や 毛の色を かえても もどらない → OK ③ ランを 1本 → おもくない ④ おへやの うごき → OK ⑤ よるの おしらせ → これから ⑥ Android なら 下の すき間 → OK（または 関係ない）。
 4. ためしの アーティファクト「うちのこ日和 P5 ためし」（slug `7a36bb48-06ef-452f-8c27-c7e849d00828`）は **のこす（2026-11-27 オーナー決定）**。見本 5（slug `81f73f8f-…`）・見本 4（slug `11962d6f-…`）・見本 3（slug `fc7cec86-…`）・見本 2 も 記録として のこしている。
 5. **（オーナーが 決める・いそがない）** 2D の 絵の ヨークシャーテリアも「せなかだけ ブルー」に するか（`renderPet`。3つの 版。**いまは サーバーの デプロイ いらない**）。
@@ -90,7 +91,7 @@
 | C8-1 | 公式アカウントの 入口 | オーナーが 設定（11-28）→ お父さんも ひらけた（済み） |
 | C1-4 | Data API の 自動公開 | オーナーが オフ（11-28 済み） |
 | C8-4 | 個人事業主に なった あとの ポリシーの 提供者 | 個人事業主に なったら 専門家に |
-| C1-1・C1-2・C1-5・C2-2・R1-4・R2-3・R2-4・R2-5・R3-3・R5-3・R6-4 | ― | 直さない（理由は 診断レポートと RUN_DESIGN 18章） |
+| C1-1・C1-2・C1-5・C2-2・R1-4・R2-3・R2-4・R2-5・R3-3・R5-3・R6-4 | ― | 直さない（理由は 診断レポートと `docs/PROJECT.md` 5章「うちのこラン」） |
 
 ### つぎの チャットに 貼る プロンプト
 
@@ -114,7 +115,7 @@ GitHub の Y-s-Apps/uchinoko-biyori を push できる形で つないで、CLAU
   - **`/health` の `notifyMonth`（C7-1）：** `ok`・`near`・`limit`。`near` に なったら「サーバーを起こす」が 赤く なる（その月の あいだ 3日ごと）。プランを かえたら Secrets の `NOTIFY_MONTH_LIMIT` を その 通数に。
   - **サーバーの ログ（C1-3）：** よそう していない 例外は `server: <name> <SQLSTATE>` だけ。こまったら SQLSTATE で しらべる（文は 出ない）。
 - **季節イベント（36回目）：** イベントは `js_data3.js` の `EV(id, ja, from, to, gift, treat, decor, hello)`（期間は かさならない＝`rules_test.mjs` が はしを 見る）。プレゼントの きせかえは `EVENT_WEAR`＋`js_wear.js` の kind（あたまは よこむき・うしろも 自動）、おやつの 絵は `js_data2.js` の `treatIcon`、おへやの かざりは `js_features.js` の `SEASON_DECOR`（`g:[形, 色]` と おきもの `item`）、天気は `weatherOf`。**データは サーバーとも 共通＝かえたら `build_server.py` → `line_e2e.py` → push → `--pin` → デプロイ**。`line_e2e.py` は ためしの 日が イベントの 期間だと はじまりの お知らせが 出るので、ボタンを おす 前に `close_popups`。
-- **うちのこの 体勢と 動き（`docs/MOTION_DESIGN.md` 9章）：**
+- **うちのこの 体勢と 動き（`_archive/MOTION_DESIGN.md` 9章）：**
   - **だんかい 4＝うしろすがた（35回目。15章）：** おへやの 絵は 3まい（`.view-f`・`.view-s`・`.view-b`）。`Pet.view` は 'front'・'side'・'back'、`POSE[p].back` で うしろ。うしろの 体勢は `bsit`・`bup`・`bdown`・`bwalk`（CSS は `.pose-b*`・`.pet-back .pb-*`。しぐさの セレクタは `.g-ear .pb-earR` の ように `.pet` を つけない＝`poses.py` でも 効く）。**うしろで しぐさを ふやす ときは `GESTURE[id].poses` に うしろの 体勢を 足して `.g-<id> .pb-*` の CSS も**（いまは 耳ぴく・きょろきょろ だけ）。`renderPetBack` の 重なりは せなかに たれる 首の きせかえ（`pb-neck.pb-neck-b`）・うきわ → しっぽ（`pb-tail-lo`）→ 頭 → うなじの 帯（`pb-neck`）→ しっぽの 2まい目（`pb-tail-hi`。ふせる・奥へ あるく だけ 見せる。`visibility` で 切りかえ＝`display` に しない）。**うしろから 見ると しっぽが いちばん てまえ**（37回目 オーナーの 声）＝せなかに たらす きせかえを 足したら `wearBack` の `back` に。しっぽの CSS を 足す ときは `.pb-tail`（2まい とも）に。左右は 正面と 反対（`patchL`↔`patchR`）。まどの 下は `WIN`（x 22・y 70）。`moveTo` の 奥へ は 時間を かえない（`compare_home.py`）。ひまな ときの 行動は うしろの 体勢では 体勢を 見て やめる（`at()`・`ptok`）。`smoke.py` の `gesture_checks`・`pose_checks`・`stage4_checks` は ひまな ときの 行動を とめてから。
   - **かげ と だんかい 3（34回目。13章）：** おへやの かげは `#pet > .pet-floor`（`body.html`。外がわ＝げいの アニメ `fl*`、内がわ `i`＝体勢・むきの 形）。`.pet .pv-shadow,.pet .ps-shadow` は けしている＝**体ごと うごく げいを 足したら `.pet-floor` にも あわせた アニメを**（はねる＝小さく うすく、まわる＝よこへ・ひろく）。パズルは `#pzPet > .pet-floor`、ポップアップは `.mpet::before`（はねるのは svg だけ）。
   - おせわの とちゅうの 動きは `Pet.cls(クラス, ms)`（`Pet.gesture` は busy では しない）。くるっと 1回転は `Pet.spin()`（とちゅうで 体勢〈`ptok`〉が かわったら やめる）。ポップアップの 体勢は `MPET`（`petCard(wear, MPET.joy)` など）。パズルは `PuzzleUI.pose`・`hurray`・`basePose`・`idleArm`（乱数なし）。きせかえは `dressShow`（シートで 着がえた しるし）→ `closeSheet` が `showOutfit()`。`openSheet` が `dressShow` を 空に する。
@@ -130,19 +131,19 @@ GitHub の Y-s-Apps/uchinoko-biyori を push できる形で つないで、CLAU
   - **`Math.random` を おせわの 道すじ（`moveTo`・`setPose`・`begin`・`rubbed`）で つかわない**（`compare_home.py` は ルールと 見た目が 同じ 乱数の 列を つかう）。ひまな ときの 表 `IDLE` の 中は よい。
   - `Pet.rub`（なでなで 8回の 体勢）の あいだは `idleStep` が なにも しない。`begin()`・タップ・`moveTo` が 消す。`line_e2e.py` などで `.pv-neck *` の ような「グループの 中に なにか あるか」を 見る ときは `:not(g)` で（内がわの 空の グループが ある）。
   - ランや パズルの ページの うしろでも `idleStep` は 動く。しぐさ・体勢は `PuzzleUI.page` か `html.run-open` の あいだ 出さない。ランの 画面の 2D の 絵は かえない。
-- **うちのこラン（`src/run/`・`src/js_run.js`・`tools/run/`。くわしくは `docs/RUN_DESIGN.md` 11・12章）：**
+- **うちのこラン（`src/run/`・`src/js_run.js`・`tools/run/`。くわしくは `_archive/RUN_DESIGN.md` 11・12章）：**
   - はじめに `cd tools/run && npm install`。`src/run/` を かえたら `node tools/run/build_run.mjs` で `src/run_bundle.js` を 作りなおして いっしょに コミット（push の 前に `--check`）。そのあと `sh src/build.sh`（`run-<ハッシュ>.js` が かわり、前の `run-*.js` は 消える）。
   - 3つの 版（`RUN_HOME=1`・`RUN_CLAUDE=1`・`RUN_LINE=1`。30回目から main も LINE版に ラン）。`head.html`・`body.html`・共通の `js_*.js` を かえると LINE版も かわる＝ランの 画面の ものは `js_run.js`・`src/run/run.css`・`src/run/` に（ルールと セーブは 共通の ファイル）。**`js_run.js`・`run.css`・`src/run/` を かえると ホーム画面版と Claude版（P6 の あとは LINE版も）が かわる**（Claude版も 出しなおす）。LINE版だけの 直しは `js_line.js`・`line_head.html` に 書き、ビルドの 前後で `index.html`・`sw.js`・`src/out/claude/index.html` の md5 を くらべる。
-  - **LINE版（P6。`docs/RUN_DESIGN.md` 16章）：** ランの 画面・ゲームは 3つの 版で 同じ。LINE版だけの ことは `js_line.js` の `LineRun`（`RunUI.start`・`finish`・`open`・`close` を 包む。走りだしは その回の `sim.start` を インスタンスで 包んで `runStart`）。ゲームの ファイルは LINE版の いちばん上に 1つ（`/run-….js`。審査用・開発用も 同じ）、CSP は `line_head.html` の `__RUN_CSP__`。サーバーの `run` は `js_rules.js` を かえずに ほうびを とめる（きょうの 回数を `perDay` に みせて あとで もどす）。手元の ためしは `smoke.Handler` が LINE版の CSP の URL も 手元に かえる。`line_e2e.py` の ブラウザは SwiftShader つき。`/__debug/run` で 走りだしから 時間が たった ことに できる。
-  - **Claude版（P5。`docs/RUN_DESIGN.md` 15章）：** ゲームは アーティファクトの 2つめの ファイル（`src/out/claude/run-<ハッシュ>.js`）。ページから 相対の パスで `integrity` つき（CSP の URL は いらない）。Service Worker は ないので ランは ネットが いる。保存は クラウド（`S.run` も）。ためしは `smoke.py --claude`（F）・`linebreak.py --claude`（ランの 場面も）・`run_shots.py --claude`。どれも `src/out/claude/` を そのまま 配る（`sh src/build.sh` の あとに）。
+  - **LINE版（P6。`_archive/RUN_DESIGN.md` 16章）：** ランの 画面・ゲームは 3つの 版で 同じ。LINE版だけの ことは `js_line.js` の `LineRun`（`RunUI.start`・`finish`・`open`・`close` を 包む。走りだしは その回の `sim.start` を インスタンスで 包んで `runStart`）。ゲームの ファイルは LINE版の いちばん上に 1つ（`/run-….js`。審査用・開発用も 同じ）、CSP は `line_head.html` の `__RUN_CSP__`。サーバーの `run` は `js_rules.js` を かえずに ほうびを とめる（きょうの 回数を `perDay` に みせて あとで もどす）。手元の ためしは `smoke.Handler` が LINE版の CSP の URL も 手元に かえる。`line_e2e.py` の ブラウザは SwiftShader つき。`/__debug/run` で 走りだしから 時間が たった ことに できる。
+  - **Claude版（P5。`_archive/RUN_DESIGN.md` 15章）：** ゲームは アーティファクトの 2つめの ファイル（`src/out/claude/run-<ハッシュ>.js`）。ページから 相対の パスで `integrity` つき（CSP の URL は いらない）。Service Worker は ないので ランは ネットが いる。保存は クラウド（`S.run` も）。ためしは `smoke.py --claude`（F）・`linebreak.py --claude`（ランの 場面も）・`run_shots.py --claude`。どれも `src/out/claude/` を そのまま 配る（`sh src/build.sh` の あとに）。
   - CSP は ランの ファイルの URL を パスまで（`build.sh` の `HOME_ORIGIN`）。手元の ためしは `smoke.Handler` が その はじめの 部分を 手元の URL に かえて 配信する。ヘッドレスでも WebGL が 動く ように `smoke.CHROMIUM_ARGS`（SwiftShader）。`page.wait_for_function` は CSP で とめられるので `smoke.poll`。`RunUI` は `const`（`window.RunUI` では 見えない）。
   - ヘッドレスの 3D は おそい（こまの あいだに 指の イベントが おくれる）。`smoke.py` の 指の ためしは うちのこの 足を とめてから。ゴールまでの 通しは `tools/run/run_shots.py`（時計を とめて ページの 中で レースを すすめる）。
   - 3D の 色は `NeutralToneMapping`・露出 1（P1）。`makePet3D` に わたす みためは かならず `normalizeLook()` の あと。`mountRace` の `name`・`rivals[].label`・`art` は `esc`・`softName` 済みの HTML。
   - 決めたこと（2026-11-22）：題「うちのこラン」・タイル「ラン」・「おともだち（品種）」・おやつは 骨の ビスケット・時計 00:36.6／36.58秒・コースは ひらがな・**まんなかに ひとことを 出さない**（アジリティでも「ジャンプが届かず」などを まんなかに 出さない。わんランの 下の 1〜6 と「とまっているよ」は よい）。
-  - **ルールと セーブ（P3。`docs/RUN_DESIGN.md` 13章）：** ほうび・回数・ベストは `js_rules.js` の `RUN`・`Rules.run`（3つの 版と サーバーで 同じ）。`RUN.courses` に コースを 足すと `ensureState` が その ベストを のこす（知らない コースは すてる）。`min` を 足したら `node tools/run/run_min.mjs`。サーバーの `/act` は `runStart`・`run` を うけつける（api version 28 から。「はやすぎる」は `min − RUN_SLACK_MS`〈2秒〉、ゴールの おくりなおしは `srv.rg`）。ランの ほうびは レースも アジリティも あわせて 1日3回（`S.run.n`）。
+  - **ルールと セーブ（P3。`_archive/RUN_DESIGN.md` 13章）：** ほうび・回数・ベストは `js_rules.js` の `RUN`・`Rules.run`（3つの 版と サーバーで 同じ）。`RUN.courses` に コースを 足すと `ensureState` が その ベストを のこす（知らない コースは すてる）。`min` を 足したら `node tools/run/run_min.mjs`。サーバーの `/act` は `runStart`・`run` を うけつける（api version 28 から。「はやすぎる」は `min − RUN_SLACK_MS`〈2秒〉、ゴールの おくりなおしは `srv.rg`）。ランの ほうびは レースも アジリティも あわせて 1日3回（`S.run.n`）。
   - **画面（P3）：** `RunUI.select()`（コースを えらぶ）→ `start(id)`（`mountRace({ course, best, next, onSelect, onNext, onFinish })`）→ ゴールで `finish(info)`（`Act.blocked()` を 見てから `Act.run('run', …)`）→ `record(r)` の HTML を `race.js` が `.run-rec` に 入れる。`race.js` の `formatTime` は 100分の1秒に 丸めてから・記録は `timeMs`（画面と 記録の 数を そろえる）。すける おともだちは ふかさだけ 書く 子（`depthOnly`・`renderOrder` 1）を すける あいだだけ 見せる。
   - **ためし（P3）：** `smoke.py` の ランは えらぶ → こうえん → 指 → ひとやすみ → ゴール（ゴールの 前へ とばす＝`min` に 切られる）→ つぎの コース → えらぶ → こうえん → ×。`linebreak.py` の `run_open(c)`・`run_go(c)`・`run_finish(fast, c, pre)`（pre で ベスト・回数を かえる）。`run_shots.py` は 3コースを つづけて（`--gifs park,beach,forest`）。ヘッドレスの 3D は おそいので `run_shots.py` は 1回 10分ほど。
-  - **アジリティ（P4。`docs/RUN_DESIGN.md` 14章）：** `src/run/agility.js`（`mountAgility`・`AGILITY_COURSES`・全体図 `agilityMap`・`agilityHelpHtml`）。`race.js` から `ICON_X`・`ICON_PAUSE`・`formatClock`・`formatTime`・`timeMs` を import。`RunUI.mode`（'race'／'agility'。セーブに 書かない）・`start(id)` は コースの しゅるいで `mountRace`／`mountAgility`。ゲームは `.run-root` に `data-course` を つけるので、えらぶ 画面・`wait()` で けしている（カードの `[data-course]` と まぎれる）。アジリティの タイムは ごうけい（`timeMs(total)`）・`rank` は おくらない。`RUN.courses` の ID は `'first-field'`・`zigzag`・`balance`・`'hill-field'`（`run_min.mjs` の 正規表現は クォートつきも 読む）。
+  - **アジリティ（P4。`_archive/RUN_DESIGN.md` 14章）：** `src/run/agility.js`（`mountAgility`・`AGILITY_COURSES`・全体図 `agilityMap`・`agilityHelpHtml`）。`race.js` から `ICON_X`・`ICON_PAUSE`・`formatClock`・`formatTime`・`timeMs` を import。`RunUI.mode`（'race'／'agility'。セーブに 書かない）・`start(id)` は コースの しゅるいで `mountRace`／`mountAgility`。ゲームは `.run-root` に `data-course` を つけるので、えらぶ 画面・`wait()` で けしている（カードの `[data-course]` と まぎれる）。アジリティの タイムは ごうけい（`timeMs(total)`）・`rank` は おくらない。`RUN.courses` の ID は `'first-field'`・`zigzag`・`balance`・`'hill-field'`（`run_min.mjs` の 正規表現は クォートつきも 読む）。
   - **アジリティの ためし：** `smoke.py` の `agility_checks`（シーソーの 上へ とばして `sim.step` を とめてから 指で 下スワイプ。とばすと とちゅうの シーソーは「とまれなかった」ミスに なるので、ゴールの 前へ とばす ときは のこりを クリアに する）。`linebreak.py` の `agi_until(c, cond, then, lane/brake/tap)`・`agi_finish(miss, c, pre)`。`run_shots.py --mode agility`（1分ほど。`--no-gif`）、GIF は `--gifs balance` など。Mochiy の 数字は はばが ひろいので、大きい 数字の となりに 字を ならべない（ゴールの ごうけいは ラベルを 上に）。
 - **なでなで（`#pet`）と LINE の 下スワイプ：** `petStill`（`touchstart`・`touchmove` の `preventDefault`）を はずさない。`#pet` の 中に ボタンや リンクを 足すと 指の `click` が 来ない（タッチを とめているので）。`smoke.py` の「なでる（指）」が 見る。
 - **LINE版の 下の すき間：** おへやの 画面は `html .app`、シート・ポップアップ・はじめての画面・パズルは それぞれ（`line_head.html`）。`:root` には あけない（P6-1）。新しい 画面いっぱいの 入れものを 足したら、そこにも 書く。
